@@ -132,7 +132,16 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
 - [ ] Test sugli scenari di conversazione ambigua/interrotta/multi-servizio
 
 ## Fase 3 -- CRM e Dashboard (punti 15, 21, 22)
-- [ ] Anagrafica cliente con storico completo
+- [x] Anagrafica cliente con storico completo: `/dashboard/clienti` (elenco con ricerca per
+      nome/telefono, conteggio appuntamenti) + `/dashboard/clienti/[id]` (dati anagrafici
+      modificabili -- nome/email/tag/note, telefono non modificabile perché è la chiave di
+      riconoscimento -- e storico COMPLETO delle prenotazioni con stato ed origine
+      manuale/AI). Stessa tabella `clienti` popolata sia dalla dashboard sia (in Fase 2) dagli
+      strumenti AI, mai un'anagrafica separata per canale. **Verificato dal vivo il
+      02/09/2026**: elenco con i clienti reali creati durante i test di Fase 1/2, modifica di
+      tag e note salvata e ricomparsa dopo un reload completo della pagina (non solo stato
+      client), ricerca per nome funzionante, storico che mostra correttamente anche
+      l'appuntamento cancellato durante i test del refactor.
 - [ ] Dashboard con metriche reali (non finte) e insight (slot liberi, clienti inattivi)
 - [ ] Analytics: revenue, retention, no-show, occupazione
 

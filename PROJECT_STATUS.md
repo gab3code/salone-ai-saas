@@ -8,9 +8,11 @@ si chiude) — non lasciarlo invecchiare. Vedi `CLAUDE.md` per le regole di lavo
 ## In una riga
 
 Fase 0 (fondamenta multi-tenant) e Fase 1 (booking engine collegato al database) **chiuse e
-verificate dal vivo con un salone di test reale**. Fase 2 (AI conversazionale) non ancora
-iniziata. Tutto il resto (CRM esteso, dashboard con insight, pagina pubblica, automazioni,
-billing, admin panel, PWA) non ancora iniziato.
+verificate dal vivo con un salone di test reale**. Fase 2 (AI conversazionale) avviata: strumenti
+scritti e testati, ma il loop di tool-calling vero e proprio è bloccato in attesa della chiave
+Anthropic e della migrazione DB (vedi sotto). Fase 3: anagrafica cliente/CRM di base già chiusa e
+verificata dal vivo; dashboard con insight e analytics non ancora iniziati. Tutto il resto
+(pagina pubblica, automazioni, billing, admin panel, PWA) non ancora iniziato.
 
 ## Stack reale (verificato in `package.json`)
 
@@ -51,6 +53,11 @@ vedi "Problemi aperti").
   concorrenza a due richieste simultanee su questo progetto (era testato con successo sul
   progetto precedente, `test_concorrenza_prenotazione.py`; qui il test equivalente non è
   stato ancora scritto/eseguito).
+- **CRM di base** (`/dashboard/clienti`, `/dashboard/clienti/[id]`): elenco clienti con ricerca
+  per nome/telefono e conteggio appuntamenti, scheda cliente con dati anagrafici modificabili
+  (nome/email/tag/note) e storico completo delle prenotazioni (stato, origine manuale/AI).
+  Verificato dal vivo: modifica salvata e persistita dopo reload, ricerca funzionante, storico
+  corretto anche per un appuntamento cancellato.
 - **Scrittura appuntamenti unificata (single source of truth, 02/09/2026)**:
   `creaAppuntamentoTenant`/`modificaAppuntamentoTenant`/`cancellaAppuntamentoTenant` in
   `booking-engine.server.ts` sono ora l'unico punto che scrive create/modifica/cancella —
@@ -75,11 +82,8 @@ vedi "Problemi aperti").
   route.ts`, migrazione 0003) ma **non attivabile**: bloccata dalla business verification
   Meta + P.IVA di Gabriel, in pausa per sua scelta. Il canale AI di default pianificato è
   invece la chat web (nessuna approvazione esterna richiesta) — non ancora costruito.
-- **CRM**: la tabella `clienti` esiste ed è popolata automaticamente alla creazione di un
-  appuntamento (nuovo/esistente per telefono), ma non esiste nessuna schermata di gestione
-  clienti, storico, tag, note.
 - **Dashboard**: solo un riepilogo statico del tenant (nome, piano, stato abbonamento). Zero
-  metriche reali, zero insight.
+  metriche reali, zero insight (punto 18 di CLAUDE.md -- non ancora iniziato).
 - **Pagina pubblica per-attività**: zero codice. `tenants.slug` esiste nello schema ma non è
   servito da nessuna route pubblica.
 - **Foto/galleria**: zero codice. Colonne `logo_url`/`cover_url` esistono sullo schema
@@ -138,6 +142,8 @@ vedi "Problemi aperti").
   arrivo da fuori, usata sia dalla dashboard sia dagli strumenti AI).
 - `src/lib/ai/tools.ts` — strumenti dell'AI receptionist (Fase 2), wrappano il booking engine
   con un client admin/service_role; 9 test di validazione in `tools.test.ts`.
+- `src/app/dashboard/clienti/` — elenco clienti con ricerca + scheda cliente (dati anagrafici
+  modificabili, storico prenotazioni completo).
 - `src/lib/supabase/{client,server,admin,tenant}.ts` — client browser/server/service-role e
   helper "utente loggato -> tenant_id".
 - `src/app/registrati`, `src/app/accedi` — funnel di ingresso self-service.
