@@ -92,11 +92,27 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
 - [ ] Piani Free -> Enterprise progettati (non copiati) con limiti applicati tecnicamente
 - [ ] Pannello admin per te: saloni, abbonamenti, utilizzo, interventi manuali quando serve
 
-## Fase 6 -- Automazioni e rifinitura (punti 16, 26, 27, 29, 30)
+## Fase 6 -- Automazioni e sicurezza (punti 16, 29, 30)
 - [ ] Motore di automazioni configurabili (reminder, follow-up, inattività, compleanno)
 - [ ] Revisione sicurezza (RLS, permessi tool AI, rate limiting, input validation)
 - [ ] Test completo su tutti gli scenari del punto 30
-- [ ] Rifinitura UI/UX
+
+## Fase 7 -- Parità/superiorità estetica con Estetia, responsive completo (punti 25, 26, 27, 28)
+Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davvero "fatto" e non
+"abbastanza carino":
+- [ ] Design system definito (tipografia, spaziature, colori, componenti shadcn/ui) applicato a
+      TUTTE le schermate esistenti, non solo alle nuove
+- [ ] Ogni schermata che Estetia ha, la nostra la eguaglia o supera -- confronto punto per punto
+      contro `docs/analisi-estetia.md` (che a quel punto conterrà il giro dal vivo, non solo
+      screenshot), schermata per schermata, prima di considerarla chiusa
+- [ ] Responsive testato per davvero su almeno 3 fasce (mobile ~375px, tablet ~768px, desktop
+      ~1440px) con un browser vero su ogni schermata che conta (dashboard, calendario, CRM,
+      pagina pubblica, onboarding) -- non solo "si restringe senza rompersi", deve restare
+      comodo da usare con un pollice su un telefono vero
+- [ ] PWA rifinita: icona, splash screen, installazione, esperienza a schermo intero coerente
+      con un'app nativa (punto 20)
+- [ ] Passata finale su performance percepita (caricamento, transizioni, feedback immediato sui
+      click) -- un SaaS "premium" si sente anche nella reattività, non solo nell'estetica
 
 ---
 
