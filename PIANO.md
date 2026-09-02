@@ -9,25 +9,60 @@ solo cose costruite e verificate -- stesso metodo usato nell'audit del progetto 
 ## Perché a fasi e non tutto insieme
 Fondamenta sbagliate (schema dati, isolamento multi-tenant) si ripagano care più avanti --
 un bug di isolamento tra saloni scoperto dopo aver costruito CRM/dashboard sopra costringe a
-rifare anche quelli. Si costruisce dal basso verso l'alto.
+rifare anche quelli. Si costruisce dal basso verso l'alto: prima i motori (dati, disponibilità,
+AI), poi le schermate che li usano, **poi** la grafica definitiva -- costruire la UI premium
+prima che il prodotto funzioni davvero produce uno scaffale vuoto ben verniciato. La UI di
+lavoro (registrati/accedi/dashboard) esiste già ma è volutamente spartana: la passata di
+design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 sotto).
 
-## Fase 0 -- Fondamenta (IN CORSO)
+## Come uso le capacità di Cowork per andare più veloce
+- **Sottoagenti in parallelo** per lavori indipendenti che non si pestano i piedi a vicenda:
+  esempio concreto già in corso -- mentre scrivo io la parte DB-collegata del booking engine,
+  un sottoagente fa il giro dal vivo di Estetia (browser reale, non solo screenshot) per il
+  punto 25/26/27. Uso questo pattern ogni volta che due pezzi di lavoro non condividono gli
+  stessi file.
+- **Browser sul tuo Mac** (non solo automazione cloud): l'ho scoperto testando il bug del
+  provisioning -- riesco ad aprire `localhost:3000` e persino le API di Supabase per davvero,
+  quindi posso riprodurre bug e verificare fix io stesso, senza fartelo rifare a mano ogni volta.
+- **Task list** sempre aggiornata (la vedi a fianco della chat) invece di lunghe descrizioni a
+  parole di cosa sto facendo.
+- **Memoria persistente** tra sessioni: non devo farmi rispiegare da zero il progetto se la
+  sessione si interrompe.
+- **Scheduled task** per cose che devono girare da sole a orari fissi (reminder, controlli di
+  inattività) -- non ancora usati, arrivano naturalmente in Fase 6 (automazioni), non prima.
+- **Workflow multi-agente** (orchestrazione più pesante, tanti sottoagenti in parallelo su un
+  singolo obiettivo): disponibile se vuoi che lo usi esplicitamente per un batch grosso (es.
+  costruire in parallelo tutte le schermate CRUD di Fase 3, o testare tutti i 15 scenari del
+  punto 30 insieme) -- te lo propongo quando arriviamo a un lavoro di quella scala, o dimmelo tu.
+
+## Fase 0 -- Fondamenta (FATTA, verificata dal vivo)
 - [x] Repo Git inizializzato
 - [x] Stack scelto: Next.js (App Router) + Supabase (Postgres/Auth/RLS/Storage) + Tailwind + Stripe
 - [x] Schema database multi-tenant iniziale con RLS (`supabase/migrations/0001_init.sql`)
 - [x] Build verificata in ambiente cloud pulito (risolto problema EPERM della cartella Desktop)
-- [ ] Progetto Supabase reale creato e collegato (serve un account Supabase -- vedi sotto)
-- [ ] Migrazione applicata e verificata su un database vero
-- [ ] Autenticazione base (registrazione/login) funzionante
-- [ ] Provisioning automatico: alla registrazione viene creato un tenant + profilo owner
+- [x] Progetto Supabase reale creato e collegato (weeaggiqovnmtovdjzxy)
+- [x] Migrazione applicata e verificata su un database vero (incluso un bug reale di permessi
+      trovato e corretto testando dal vivo, non solo leggendo il codice -- vedi commit
+      "Fix: GRANT mancanti sulle tabelle create da SQL Editor")
+- [x] Autenticazione base (registrazione/login) funzionante -- testata end-to-end con un
+      account vero, non solo compilata
+- [x] Provisioning automatico: alla registrazione viene creato un tenant + profilo owner --
+      verificato leggendo i dati veri dal database dopo la registrazione, isolamento RLS
+      confermato (un utente legge esattamente 1 tenant, il proprio)
 
-## Fase 1 -- Booking engine (punti 12, 13, 14)
-Un solo motore di disponibilità/prenotazione, usato sia dal calendario manuale sia dall'AI.
-- [ ] Calcolo disponibilità reale (orari, pause, ferie, operatore, durata servizio, buffer)
-- [ ] Creazione/cancellazione/modifica appuntamento con verifica anti-conflitto (già a livello
-      di database con il vincolo `niente_sovrapposizioni`, più il controllo applicativo)
+## Fase 1 -- Booking engine (punti 12, 13, 14) -- IN CORSO
+- [x] Calcolo disponibilità reale (orari, pause, ferie, operatore, durata servizio, buffer) --
+      logica pura in `src/lib/booking-engine.ts`, 16 test verdi
+- [ ] Collegare la logica pura a Supabase: funzioni server-side che leggono orari/chiusure/
+      appuntamenti veri e chiamano `calcolaSlotDisponibili`/`verificaConflitto`
+- [ ] Server action/API per creare/cancellare/modificare un appuntamento (verifica anti-conflitto
+      applicativa + il vincolo `niente_sovrapposizioni` a livello di database come rete di
+      sicurezza finale contro le race condition)
+- [ ] Onboarding minimo: schermate per configurare orari/operatori/servizi di un tenant (senza
+      queste, il booking engine non ha dati veri su cui lavorare)
+- [ ] Vista calendario di base (lettura/creazione manuale) per vedere gli appuntamenti creati
 - [ ] Gestione servizi consecutivi, operatore non specificato, cliente nuovo/esistente
-- [ ] Test su tutti gli scenari del punto 30 rilevanti alla prenotazione
+- [ ] Test su tutti gli scenari del punto 30 rilevanti alla prenotazione, contro il DB vero
 
 ## Fase 2 -- AI conversazionale (punti 9, 10, 11, 17)
 Canale di default: **chat web** integrata nella pagina pubblica del salone (nessuna
@@ -65,13 +100,11 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
 
 ---
 
-## Cosa serve da te per sbloccare la Fase 0
-1. **Un progetto Supabase** (gratuito per iniziare): crea un account su supabase.com, crea un
-   nuovo progetto, e passami URL del progetto + `anon key` + `service_role key` (quest'ultima
-   MAI nel browser/frontend -- solo lato server). Senza questo non posso applicare né testare
-   davvero lo schema che ho scritto. Verificato anche che non ho un Supabase CLI/Docker
-   utilizzabile né sul tuo Mac né nel sandbox cloud per simulare un database locale --
-   serve per forza un progetto vero su supabase.com.
-2. **Un account Stripe** (anche di test per ora) quando arriviamo alla Fase 5.
-3. Le credenziali che già avevi (WhatsApp, Google Calendar/service account, Anthropic) restano
-   valide e vanno semplicemente ricopiate in `.env.local` di questo progetto (vedi `.env.example`).
+## Cosa serve ancora da te (non blocca l'inizio, ma serve prima della fine della fase indicata)
+1. **Un account Stripe** (anche di test per ora) prima della Fase 5.
+2. Business verification Meta + P.IVA per attivare WhatsApp -- già in pausa per tua scelta,
+   vedi `docs/embedded-signup-whatsapp.md`. Non blocca nulla nel frattempo (canale di default
+   è la chat web).
+3. Ogni tanto: un `npm install` + `npm run dev` sul tuo Mac per testare tu stesso i progressi
+   nel browser vero, quando te lo chiedo -- è il modo più veloce per verificare le cose che
+   dalla mia rete non riesco a raggiungere direttamente.
