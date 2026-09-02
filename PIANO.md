@@ -1,10 +1,21 @@
-# Piano di lavoro -- SaaS saloni/centri estetici
+# Piano di lavoro -- SaaS per liberi professionisti con appuntamenti
 
 Riferimento studiato: https://estetia.tidycode.it/ (analisi in `docs/analisi-estetia.md`).
 Obiettivo: non copiarlo, superarlo -- vedi il messaggio originale del progetto per la lista
 completa dei 33 punti richiesti. Qui sotto sono organizzati in fasi eseguibili in sequenza,
 ciascuna con un criterio chiaro di "fatta" prima di passare alla successiva (niente teoria,
 solo cose costruite e verificate -- stesso metodo usato nell'audit del progetto precedente).
+
+**Target di mercato (deciso 02/09/2026)**: non solo centri estetici/parrucchieri/barbieri come
+Estetia -- una fascia ampia di liberi professionisti con appuntamenti (personal trainer,
+massaggiatori, consulenti, tatuatori, fisioterapisti, ecc.). Lo schema tecnico (tenant/
+operatori/servizi/clienti/appuntamenti) è già generico, non richiede modifiche sotto per
+questo. Quello che cambia: il copy/posizionamento (evitare di restare fissi su "salone" nei
+testi rivolti all'utente finale -- registrati/dashboard oggi ce l'hanno, da generalizzare
+quando si tocca quel testo), la pagina pubblica (Fase 4) e il materiale marketing (Fase 5),
+pensati da subito per parlare a qualunque professionista con agenda, non solo al settore
+estetico. Estetia resta il riferimento competitivo perché è lo stesso tipo di prodotto
+(booking + CRM + AI), anche se il loro mercato dichiarato è più stretto del nostro.
 
 ## Perché a fasi e non tutto insieme
 Fondamenta sbagliate (schema dati, isolamento multi-tenant) si ripagano care più avanti --
