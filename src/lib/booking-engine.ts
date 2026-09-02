@@ -1,0 +1,283 @@
+/**
+ * Motore di disponibilità/prenotazione -- Fase 1 (punti 12, 13, 14 della spec).
+ *
+ * Regola architetturale non negoziabile: questo è l'UNICO posto dove si decide se
+ * uno slot è libero o se una prenotazione è valida. Sia la dashboard (creazione
+ * manuale) sia i tool dell'AI (via WhatsApp/chat) devono chiamare queste funzioni,
+ * mai reimplementare la logica altrove -- altrimenti si rompe la garanzia "single
+ * source of truth" del calendario (punto 14) e prima o poi calendario e AI vedranno
+ * disponibilità diverse.
+ *
+ * Questo file contiene SOLO logica pura (nessuna query al database): riceve dati
+ * già caricati ed elenca gli esiti. La parte che li legge da Supabase e li passa
+ * qui vive altrove (src/lib/booking-engine.server.ts, quando avremo un progetto
+ * Supabase reale collegato) -- così questa logica si può scrivere e testare subito,
+ * senza aspettare le credenziali.
+ */
+
+export interface OrarioGiorno {
+  giornoSettimana: number; // 0 = domenica ... 6 = sabato
+  chiuso: boolean;
+  apertura?: string; // "HH:MM"
+  chiusura?: string; // "HH:MM"
+  pausaInizio?: string; // "HH:MM"
+  pausaFine?: string; // "HH:MM"
+}
+
+export interface Chiusura {
+  operatoreId: string | null; // null = chiusura per tutto il salone (es. festività)
+  data: string; // "YYYY-MM-DD"
+  giornoIntero: boolean;
+  oraInizio?: string; // "HH:MM", usato solo se giornoIntero = false
+  oraFine?: string; // "HH:MM"
+}
+
+export interface AppuntamentoEsistente {
+  operatoreId: string;
+  inizio: Date;
+  fine: Date;
+  stato: "confermato" | "cancellato" | "completato" | "no_show";
+}
+
+export interface Operatore {
+  id: string;
+  attivo: boolean;
+  servizioIds: string[]; // servizi che questo operatore può erogare
+}
+
+export interface ParametriDisponibilita {
+  data: Date; // giorno da controllare (l'ora viene ignorata)
+  durataMinuti: number;
+  servizioId: string | string[]; // più id = l'operatore deve saperli erogare tutti (servizi consecutivi)
+  operatoreId?: string; // se assente: cerca su tutti gli operatori compatibili
+  operatori: Operatore[];
+  orari: OrarioGiorno[];
+  chiusure: Chiusura[];
+  appuntamentiEsistenti: AppuntamentoEsistente[];
+  bufferMinuti?: number; // spazio minimo tra due appuntamenti dello stesso operatore
+  passoMinuti?: number; // granularità degli slot proposti (default 15)
+}
+
+export interface SlotDisponibile {
+  operatoreId: string;
+  inizio: Date;
+  fine: Date;
+}
+
+interface Intervallo {
+  inizioMin: number; // minuti dalla mezzanotte
+  fineMin: number;
+}
+
+const MINUTI_GIORNO = 24 * 60;
+
+function orarioAMinuti(orario: string): number {
+  const [h, m] = orario.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function dataYMD(data: Date): string {
+  return data.toISOString().slice(0, 10);
+}
+
+function combinaDataEMinuti(data: Date, minuti: number): Date {
+  const risultato = new Date(
+    Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate())
+  );
+  risultato.setUTCMinutes(minuti);
+  return risultato;
+}
+
+/** Sottrae `da` (una lista di intervalli occupati) da `intervalli` (liberi). */
+function sottraiIntervalli(intervalli: Intervallo[], da: Intervallo[]): Intervallo[] {
+  let risultato = intervalli;
+  for (const occupato of da) {
+    const nuovo: Intervallo[] = [];
+    for (const libero of risultato) {
+      // Nessuna sovrapposizione: l'intervallo libero resta intatto.
+      if (occupato.fineMin <= libero.inizioMin || occupato.inizioMin >= libero.fineMin) {
+        nuovo.push(libero);
+        continue;
+      }
+      // Sovrapposizione parziale/totale: tiene la parte prima e/o dopo l'occupato.
+      if (occupato.inizioMin > libero.inizioMin) {
+        nuovo.push({ inizioMin: libero.inizioMin, fineMin: occupato.inizioMin });
+      }
+      if (occupato.fineMin < libero.fineMin) {
+        nuovo.push({ inizioMin: occupato.fineMin, fineMin: libero.fineMin });
+      }
+    }
+    risultato = nuovo;
+  }
+  return risultato;
+}
+
+/** Gli intervalli aperti di un operatore in un giorno, prima di sottrarre appuntamenti. */
+function intervalliApertura(orario: OrarioGiorno | undefined): Intervallo[] {
+  if (!orario || orario.chiuso || !orario.apertura || !orario.chiusura) return [];
+  const inizioMin = orarioAMinuti(orario.apertura);
+  const fineMin = orarioAMinuti(orario.chiusura);
+  if (fineMin <= inizioMin) return [];
+
+  if (orario.pausaInizio && orario.pausaFine) {
+    const pausaInizioMin = orarioAMinuti(orario.pausaInizio);
+    const pausaFineMin = orarioAMinuti(orario.pausaFine);
+    return sottraiIntervalli(
+      [{ inizioMin, fineMin }],
+      [{ inizioMin: pausaInizioMin, fineMin: pausaFineMin }]
+    );
+  }
+  return [{ inizioMin, fineMin }];
+}
+
+/** Le chiusure (ferie/festività) che riguardano un operatore in una data, come intervalli. */
+function intervalliChiusura(
+  chiusure: Chiusura[],
+  operatoreId: string,
+  data: string
+): Intervallo[] {
+  const risultato: Intervallo[] = [];
+  for (const c of chiusure) {
+    if (c.data !== data) continue;
+    if (c.operatoreId !== null && c.operatoreId !== operatoreId) continue; // riguarda un altro operatore
+    if (c.giornoIntero) {
+      risultato.push({ inizioMin: 0, fineMin: MINUTI_GIORNO });
+    } else if (c.oraInizio && c.oraFine) {
+      risultato.push({ inizioMin: orarioAMinuti(c.oraInizio), fineMin: orarioAMinuti(c.oraFine) });
+    }
+  }
+  return risultato;
+}
+
+/** Gli appuntamenti confermati di un operatore in una data, come intervalli occupati (+ buffer). */
+function intervalliOccupatiDaAppuntamenti(
+  appuntamenti: AppuntamentoEsistente[],
+  operatoreId: string,
+  data: string,
+  bufferMinuti: number
+): Intervallo[] {
+  return appuntamenti
+    .filter((a) => a.operatoreId === operatoreId && a.stato === "confermato")
+    .filter((a) => dataYMD(a.inizio) === data)
+    .map((a) => {
+      const inizioMin = a.inizio.getUTCHours() * 60 + a.inizio.getUTCMinutes();
+      const fineMin = a.fine.getUTCHours() * 60 + a.fine.getUTCMinutes();
+      return {
+        inizioMin: Math.max(0, inizioMin - bufferMinuti),
+        fineMin: Math.min(MINUTI_GIORNO, fineMin + bufferMinuti),
+      };
+    });
+}
+
+/**
+ * Calcola gli slot liberi per uno o più operatori compatibili con il servizio
+ * richiesto, in un giorno specifico. Questa è la funzione che sia il calendario
+ * manuale sia i tool dell'AI devono chiamare per sapere cosa proporre davvero.
+ */
+export function calcolaSlotDisponibili(params: ParametriDisponibilita): SlotDisponibile[] {
+  const {
+    data,
+    durataMinuti,
+    servizioId,
+    operatoreId,
+    operatori,
+    orari,
+    chiusure,
+    appuntamentiEsistenti,
+    bufferMinuti = 0,
+    passoMinuti = 15,
+  } = params;
+
+  if (durataMinuti <= 0) return [];
+
+  const giornoSettimana = data.getUTCDay();
+  const orarioGiorno = orari.find((o) => o.giornoSettimana === giornoSettimana);
+  const dataStr = dataYMD(data);
+
+  const servizioIds = Array.isArray(servizioId) ? servizioId : [servizioId];
+  const operatoriDaControllare = operatori.filter(
+    (o) =>
+      o.attivo &&
+      servizioIds.every((id) => o.servizioIds.includes(id)) &&
+      (operatoreId === undefined || o.id === operatoreId)
+  );
+
+  const slot: SlotDisponibile[] = [];
+
+  for (const operatore of operatoriDaControllare) {
+    let liberi = intervalliApertura(orarioGiorno);
+    if (liberi.length === 0) continue;
+
+    liberi = sottraiIntervalli(liberi, intervalliChiusura(chiusure, operatore.id, dataStr));
+    liberi = sottraiIntervalli(
+      liberi,
+      intervalliOccupatiDaAppuntamenti(appuntamentiEsistenti, operatore.id, dataStr, bufferMinuti)
+    );
+
+    for (const intervallo of liberi) {
+      for (
+        let inizioMin = intervallo.inizioMin;
+        inizioMin + durataMinuti <= intervallo.fineMin;
+        inizioMin += passoMinuti
+      ) {
+        slot.push({
+          operatoreId: operatore.id,
+          inizio: combinaDataEMinuti(data, inizioMin),
+          fine: combinaDataEMinuti(data, inizioMin + durataMinuti),
+        });
+      }
+    }
+  }
+
+  return slot.sort((a, b) => a.inizio.getTime() - b.inizio.getTime());
+}
+
+/**
+ * Verifica se un nuovo appuntamento proposto si sovrappone a uno già confermato
+ * dello stesso operatore. Difesa applicativa aggiuntiva rispetto al vincolo
+ * `niente_sovrapposizioni` a livello di database (che resta la difesa reale contro
+ * la concorrenza) -- questa serve per dare un messaggio d'errore chiaro PRIMA di
+ * tentare la scrittura, non per sostituire il vincolo del database.
+ */
+export function verificaConflitto(
+  nuovoInizio: Date,
+  nuovoFine: Date,
+  operatoreId: string,
+  appuntamentiEsistenti: AppuntamentoEsistente[],
+  bufferMinuti = 0
+): boolean {
+  const bufferMs = bufferMinuti * 60_000;
+  return appuntamentiEsistenti.some((a) => {
+    if (a.operatoreId !== operatoreId || a.stato !== "confermato") return false;
+    const inizioA = a.inizio.getTime() - bufferMs;
+    const fineA = a.fine.getTime() + bufferMs;
+    return nuovoInizio.getTime() < fineA && nuovoFine.getTime() > inizioA;
+  });
+}
+
+/**
+ * Servizi consecutivi (es. "manicure e pedicure"): calcola gli slot in cui TUTTI
+ * i servizi richiesti, in sequenza senza buchi, entrano nella disponibilità dello
+ * stesso operatore -- che deve saper erogare OGNI servizio della lista, non solo
+ * il primo (la catena resta con un unico operatore dall'inizio alla fine).
+ */
+export function calcolaSlotServiziConsecutivi(
+  paramsBase: Omit<ParametriDisponibilita, "durataMinuti" | "servizioId">,
+  servizi: { id: string; durataMinuti: number }[]
+): SlotDisponibile[] {
+  if (servizi.length === 0) return [];
+  const durataTotale = servizi.reduce((somma, s) => somma + s.durataMinuti, 0);
+
+  // Uno slot "candidato" è valido se dura almeno durataTotale con lo stesso
+  // operatore libero ininterrottamente -- equivalente a cercare disponibilità
+  // per un servizio fittizio con la durata complessiva, purché l'operatore sappia
+  // erogare tutti i servizi richiesti.
+  return calcolaSlotDisponibili({
+    ...paramsBase,
+    durataMinuti: durataTotale,
+    servizioId: servizi.map((s) => s.id),
+  }).map((s) => ({
+    ...s,
+    fine: new Date(s.inizio.getTime() + durataTotale * 60_000),
+  }));
+}
