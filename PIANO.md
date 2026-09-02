@@ -53,16 +53,32 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
 ## Fase 1 -- Booking engine (punti 12, 13, 14) -- IN CORSO
 - [x] Calcolo disponibilità reale (orari, pause, ferie, operatore, durata servizio, buffer) --
       logica pura in `src/lib/booking-engine.ts`, 16 test verdi
-- [ ] Collegare la logica pura a Supabase: funzioni server-side che leggono orari/chiusure/
-      appuntamenti veri e chiamano `calcolaSlotDisponibili`/`verificaConflitto`
-- [ ] Server action/API per creare/cancellare/modificare un appuntamento (verifica anti-conflitto
-      applicativa + il vincolo `niente_sovrapposizioni` a livello di database come rete di
-      sicurezza finale contro le race condition)
-- [ ] Onboarding minimo: schermate per configurare orari/operatori/servizi di un tenant (senza
-      queste, il booking engine non ha dati veri su cui lavorare)
-- [ ] Vista calendario di base (lettura/creazione manuale) per vedere gli appuntamenti creati
-- [ ] Gestione servizi consecutivi, operatore non specificato, cliente nuovo/esistente
+- [x] Collegare la logica pura a Supabase: `src/lib/booking-engine.server.ts` legge orari/
+      chiusure/operatori/servizi/appuntamenti veri e delega SEMPRE al motore puro per la
+      decisione (mai reimplementata)
+- [x] Server action creare/cancellare un appuntamento (`dashboard/calendario/azioni.ts`) --
+      verifica anti-conflitto applicativa + il vincolo `niente_sovrapposizioni` a livello di
+      database come rete di sicurezza finale contro le race condition. Manca ancora
+      "modifica" (spostare un appuntamento esistente) -- non urgente finché manca l'AI che la
+      userebbe di più.
+- [x] Onboarding minimo: `/dashboard/configura` (orari settimanali, operatori, servizi,
+      associazione operatore->servizio) -- **verificato dal vivo**: registrazione di un salone
+      di test, orari salvati e persistiti dopo reload pagina, operatore "Sara" e servizio
+      "Taglio" creati con successo.
+- [x] Vista calendario di base: `/dashboard/calendario`, lista appuntamenti del giorno +
+      pannello "nuovo appuntamento" con slot liberi calcolati dal motore vero e selezionabili
+      con un click (risponde alla debolezza "Primo slot disponibile in un click" osservata in
+      Estetia, vedi `docs/analisi-estetia.md`) -- **non ancora verificato dal vivo** fino in
+      fondo: bloccato a metà da un problema di ambiente sul Mac (node_modules corrotto sotto
+      Turbopack, probabile causa la sincronizzazione della cartella Desktop -- stesso sospetto
+      già annotato in Fase 0), non un bug del nostro codice. Serve un `npm install` pulito sul
+      tuo Mac per finire la verifica.
+- [ ] Gestione servizi consecutivi, operatore non specificato, cliente nuovo/esistente --
+      la logica pura li gestisce già (test verdi), manca collegarli alle schermate/AI
 - [ ] Test su tutti gli scenari del punto 30 rilevanti alla prenotazione, contro il DB vero
+- [ ] Semplificazione consapevole da risolvere prima della Fase 7: fuso orario del salone
+      trattato come UTC per ora (vedi commento in `booking-engine.server.ts`) -- va aggiunto un
+      campo fuso_orario su "tenants" prima di considerare la prenotazione "finita davvero"
 
 ## Fase 2 -- AI conversazionale (punti 9, 10, 11, 17)
 Canale di default: **chat web** integrata nella pagina pubblica del salone (nessuna
