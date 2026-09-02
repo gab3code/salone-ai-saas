@@ -61,9 +61,15 @@ vedi "Problemi aperti").
 
 ## Cosa è mock, incompleto o non ancora iniziato
 
-- **AI conversazionale**: zero codice. Architettura decisa (tool-calling, "l'AI interpreta il
-  backend decide", riprendere il pattern di `cervello.py` dal progetto precedente) ma non
-  implementata. Nessun endpoint di chat, nessun tool collegato al booking engine.
+- **AI conversazionale**: strumenti scritti (`src/lib/ai/tools.ts`, 9 strumenti, wrappano il
+  booking engine reale con client admin, 9 test di validazione verdi) ma **il loop vero e
+  proprio non esiste ancora**: nessun endpoint di chat, nessuna chiamata reale ad Anthropic
+  (`@anthropic-ai/sdk` non installato, `ANTHROPIC_API_KEY` non in `.env.local` -- da chiedere a
+  Gabriel), nessun motore di conversazione persistente. La migrazione per
+  `conversazioni.identificatore_sessione` (necessaria per riconoscere un visitatore anonimo
+  della chat web tra un messaggio e l'altro) è scritta
+  (`supabase/migrations/0006_conversazioni_sessione.sql`) ma **non ancora applicata al database
+  reale** -- vedi "Problemi noti aperti".
 - **WhatsApp**: predisposizione tecnica per l'Embedded Signup Meta scritta
   (`src/lib/whatsapp-embedded-signup.ts`, `src/app/api/whatsapp/embedded-signup/callback/
   route.ts`, migrazione 0003) ma **non attivabile**: bloccata dalla business verification
@@ -114,11 +120,24 @@ vedi "Problemi aperti").
    successo sul progetto precedente con un meccanismo diverso).
 6. **Region Supabase EU non ancora confermata** — rilevante sia per GDPR sia per poter
    dichiarare lo stesso claim di Estetia ("server in Europa").
+7. **Migrazione 0006 (`identificatore_sessione` su `conversazioni`) scritta ma non applicata**:
+   questa sessione non ha modo autonomo di eseguire DDL sul database reale -- niente Supabase
+   CLI/`DATABASE_URL` in `.env.local`, e non è corretto che io acceda alla dashboard Supabase
+   usando le credenziali salve del browser di Gabriel (richiederebbe di fatto autenticarmi al
+   posto suo). Serve o (a) Gabriel stesso incolla `supabase/migrations/0006_*.sql` nell'SQL
+   Editor di Supabase, o (b) mi fornisce una connection string diretta (Project Settings ->
+   Database) così posso applicarla con `psql` nelle prossime migrazioni senza bloccarmi ogni
+   volta. Blocca il motore di conversazione persistente (Fase 2), non il resto del progetto.
 
 ## Mappa dei file principali
 
 - `src/lib/booking-engine.ts` — motore di disponibilità puro (nessuna query DB), 16 test.
-- `src/lib/booking-engine.server.ts` — collegamento a Supabase, delega sempre al motore puro.
+- `src/lib/booking-engine.server.ts` — collegamento a Supabase, delega sempre al motore puro;
+  espone anche `creaAppuntamentoTenant`/`modificaAppuntamentoTenant`/`cancellaAppuntamentoTenant`
+  (scrittura, client-agnostiche) e `parsaOrarioLocale` (validazione rigida di un orario in
+  arrivo da fuori, usata sia dalla dashboard sia dagli strumenti AI).
+- `src/lib/ai/tools.ts` — strumenti dell'AI receptionist (Fase 2), wrappano il booking engine
+  con un client admin/service_role; 9 test di validazione in `tools.test.ts`.
 - `src/lib/supabase/{client,server,admin,tenant}.ts` — client browser/server/service-role e
   helper "utente loggato -> tenant_id".
 - `src/app/registrati`, `src/app/accedi` — funnel di ingresso self-service.

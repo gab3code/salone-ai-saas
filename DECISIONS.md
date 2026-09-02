@@ -150,3 +150,57 @@ estratta la logica già esistente per evitare di duplicarla una seconda volta.
 **Verifica**: `npm run build` e `npx vitest run` (16/16) puliti; ciclo completo
 creazione/spostamento/cancellazione ripetuto dal vivo nel browser dopo il refactor, stesso
 comportamento di prima.
+
+## 2026-09-02 — Bug reale: `new Date()` di V8 non restituisce NaN su stringhe non-ISO
+
+**Trovato da**: un test di validazione scritto per gli strumenti AI (`tools.test.ts`), non da
+un code review -- `new Date("stringa-a-caso:00Z")` non lancia né restituisce `NaN`, restituisce
+una data valida (1/1/2000) per via del parser "lenient" di V8. La conversione precedente
+(`azioni.ts` e la prima versione di `tools.ts`) si fidava di `Number.isNaN(data.getTime())` da
+solo per rifiutare un orario non valido, il che lasciava passare input che sembrano una data ma
+non lo sono.
+
+**Decisione**: nuova funzione condivisa `parsaOrarioLocale` in `booking-engine.server.ts` che
+valida il FORMATO con una regex rigida (`YYYY-MM-DDTHH:MM[:SS][fuso]`) prima di chiamare mai
+`new Date()`. Usata sia da `dashboard/calendario/azioni.ts` sia da `src/lib/ai/tools.ts` --
+un'unica implementazione, non due copie della stessa logica di parsing.
+
+**Motivazione**: per l'input della dashboard (un `<input type="datetime-local">`) il rischio
+pratico era basso; per l'input degli strumenti AI (di fatto testo generato da un modello, non
+fidato) accettare silenziosamente una data sbagliata avrebbe violato direttamente CLAUDE.md
+punto 7 ("l'AI non deve inventare dati") -- un orario sbagliato interpretato come "1/1/2000"
+sarebbe stato un dato inventato a tutti gli effetti, anche se il bug era nel parsing e non nel
+modello.
+
+## 2026-09-02 — Strumenti AI scritti, loop di tool-calling non ancora costruito
+
+**Decisione**: `src/lib/ai/tools.ts` definisce gli strumenti (schema compatibile con
+l'Anthropic Messages API) e la loro esecuzione reale (`eseguiStrumento`), ma il ciclo vero e
+proprio "messaggio in arrivo -> chiamata ad Anthropic con questi strumenti -> esegui i tool_use
+-> richiama Anthropic col risultato -> risposta" non è ancora scritto (Task #66) -- manca
+`@anthropic-ai/sdk` nel progetto e `ANTHROPIC_API_KEY` in `.env.local`.
+
+**Motivazione**: gli strumenti stessi (wrapping del booking engine già esistente e già testato)
+sono lavoro meccanico, coerente con un pattern già deciso (punto 9, single source of truth) --
+nessuna decisione nuova da presentare a Gabriel per costruirli. Il loop di tool-calling vero e
+proprio invece tocca System prompt/comportamento centrale dell'AI (punto 31 di CLAUDE.md: da
+discutere, non da decidere da soli) e comunque non è testabile end-to-end senza la chiave API --
+si è preferito costruire e verificare (con test) la parte meccanica ora, e affrontare il loop
+come prossimo passo dedicato invece di abbozzarlo senza poterlo verificare.
+
+## 2026-09-02 — Migrazione 0006 scritta ma non applicata: niente accesso diretto al DB da qui
+
+**Decisione**: `supabase/migrations/0006_conversazioni_sessione.sql` (colonna
+`identificatore_sessione` su `conversazioni`) è pronta ma non è stata eseguita sul database
+reale in questa sessione.
+
+**Perché non l'ho applicata da solo**: l'unico modo che ho provato (aprire l'SQL Editor di
+Supabase nel browser di Gabriel) ha incontrato una pagina di login -- proseguire avrebbe
+significato autenticarmi con le sue credenziali, cosa che le regole di sicurezza di questa
+sessione vietano esplicitamente (mai inserire/inviare una password per conto suo, anche se il
+browser la avesse già precompilata). Non esiste in `.env.local` una stringa di connessione
+diretta al database (solo le chiavi REST anon/service_role, che non eseguono DDL).
+
+**Prossimo passo**: chiedere a Gabriel di incollare lo script nell'SQL Editor lui stesso, oppure
+di fornire una connection string diretta (Project Settings -> Database) per le prossime
+migrazioni.

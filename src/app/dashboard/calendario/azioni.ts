@@ -7,6 +7,7 @@ import {
   creaAppuntamentoTenant,
   modificaAppuntamentoTenant,
   cancellaAppuntamentoTenant,
+  parsaOrarioLocale,
 } from "@/lib/booking-engine.server";
 
 /**
@@ -82,12 +83,8 @@ export async function modificaAppuntamento(id: string, formData: FormData) {
   // usata in tutto il resto del booking engine (vedi nota in
   // booking-engine.server.ts), altrimenti verrebbe interpretato nel fuso
   // orario del server invece che come "l'ora scritta" dal titolare.
-  const inizioStr = /Z|[+-]\d{2}:\d{2}$/.test(inizioStrGrezzo)
-    ? inizioStrGrezzo
-    : `${inizioStrGrezzo}:00Z`;
-
-  const inizio = new Date(inizioStr);
-  if (Number.isNaN(inizio.getTime())) return { errore: "Orario non valido." };
+  const inizio = parsaOrarioLocale(inizioStrGrezzo);
+  if (!inizio) return { errore: "Orario non valido." };
 
   const risultato = await modificaAppuntamentoTenant(supabase, tenantId, id, {
     operatoreId,

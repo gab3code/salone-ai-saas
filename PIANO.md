@@ -107,8 +107,25 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       dal vivo il 02/09/2026**: ciclo completo creazione (slot sparisce)/spostamento (esclude
       se stesso dal conflitto)/cancellazione (slot torna libero) rifatto dopo il refactor,
       stesso comportamento di prima. `npm run build` e `npx vitest run` (16/16) puliti.
+- [x] Strumenti AI (`src/lib/ai/tools.ts`): `elenca_servizi`, `elenca_operatori`, `info_orari`,
+      `verifica_disponibilita`, `cerca_prenotazioni_cliente`, `crea_prenotazione`,
+      `modifica_prenotazione`, `cancella_prenotazione`, `trasferisci_a_operatore` -- ognuno
+      wrappa le funzioni già esistenti in `booking-engine.server.ts` con un client
+      admin/service_role (il visitatore anonimo del sito non ha un utente Supabase), mai logica
+      duplicata. `risolviTenantIdDaSlug` per identificare il tenant dalla pagina pubblica.
+      9 test di validazione input verdi (`tools.test.ts`) + bug reale trovato e corretto in
+      corso d'opera: `new Date("stringa-a-caso:00Z")` non restituisce `NaN` in V8 ma una data
+      valida del 2000 -- ora c'è una validazione rigida del formato PRIMA di `new Date()`
+      (`parsaOrarioLocale`, condivisa con la dashboard, che aveva la stessa debolezza).
 - [ ] Architettura tool-calling: AI interpreta, il backend decide (pattern già validato nel
-      progetto precedente con `cervello.py` -- lo riprendiamo, non lo reinventiamo)
+      progetto precedente con `cervello.py` -- lo riprendiamo, non lo reinventiamo). Richiede
+      `@anthropic-ai/sdk` (da installare) e `ANTHROPIC_API_KEY` (da chiedere a Gabriel, la ha
+      già dal progetto precedente) -- non ancora nel `.env.local` di questo progetto.
+- [ ] Migrazione `identificatore_sessione` su `conversazioni` (file già pronto,
+      `supabase/migrations/0006_conversazioni_sessione.sql`) -- **non ancora applicata al
+      database reale**: serve accesso alla dashboard Supabase (login di Gabriel) o una stringa
+      di connessione diretta con password, nessuna delle due disponibile in autonomia in questa
+      sessione. Da applicare appena possibile, prima del motore di conversazione.
 - [ ] Contesto di conversazione persistente in `conversazioni.slot_in_costruzione`
 - [ ] Canale chat web -> AI -> booking engine -> risposta (motore condiviso con tutti i canali)
 - [ ] Collegamento webhook WhatsApp/Telegram -> stesso motore, quando attivati per il tenant

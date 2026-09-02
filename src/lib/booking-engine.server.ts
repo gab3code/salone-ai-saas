@@ -31,6 +31,32 @@ function troncaOra(valore: string | null): string | undefined {
   return valore ? valore.slice(0, 5) : undefined;
 }
 
+// "YYYY-MM-DDTHH:MM"[":SS"], con o senza fuso esplicito -- usato per ogni
+// orario che arriva da fuori (input utente della dashboard, input
+// dell'AI): validazione RIGIDA del formato prima di toccare `new Date()`,
+// perché il parser lenient di V8 accetta ed "interpreta" stringhe non-ISO
+// senza senso invece di restituire NaN (es. `new Date("boh:00Z")` torna una
+// data valida del 2000). Un formato sbagliato deve fallire in modo
+// esplicito, mai produrre silenziosamente una data a caso. Nessun fuso
+// esplicito indicato -> trattato come UTC, stessa semplificazione
+// consapevole descritta sopra per tutto il resto del booking engine.
+const FORMATO_ORARIO_SENZA_FUSO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
+const FORMATO_ORARIO_CON_FUSO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})$/;
+
+export function parsaOrarioLocale(valore: string): Date | null {
+  let conFuso: string;
+  if (FORMATO_ORARIO_CON_FUSO.test(valore)) {
+    conFuso = valore;
+  } else if (FORMATO_ORARIO_SENZA_FUSO.test(valore)) {
+    // length 16 = "YYYY-MM-DDTHH:MM" (mancano i secondi), 19 = già con ":SS".
+    conFuso = valore.length === 16 ? `${valore}:00Z` : `${valore}Z`;
+  } else {
+    return null;
+  }
+  const data = new Date(conFuso);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
 function inizioGiornoUTC(data: Date): Date {
   return new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate()));
 }
