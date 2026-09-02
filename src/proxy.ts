@@ -7,7 +7,7 @@ import { type NextRequest, NextResponse } from "next/server";
  * scaduto lascerebbe l'utente disconnesso in modo incoerente tra una pagina
  * e l'altra invece che essere rinnovato in automatico.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let risposta = NextResponse.next({ request });
 
   const supabase = createServerClient(
