@@ -8,11 +8,11 @@ si chiude) — non lasciarlo invecchiare. Vedi `CLAUDE.md` per le regole di lavo
 ## In una riga
 
 Fase 0 (fondamenta multi-tenant) e Fase 1 (booking engine collegato al database) **chiuse e
-verificate dal vivo con un salone di test reale**. Fase 2 (AI conversazionale) avviata: strumenti
-scritti e testati, ma il loop di tool-calling vero e proprio è bloccato in attesa della chiave
-Anthropic e della migrazione DB (vedi sotto). Fase 3: anagrafica cliente/CRM di base già chiusa e
-verificata dal vivo; dashboard con insight e analytics non ancora iniziati. Tutto il resto
-(pagina pubblica, automazioni, billing, admin panel, PWA) non ancora iniziato.
+verificate dal vivo con un salone di test reale**. Fase 2 (AI conversazionale): strumenti scritti
+e testati, migrazione applicata, chiave Anthropic ricevuta (02/09/2026) -- il loop di
+tool-calling vero e proprio è il prossimo passo. Fase 3: CRM di base e dashboard con metriche
+reali/insight **chiusi e verificati dal vivo**; analytics più avanzate non ancora iniziate. Tutto
+il resto (pagina pubblica, automazioni, billing, admin panel, PWA) non ancora iniziato.
 
 ## Stack reale (verificato in `package.json`)
 
@@ -58,6 +58,12 @@ vedi "Problemi aperti").
   (nome/email/tag/note) e storico completo delle prenotazioni (stato, origine manuale/AI).
   Verificato dal vivo: modifica salvata e persistita dopo reload, ricerca funzionante, storico
   corretto anche per un appuntamento cancellato.
+- **Dashboard con metriche reali** (punto 18): appuntamenti oggi, valore prenotato oggi,
+  occupazione oggi, clienti totali/nuovi/cancellazioni, insight "clienti inattivi da 60gg" con
+  azione diretta verso `/dashboard/clienti?filtro=inattivi`. Verificato dal vivo con un
+  appuntamento reale da 25€/30min: tutti i numeri esatti (25,00€, 5% di occupazione su 600 min
+  di apertura). Nessun numero finto: se un dato non è tracciato (es. no-show, vedi sotto) la
+  card mostra onestamente 0, non un placeholder.
 - **Scrittura appuntamenti unificata (single source of truth, 02/09/2026)**:
   `creaAppuntamentoTenant`/`modificaAppuntamentoTenant`/`cancellaAppuntamentoTenant` in
   `booking-engine.server.ts` sono ora l'unico punto che scrive create/modifica/cancella —
@@ -82,8 +88,8 @@ vedi "Problemi aperti").
   route.ts`, migrazione 0003) ma **non attivabile**: bloccata dalla business verification
   Meta + P.IVA di Gabriel, in pausa per sua scelta. Il canale AI di default pianificato è
   invece la chat web (nessuna approvazione esterna richiesta) — non ancora costruito.
-- **Dashboard**: solo un riepilogo statico del tenant (nome, piano, stato abbonamento). Zero
-  metriche reali, zero insight (punto 18 di CLAUDE.md -- non ancora iniziato).
+- **Analytics avanzate**: retention/no-show/canale di acquisizione -- non ancora iniziate (il
+  no-show in particolare non ha ancora nessun flusso che lo marchi davvero, vedi sotto).
 - **Pagina pubblica per-attività**: zero codice. `tenants.slug` esiste nello schema ma non è
   servito da nessuna route pubblica.
 - **Foto/galleria**: zero codice. Colonne `logo_url`/`cover_url` esistono sullo schema
@@ -124,14 +130,19 @@ vedi "Problemi aperti").
    successo sul progetto precedente con un meccanismo diverso).
 6. **Region Supabase EU non ancora confermata** — rilevante sia per GDPR sia per poter
    dichiarare lo stesso claim di Estetia ("server in Europa").
-7. **Migrazione 0006 (`identificatore_sessione` su `conversazioni`) scritta ma non applicata**:
-   questa sessione non ha modo autonomo di eseguire DDL sul database reale -- niente Supabase
-   CLI/`DATABASE_URL` in `.env.local`, e non è corretto che io acceda alla dashboard Supabase
-   usando le credenziali salve del browser di Gabriel (richiederebbe di fatto autenticarmi al
-   posto suo). Serve o (a) Gabriel stesso incolla `supabase/migrations/0006_*.sql` nell'SQL
-   Editor di Supabase, o (b) mi fornisce una connection string diretta (Project Settings ->
-   Database) così posso applicarla con `psql` nelle prossime migrazioni senza bloccarmi ogni
-   volta. Blocca il motore di conversazione persistente (Fase 2), non il resto del progetto.
+7. **Migrazione 0006 (`identificatore_sessione` su `conversazioni`)**: applicata da Gabriel
+   direttamente nell'SQL Editor di Supabase il 02/09/2026 (non verificata da questa sessione con
+   una query -- nessun modo autonomo di leggere lo schema senza toccare credenziali che non
+   sono mie da usare, vedi DECISIONS.md). La conferma reale arriverà collegando il motore di
+   conversazione (Fase 2) che la userà per davvero.
+8. **No-show non ancora tracciato**: nessun flusso della dashboard marca oggi un appuntamento
+   come `no_show` (solo `confermato`/`cancellato` esistono nei dati reali) -- la metrica esiste
+   già in `metriche.ts` mostra onestamente 0 finché non c'è un'azione "cliente non si è
+   presentato" da qualche parte nella UI. Da aggiungere insieme al resto del CRM/calendario.
+9. **`ANTHROPIC_API_KEY` in `.env.local` solo nel sandbox cloud**: Gabriel l'ha data il
+   02/09/2026, salvata qui, ma questa sessione non può scrivere `.env.local` sul suo Mac (i
+   tool del bridge lo bloccano di proposito) -- deve aggiungerla lui a mano nel suo
+   `.env.local` locale prima di testare l'AI dal vivo nel browser.
 
 ## Mappa dei file principali
 
@@ -144,6 +155,8 @@ vedi "Problemi aperti").
   con un client admin/service_role; 9 test di validazione in `tools.test.ts`.
 - `src/app/dashboard/clienti/` — elenco clienti con ricerca + scheda cliente (dati anagrafici
   modificabili, storico prenotazioni completo).
+- `src/lib/metriche.ts` / `metriche.server.ts` — metriche dashboard (logica pura + collegamento
+  Supabase, stesso pattern del booking engine).
 - `src/lib/supabase/{client,server,admin,tenant}.ts` — client browser/server/service-role e
   helper "utente loggato -> tenant_id".
 - `src/app/registrati`, `src/app/accedi` — funnel di ingresso self-service.

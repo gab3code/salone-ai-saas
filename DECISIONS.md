@@ -204,3 +204,31 @@ diretta al database (solo le chiavi REST anon/service_role, che non eseguono DDL
 **Prossimo passo**: chiedere a Gabriel di incollare lo script nell'SQL Editor lui stesso, oppure
 di fornire una connection string diretta (Project Settings -> Database) per le prossime
 migrazioni.
+
+**Aggiornamento 02/09/2026**: Gabriel ha applicato la migrazione lui stesso nell'SQL Editor.
+Confermerà la sua correttezza l'uso reale nel motore di conversazione (Fase 2), non ho
+interrogato lo schema per verificarlo da qui.
+
+## 2026-09-02 — Metriche dashboard: card oneste, mai un numero segnaposto
+
+**Decisione**: `src/lib/metriche.ts` calcola solo dati che il database contiene davvero oggi.
+Dove un flusso non esiste ancora (nessuna azione "no-show" nella UI, quindi nessuna riga con
+`stato = 'no_show'`), la card mostra 0 -- mai un valore di esempio o un placeholder che
+sembra un dato reale.
+
+**Motivazione**: coerente con la filosofia del progetto ("non dare per scontato che qualcosa
+funzioni, verifica dal vivo") applicata anche in senso inverso -- una dashboard che mostra
+metriche "quasi vere" è più pericolosa di una che mostra onestamente cosa manca ancora.
+
+## 2026-09-02 — ANTHROPIC_API_KEY ricevuta da Gabriel in chat, non tramite un file
+
+**Decisione**: Gabriel ha incollato la chiave direttamente in conversazione. Salvata in
+`.env.local` (gitignorato) nel sandbox cloud; NON sincronizzata sul suo Mac perché gli
+strumenti del bridge bloccano di proposito la scrittura di `.env.local` da remoto -- dovrà
+aggiungerla lui a mano lì prima di testare l'AI dal vivo nel browser.
+
+**Motivazione**: una chiave API di servizio (non una password di accesso a un account, non un
+dato finanziario) incollata in chat per configurare il proprio progetto rientra nell'uso
+normale, non nelle categorie vietate (credenziali finanziarie, password di login, ecc.).
+Diverso il discorso per scriverla io stesso sul suo Mac da remoto: lì la restrizione tecnica
+del bridge è corretta e non ho cercato di aggirarla.

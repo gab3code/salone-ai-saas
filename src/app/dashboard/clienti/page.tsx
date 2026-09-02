@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { elencaClientiInattivi } from "@/lib/metriche";
 
 /**
  * CRM (punto 12): anagrafica cliente con storico -- qui l'elenco con
@@ -10,13 +11,17 @@ import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
  * in Fase 2, dall'AI (`creaAppuntamentoTenant`/gli strumenti in
  * src/lib/ai/tools.ts creano il cliente se non esiste ancora) -- stessa
  * tabella, mai un'anagrafica separata per canale.
+ *
+ * `?filtro=inattivi` è la destinazione del pulsante "Contatta questi
+ * clienti" della dashboard (punto 18) -- stessa logica testata di
+ * `elencaClientiInattivi`, non una seconda regola scritta a mano qui.
  */
 export default async function PaginaClienti({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; filtro?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, filtro } = await searchParams;
   const supabase = await creaClientServer();
 
   const {
@@ -38,14 +43,14 @@ export default async function PaginaClienti({
     query = query.or(`nome.ilike.%${termine}%,telefono.ilike.%${termine}%`);
   }
 
-  const { data: clienti, error } = await query;
+  const { data: clientiGrezzi, error } = await query;
 
-  // Conteggio appuntamenti per cliente in un'unica query (non N+1): serve
-  // solo a dare un'idea della "storia" del cliente nell'elenco, il dettaglio
-  // completo si vede aprendo la scheda.
+  // Una query sola per: (a) il conteggio appuntamenti per cliente mostrato
+  // in tabella, (b) l'elenco di chi è "inattivo da 60 giorni" se richiesto
+  // dal filtro -- non due giri separati sulla stessa tabella.
   const { data: righeAppuntamenti } = await supabase
     .from("appuntamenti")
-    .select("cliente_id")
+    .select("cliente_id, inizio, stato")
     .eq("tenant_id", tenantId)
     .not("cliente_id", "is", null);
 
@@ -53,6 +58,23 @@ export default async function PaginaClienti({
   for (const riga of righeAppuntamenti ?? []) {
     if (!riga.cliente_id) continue;
     conteggioPerCliente.set(riga.cliente_id, (conteggioPerCliente.get(riga.cliente_id) ?? 0) + 1);
+  }
+
+  let clienti = clientiGrezzi ?? [];
+  if (filtro === "inattivi") {
+    const inattivi = elencaClientiInattivi(
+      (righeAppuntamenti ?? []).map((r) => ({
+        inizio: new Date(r.inizio),
+        fine: new Date(r.inizio),
+        stato: r.stato,
+        clienteId: r.cliente_id,
+        operatoreId: null,
+        servizioId: null,
+      })),
+      new Date(),
+      60
+    );
+    clienti = clienti.filter((c) => inattivi.has(c.id));
   }
 
   return (
@@ -65,6 +87,15 @@ export default async function PaginaClienti({
           <h1 className="mt-2 text-xl font-semibold">Clienti</h1>
         </div>
       </div>
+
+      {filtro === "inattivi" && (
+        <p className="mt-3 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Filtro attivo: clienti che hanno prenotato in passato ma non negli ultimi 60 giorni. {" "}
+          <Link href="/dashboard/clienti" className="underline">
+            Mostra tutti
+          </Link>
+        </p>
+      )}
 
       <form className="mt-4 flex gap-2" action="/dashboard/clienti">
         <input
@@ -113,7 +144,11 @@ export default async function PaginaClienti({
             {(clienti ?? []).length === 0 && (
               <tr>
                 <td colSpan={7} className="px-3 py-6 text-center text-zinc-500">
-                  {q ? "Nessun cliente trovato per questa ricerca." : "Nessun cliente ancora."}
+                  {q
+                    ? "Nessun cliente trovato per questa ricerca."
+                    : filtro === "inattivi"
+                      ? "Nessun cliente inattivo al momento -- ottimo segno."
+                      : "Nessun cliente ancora."}
                 </td>
               </tr>
             )}

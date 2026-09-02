@@ -74,6 +74,34 @@ function minutiOraTesto(valore: string): number {
   return h * 60 + m;
 }
 
+/**
+ * Cliente "inattivo da N giorni": ha prenotato in passato (altrimenti è solo
+ * un cliente nuovo/mai tornato, non "inattivo" nel senso di CLAUDE.md punto
+ * 18 -- "non prenotano da oltre 60 giorni" implica un'abitudine interrotta,
+ * non l'assenza di una prima prenotazione), ma l'ultima prenotazione
+ * confermata è più vecchia della soglia. Esportata a parte (non solo dentro
+ * calcolaMetriche) perché serve anche per l'azione "contatta questi
+ * clienti" -- l'elenco vero, non solo il conteggio della card dashboard.
+ */
+export function elencaClientiInattivi(
+  appuntamenti: AppuntamentoMetrica[],
+  adesso: Date,
+  giorniSoglia: number
+): Set<string> {
+  const sogliaData = giorniFa(adesso, giorniSoglia);
+  const ultimaPrenotazionePerCliente = new Map<string, Date>();
+  for (const a of appuntamenti) {
+    if (a.stato !== "confermato" || !a.clienteId) continue;
+    const attuale = ultimaPrenotazionePerCliente.get(a.clienteId);
+    if (!attuale || a.inizio > attuale) ultimaPrenotazionePerCliente.set(a.clienteId, a.inizio);
+  }
+  const inattivi = new Set<string>();
+  for (const [clienteId, ultima] of ultimaPrenotazionePerCliente) {
+    if (ultima < sogliaData) inattivi.add(clienteId);
+  }
+  return inattivi;
+}
+
 export function calcolaMetriche(p: ParametriMetriche): Metriche {
   const inizioOggi = inizioGiornoUTC(p.adesso);
   const fineOggi = fineGiornoUTC(p.adesso);
@@ -118,21 +146,7 @@ export function calcolaMetriche(p: ParametriMetriche): Metriche {
   const percentualeOccupazioneOggi =
     minutiApertiOggi > 0 ? Math.round((minutiOccupatiOggi / minutiApertiOggi) * 100) : null;
 
-  // Cliente "inattivo da 60 giorni": ha prenotato in passato (altrimenti è
-  // solo un cliente nuovo/mai tornato, non "inattivo" nel senso di CLAUDE.md
-  // punto 18 -- "non prenotano da oltre 60 giorni" implica un'abitudine
-  // interrotta, non l'assenza di una prima prenotazione), ma l'ultima
-  // prenotazione confermata è più vecchia di 60 giorni.
-  const ultimaPrenotazionePerCliente = new Map<string, Date>();
-  for (const a of p.appuntamenti) {
-    if (a.stato !== "confermato" || !a.clienteId) continue;
-    const attuale = ultimaPrenotazionePerCliente.get(a.clienteId);
-    if (!attuale || a.inizio > attuale) ultimaPrenotazionePerCliente.set(a.clienteId, a.inizio);
-  }
-  let clientiInattiviDa60Giorni = 0;
-  for (const ultima of ultimaPrenotazionePerCliente.values()) {
-    if (ultima < dataMeno60) clientiInattiviDa60Giorni++;
-  }
+  const clientiInattiviDa60Giorni = elencaClientiInattivi(p.appuntamenti, p.adesso, 60).size;
 
   return {
     appuntamentiOggi: appuntamentiOggiConfermati.length,

@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
+import { caricaMetriche } from "@/lib/metriche.server";
 import { esci } from "./azioni";
 
 /**
@@ -29,6 +31,10 @@ export default async function PaginaDashboard() {
     .from("tenants")
     .select("nome, slug, piano, stato_abbonamento, created_at")
     .single();
+
+  const metriche = tenant && profilo?.tenant_id ? await caricaMetriche(supabase, profilo.tenant_id) : null;
+  const formatoEuro = (centesimi: number) =>
+    (centesimi / 100).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
   return (
     <div className="flex flex-1 flex-col p-8">
@@ -61,21 +67,80 @@ export default async function PaginaDashboard() {
           buon fine (controlla i log del trigger al_nuovo_utente su Supabase).
         </p>
       ) : (
-        <dl className="mt-6 grid max-w-md grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          <dt className="text-zinc-500">Salone</dt>
-          <dd>{tenant.nome}</dd>
-          <dt className="text-zinc-500">Slug pagina pubblica</dt>
-          <dd>{tenant.slug}</dd>
-          <dt className="text-zinc-500">Piano</dt>
-          <dd>{tenant.piano}</dd>
-          <dt className="text-zinc-500">Stato abbonamento</dt>
-          <dd>{tenant.stato_abbonamento}</dd>
-          <dt className="text-zinc-500">Tu</dt>
-          <dd>
-            {profilo?.nome || user.email} ({profilo?.ruolo})
-          </dd>
-        </dl>
+        <>
+          <dl className="mt-6 grid max-w-md grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt className="text-zinc-500">Salone</dt>
+            <dd>{tenant.nome}</dd>
+            <dt className="text-zinc-500">Slug pagina pubblica</dt>
+            <dd>{tenant.slug}</dd>
+            <dt className="text-zinc-500">Piano</dt>
+            <dd>{tenant.piano}</dd>
+            <dt className="text-zinc-500">Stato abbonamento</dt>
+            <dd>{tenant.stato_abbonamento}</dd>
+            <dt className="text-zinc-500">Tu</dt>
+            <dd>
+              {profilo?.nome || user.email} ({profilo?.ruolo})
+            </dd>
+          </dl>
+
+          {metriche && (
+            <>
+              <h2 className="mt-8 text-sm font-medium text-zinc-500">Come sta andando</h2>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <CardMetrica etichetta="Appuntamenti oggi" valore={String(metriche.appuntamentiOggi)} />
+                <CardMetrica
+                  etichetta="Valore prenotato oggi"
+                  valore={formatoEuro(metriche.valorePrenotazioniOggiCentesimi)}
+                />
+                <CardMetrica
+                  etichetta="Occupazione oggi"
+                  valore={
+                    metriche.percentualeOccupazioneOggi === null
+                      ? "chiuso"
+                      : `${metriche.percentualeOccupazioneOggi}%`
+                  }
+                />
+                <CardMetrica etichetta="Clienti totali" valore={String(metriche.clientiTotali)} />
+                <CardMetrica
+                  etichetta="Nuovi clienti (30gg)"
+                  valore={String(metriche.nuoviClientiUltimi30Giorni)}
+                />
+                <CardMetrica
+                  etichetta="Cancellazioni (30gg)"
+                  valore={String(metriche.cancellazioniUltimi30Giorni)}
+                />
+              </div>
+
+              {metriche.clientiInattiviDa60Giorni > 0 && (
+                <div className="mt-4 flex items-center justify-between rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+                  <span>
+                    <strong>{metriche.clientiInattiviDa60Giorni}</strong>{" "}
+                    {metriche.clientiInattiviDa60Giorni === 1
+                      ? "cliente non prenota"
+                      : "clienti non prenotano"}{" "}
+                    da oltre 60 giorni.
+                  </span>
+                  <Link
+                    href="/dashboard/clienti?filtro=inattivi"
+                    className="rounded border border-amber-300 bg-white px-3 py-1.5 font-medium text-amber-900"
+                  >
+                    Contatta questi clienti
+                  </Link>
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
+    </div>
+  );
+}
+
+function CardMetrica({ etichetta, valore }: { etichetta: string; valore: string }) {
+  return (
+    <div className="rounded border border-zinc-200 p-3">
+      <p className="text-xs text-zinc-500">{etichetta}</p>
+      <p className="mt-1 text-lg font-semibold">{valore}</p>
     </div>
   );
 }

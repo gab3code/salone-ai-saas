@@ -142,8 +142,19 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       tag e note salvata e ricomparsa dopo un reload completo della pagina (non solo stato
       client), ricerca per nome funzionante, storico che mostra correttamente anche
       l'appuntamento cancellato durante i test del refactor.
-- [ ] Dashboard con metriche reali (non finte) e insight (slot liberi, clienti inattivi)
-- [ ] Analytics: revenue, retention, no-show, occupazione
+- [x] Dashboard con metriche reali e un insight azionabile: `src/lib/metriche.ts` (logica pura,
+      11 test) + `metriche.server.ts` (collegamento a Supabase) + card in `/dashboard` --
+      appuntamenti oggi, valore prenotato oggi (somma prezzo reale dei servizi), occupazione
+      oggi (minuti occupati/aperti, pausa esclusa), clienti totali, nuovi clienti (30gg),
+      cancellazioni (30gg). Insight "N clienti non prenotano da 60 giorni" con pulsante
+      **Contatta questi clienti** che apre `/dashboard/clienti?filtro=inattivi` (stessa
+      funzione `elencaClientiInattivi` usata per il conteggio, non una regola scritta due
+      volte). **Verificato dal vivo il 02/09/2026**: card a zero corrette a riposo, poi creato
+      un appuntamento reale da 25€/30min e verificato che appuntamenti=1, valore=25,00€,
+      occupazione=5% (30min su 600min di apertura) -- tutti numeri esatti, non arrotondati a
+      caso -- poi cancellato per pulizia.
+- [ ] Analytics più complete: retention, no-show reale (nessun flusso ancora marca un
+      appuntamento "no_show", solo "confermato"/"cancellato" esistono nei dati veri finora)
 
 ## Fase 4 -- Pagina pubblica, foto, PWA (punti 18, 19, 20)
 - [ ] Pagina pubblica per-salone generata automaticamente, condivisibile
