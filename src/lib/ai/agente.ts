@@ -1,0 +1,141 @@
+import "server-only";
+import Anthropic from "@anthropic-ai/sdk";
+import { STRUMENTI_AI, eseguiStrumento, type ContestoStrumento, type NomeStrumento } from "./tools";
+
+/**
+ * Il loop vero e proprio (Task #66): MESSAGGIO -> AI -> intent/contesto ->
+ * tool -> backend -> database -> risultato -> AI -> risposta (punto 7 di
+ * CLAUDE.md). L'AI interpreta e decide COSA fare, ma ogni fatto che finisce
+ * nella sua risposta passa SEMPRE da uno strumento reale -- mai un prezzo,
+ * un orario o una disponibilità inventati dal modello.
+ *
+ * Il modello è una costante isolata apposta (facile da cambiare in futuro,
+ * non un'architettura da riscrivere): per ora `claude-haiku-4-5`, la scelta
+ * più economica adatta a una conversazione strutturata di tool-calling --
+ * rilevante perché il piano Free (punto 20) deve includere l'AI senza
+ * costare più del ricavo che porta. Se in prova reale la qualità non basta
+ * per gestire bene ambiguità/correzioni (punto 8), è una riga sola da
+ * cambiare, non da presentare come scelta definitiva.
+ */
+const MODELLO = "claude-haiku-4-5-20251001";
+const MAX_ITERAZIONI_TOOL = 8; // difesa contro un loop di tool-calling che non si ferma mai
+
+let clientPredefinito: Anthropic | null = null;
+function ottieniClientPredefinito(): Anthropic {
+  if (!clientPredefinito) {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY mancante in .env.local");
+    clientPredefinito = new Anthropic({ apiKey });
+  }
+  return clientPredefinito;
+}
+
+/** Sottoinsieme minimo del client Anthropic di cui questo modulo ha bisogno -- permette di
+ *  iniettare un client finto nei test senza toccare la rete reale. */
+export interface ClienteAnthropic {
+  messages: {
+    create(params: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message>;
+  };
+}
+
+export interface MessaggioConversazione {
+  ruolo: "cliente" | "assistente";
+  contenuto: string;
+}
+
+export interface RisultatoConversazione {
+  rispostaTesto: string;
+  trasferitoAUmano: boolean;
+}
+
+function costruisciSystemPrompt(nomeAttivita: string): string {
+  return `Sei l'assistente alla prenotazione di "${nomeAttivita}", disponibile tramite chat sulla pagina pubblica dell'attività.
+
+REGOLE ASSOLUTE, non negoziabili:
+1. Non inventare MAI servizi, prezzi, durate, orari o disponibilità. Ogni informazione di questo tipo deve venire da uno strumento -- se non l'hai ancora chiamato, chiamalo prima di rispondere.
+2. Prima di proporre un orario, chiama sempre verifica_disponibilita: non calcolare o supporre mai una disponibilità da solo.
+3. Per creare/modificare/cancellare una prenotazione ti serve sempre il telefono del cliente (è come lo riconosciamo tra un messaggio e l'altro, e tra i canali). Chiedilo se non lo conosci già in questa conversazione.
+4. Mantieni il contesto per tutta la conversazione: se il cliente ha già detto il servizio, non richiederlo di nuovo; ricorda cosa avete già stabilito finché non cambia.
+5. Se un orario proposto risulta occupato (anche durante la conversazione), scusati brevemente e proponi alternative reali verificate di nuovo con lo strumento.
+6. Se la richiesta è ambigua, chiedi UNA domanda chiara per volta -- non elencare troppe opzioni insieme.
+7. Se non riesci a risolvere la richiesta, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare (reclami, casi eccezionali, richieste fuori dal tuo ambito), usa trasferisci_a_operatore e chiudi la conversazione con cortesia.
+8. Tono professionale, cordiale, conciso -- risposte brevi, come una vera persona alla reception, non un elenco puntato.
+
+Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è ottenibile con uno strumento, di' onestamente che non lo sai o proponi di passare a un operatore, invece di inventare una risposta plausibile.`;
+}
+
+/**
+ * Gestisce un turno di conversazione: prende lo storico + il nuovo
+ * messaggio del cliente, esegue il ciclo di tool-calling finché il modello
+ * non produce una risposta testuale finale (o finché non si supera il
+ * limite di sicurezza), e restituisce testo pronto da mandare al cliente.
+ *
+ * `ctx` include già tenantId + client Supabase admin (chi chiama ha già
+ * risolto il tenant dallo slug pubblico, vedi risolviTenantIdDaSlug in
+ * tools.ts) -- questa funzione non fa provisioning, solo conversazione.
+ */
+export async function rispondiConversazione(
+  storico: MessaggioConversazione[],
+  messaggioNuovo: string,
+  ctx: ContestoStrumento & { nomeAttivita: string },
+  clientAnthropic: ClienteAnthropic = ottieniClientPredefinito()
+): Promise<RisultatoConversazione> {
+  const messages: Anthropic.MessageParam[] = [
+    ...storico.map(
+      (m): Anthropic.MessageParam => ({
+        role: m.ruolo === "cliente" ? "user" : "assistant",
+        content: m.contenuto,
+      })
+    ),
+    { role: "user", content: messaggioNuovo },
+  ];
+
+  let trasferitoAUmano = false;
+
+  for (let iterazione = 0; iterazione < MAX_ITERAZIONI_TOOL; iterazione++) {
+    const risposta = await clientAnthropic.messages.create({
+      model: MODELLO,
+      max_tokens: 1024,
+      system: costruisciSystemPrompt(ctx.nomeAttivita),
+      tools: STRUMENTI_AI as unknown as Anthropic.Tool[],
+      messages,
+    });
+
+    const blocchiToolUse = risposta.content.filter(
+      (blocco): blocco is Anthropic.ToolUseBlock => blocco.type === "tool_use"
+    );
+
+    if (blocchiToolUse.length === 0) {
+      const testo = risposta.content
+        .filter((blocco): blocco is Anthropic.TextBlock => blocco.type === "text")
+        .map((blocco) => blocco.text)
+        .join("\n")
+        .trim();
+      return { rispostaTesto: testo || "Non sono riuscito a formulare una risposta.", trasferitoAUmano };
+    }
+
+    // Il modello vuole usare uno o più strumenti: eseguili DAVVERO (mai
+    // simulare un risultato) e restituiscigli l'esito prima di continuare.
+    messages.push({ role: "assistant", content: risposta.content });
+
+    const risultatiTool: Anthropic.ToolResultBlockParam[] = [];
+    for (const blocco of blocchiToolUse) {
+      const risultato = await eseguiStrumento(blocco.name as NomeStrumento, blocco.input as Record<string, unknown>, ctx);
+      if (blocco.name === "trasferisci_a_operatore") trasferitoAUmano = true;
+      risultatiTool.push({
+        type: "tool_result",
+        tool_use_id: blocco.id,
+        content: JSON.stringify(risultato),
+      });
+    }
+    messages.push({ role: "user", content: risultatiTool });
+  }
+
+  // Troppi giri di tool-calling senza una risposta finale: meglio fermarsi
+  // e passare a un umano che continuare a girare a vuoto sul cliente reale.
+  return {
+    rispostaTesto:
+      "Mi scuso, sto avendo difficoltà a completare questa richiesta. Ti metto in contatto con un operatore.",
+    trasferitoAUmano: true,
+  };
+}
