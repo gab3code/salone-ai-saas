@@ -79,11 +79,13 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
 - [x] Vista calendario di base: `/dashboard/calendario`, lista appuntamenti del giorno +
       pannello "nuovo appuntamento" con slot liberi calcolati dal motore vero e selezionabili
       con un click (risponde alla debolezza "Primo slot disponibile in un click" osservata in
-      Estetia, vedi `docs/analisi-estetia.md`) -- **non ancora verificato dal vivo** fino in
-      fondo: bloccato a metà da un problema di ambiente sul Mac (node_modules corrotto sotto
-      Turbopack, probabile causa la sincronizzazione della cartella Desktop -- stesso sospetto
-      già annotato in Fase 0), non un bug del nostro codice. Serve un `npm install` pulito sul
-      tuo Mac per finire la verifica.
+      Estetia, vedi `docs/analisi-estetia.md`) -- **verificato dal vivo per intero** il
+      02/09/2026: creazione appuntamento (slot occupato sparisce correttamente dalla lista),
+      spostamento/modifica (esclude se stesso dal controllo conflitto), cancellazione (slot
+      tornano liberi). Il blocco node_modules era un problema di ambiente sul Mac (probabile
+      iCloud che sincronizza la cartella Desktop), risolto con un `npm install` pulito -- non
+      un bug del nostro codice. Nota per dopo: valutare di spostare il progetto fuori da una
+      cartella sincronizzata iCloud per eliminare la causa alla radice.
 - [ ] Gestione servizi consecutivi, operatore non specificato, cliente nuovo/esistente --
       la logica pura li gestisce già (test verdi), manca collegarli alle schermate/AI
 - [ ] Test su tutti gli scenari del punto 30 rilevanti alla prenotazione, contro il DB vero
