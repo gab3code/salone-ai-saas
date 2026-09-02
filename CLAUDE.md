@@ -1,192 +1,1014 @@
 @AGENTS.md
 
-# Salone AI SaaS — istruzioni permanenti del progetto
+# Istruzioni del progetto — Salone AI SaaS
 
-**Leggi questo file per intero all'inizio di ogni sessione, prima di fare qualunque cosa.**
-Poi leggi `PROJECT_STATUS.md` (stato reale, cosa funziona/cosa manca) e `DECISIONS.md`
-(decisioni architetturali già prese, per non rimetterle in discussione senza motivo).
-`PIANO.md` resta il piano a fasi con i criteri di "fatta". Questi quattro file insieme sono
-la memoria del progetto: non ripartire da zero, non rifare cose già fatte, non richiedere a
-Gabriel di rispiegare il contesto.
+Voglio che tu lavori nel modo più efficace possibile sfruttando al massimo Claude Cowork, il
+workspace, gli strumenti disponibili, il browser, l'esecuzione del progetto, l'analisi dei
+file e tutte le capacità che hai a disposizione.
 
-## Missione
+L'obiettivo rimane quello definito in precedenza:
 
-Costruire un SaaS self-service multi-tenant per **qualsiasi libero professionista con
-appuntamenti** (non solo centri estetici/parrucchieri — deciso il 02/09/2026, vedi
-DECISIONS.md): personal trainer, massaggiatori, consulenti, tatuatori, fisioterapisti, e il
-mercato originale (saloni/barbieri) restano il caso d'uso di lancio perché è lo stesso
-mercato del benchmark.
+**COSTRUIRE UN SAAS SUPERIORE A ESTETIA**
 
-**Benchmark funzionale**: https://estetia.tidycode.it/ (analisi completa in
-`docs/analisi-estetia.md`). Estetia è la **baseline**, non il tetto. L'obiettivo non è "Estetia
-con un'altra grafica" — è un prodotto che, messo accanto a Estetia, faccia pensare
-"questo è chiaramente migliore". Non limitarti alle funzionalità o ai casi d'uso specifici di
-Estetia: usa anche la visione più ampia di prodotto già definita in questo file e in PIANO.md.
+Reference: https://estetia.tidycode.it/
 
-## Come lavoro — ciclo autonomo
+Estetia rimane il nostro benchmark funzionale principale, ma continua a tenere presente la
+visione più ampia del prodotto che abbiamo già definito: non voglio limitarti alle
+funzionalità o ai casi d'uso specifici di Estetia.
 
-Non fermarmi a chiedere "adesso faccio questo?" per ogni passo. Il ciclo è:
+## 1. Prima di continuare, capisci dove siamo arrivati
+
+Non ricominciare il progetto.
+
+Prima analizza lo stato attuale del lavoro e ricostruisci:
+
+- cosa hai già implementato
+- cosa stai implementando
+- cosa manca
+- quali decisioni architetturali sono già state prese
+- quali componenti sono già stati creati
+- quali funzionalità sono realmente funzionanti
+- quali sono ancora mock/prototipi
+- quali problemi hai già incontrato
+- quali problemi sono ancora aperti
+- quali parti richiedono un refactoring
+
+Usa il lavoro e il contesto già presenti nel workspace.
+
+Non rifare inutilmente cose già fatte.
+
+## 2. Continua in modo autonomo
+
+Da questo momento non voglio doverti dire continuamente:
+
+"adesso fai questa cosa"
+
+"adesso controlla quest'altra"
+
+Voglio che tu lavori come un senior engineer autonomo.
+
+Il ciclo di lavoro deve essere:
 
 **ANALIZZA → PIANIFICA → IMPLEMENTA → TESTA → VERIFICA → CORREGGI → CONTINUA**
 
-Quando una funzionalità è completa e verificata, passo autonomamente alla successiva. Uso
-Cowork al massimo per farlo per davvero, non sulla carta:
-- lavoro direttamente sui file, ne leggo/analizzo più di uno quando serve
-- uso il browser (bridge sul Mac di Gabriel) per verificare comportamento reale, non solo
-  leggere il codice — è così che ho trovato e corretto il bug dei GRANT mancanti e verificato
-  l'intero ciclo prenotazione/modifica/cancellazione in Fase 1
-- eseguo il progetto (`npm run build`, `npm run dev`, `npx vitest run`) ad ogni modifica
-  significativa, non solo alla fine
-- controllo console/log/errori del browser e del server
-- verifico il database vero (query dirette via client autenticato, mai solo assunzioni)
-- verifico responsive/mobile quando la UI è la parte in lavorazione
-- non mi fermo al primo risultato che "sembra funzionare" — lo riproduco davvero (vedi la
-  metodologia già usata: riprodurre un bug nel browser reale prima di dichiararlo risolto)
+Quando una funzionalità è completa, passa autonomamente alla successiva.
 
-## Non copiare Estetia ciecamente
+Usa Cowork nel modo più efficace possibile:
 
-Per ogni funzionalità importante: "possiamo costruirla meglio?" — workflow più semplice, meno
-click, UX migliore, più automazione, AI più intelligente, migliore gestione degli edge case,
-migliore mobile, migliore onboarding, migliore visualizzazione dati, migliore integrazione tra
-funzioni. Se la soluzione di Estetia è buona, implementarla e dove possibile migliorarla. Se
-esiste un'alternativa **nettamente migliore**, non implementarla di iniziativa — vedi sotto.
+- lavora direttamente sui file
+- analizza più file quando necessario
+- usa il browser per verificare il comportamento
+- esegui il progetto
+- controlla console/log/errori
+- testa i workflow reali
+- verifica il database
+- verifica le integrazioni
+- verifica il responsive
+- verifica mobile
+- esegui test ripetuti
+- correggi autonomamente gli errori che trovi
 
-## Quando fermarmi e chiedere
+Non fermarti al primo risultato che "sembra funzionare".
 
-Non chiedere per: piccoli bug, micro-miglioramenti UI, refactoring locali, naming, dettagli
-reversibili, implementazioni ovvie. Chiedere PRIMA per: architettura, decisioni irreversibili,
-modifiche sostanziali al database, cambiamenti importanti al workflow, decisioni che
-influenzano il business model, comportamento centrale dell'AI, sistema di prenotazione,
-struttura piani/billing, onboarding, multi-tenancy, integrazioni esterne importanti, o
-qualunque bivio dove un'alternativa a quella già decisa potrebbe essere significativamente
-migliore.
+## 3. Implementa tutto quello che abbiamo individuato da Estetia
 
-Quando chiedo, formato sempre così (mai un semplice "faccio A o B?"):
-1. **Soluzione di Estetia (o quella già pianificata)** — cosa fa, come funziona
-2. **La mia proposta alternativa** — cosa cambierei
-3. **Perché** — vantaggi/svantaggi di entrambe
-4. **La mia raccomandazione** — quale sceglierei e perché
+Voglio che tu continui a implementare tutte le funzionalità importanti che abbiamo
+individuato analizzando Estetia.
 
-Poi aspetto la decisione di Gabriel e la registro in `DECISIONS.md`. Per tutto il resto:
-non aspettare, lavorare e portare avanti il progetto.
+Estetia deve essere la nostra:
 
-## Priorità assoluta: funzionamento reale, non solo UI
+**BASELINE FUNZIONALE.**
 
-Ogni schermata deve avere un funzionamento vero dietro. "Prenota appuntamento" non è un
-bottone — deve verificare disponibilità, applicare orari del tenant, considerare
-professionista+servizio, evitare conflitti, creare il record, aggiornare calendario e CRM,
-attivare automazioni, programmare reminder. Se una parte è mock, va dichiarato esplicitamente
-in `PROJECT_STATUS.md`, mai lasciato implicito.
+Quindi, progressivamente, dobbiamo arrivare a coprire tutto ciò che offre:
 
-## AI — sistema reale, non demo
+- gestione attività
+- dashboard
+- calendario
+- prenotazioni
+- clienti
+- CRM
+- professionisti/operatori
+- servizi
+- disponibilità
+- automazioni
+- reminder
+- AI
+- conversazioni
+- pagina pubblica
+- galleria fotografica
+- analytics
+- gestione account
+- onboarding
+- piani
+- abbonamenti
+- mobile
+- eventuali altre funzionalità che scopri analizzando il prodotto
 
-Obiettivo: un vero AI receptionist/booking agent. Deve comprendere messaggi naturali,
-mantenere contesto multi-turno (senza far ripartire la conversazione da zero ad ogni
-messaggio), identificare cliente nuovo/esistente, capire servizio/data/ora anche con
-messaggi ambigui o corretti a metà, verificare disponibilità vera, proporre alternative
-quando uno slot si libera/occupa durante la conversazione, creare/modificare/cancellare
-appuntamenti, gestire più servizi consecutivi, rispondere a FAQ su prezzi/durata/orari,
-gestire errori ed edge case, e passare a un operatore umano quando serve.
+Non fermarti alle funzionalità che avevamo già elencato.
 
-**Regola non negoziabile**: l'AI interpreta, il backend decide. L'AI non inventa mai dati.
+Se durante l'analisi di Estetia scopri altre funzioni o workflow importanti, aggiungili alla
+lista di lavoro.
 
-```
-messaggio -> AI -> intent/contesto -> tools -> backend -> database -> risultato -> AI -> risposta
-```
+## 4. Ma non copiare Estetia ciecamente
 
-La disponibilità è sempre verificata dal sistema reale (booking engine), mai assunta o
-calcolata a mente dal modello. Stesso principio già validato nel progetto precedente
-(`cervello.py`), da riprendere architetturalmente, non da reinventare.
+Questa è una regola fondamentale.
 
-## Booking engine — unica fonte di verità
+Voglio che tu abbia sempre uno sguardo critico.
 
-`src/lib/booking-engine.ts` (logica pura, testata) + `src/lib/booking-engine.server.ts`
-(collegamento al DB) sono l'UNICO posto dove si decide se uno slot è libero o una
-prenotazione è valida. Calendario manuale, tool AI (quando esisteranno) e qualunque canale
-futuro chiamano queste funzioni — **mai due sistemi di disponibilità separati**. Deve gestire:
-servizio, professionista, durata, disponibilità, orari, pause, ferie/chiusure, conflitti,
-buffer, slot, cancellazioni, modifiche, no-show, servizi consecutivi. Doppia difesa contro le
-race condition: controllo applicativo (messaggio d'errore chiaro) + vincolo
-`niente_sovrapposizioni` a livello Postgres (rete di sicurezza reale contro la concorrenza).
+Estetia è il nostro riferimento, ma NON è necessariamente il modo migliore per fare ogni
+cosa.
 
-## Casi da testare per davvero (non solo il caso felice)
+Per ogni funzionalità importante chiediti:
 
-Prenotazione semplice; professionista specifico; professionista non specificato (il sistema
-sceglie); slot occupato durante la conversazione (l'AI se ne accorge, propone alternative);
-modifica; cancellazione; più servizi consecutivi (durata totale, stesso operatore per tutta
-la catena); cliente nuovo (auto-creato) vs esistente (riconosciuto); due clienti che
-richiedono lo stesso slot in concorrenza; servizio inesistente; professionista assente;
-attività chiusa quel giorno; servizio incompatibile con l'operatore scelto; prenotazione
-manuale da dashboard; onboarding di un'attività nuova end-to-end; upgrade/downgrade piano;
-cancellazione abbonamento. Aggiungerne altri quando emergono durante lo sviluppo.
+"Possiamo costruirla meglio?"
 
-## Superficie prodotto (baseline Estetia + oltre)
+Per esempio:
 
-Gestione attività, dashboard con insight azionabili (non solo numeri secchi — vedi la
-debolezza osservata in Estetia sul "Tasso AI"/"rischio cliente" senza azione consigliata),
-calendario (giorno/settimana/mese, multi-operatore, drag&drop se ha senso, filtri,
-colori/stati), prenotazioni, clienti/CRM collegato per davvero a prenotazioni/conversazioni/
-automazioni, professionisti/operatori, servizi, disponibilità, motore di automazioni
-configurabile (reminder 24h, follow-up, inattività 30gg, slot liberato, no-show, compleanno),
-AI conversazionale, conversazioni persistenti, pagina pubblica per-attività (branding, foto,
-servizi/prezzi, professionisti, prenotazione diretta, link condivisibile), galleria foto
-(logo/cover/lavori/prima-dopo — obiettivo: superiore a Estetia su questo punto specifico),
-analytics (revenue, retention, churn, no-show, occupazione, valore medio, canale
-acquisizione), piani Free→Enterprise con limiti applicati **tecnicamente** (non solo a
-livello di copy), gestione account/onboarding self-service, pannello admin per Gabriel
-(attività, utenti, piani, utilizzo, AI/WhatsApp usage, metriche, interventi manuali quando
-serve), esperienza mobile vera (PWA: installazione, icona, fullscreen, push, offline dove
-sensato — non "responsive e basta").
+- workflow più semplice
+- meno click
+- migliore UX
+- migliore architettura
+- maggiore automazione
+- AI più intelligente
+- migliore gestione degli edge case
+- migliore esperienza mobile
+- migliore onboarding
+- migliore visualizzazione dei dati
+- migliore integrazione tra le funzioni
 
-**Attenzione particolare al workflow 02→03 di Estetia** (collega WhatsApp -> guarda crescere
-il salone): è il punto dove un self-service o si convince o perde l'utente. Analizzarlo a
-fondo, non copiarlo — l'obiettivo è meno click, meno tempo, meno confusione, più
-automazione/chiarezza/velocità/valore percepito.
+Se pensi che la soluzione di Estetia sia buona:
 
-## UI/UX
+implementiamola e, dove possibile, miglioriamola.
 
-Deve sembrare un SaaS premium (ispirazione qualitativa: Apple, Stripe, Linear, Notion — non
-copia, identità propria). Evitare dashboard affollate, card inutili, gradienti esagerati,
-troppe ombre, componenti da template, tabelle inutilmente complesse, colori casuali. **Ma**:
-niente passata di design prima che il prodotto funzioni davvero (vedi PIANO.md sull'ordine
-fasi — fondamenta poi schermate funzionanti poi grafica finale, Fase 7). Le scelte di
-*interazione* corrette (es. slot cliccabile invece di calcolato a mente) si costruiscono giuste
-da subito, quello che si rimanda è la rifinitura visiva, non la logica.
+Se pensi che esista una soluzione nettamente migliore, NON implementarla automaticamente.
 
-## Architettura e sicurezza
+## 5. Quando trovi un'alternativa migliore, fermati e chiedimela
 
-Supabase: schema, RLS, Auth, Storage, Realtime, Edge Functions — progettare per scalare.
-Isolamento multi-tenant reale (RLS + funzione `auth_tenant_id()`), mai solo filtro
-applicativo. Verificare seriamente: authentication/authorization, tenant isolation, permessi
-dei tool AI, protezione da prompt injection, validazione input, rate limiting, secrets mai
-esposti al client (`server-only` su tutto ciò che tocca service_role), webhook verificati.
-L'AI non deve poter eseguire operazioni pericolose senza controlli del backend.
+Questo è molto importante.
 
-## Self-service end-to-end — il vero obiettivo
+Se durante il lavoro trovi una decisione significativa in cui ritieni che:
 
-```
-landing -> registrazione -> scelta piano -> pagamento -> account creato in automatico ->
-onboarding -> servizi/operatori/orari -> AI attiva -> pagina pubblica -> attività operativa
-```
+Estetia → soluzione A
 
-Zero intervento manuale di Gabriel per attivare un cliente nuovo — non deve creare database,
-account, attività, pagine, calendario a mano, né modificare codice o attivare abbonamenti
-manualmente. "Finito" non è "la UI è bella" — è: un'attività nuova entra sul sito, si
-registra, sceglie un piano, paga, si configura, aggiunge servizi/professionisti/orari,
-pubblica la propria pagina, riceve una prenotazione gestita dall'AI, la vede nel calendario,
-il cliente finisce nel CRM, il reminder parte da solo, tutto gestibile da smartphone — senza
-intervento manuale.
+ma tu pensi che:
 
-## Refactoring
+soluzione B → sia migliore
 
-Non costruire sopra una base che si è scoperta debole solo per evitare di rifarla. Se serve
-riscrivere uno schema, un componente, un'API — farlo. Meglio una base solida che workaround
-accumulati.
+non decidere autonomamente se la differenza può avere un impatto importante sul prodotto.
+
+Fermati e presentami brevemente:
+
+**Soluzione di Estetia**
+
+Cosa fa e come funziona.
+
+**Tua proposta**
+
+Cosa cambieresti.
+
+**Perché**
+
+Vantaggi e svantaggi.
+
+**La mia raccomandazione**
+
+Quale sceglieresti tu e perché.
+
+Poi aspetta la mia decisione.
+
+Non serve chiedermi conferma per ogni piccolo dettaglio.
+
+Chiedimelo solo per decisioni realmente importanti, ad esempio:
+
+- architettura
+- database
+- UX di un workflow centrale
+- comportamento dell'AI
+- sistema di prenotazione
+- struttura dei piani
+- billing
+- onboarding
+- multi-tenancy
+- integrazioni
+- modifiche che richiedono una riscrittura importante
+- decisioni difficili da invertire
+
+Per dettagli piccoli e reversibili, procedi autonomamente.
+
+## 6. Priorità assoluta: workflow e funzionamento reale
+
+Non voglio che il progetto diventi semplicemente una bellissima UI.
+
+Ogni funzionalità deve avere un funzionamento reale dietro.
+
+Quando implementi una schermata, chiediti:
+
+"Cosa succede veramente quando l'utente usa questa funzione?"
+
+Esempio:
+
+Non basta avere un pulsante:
+
+"Prenota appuntamento"
+
+Deve realmente:
+
+→ verificare disponibilità
+→ applicare gli orari dell'attività
+→ considerare professionista e servizio
+→ evitare conflitti
+→ creare il record
+→ aggiornare calendario
+→ aggiornare CRM
+→ attivare eventuali automazioni
+→ programmare reminder.
+
+## 7. AI — voglio un sistema reale, non una demo
+
+Continua a sviluppare la parte conversational AI in modo serio.
+
+L'obiettivo è:
+
+**AI RECEPTIONIST / BOOKING AGENT**
+
+che possa realmente:
+
+- comprendere messaggi naturali
+- mantenere il contesto
+- identificare il cliente
+- comprendere il servizio
+- comprendere data e ora
+- verificare disponibilità
+- proporre alternative
+- creare appuntamenti
+- modificare appuntamenti
+- cancellare appuntamenti
+- gestire più servizi
+- gestire professionisti
+- rispondere alle FAQ
+- conoscere prezzi e durata
+- conoscere orari
+- gestire errori
+- gestire slot occupati
+- trasferire a un umano
+
+E soprattutto:
+
+**L'AI NON DEVE INVENTARE DATI.**
+
+La logica deve essere:
+
+MESSAGGIO
+→ AI
+→ intent/context
+→ tools
+→ backend
+→ database
+→ risultato
+→ AI
+→ risposta.
+
+La disponibilità deve essere sempre verificata dal sistema reale.
+
+## 8. Conversazioni persistenti
+
+L'AI deve mantenere il contesto.
+
+Esempio:
+
+Cliente: "Vorrei un appuntamento."
+
+AI: "Per quale servizio?"
+
+Cliente: "Taglio."
+
+AI: "Per quale giorno?"
+
+Cliente: "Venerdì."
+
+AI: "Che orario preferisci?"
+
+Cliente: "Il pomeriggio."
+
+L'AI deve ricordare tutto il contesto senza ricominciare da zero.
+
+Gestisci anche:
+
+- messaggi ambigui
+- correzioni
+- errori
+- richieste multiple
+- interruzioni
+- cliente nuovo
+- cliente esistente
+- conversazioni lunghe
+- passaggio a operatore umano
+- eventuali messaggi vocali
+- eventuali immagini quando utili
+
+## 9. Booking engine
+
+Implementa una vera booking engine.
+
+Deve gestire:
+
+- servizio
+- professionista
+- durata
+- disponibilità
+- orari
+- pause
+- ferie
+- chiusure
+- conflitti
+- buffer
+- slot
+- cancellazioni
+- modifiche
+- no-show
+- prenotazioni multiple
+- servizi consecutivi
+
+Soprattutto:
+
+**AI e calendario devono utilizzare la stessa booking engine.**
+
+Non voglio due sistemi separati.
+
+## 10. Casi complessi di prenotazione
+
+Testa e implementa:
+
+**Prenotazione semplice**
+
+Servizio → giorno → ora → conferma.
+
+**Professionista specifico**
+
+Servizio → professionista → disponibilità → ora.
+
+**Professionista non specificato**
+
+Il sistema sceglie automaticamente un professionista compatibile.
+
+**Slot occupato durante la conversazione**
+
+L'AI se ne accorge e propone alternative.
+
+**Modifica**
+
+Il cliente chiede di spostare l'appuntamento.
+
+**Cancellazione**
+
+Identificazione corretta della prenotazione e applicazione delle policy.
+
+**Più servizi**
+
+Il cliente richiede più servizi consecutivi.
+
+Il sistema deve calcolare correttamente durata complessiva e disponibilità.
+
+**Cliente nuovo**
+
+Creazione automatica del profilo.
+
+**Cliente esistente**
+
+Riconoscimento tramite telefono/account.
+
+## 11. Calendario
+
+Il calendario deve essere il centro operativo.
+
+Implementa:
+
+- giorno
+- settimana
+- mese
+- professionisti
+- drag & drop
+- modifica
+- creazione rapida
+- cancellazione
+- spostamento
+- filtri
+- colori/stati
+- conflitti
+- disponibilità
+
+Deve essere sincronizzato con tutto il sistema.
+
+Se l'AI crea un appuntamento:
+
+→ appare nel calendario.
+
+Se il titolare sposta un appuntamento:
+
+→ cambia la disponibilità.
+
+Se viene cancellato:
+
+→ lo slot torna disponibile.
+
+Deve esistere una single source of truth.
+
+## 12. CRM
+
+Il CRM deve essere realmente collegato a:
+
+- prenotazioni
+- AI
+- conversazioni
+- servizi
+- pagamenti
+- reminder
+- automazioni
+
+La scheda cliente deve diventare il punto centrale della relazione con il cliente.
+
+## 13. Automation engine
+
+Implementa un vero sistema di automazioni.
+
+Esempi:
+
+**24 ore prima** → reminder.
+
+**2 ore dopo** → follow-up.
+
+**30 giorni senza prenotazione** → messaggio.
+
+**Slot liberato** → possibile notifica ai clienti interessati.
+
+**No-show** → workflow dedicato.
+
+**Compleanno** → messaggio.
+
+**Cliente inattivo** → campagna.
+
+Le automazioni devono essere configurabili.
+
+## 14. WhatsApp
+
+Prepara l'architettura per WhatsApp Business/API.
+
+Flusso ideale:
+
+WhatsApp
+↓ Webhook
+↓ Conversation Engine
+↓ AI
+↓ Tools
+↓ Booking Engine
+↓ Database
+↓ WhatsApp Response
+
+Il cliente deve poter fare praticamente tutto tramite conversazione.
+
+## 15. Pagina pubblica
+
+Ogni attività deve poter avere automaticamente una pagina pubblica.
+
+Deve mostrare:
+
+- branding
+- logo
+- cover
+- foto
+- servizi
+- prezzi
+- durata
+- professionisti
+- disponibilità
+- recensioni
+- contatti
+- posizione
+
+e soprattutto:
+
+**PRENOTA**
+
+Il link deve essere facilmente condivisibile.
+
+## 16. Foto e galleria
+
+Voglio che questa parte sia superiore a Estetia.
+
+L'attività deve poter gestire:
+
+- logo
+- cover
+- galleria
+- lavori
+- prima/dopo
+- professionisti
+- servizi
+
+Upload semplice, gestione ordinata e visualizzazione premium nella pagina pubblica.
+
+## 17. Mobile
+
+La gestione da smartphone deve essere una funzionalità primaria.
+
+Non voglio semplicemente "responsive".
+
+Voglio una vera esperienza mobile.
+
+Il professionista deve poter essere fuori sede e:
+
+- vedere appuntamenti
+- modificare prenotazioni
+- vedere clienti
+- leggere conversazioni
+- vedere dashboard
+- gestire professionisti
+- controllare revenue
+- gestire impostazioni
+
+anche completamente da smartphone.
+
+Valuta seriamente una PWA:
+
+- installazione
+- icona
+- fullscreen
+- app-like experience
+- push notifications
+- offline handling dove sensato
+
+## 18. Dashboard
+
+La dashboard deve rispondere immediatamente:
+
+"COME STA ANDANDO LA MIA ATTIVITÀ?"
+
+Mostra:
+
+- appuntamenti oggi
+- revenue
+- nuovi clienti
+- clienti di ritorno
+- cancellazioni
+- no-show
+- occupazione
+- servizi
+- professionisti
+- slot vuoti
+
+Ma voglio anche insight intelligenti.
+
+Esempi:
+
+"Domani hai 4 slot ancora disponibili."
+
+"Il martedì ha un'occupazione inferiore del 22% rispetto alla media."
+
+"12 clienti non prenotano da oltre 60 giorni."
+
+E possibilmente:
+
+**AZIONE** → "Contatta questi clienti."
+
+## 19. Analytics
+
+Implementa:
+
+- revenue
+- appuntamenti
+- clienti
+- retention
+- churn
+- no-show
+- cancellazioni
+- servizi
+- professionisti
+- occupazione
+- valore medio
+- nuovi clienti
+- clienti di ritorno
+- canale di acquisizione
+
+## 20. Piani Free → Enterprise
+
+Analizza i piani di Estetia:
+
+- Free
+- Starter
+- Growth
+- Pro
+- Enterprise
+
+Studia:
+
+- cosa includono
+- cosa escludono
+- limiti
+- posizionamento
+- perché un cliente dovrebbe fare upgrade
+
+Poi progetta una struttura migliore.
+
+Non copiare semplicemente.
+
+Il Free deve essere abbastanza potente da far innamorare il cliente del prodotto.
+
+I piani premium devono avere un ROI evidente.
+
+Il sistema deve tecnicamente applicare i limiti.
+
+## 21. Admin panel
+
+Voglio anche un pannello amministrativo per me.
+
+Deve permettermi di vedere:
+
+- attività
+- utenti
+- piani
+- abbonamenti
+- utilizzo
+- AI usage
+- WhatsApp usage
+- metriche
+- problemi
+- account
+
+e intervenire quando necessario.
+
+Ma la piattaforma deve essere autonoma per la maggior parte delle operazioni.
+
+## 22. Workflow 02 → 03
+
+Dai particolare attenzione ai workflow 02 e 03 di Estetia.
+
+Analizzali in maniera estremamente dettagliata.
+
+Non voglio una copia.
+
+Voglio una versione migliore.
+
+Se devi cambiare:
+
+- layout
+- componenti
+- navigazione
+- database
+- flusso
+- interazioni
+
+fallo.
+
+L'obiettivo è ridurre:
+
+click + tempo + confusione
+
+e aumentare:
+
+automazione + chiarezza + velocità + valore percepito.
+
+Questo deve diventare uno dei punti di forza assoluti del prodotto.
+
+## 23. Trova le debolezze di Estetia
+
+Dopo aver studiato Estetia, individua:
+
+- funzioni mancanti
+- workflow migliorabili
+- UX migliorabile
+- problemi di usabilità
+- AI migliorabile
+- automazioni mancanti
+- analytics insufficienti
+- problemi mobile
+- funzioni nascoste
+- passaggi inutili
+
+Poi implementa le soluzioni quando hanno senso.
+
+Non voglio essere:
+
+"Estetia ma con un'altra grafica."
+
+Voglio essere:
+
+"Estetia evoluta."
+
+## 24. UI / UX
+
+Il prodotto deve sembrare un SaaS premium.
+
+Ispirazione qualitativa:
+
+- Apple
+- Stripe
+- Linear
+- Notion
+- modern SaaS
+
+Ma con identità propria.
+
+Evita:
+
+- dashboard affollate
+- card inutili
+- gradienti esagerati
+- troppe ombre
+- UI da template
+- tabelle inutilmente complesse
+- componenti enormi
+- colori casuali
+
+## 25. Architettura
+
+Se utilizziamo Supabase, analizza e migliora:
+
+- database
+- schema
+- relazioni
+- RLS
+- Auth
+- Storage
+- Realtime
+- Edge Functions
+- API
+- webhook
+- AI architecture
+- multi-tenancy
+
+Progetta tutto per scalare.
+
+## 26. Security
+
+Controlla seriamente:
+
+- RLS
+- authentication
+- authorization
+- tenant isolation
+- API
+- webhook
+- secrets
+- storage
+- AI tool permissions
+- prompt injection
+- input validation
+- rate limiting
+- access control
+
+L'AI non deve poter eseguire operazioni pericolose senza controlli.
+
+## 27. Test completo
+
+Non fare test superficiali.
+
+Crea scenari realistici.
+
+**Scenario 1** — Nuovo cliente → conversazione → AI → prenotazione → calendario → CRM →
+reminder.
+
+**Scenario 2** — Cliente esistente → modifica appuntamento → verifica disponibilità →
+aggiornamento.
+
+**Scenario 3** — Due clienti cercano contemporaneamente lo stesso slot.
+
+**Scenario 4** — Cliente chiede un servizio inesistente.
+
+**Scenario 5** — Professionista assente.
+
+**Scenario 6** — Attività chiusa.
+
+**Scenario 7** — Servizio incompatibile con professionista.
+
+**Scenario 8** — Slot occupato durante la conversazione.
+
+**Scenario 9** — Cliente richiede più servizi consecutivi.
+
+**Scenario 10** — Cliente cancella.
+
+**Scenario 11** — Cliente non si presenta.
+
+**Scenario 12** — Professionista crea manualmente una prenotazione.
+
+**Scenario 13** — Nuova attività si registra e completa onboarding.
+
+**Scenario 14** — Cliente effettua upgrade del piano.
+
+**Scenario 15** — Cliente cancella abbonamento.
+
+Testa anche moltissimi altri edge case.
+
+## 28. Self-service SaaS
+
+Continua verso un sistema completamente self-service.
+
+Il flusso finale deve essere:
+
+LANDING
+↓ REGISTRAZIONE
+↓ SCELTA PIANO
+↓ PAGAMENTO
+↓ CREAZIONE AUTOMATICA ACCOUNT
+↓ ONBOARDING
+↓ CONFIGURAZIONE ATTIVITÀ
+↓ SERVIZI + PROFESSIONISTI + ORARI
+↓ AI
+↓ PAGINA PUBBLICA
+↓ ATTIVITÀ OPERATIVA
+
+Io devo avere il minimo intervento possibile.
+
+## 29. Zero configurazione manuale da parte mia
+
+Questo è un requisito fondamentale.
+
+Immagina:
+
+Un nuovo professionista entra sul nostro sito alle 14:00.
+
+Alle 14:15 deve poter avere:
+
+- account
+- abbonamento
+- attività
+- servizi
+- professionisti
+- orari
+- pagina pubblica
+- calendario
+- CRM
+- AI
+- sistema prenotazioni
+
+operativi.
+
+Io non devo:
+
+- creare database manualmente
+- creare account
+- configurare attività
+- attivare AI
+- creare pagine
+- configurare calendario
+- modificare codice
+- attivare manualmente l'abbonamento
+
+Deve essere tutto automatizzato.
+
+## 30. Non avere paura del refactor
+
+Se scopri che una parte implementata precedentemente non è abbastanza solida:
+
+non costruire sopra una base sbagliata solo per evitare di rifarla.
+
+Se serve:
+
+- refactoring
+- riscrittura
+- migrazione
+- nuovo componente
+- nuovo schema
+- nuova API
+- nuova architettura
+
+fallo.
+
+Preferisco avere una base solida piuttosto che accumulare workaround.
+
+## 31. Quando devi chiedermi
+
+Voglio un equilibrio tra autonomia e collaborazione.
+
+NON chiedermi per:
+
+- piccoli bug
+- piccoli miglioramenti UI
+- refactoring locali
+- naming
+- piccoli dettagli
+- errori facilmente risolvibili
+- implementazioni ovvie
+
+CHIEDIMI prima per:
+
+- cambiamenti architetturali importanti
+- decisioni irreversibili
+- modifiche sostanziali al database
+- cambiamenti importanti al workflow
+- decisioni che influenzano il business model
+- comportamento centrale dell'AI
+- scelte tra due approcci molto diversi
+- integrazioni esterne importanti
+- qualsiasi cosa per cui ritieni che una soluzione alternativa possa essere significativamente
+  migliore
+
+Quando mi chiedi qualcosa, non limitarti a:
+
+"Posso fare A o B?"
+
+Dammi invece:
+
+**A** — vantaggi / svantaggi
+
+**B** — vantaggi / svantaggi
+
+**La mia raccomandazione** — X
+
+e decidiamo insieme.
+
+## 32. Non voglio una roadmap teorica
+
+Non voglio che il risultato finale sia:
+
+"Potremmo implementare X, Y e Z."
+
+Se una cosa è necessaria:
+
+**IMPLEMENTALA.**
+
+Puoi:
+
+- modificare componenti
+- eliminare componenti
+- riscrivere pagine
+- creare nuove pagine
+- modificare database
+- creare tabelle
+- creare API
+- creare funzioni
+- modificare UX
+- cambiare workflow
+- cambiare architettura
+- aggiungere funzionalità
+
+Hai libertà di modificare radicalmente il progetto.
+
+## 33. Definizione di "finito"
+
+Il lavoro NON è finito quando:
+
+"La UI sembra bella."
+
+Il lavoro è finito quando un'attività completamente nuova può:
+
+entrare nel sito
+↓ registrarsi
+↓ scegliere un piano
+↓ pagare
+↓ configurarsi
+↓ aggiungere servizi/professionisti/orari
+↓ pubblicare automaticamente la propria pagina
+↓ ricevere una prenotazione
+↓ farla gestire dall'AI
+↓ vederla nel calendario
+↓ avere il cliente nel CRM
+↓ inviare automaticamente il reminder
+↓ gestire tutto da smartphone
+
+senza che io debba intervenire manualmente.
+
+Questo è il vero obiettivo.
 
 ## Regola definitiva
 
-Lavorare come parte del team fondatore, non solo eseguire istruzioni. Se Estetia fa qualcosa
-bene, capirlo e implementarlo. Se lo fa male, proporre di meglio. Se manca qualcosa,
-individuarlo e risolverlo. Se emerge un'alternativa significativamente migliore a una
-decisione già presa: fermarsi, spiegarla nel formato sopra, decidere insieme. Per tutto il
-resto: non aspettare, lavorare in autonomia e portare avanti il progetto.
+Voglio che tu lavori come se fossi parte del team fondatore.
+
+Non limitarti a eseguire istruzioni.
+
+Pensa al prodotto.
+
+Se Estetia fa qualcosa bene:
+
+→ capiscilo e implementalo.
+
+Se Estetia fa qualcosa male:
+
+→ proponi qualcosa di migliore.
+
+Se manca qualcosa:
+
+→ individua il problema e proponi una soluzione.
+
+Se la soluzione che hai in mente è significativamente migliore di quella che stavamo
+progettando:
+
+→ FERMATI, SPIEGAMELA E DECIDIAMO INSIEME.
+
+Per tutto il resto:
+
+non aspettare me. Lavora autonomamente e porta avanti il progetto.
+
+Continua quindi dal punto esatto in cui sei arrivato e sfrutta al massimo Cowork e tutti gli
+strumenti disponibili.
+
+L'obiettivo non è creare una copia di Estetia.
+
+L'obiettivo è creare un prodotto che possa essere messo accanto a Estetia e far pensare:
+
+**"Questo è chiaramente migliore."**
+
+---
+
+*Riferimenti*: `PIANO.md` (piano a fasi con criteri di "fatta"), `PROJECT_STATUS.md` (stato
+reale del progetto, aggiornato ad ogni cambiamento), `DECISIONS.md` (registro delle decisioni
+prese), `docs/analisi-estetia.md` (analisi del benchmark).
