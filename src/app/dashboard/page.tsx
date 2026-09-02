@@ -41,6 +41,17 @@ export default async function PaginaDashboard() {
         </form>
       </div>
 
+      {tenant && (
+        <div className="mt-4 flex gap-3 text-sm">
+          <a href="/dashboard/calendario" className="rounded border border-zinc-300 px-3 py-1.5">
+            Calendario
+          </a>
+          <a href="/dashboard/configura" className="rounded border border-zinc-300 px-3 py-1.5">
+            Configura il salone
+          </a>
+        </div>
+      )}
+
       {!tenant ? (
         <p className="mt-4 text-sm text-red-600">
           Nessun salone trovato per questo utente -- il provisioning automatico non è andato a
