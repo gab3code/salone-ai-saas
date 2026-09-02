@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { trovaSlotDisponibiliTenant } from "@/lib/booking-engine.server";
-import { cancellaAppuntamento } from "./azioni";
+import { cancellaAppuntamento, modificaAppuntamento } from "./azioni";
 import { PannelloNuovoAppuntamento } from "./pannello-nuovo-appuntamento";
 
 function oggiYMD(): string {
@@ -26,7 +26,12 @@ function giornoAdiacente(dataYMD: string, delta: number): string {
 export default async function PaginaCalendario({
   searchParams,
 }: {
-  searchParams: Promise<{ data?: string; servizio_id?: string; operatore_id?: string }>;
+  searchParams: Promise<{
+    data?: string;
+    servizio_id?: string;
+    operatore_id?: string;
+    modifica?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const supabase = await creaClientServer();
@@ -36,6 +41,7 @@ export default async function PaginaCalendario({
   const dataYMD = sp.data && /^\d{4}-\d{2}-\d{2}$/.test(sp.data) ? sp.data : oggiYMD();
   const servizioId = sp.servizio_id ?? "";
   const operatoreId = sp.operatore_id ?? "";
+  const modificaId = sp.modifica ?? "";
 
   const [operatoriRes, serviziRes, appuntamentiRes] = await Promise.all([
     supabase.from("operatori").select("id, nome").eq("tenant_id", tenantId).eq("attivo", true).order("nome"),
@@ -111,33 +117,91 @@ export default async function PaginaCalendario({
               const operatoreNome = Array.isArray(a.operatori) ? a.operatori[0]?.nome : (a.operatori as { nome: string } | null)?.nome;
               const servizioNome = Array.isArray(a.servizi) ? a.servizi[0]?.nome : (a.servizi as { nome: string } | null)?.nome;
               const cliente = Array.isArray(a.clienti) ? a.clienti[0] : (a.clienti as { nome: string | null; telefono: string } | null);
+              const inModifica = modificaId === a.id;
+              const parametriSenzaModifica = new URLSearchParams({ data: dataYMD });
+              if (servizioId) parametriSenzaModifica.set("servizio_id", servizioId);
+              if (operatoreId) parametriSenzaModifica.set("operatore_id", operatoreId);
+
               return (
-                <li
-                  key={a.id}
-                  className="flex items-center justify-between gap-3 rounded border border-zinc-200 p-3"
-                >
-                  <span>
-                    <strong>{new Date(a.inizio).toISOString().slice(11, 16)}</strong>
-                    {" – "}
-                    {new Date(a.fine).toISOString().slice(11, 16)} · {servizioNome ?? "servizio"} ·{" "}
-                    {operatoreNome ?? "operatore"}
-                    {cliente && (
-                      <>
-                        {" · "}
-                        {cliente.nome || cliente.telefono}
-                      </>
-                    )}
-                  </span>
-                  <form
-                    action={async () => {
-                      "use server";
-                      await cancellaAppuntamento(a.id);
-                    }}
-                  >
-                    <button type="submit" className="text-xs text-red-600 underline">
-                      Cancella
-                    </button>
-                  </form>
+                <li key={a.id} className="rounded border border-zinc-200 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>
+                      <strong>{new Date(a.inizio).toISOString().slice(11, 16)}</strong>
+                      {" – "}
+                      {new Date(a.fine).toISOString().slice(11, 16)} · {servizioNome ?? "servizio"} ·{" "}
+                      {operatoreNome ?? "operatore"}
+                      {cliente && (
+                        <>
+                          {" · "}
+                          {cliente.nome || cliente.telefono}
+                        </>
+                      )}
+                    </span>
+                    <div className="flex gap-3 text-xs">
+                      <a
+                        href={`/dashboard/calendario?${parametriSenzaModifica.toString()}&modifica=${a.id}`}
+                        className="underline"
+                      >
+                        {inModifica ? "Modifica in corso" : "Modifica"}
+                      </a>
+                      <form
+                        action={async () => {
+                          "use server";
+                          await cancellaAppuntamento(a.id);
+                        }}
+                      >
+                        <button type="submit" className="text-red-600 underline">
+                          Cancella
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+
+                  {inModifica && (
+                    <form
+                      action={async (formData: FormData) => {
+                        "use server";
+                        await modificaAppuntamento(a.id, formData);
+                      }}
+                      className="mt-3 flex flex-wrap items-end gap-2 border-t border-zinc-200 pt-3"
+                    >
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-zinc-500">Nuovo operatore</label>
+                        <select
+                          name="operatore_id"
+                          defaultValue={a.operatore_id ?? ""}
+                          className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                        >
+                          {operatori.map((o) => (
+                            <option key={o.id} value={o.id}>
+                              {o.nome}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-zinc-500">Nuovo orario</label>
+                        <input
+                          type="datetime-local"
+                          name="inizio"
+                          defaultValue={new Date(a.inizio).toISOString().slice(0, 16)}
+                          className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="rounded bg-black px-3 py-1.5 text-xs font-medium text-white"
+                      >
+                        Salva spostamento
+                      </button>
+                      <a
+                        href={`/dashboard/calendario?${parametriSenzaModifica.toString()}`}
+                        className="text-xs underline"
+                      >
+                        Annulla
+                      </a>
+                    </form>
+                  )}
                 </li>
               );
             })}

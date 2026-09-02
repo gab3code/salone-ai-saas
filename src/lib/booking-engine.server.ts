@@ -220,17 +220,29 @@ export async function verificaConflittoTenant(
   tenantId: string,
   params: VerificaConflittoParams
 ): Promise<boolean> {
-  const contesto = await caricaContestoBooking(supabase, tenantId, params.inizio, params.fine);
-  const appuntamentiRilevanti = params.ignoraAppuntamentoId
-    ? contesto.appuntamenti // l'id non è tra i campi caricati qui di proposito (select minimale) -- vedi nota sotto
-    : contesto.appuntamenti;
+  // Query dedicata (non caricaContestoBooking) perché qui serve anche la
+  // colonna "id" -- per escludere l'appuntamento stesso quando si sta
+  // modificando un orario già esistente, altrimenti risulterebbe sempre in
+  // conflitto con se stesso.
+  const { data, error } = await supabase
+    .from("appuntamenti")
+    .select("id, operatore_id, inizio, fine, stato")
+    .eq("tenant_id", tenantId)
+    .eq("operatore_id", params.operatoreId)
+    .eq("stato", "confermato")
+    .gte("inizio", inizioGiornoUTC(params.inizio).toISOString())
+    .lte("inizio", fineGiornoUTC(params.fine).toISOString());
 
-  // NOTA: caricaContestoBooking non seleziona la colonna "id" degli
-  // appuntamenti (non serve al motore puro) -- per l'ignoraAppuntamentoId
-  // sulle modifiche serve quindi una query dedicata più avanti (Fase 1,
-  // quando costruiremo "modifica appuntamento"); la creazione non ne ha
-  // bisogno e resta corretta così com'è.
-  void params.ignoraAppuntamentoId;
+  if (error) throw new Error(`Errore verificando conflitti: ${error.message}`);
+
+  const appuntamentiRilevanti: AppuntamentoEsistente[] = (data ?? [])
+    .filter((r) => r.id !== params.ignoraAppuntamentoId)
+    .map((r) => ({
+      operatoreId: r.operatore_id as string,
+      inizio: new Date(r.inizio),
+      fine: new Date(r.fine),
+      stato: r.stato,
+    }));
 
   return verificaConflitto(
     params.inizio,

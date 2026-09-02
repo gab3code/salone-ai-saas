@@ -111,3 +111,75 @@ export async function cancellaAppuntamento(id: string) {
   revalidatePath("/dashboard/calendario");
   return { ok: true };
 }
+
+/**
+ * Sposta un appuntamento esistente su un nuovo orario/operatore -- stesso
+ * controllo anti-conflitto della creazione, ma escludendo l'appuntamento
+ * stesso dal calcolo (altrimenti risulterebbe sempre in conflitto con la
+ * propria vecchia posizione).
+ */
+export async function modificaAppuntamento(id: string, formData: FormData) {
+  const supabase = await creaClientServer();
+  const tenantId = await ottieniTenantCorrente(supabase);
+  if (!tenantId) return { errore: "Nessun salone associato a questo utente." };
+
+  const operatoreId = String(formData.get("operatore_id") || "");
+  const inizioStrGrezzo = String(formData.get("inizio") || "");
+  if (!operatoreId || !inizioStrGrezzo) return { errore: "Scegli operatore e orario." };
+
+  // <input type="datetime-local"> restituisce "YYYY-MM-DDTHH:MM" senza fuso --
+  // trattato come UTC per coerenza con la semplificazione sul fuso orario
+  // usata in tutto il resto del booking engine (vedi nota in
+  // booking-engine.server.ts), altrimenti verrebbe interpretato nel fuso
+  // orario del server invece che come "l'ora scritta" dal titolare.
+  const inizioStr = /Z|[+-]\d{2}:\d{2}$/.test(inizioStrGrezzo)
+    ? inizioStrGrezzo
+    : `${inizioStrGrezzo}:00Z`;
+
+  const inizio = new Date(inizioStr);
+  if (Number.isNaN(inizio.getTime())) return { errore: "Orario non valido." };
+
+  const { data: appuntamentoAttuale } = await supabase
+    .from("appuntamenti")
+    .select("servizio_id")
+    .eq("id", id)
+    .eq("tenant_id", tenantId)
+    .single();
+  if (!appuntamentoAttuale) return { errore: "Appuntamento non trovato." };
+
+  const { data: servizio } = await supabase
+    .from("servizi")
+    .select("durata_minuti")
+    .eq("id", appuntamentoAttuale.servizio_id)
+    .single();
+  if (!servizio) return { errore: "Servizio dell'appuntamento non trovato." };
+
+  const fine = new Date(inizio.getTime() + servizio.durata_minuti * 60_000);
+
+  const conflitto = await verificaConflittoTenant(supabase, tenantId, {
+    inizio,
+    fine,
+    operatoreId,
+    ignoraAppuntamentoId: id,
+  });
+  if (conflitto) {
+    return { errore: "Questo operatore ha già un appuntamento in quell'orario. Scegli un altro slot." };
+  }
+
+  const { error } = await supabase
+    .from("appuntamenti")
+    .update({ operatore_id: operatoreId, inizio: inizio.toISOString(), fine: fine.toISOString() })
+    .eq("id", id);
+
+  if (error) {
+    if (error.code === "23P01") {
+      return {
+        errore: "Questo slot è appena stato occupato da un altro appuntamento. Scegli un altro orario.",
+      };
+    }
+    return { errore: `Errore spostando l'appuntamento: ${error.message}` };
+  }
+
+  revalidatePath("/dashboard/calendario");
+  return { ok: true };
+}
