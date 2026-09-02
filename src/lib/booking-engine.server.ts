@@ -252,3 +252,209 @@ export async function verificaConflittoTenant(
     params.bufferMinuti
   );
 }
+
+// ---------------------------------------------------------------------
+// Scrittura appuntamenti -- condivisa tra dashboard (client autenticato,
+// scope RLS) e tool AI (client admin/service_role, nessun utente Supabase
+// dietro un visitatore anonimo). Stessa unica fonte di verità per entrambi
+// (CLAUDE.md punto 9: "AI e calendario devono utilizzare la stessa booking
+// engine, non voglio due sistemi separati") -- prima vivevano duplicate
+// dentro le server action della dashboard, ora vivono solo qui.
+// ---------------------------------------------------------------------
+
+export type RisultatoScrittura<T extends object = object> =
+  | ({ ok: true } & T)
+  | { ok: false; errore: string };
+
+/** Trova un cliente per telefono o lo crea -- stesso cliente non duplicato tra canali. */
+async function trovaOCreaCliente(
+  supabase: SupabaseClient,
+  tenantId: string,
+  nome: string | null,
+  telefono: string,
+  creatoDaAi: boolean
+): Promise<{ id: string } | { errore: string }> {
+  const { data: esistente } = await supabase
+    .from("clienti")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("telefono", telefono)
+    .maybeSingle();
+
+  if (esistente) return { id: esistente.id };
+
+  const { data: nuovo, error } = await supabase
+    .from("clienti")
+    .insert({ tenant_id: tenantId, nome: nome || null, telefono, creato_da_ai: creatoDaAi })
+    .select("id")
+    .single();
+  if (error) return { errore: `Errore creando il cliente: ${error.message}` };
+  return { id: nuovo.id };
+}
+
+export interface CreaAppuntamentoParams {
+  operatoreId: string;
+  servizioId: string;
+  inizio: Date;
+  clienteNome?: string;
+  clienteTelefono?: string;
+  creatoDa: "manuale" | "ai";
+  note?: string;
+}
+
+/**
+ * Crea un appuntamento con la doppia difesa anti-conflitto: controllo
+ * applicativo qui (messaggio chiaro), vincolo `niente_sovrapposizioni` a
+ * livello Postgres come rete di sicurezza finale contro le race condition.
+ */
+export async function creaAppuntamentoTenant(
+  supabase: SupabaseClient,
+  tenantId: string,
+  params: CreaAppuntamentoParams
+): Promise<RisultatoScrittura<{ appuntamentoId: string }>> {
+  const { data: servizio } = await supabase
+    .from("servizi")
+    .select("durata_minuti")
+    .eq("id", params.servizioId)
+    .eq("tenant_id", tenantId)
+    .single();
+  if (!servizio) return { ok: false, errore: "Servizio non trovato." };
+
+  const fine = new Date(params.inizio.getTime() + servizio.durata_minuti * 60_000);
+
+  const conflitto = await verificaConflittoTenant(supabase, tenantId, {
+    inizio: params.inizio,
+    fine,
+    operatoreId: params.operatoreId,
+  });
+  if (conflitto) {
+    return {
+      ok: false,
+      errore: "Questo operatore ha già un appuntamento in quell'orario. Scegli un altro slot.",
+    };
+  }
+
+  let clienteId: string | null = null;
+  if (params.clienteTelefono) {
+    const risultato = await trovaOCreaCliente(
+      supabase,
+      tenantId,
+      params.clienteNome ?? null,
+      params.clienteTelefono,
+      params.creatoDa === "ai"
+    );
+    if ("errore" in risultato) return { ok: false, errore: risultato.errore };
+    clienteId = risultato.id;
+  }
+
+  const { data: appuntamento, error } = await supabase
+    .from("appuntamenti")
+    .insert({
+      tenant_id: tenantId,
+      operatore_id: params.operatoreId,
+      servizio_id: params.servizioId,
+      cliente_id: clienteId,
+      inizio: params.inizio.toISOString(),
+      fine: fine.toISOString(),
+      stato: "confermato",
+      creato_da: params.creatoDa,
+      note: params.note ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    // 23P01 = exclusion_violation: il vincolo "niente_sovrapposizioni" ha
+    // bloccato una race condition sfuggita al controllo applicativo sopra.
+    if (error.code === "23P01") {
+      return {
+        ok: false,
+        errore: "Questo slot è appena stato occupato da un altro appuntamento. Scegli un altro orario.",
+      };
+    }
+    return { ok: false, errore: `Errore salvando l'appuntamento: ${error.message}` };
+  }
+
+  return { ok: true, appuntamentoId: appuntamento.id };
+}
+
+export interface ModificaAppuntamentoParams {
+  operatoreId: string;
+  inizio: Date;
+}
+
+export async function modificaAppuntamentoTenant(
+  supabase: SupabaseClient,
+  tenantId: string,
+  appuntamentoId: string,
+  params: ModificaAppuntamentoParams
+): Promise<RisultatoScrittura> {
+  const { data: appuntamentoAttuale } = await supabase
+    .from("appuntamenti")
+    .select("servizio_id")
+    .eq("id", appuntamentoId)
+    .eq("tenant_id", tenantId)
+    .single();
+  if (!appuntamentoAttuale) return { ok: false, errore: "Appuntamento non trovato." };
+
+  const { data: servizio } = await supabase
+    .from("servizi")
+    .select("durata_minuti")
+    .eq("id", appuntamentoAttuale.servizio_id)
+    .single();
+  if (!servizio) return { ok: false, errore: "Servizio dell'appuntamento non trovato." };
+
+  const fine = new Date(params.inizio.getTime() + servizio.durata_minuti * 60_000);
+
+  const conflitto = await verificaConflittoTenant(supabase, tenantId, {
+    inizio: params.inizio,
+    fine,
+    operatoreId: params.operatoreId,
+    ignoraAppuntamentoId: appuntamentoId,
+  });
+  if (conflitto) {
+    return {
+      ok: false,
+      errore: "Questo operatore ha già un appuntamento in quell'orario. Scegli un altro slot.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("appuntamenti")
+    .update({ operatore_id: params.operatoreId, inizio: params.inizio.toISOString(), fine: fine.toISOString() })
+    .eq("id", appuntamentoId)
+    .eq("tenant_id", tenantId);
+
+  if (error) {
+    if (error.code === "23P01") {
+      return {
+        ok: false,
+        errore: "Questo slot è appena stato occupato da un altro appuntamento. Scegli un altro orario.",
+      };
+    }
+    return { ok: false, errore: `Errore spostando l'appuntamento: ${error.message}` };
+  }
+
+  return { ok: true };
+}
+
+export async function cancellaAppuntamentoTenant(
+  supabase: SupabaseClient,
+  tenantId: string,
+  appuntamentoId: string
+): Promise<RisultatoScrittura> {
+  // .select("id") dopo .update() fa tornare le righe modificate -- se
+  // l'array è vuoto, l'id non esisteva (o non era di questo tenant): più
+  // affidabile di un conteggio HEAD, che qui su questa versione di
+  // postgrest-js è disponibile solo sul .select() iniziale, non dopo update.
+  const { data, error } = await supabase
+    .from("appuntamenti")
+    .update({ stato: "cancellato" })
+    .eq("id", appuntamentoId)
+    .eq("tenant_id", tenantId)
+    .select("id");
+
+  if (error) return { ok: false, errore: `Errore cancellando l'appuntamento: ${error.message}` };
+  if (!data || data.length === 0) return { ok: false, errore: "Appuntamento non trovato." };
+  return { ok: true };
+}

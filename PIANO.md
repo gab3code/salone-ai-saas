@@ -99,6 +99,14 @@ approvazione esterna, funziona dal minuto zero) + Telegram opzionale. WhatsApp r
 disponibile come canale "connetti il tuo numero" quando l'Embedded Signup Meta è pronto --
 vedi `docs/verifica-stack-automazione.md` per il perché di questa scelta (l'unico punto del
 funnel self-service che dipende da un'approvazione esterna a Meta, non dallo stack).
+- [x] Precondizione -- refactor "single source of truth" per la scrittura: `creaAppuntamentoTenant`
+      / `modificaAppuntamentoTenant` / `cancellaAppuntamentoTenant` estratte in
+      `booking-engine.server.ts` (client-agnostiche: prendono `supabase` come parametro, così
+      la dashboard usa il client con scope RLS e i futuri tool AI useranno il client admin/
+      service_role) -- `dashboard/calendario/azioni.ts` ora è un wrapper sottile. **Verificato
+      dal vivo il 02/09/2026**: ciclo completo creazione (slot sparisce)/spostamento (esclude
+      se stesso dal conflitto)/cancellazione (slot torna libero) rifatto dopo il refactor,
+      stesso comportamento di prima. `npm run build` e `npx vitest run` (16/16) puliti.
 - [ ] Architettura tool-calling: AI interpreta, il backend decide (pattern già validato nel
       progetto precedente con `cervello.py` -- lo riprendiamo, non lo reinventiamo)
 - [ ] Contesto di conversazione persistente in `conversazioni.slot_in_costruzione`

@@ -134,3 +134,19 @@ resta il piano a fasi.
 **Motivazione**: richiesta esplicita di Gabriel per lavorare in modo autonomo senza dover
 essere reindirizzato passo-passo, e per non perdere contesto tra sessioni (il sandbox cloud è
 effimero — vedi rischio aperto in PROJECT_STATUS.md sul remote Git mancante).
+
+## 2026-09-02 — Refactor: scrittura appuntamenti spostata in booking-engine.server.ts
+
+**Decisione**: `creaAppuntamentoTenant`/`modificaAppuntamentoTenant`/`cancellaAppuntamentoTenant`
+vivono ora solo in `booking-engine.server.ts`, prendono `supabase: SupabaseClient` come primo
+parametro. `dashboard/calendario/azioni.ts` non contiene più logica di scrittura propria, solo
+parsing del form e chiamata.
+
+**Motivazione**: i futuri tool AI (Fase 2, client admin/service_role) devono creare/modificare/
+cancellare appuntamenti esattamente come fa la dashboard oggi (client con scope RLS) — CLAUDE.md
+punto 9 vieta esplicitamente due sistemi separati. Prima di scrivere il primo tool AI si è
+estratta la logica già esistente per evitare di duplicarla una seconda volta.
+
+**Verifica**: `npm run build` e `npx vitest run` (16/16) puliti; ciclo completo
+creazione/spostamento/cancellazione ripetuto dal vivo nel browser dopo il refactor, stesso
+comportamento di prima.

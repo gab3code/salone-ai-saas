@@ -1,6 +1,6 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 02/09/2026. Aggiornare questo file ogni volta che cambia lo stato reale
+Ultimo aggiornamento: 02/09/2026 (refactor scrittura appuntamenti). Aggiornare questo file ogni volta che cambia lo stato reale
 di qualcosa (una funzionalità passa da mock a vera, un problema si apre/chiude, una fase
 si chiude) — non lasciarlo invecchiare. Vedi `CLAUDE.md` per le regole di lavoro,
 `DECISIONS.md` per il perché delle scelte architetturali, `PIANO.md` per il piano a fasi.
@@ -51,6 +51,13 @@ vedi "Problemi aperti").
   concorrenza a due richieste simultanee su questo progetto (era testato con successo sul
   progetto precedente, `test_concorrenza_prenotazione.py`; qui il test equivalente non è
   stato ancora scritto/eseguito).
+- **Scrittura appuntamenti unificata (single source of truth, 02/09/2026)**:
+  `creaAppuntamentoTenant`/`modificaAppuntamentoTenant`/`cancellaAppuntamentoTenant` in
+  `booking-engine.server.ts` sono ora l'unico punto che scrive create/modifica/cancella —
+  prendono un client Supabase come parametro, quindi la dashboard (client RLS) e i futuri tool
+  AI (client admin) chiameranno esattamente lo stesso codice, mai due implementazioni separate
+  (CLAUDE.md punto 9). `dashboard/calendario/azioni.ts` è ora solo parsing form + chiamata.
+  Verificato dal vivo l'intero ciclo (creazione/spostamento/cancellazione) dopo il refactor.
 
 ## Cosa è mock, incompleto o non ancora iniziato
 
