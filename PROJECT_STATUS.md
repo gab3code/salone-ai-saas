@@ -2,8 +2,9 @@
 
 Ultimo aggiornamento: 11/09/2026 (fuso orario reale del tenant risolto e verificato dal vivo;
 Apple/iCloud CalDAV probabilmente inutilizzabile da Vercel per un blocco lato Apple sugli IP di
-data center -- vedi problema noto #14 -- Google Calendar resta il canale affidabile). Aggiornare
-questo file ogni volta che cambia lo stato
+data center -- vedi problema noto #14 -- Google Calendar resta il canale affidabile; Fase 4,
+pagina pubblica del salone, codice scritto e testato ma non ancora verificato dal vivo -- vedi
+sotto). Aggiornare questo file ogni volta che cambia lo stato
 reale di qualcosa (una funzionalità passa da mock a vera, un problema si apre/chiude, una fase
 si chiude) — non lasciarlo invecchiare. Vedi `CLAUDE.md` per le regole di lavoro, `DECISIONS.md`
 per il perché delle scelte architetturali, `PIANO.md` per il piano a fasi.
@@ -26,8 +27,11 @@ CalDAV è tecnicamente corretto (client verificato via test comparativo diretto 
 probabilmente inutilizzabile in produzione perché Apple sembra bloccare il traffico CalDAV che
 arriva da IP di data center/cloud come quelli di Vercel** (problema noto #14, non risolvibile
 lato nostro senza un proxy con IP non-datacenter). La direzione export (mostrare gli appuntamenti
-del salone sul calendario personale) non ancora scritta per nessuno dei due. Tutto il resto
-(pagina pubblica, automazioni, PWA) non ancora iniziato.
+del salone sul calendario personale) non ancora scritta per nessuno dei due. Fase 4 (pagina
+pubblica per-attività, punto 15): **codice scritto e testato l'11/09/2026** (`/s/[slug]`,
+prenotazione self-service, widget chat AI) ma **non ancora verificato dal vivo in un browser
+reale** -- da fare dopo il deploy (vedi sopra il perché). Tutto il resto (automazioni, PWA,
+Stripe/checkout) non ancora iniziato.
 
 ## Stack reale (verificato in `package.json`)
 
@@ -121,8 +125,18 @@ l'11/09/2026 via MCP diretto).
   invece la chat web (nessuna approvazione esterna richiesta) — non ancora costruito.
 - **Analytics avanzate**: retention/no-show/canale di acquisizione -- non ancora iniziate (il
   no-show in particolare non ha ancora nessun flusso che lo marchi davvero, vedi sotto).
-- **Pagina pubblica per-attività**: zero codice. `tenants.slug` esiste nello schema ma non è
-  servito da nessuna route pubblica.
+- **Pagina pubblica per-attività (Fase 4, punto 15)**: CODICE SCRITTO 11/09/2026 -- route
+  `/s/[slug]` (Server Component, `src/lib/pagina-pubblica.server.ts` per il loader), flusso di
+  prenotazione cliente self-service (`FlussoPrenotazione.tsx`: servizio -> data -> slot ->
+  contatto -> conferma, server action in `azioni.ts` che riusa `creaAppuntamentoTenant` con
+  `creatoDa: "pubblico"`) e widget chat AI flottante (`ChatWidgetPubblico.tsx`, mostrato solo se
+  il piano include la chat AI web). Verificato: suite di test (98/98, incluso il loader con
+  mutation test), `tsc --noEmit`, `eslint`, `next build` tutti puliti. **NON ancora verificato
+  dal vivo in un browser reale con un salone di test**: il sandbox cloud dove gira Claude non ha
+  accesso di rete al progetto Supabase reale (stesso limite già noto per altri strumenti), quindi
+  la verifica end-to-end (aprire `/s/<slug>` di un salone vero, cercare slot, prenotare, parlare
+  con la chat) va fatta da Gabriel dopo il deploy -- vedi "Problemi noti aperti" #15 per un altro
+  limite onestamente segnalato (nessun anti-abuso oltre al tetto mensile Free).
 - **Sincronizzazione calendari, direzione export (Fase 6bis)**: mostrare gli appuntamenti del
   salone sul calendario personale dell'operatore non è ancora scritto per nessuno dei due
   provider -- la tabella `eventi_calendario_esterni` esiste già in previsione di questo (vedi
@@ -264,6 +278,16 @@ l'11/09/2026 via MCP diretto).
     come "supportato solo se il salone gestisce la connessione da un ambiente non-cloud" o
     non supportato, a seconda di cosa deciderà Gabriel.
 
+15. **Prenotazione pubblica (`/s/[slug]`) senza anti-abuso dedicato**: a differenza di
+    `/api/chat/[slug]` (anti-burst + quota mensile, perché ogni messaggio ha un costo Anthropic
+    reale), le server action pubbliche di prenotazione (`src/app/s/[slug]/azioni.ts`) non hanno
+    nessuna difesa specifica oltre al tetto mensile già esistente del piano Free -- una
+    prenotazione costa quasi zero da salvare, ma uno script potrebbe comunque riempire il
+    calendario di un salone con prenotazioni finte (righe `clienti`/`appuntamenti` spazzatura).
+    Accettabile per ora (nessun salone reale ancora pubblico), ma da rivedere prima che un
+    salone vero pubblichi il link -- possibili opzioni: conferma via SMS/WhatsApp del numero
+    prima di bloccare lo slot, un semplice rate-limit per IP, o un CAPTCHA invisibile.
+
 ## Mappa dei file principali
 
 - `src/lib/booking-engine.ts` — motore di disponibilità puro (nessuna query DB), 16 test.
@@ -296,9 +320,17 @@ l'11/09/2026 via MCP diretto).
 - `docs/verifica-stack-automazione.md`, `docs/verifica-fattibilita-33-punti.md` — verifica
   che lo stack supporti il funnel self-service richiesto.
 - `docs/embedded-signup-whatsapp.md` — guida tecnica Embedded Signup Meta.
+- `src/lib/pagina-pubblica.server.ts` — loader del profilo pubblico di un salone (tenant +
+  servizi/operatori attivi) per slug, client admin, solo colonne pensate per essere pubbliche.
+- `src/app/s/[slug]/` — pagina pubblica del salone (Fase 4): `page.tsx` (Server Component),
+  `azioni.ts` (server action pubbliche `cercaSlotPubblici`/`prenotaPubblico`),
+  `FlussoPrenotazione.tsx` (stepper client di prenotazione), `ChatWidgetPubblico.tsx` (widget
+  chat AI flottante, riusa l'endpoint `/api/chat/[slug]` già esistente).
 
 ## Prossimo passo pianificato
 
-Fase 2 — AI conversazionale (vedi PIANO.md e CLAUDE.md): canale chat web di default, stessa
-architettura tool-calling/"AI interpreta backend decide" del progetto precedente, stesso
-booking engine di Fase 1, conversazioni persistenti in `conversazioni.slot_in_costruzione`.
+Fase 4 (pagina pubblica) ha il codice scritto e testato -- resta da: 1) fare il deploy e
+verificare dal vivo in un browser reale (Gabriel, vedi sopra il perché non può farlo Claude dal
+sandbox), 2) task #21, Stripe Checkout + webhook (connettore Stripe già collegato l'11/09/2026
+in vista di questo), 3) valutare l'anti-abuso della prenotazione pubblica (problema noto #15)
+prima di pubblicare il link di un salone vero.

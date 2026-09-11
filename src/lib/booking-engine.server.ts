@@ -374,7 +374,11 @@ export interface CreaAppuntamentoParams {
   inizio: Date;
   clienteNome?: string;
   clienteTelefono?: string;
-  creatoDa: "manuale" | "ai";
+  // "manuale" = da dashboard (staff), "ai" = chat/WhatsApp AI, "pubblico" =
+  // il cliente prenota da solo dalla pagina pubblica del salone senza
+  // passare dall'AI (Fase 4) -- tre canali distinti, stessa unica funzione
+  // di scrittura (punto 9 di CLAUDE.md).
+  creatoDa: "manuale" | "ai" | "pubblico";
   note?: string;
 }
 

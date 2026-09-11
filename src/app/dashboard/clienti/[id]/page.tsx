@@ -145,7 +145,7 @@ export default async function PaginaClienteDettaglio({
                     {servizio} · {operatore}
                   </span>
                   <span className="flex items-center gap-2 text-xs text-zinc-500">
-                    {a.creato_da === "ai" ? "AI" : "Manuale"}
+                    {a.creato_da === "ai" ? "AI" : a.creato_da === "pubblico" ? "Pagina pubblica" : "Manuale"}
                     <span
                       className={
                         a.stato === "confermato"
