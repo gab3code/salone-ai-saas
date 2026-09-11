@@ -1,14 +1,16 @@
 # Analisi Estetia (estetia.tidycode.it)
 
-Fonti: (a) giro dal vivo con browser reale sul sito marketing pubblico -- homepage completa,
-prezzi, FAQ, footer, accessibility tree con tutti gli elementi interattivi; (b) screenshot reali
-del prodotto raccolti in precedenza (onboarding, dashboard, analytics/clienti, calendario);
-(c) ricerca precedente su posizionamento. Non ancora verificato dal vivo: il flusso di
-registrazione/onboarding reale passo-passo (per non creare un account di test sul prodotto di
-un concorrente), l'app mobile/PWA, il comportamento responsive del prodotto (solo del sito
-marketing). Prodotto costruito da un'agenzia esterna, **Tidycode S.r.l.** (tidycode.it,
-+39 348 169 5382) -- non è detto che il titolare del salone abbia margini di personalizzazione
-oltre quanto esposto nel pannello.
+Fonti: (a) giro dal vivo con browser reale sul sito marketing pubblico, RIFATTO per intero
+l'11/09/2026 su richiesta esplicita di Gabriel per verificare che non manchi nulla -- homepage
+completa, prezzi, FAQ, footer, accessibility tree con tutti gli elementi interattivi, nessuna
+differenza sostanziale rispetto al giro precedente (stessi prezzi/feature/FAQ, vedi sezione
+dedicata sotto per le poche aggiunte minori trovate); (b) screenshot reali del prodotto raccolti
+in precedenza (onboarding, dashboard, analytics/clienti, calendario); (c) ricerca precedente su
+posizionamento. Non ancora verificato dal vivo: il flusso di registrazione/onboarding reale
+passo-passo (per non creare un account di test sul prodotto di un concorrente), l'app mobile/PWA,
+il comportamento responsive del prodotto (solo del sito marketing). Prodotto costruito da
+un'agenzia esterna, **Tidycode S.r.l.** (tidycode.it, +39 348 169 5382) -- non è detto che il
+titolare del salone abbia margini di personalizzazione oltre quanto esposto nel pannello.
 
 ## Posizionamento e messaggio centrale
 Tagline: "Il nuovo segreto di bellezza è un'agenda che lavora da sola." Claim distintivo non
@@ -158,6 +160,44 @@ un'ipotesi.
    con team, mancante nel nostro schema attuale (vedi sezione Gestione avanzata sopra).
 7. Verificare esplicitamente la region EU del progetto Supabase, per poter dichiarare lo stesso
    claim GDPR/server-in-Europa con onestà.
+
+## Rilettura dell'11/09/2026 -- conferme e poche aggiunte minori
+Rifatto il giro completo della homepage (unica pagina pubblica indicizzata a parte le pagine
+legali) dal vivo con browser reale. Prezzi, piani, add-on, FAQ, meccaniche di trial/upgrade:
+**tutto confermato identico** a quanto già scritto sopra -- il progetto non aveva perso nessun
+dettaglio sostanziale. Aggiunte minori trovate in questo giro, non presenti nella versione
+precedente di questo documento:
+- **"Fallback umano" è una delle 6 card di funzionalità in prima pagina** (Prenotazioni AI, CRM
+  Clienti, Calendario smart, **Fallback umano**, Analytics, App mobile) -- non solo un principio
+  citato nell'onboarding come scritto sopra, ma un differenziale che loro stessi vendono come
+  feature a sé stante ("Richieste complesse? Estetia le mette in coda per te. Rispondi quando
+  puoi, con tutto il contesto."). Il nostro Fase 2 ha lo stesso meccanismo (trasferimento a
+  operatore) ma non lo presentiamo ancora come funzionalità di marketing a sé stante sulla
+  pagina pubblica (Fase 4, quando esisterà).
+- **Sezione "Per ogni tipo di salone"**: tre "persona" di marketing -- salone individuale (niente
+  telefono mentre si lavora), salone con team (carico bilanciato, calendario condiviso), salone
+  premium (esperienza cliente all'altezza). Segmentazione che noi non abbiamo ancora pensato per
+  la pagina pubblica/marketing -- utile da riprendere in Fase 4 o in materiale commerciale, non
+  richiede nessun lavoro tecnico.
+- **Tre testimonianze clienti** (nome, ruolo, salone, città -- verosimilmente esempi illustrativi
+  non verificabili) come prova sociale. Da considerare per la nostra pagina pubblica/landing una
+  volta che avremo saloni reali disposti a farsi citare -- non urgente, non fattibile onestamente
+  finché non abbiamo clienti reali.
+- **Footer**: solo pagine legali oltre alla homepage (`/privacy-policy`, `/termini-servizio`,
+  `/cookie-policy`, banner "Gestisci cookie"), contatti diretti dell'agenzia (telefono, email,
+  tidycode.it) e tre social (Facebook, Instagram, LinkedIn) di Tidycode (non un profilo social
+  dedicato al prodotto Estetia). **Nessun blog, nessuna pagina lavora-con-noi, nessuna pagina
+  app-store/play-store trovata** -- conferma che è un sito marketing a una pagina, non un
+  ecosistema di contenuti. Per noi: le pagine legali (privacy/termini/cookie) sono un gap reale
+  da colmare prima del lancio pubblico (punto non ancora tracciato altrove in questo documento --
+  vedi PROJECT_STATUS.md/PIANO.md, non risulta un problema noto aperto su questo).
+
+**Conclusione di questo giro**: nessuna funzionalità o claim di Estetia risulta mancante dal
+nostro piano che non fosse già stato individuato nel giro precedente (le sezioni "Debolezze
+reali osservate" e "Cosa dobbiamo fare meglio" sopra restano valide e complete). Le uniche
+aggiunte sono di marketing/copy (fallback umano come feature venduta, segmentazione per tipo di
+salone, testimonianze), non di prodotto/tecnica, più un gap reale ma non di prodotto: le pagine
+legali (privacy/termini/cookie), che a oggi il nostro progetto non ha.
 
 ## Ancora da verificare dal vivo (non fatto in questo giro, per non creare un account concorrente)
 - Flusso di registrazione/onboarding reale passo-passo (schermate esatte, campi richiesti,

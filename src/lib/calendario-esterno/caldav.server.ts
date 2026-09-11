@@ -1,14 +1,32 @@
 import "server-only";
+import https from "node:https";
 
 /**
  * Client CalDAV minimale (protocollo standard, usato per Apple/iCloud e
  * qualunque altro provider CalDAV -- Fastmail, Nextcloud, ecc.) -- vedi
- * PIANO.md "Fase 6bis". Nessuna libreria esterna: solo `fetch` + un
- * parsing XML tollerante via espressioni regolari, sufficiente per i pochi
- * tag DAV che servono qui (href, current-user-principal, calendar-home-set,
- * resourcetype, calendar-data). Una vera libreria XML sarebbe più robusta,
- * ma per la superficie ridotta di risposte CalDAV che dobbiamo leggere
- * aggiunge una dipendenza per un problema già risolvibile in poche righe.
+ * PIANO.md "Fase 6bis". Nessuna libreria esterna: solo il modulo nativo
+ * `node:https` + un parsing XML tollerante via espressioni regolari,
+ * sufficiente per i pochi tag DAV che servono qui (href,
+ * current-user-principal, calendar-home-set, resourcetype, calendar-data).
+ * Una vera libreria XML sarebbe più robusta, ma per la superficie ridotta di
+ * risposte CalDAV che dobbiamo leggere aggiunge una dipendenza per un
+ * problema già risolvibile in poche righe.
+ *
+ * NOTA IMPORTANTE (scoperta dal vivo l'11/09/2026, dopo che il fix
+ * User-Agent non bastava e Gabriel continuava a vedere 401 con password
+ * app-specifica corretta): qui viene usato `node:https` con redirect
+ * gestito A MANO invece del `fetch` nativo apposta. `caldav.icloud.com` non
+ * risponde mai direttamente: reindirizza sempre l'account al suo "pod"
+ * specifico (es. `pXX-caldav.icloud.com`), un HOST DIVERSO. Per specifica
+ * del Fetch API (implementata fedelmente anche da Node/undici), quando un
+ * redirect cambia origine l'header `Authorization` viene tolto in automatico
+ * dalla richiesta successiva -- pensato per il browser, ma si applica anche
+ * lato server. Risultato: la password arrivava sempre e solo alla prima
+ * richiesta (mai controllata), il pod vero riceveva una richiesta senza
+ * credenziali e rispondeva 401 a prescindere da quanto la password fosse
+ * corretta. Qui seguiamo i redirect da soli e riattacchiamo `Authorization`
+ * ad ogni salto -- sicuro perché il redirect arriva da Apple stessa, non da
+ * una fonte esterna non fidata.
  *
  * Ogni chiamata di rete ha un timeout esplicito: questo client viene
  * interrogato durante il calcolo di disponibilità di una prenotazione vera
@@ -18,6 +36,76 @@ import "server-only";
  */
 
 const TIMEOUT_MS = 8_000;
+const MASSIMO_REDIRECT = 5;
+
+interface RispostaHttps {
+  status: number;
+  headers: Record<string, string | string[] | undefined>;
+  testo: string;
+  urlFinale: string;
+}
+
+/** Richiesta HTTPS grezza con redirect seguiti a mano, riattaccando SEMPRE gli stessi header (Authorization incluso). */
+function eseguiRichiestaHttps(
+  url: string,
+  metodo: string,
+  headers: Record<string, string>,
+  corpo: string,
+  redirectRestanti: number
+): Promise<RispostaHttps> {
+  return new Promise((resolve, reject) => {
+    let u: URL;
+    try {
+      u = new URL(url);
+    } catch {
+      reject(new Error(`URL non valido: ${url}`));
+      return;
+    }
+    const corpoBuffer = Buffer.from(corpo, "utf-8");
+    const richiesta = https.request(
+      {
+        hostname: u.hostname,
+        port: u.port || 443,
+        path: u.pathname + u.search,
+        method: metodo,
+        headers: { ...headers, "Content-Length": String(corpoBuffer.byteLength) },
+      },
+      (res) => {
+        const pezzi: Buffer[] = [];
+        res.on("data", (pezzo) => pezzi.push(pezzo));
+        res.on("end", () => {
+          const status = res.statusCode ?? 0;
+          const location = res.headers.location;
+          if ([301, 302, 303, 307, 308].includes(status) && location && redirectRestanti > 0) {
+            const urlSuccessivo = new URL(location, url).toString();
+            eseguiRichiestaHttps(urlSuccessivo, metodo, headers, corpo, redirectRestanti - 1).then(
+              resolve,
+              reject
+            );
+            return;
+          }
+          resolve({
+            status,
+            headers: res.headers as Record<string, string | string[] | undefined>,
+            testo: Buffer.concat(pezzi).toString("utf-8"),
+            urlFinale: url,
+          });
+        });
+      }
+    );
+    richiesta.on("error", reject);
+    richiesta.setTimeout(TIMEOUT_MS, () =>
+      richiesta.destroy(new Error("Il server del calendario non ha risposto in tempo."))
+    );
+    richiesta.write(corpoBuffer);
+    richiesta.end();
+  });
+}
+
+function primoValoreHeader(valore: string | string[] | undefined): string | null {
+  if (!valore) return null;
+  return Array.isArray(valore) ? valore[0] : valore;
+}
 
 export interface RisultatoCaldav<T> {
   ok: true;
@@ -57,43 +145,32 @@ async function richiestaDav(
   corpo: string,
   depth: 0 | 1
 ): Promise<{ testo: string; urlFinale: string }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const risposta = await fetch(url, {
-      method: metodo,
-      signal: controller.signal,
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
-        "Content-Type": "application/xml; charset=utf-8",
-        Depth: String(depth),
-        // iCloud risponde 400 (corpo vuoto, nessun dettaglio) alle richieste
-        // senza uno User-Agent riconoscibile -- il fetch nativo di Node non
-        // ne manda uno di default (a differenza di un browser o di curl).
-        // Scoperto dal vivo l'11/09/2026: stesso identico sintomo riportato
-        // qui da Gabriel (400 senza corpo sulla PROPFIND iniziale).
-        "User-Agent": "salone-ai-saas-caldav/1.0",
-      },
-      body: corpo,
-    });
-    if (!risposta.ok) {
-      // Il corpo della risposta spesso contiene il motivo vero (es. il testo
-      // d'errore XML di Apple) -- senza questo un 400/401 generico non dice
-      // nulla di utile per capire se è un problema di credenziali, di
-      // formato della richiesta o di blocco anti-abuso lato server.
-      const corpoErrore = await risposta.text().catch(() => "");
-      const estratto = corpoErrore.trim().slice(0, 300);
-      // Se anche il corpo è vuoto (es. il 400 "muto" di iCloud visto senza
-      // User-Agent), un header come WWW-Authenticate spesso è l'unico
-      // indizio rimasto sul motivo reale.
-      const wwwAuth = risposta.headers.get("www-authenticate");
-      const dettaglio = estratto || (wwwAuth ? `WWW-Authenticate: ${wwwAuth}` : "");
-      throw new Error(`${metodo} ${url} -> HTTP ${risposta.status}${dettaglio ? `: ${dettaglio}` : ""}`);
-    }
-    return { testo: await risposta.text(), urlFinale: risposta.url || url };
-  } finally {
-    clearTimeout(timeout);
+  const headers = {
+    Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
+    "Content-Type": "application/xml; charset=utf-8",
+    Depth: String(depth),
+    // iCloud risponde 400 (corpo vuoto, nessun dettaglio) alle richieste
+    // senza uno User-Agent riconoscibile -- il fetch nativo di Node non
+    // ne manda uno di default (a differenza di un browser o di curl).
+    // Scoperto dal vivo l'11/09/2026: stesso identico sintomo riportato
+    // qui da Gabriel (400 senza corpo sulla PROPFIND iniziale).
+    "User-Agent": "salone-ai-saas-caldav/1.0",
+  };
+  const risposta = await eseguiRichiestaHttps(url, metodo, headers, corpo, MASSIMO_REDIRECT);
+  if (risposta.status < 200 || risposta.status >= 300) {
+    // Il corpo della risposta spesso contiene il motivo vero (es. il testo
+    // d'errore XML di Apple) -- senza questo un 400/401 generico non dice
+    // nulla di utile per capire se è un problema di credenziali, di
+    // formato della richiesta o di blocco anti-abuso lato server.
+    const estratto = risposta.testo.trim().slice(0, 300);
+    // Se anche il corpo è vuoto (es. il 400 "muto" di iCloud visto senza
+    // User-Agent), un header come WWW-Authenticate spesso è l'unico
+    // indizio rimasto sul motivo reale.
+    const wwwAuth = primoValoreHeader(risposta.headers["www-authenticate"]);
+    const dettaglio = estratto || (wwwAuth ? `WWW-Authenticate: ${wwwAuth}` : "");
+    throw new Error(`${metodo} ${url} -> HTTP ${risposta.status}${dettaglio ? `: ${dettaglio}` : ""}`);
   }
+  return { testo: risposta.testo, urlFinale: risposta.urlFinale };
 }
 
 /**
@@ -241,9 +318,6 @@ export async function verificaCredenzialiCaldav(
 }
 
 function erroreLeggibile(errore: unknown): string {
-  if (errore instanceof Error) {
-    if (errore.name === "AbortError") return "Il server del calendario non ha risposto in tempo.";
-    return errore.message;
-  }
+  if (errore instanceof Error) return errore.message;
   return "Errore sconosciuto collegandosi al calendario.";
 }
