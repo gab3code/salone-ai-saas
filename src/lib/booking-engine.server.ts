@@ -12,6 +12,8 @@ import {
 } from "@/lib/booking-engine";
 import { limiteMensilePrenotazioni } from "@/lib/piani";
 import { caricaImpegniEsterni } from "@/lib/calendario-esterno/collegamenti.server";
+import { pseudoUtcAReale, realeAPseudoUtc } from "@/lib/fuso-orario";
+import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 
 /**
  * Livello di collegamento tra il motore puro (booking-engine.ts, già testato
@@ -21,11 +23,15 @@ import { caricaImpegniEsterni } from "@/lib/calendario-esterno/collegamenti.serv
  * verità, letta sia dal calendario manuale sia -- in Fase 2 -- dai tool
  * dell'AI).
  *
- * NOTA fuso orario (semplificazione consapevole per questa fase): tutte le
- * date/ore sono trattate come se l'ora del salone coincidesse con UTC (stesso
- * approccio già usato in booking-engine.ts con Date.UTC). Corretto solo per
- * saloni in un fuso orario che in quel momento coincide con UTC -- va risolto
- * con un campo fuso_orario su "tenants" prima della Fase 7 (vedi PIANO.md).
+ * NOTA fuso orario: il motore puro e tutto ciò che gli arriva da qui dentro
+ * (orari, appuntamenti, impegni esterni) usa la convenzione "pseudo-UTC"
+ * descritta in dettaglio in src/lib/fuso-orario.ts -- i campi getUTC* di un
+ * Date rappresentano direttamente l'ora civile del salone, mai un istante
+ * reale. I DUE punti dove serve invece un istante reale sono isolati qui:
+ * la colonna timestamptz di "appuntamenti" (scritta/letta con
+ * pseudoUtcAReale/realeAPseudoUtc) e la finestra passata a
+ * caricaImpegniEsterni (Google/CalDAV, anch'esse tempo reale). Il motore
+ * puro stesso NON cambia: continua a ricevere solo valori pseudo-UTC.
  */
 
 /** "HH:MM:SS" (formato time di Postgres) -> "HH:MM" (formato atteso dal motore puro). */
@@ -93,6 +99,14 @@ export async function caricaContestoBooking(
   const daStr = inizioGiornoUTC(da).toISOString().slice(0, 10);
   const aStr = inizioGiornoUTC(a).toISOString().slice(0, 10);
 
+  const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
+  // I confini del giorno sono calcolati in pseudo-UTC (coerenti con `da`/`a`,
+  // che arrivano già in quella convenzione da chi chiama), poi convertiti in
+  // istanti reali: SOLO da qui in giù si parla con il database (colonna
+  // timestamptz) e con i calendari esterni, entrambi tempo reale.
+  const inizioFinestraReale = pseudoUtcAReale(inizioGiornoUTC(da), fusoOrario);
+  const fineFinestraReale = pseudoUtcAReale(fineGiornoUTC(a), fusoOrario);
+
   const [orariRes, chiusureRes, operatoriRes, opServiziRes, appuntamentiRes] = await Promise.all([
     supabase.from("orari_apertura").select("*").eq("tenant_id", tenantId),
     supabase
@@ -109,8 +123,8 @@ export async function caricaContestoBooking(
       .from("appuntamenti")
       .select("operatore_id, inizio, fine, stato")
       .eq("tenant_id", tenantId)
-      .gte("inizio", inizioGiornoUTC(da).toISOString())
-      .lte("inizio", fineGiornoUTC(a).toISOString())
+      .gte("inizio", inizioFinestraReale.toISOString())
+      .lte("inizio", fineFinestraReale.toISOString())
       .not("operatore_id", "is", null),
   ]);
 
@@ -158,8 +172,8 @@ export async function caricaContestoBooking(
 
   const appuntamenti: AppuntamentoEsistente[] = (appuntamentiRes.data ?? []).map((r) => ({
     operatoreId: r.operatore_id as string,
-    inizio: new Date(r.inizio),
-    fine: new Date(r.fine),
+    inizio: realeAPseudoUtc(new Date(r.inizio), fusoOrario),
+    fine: realeAPseudoUtc(new Date(r.fine), fusoOrario),
     stato: r.stato,
   }));
 
@@ -169,13 +183,16 @@ export async function caricaContestoBooking(
   // seconda logica di conflitto separata (punto 9). Fail-open per
   // collegamento (vedi caricaImpegniEsterni): un calendario esterno
   // irraggiungibile non deve mai impedire di vedere/prenotare gli slot
-  // liberi, solo far perdere il blocco di QUELL'impegno specifico.
+  // liberi, solo far perdere il blocco di QUELL'impegno specifico. Finestra
+  // e fuso passati qui sono tempo reale: la conversione a pseudo-UTC degli
+  // eventi restituiti avviene dentro caricaImpegniEsterni stessa.
   const impegniEsterni = await caricaImpegniEsterni(
     supabase,
     tenantId,
     operatori.map((o) => o.id),
-    inizioGiornoUTC(da),
-    fineGiornoUTC(a)
+    inizioFinestraReale,
+    fineFinestraReale,
+    fusoOrario
   );
 
   return { orari, chiusure, operatori, appuntamenti: [...appuntamenti, ...impegniEsterni] };
@@ -263,6 +280,10 @@ export async function verificaConflittoTenant(
   tenantId: string,
   params: VerificaConflittoParams
 ): Promise<boolean> {
+  const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
+  const inizioFinestraReale = pseudoUtcAReale(inizioGiornoUTC(params.inizio), fusoOrario);
+  const fineFinestraReale = pseudoUtcAReale(fineGiornoUTC(params.fine), fusoOrario);
+
   // Query dedicata (non caricaContestoBooking) perché qui serve anche la
   // colonna "id" -- per escludere l'appuntamento stesso quando si sta
   // modificando un orario già esistente, altrimenti risulterebbe sempre in
@@ -273,8 +294,8 @@ export async function verificaConflittoTenant(
     .eq("tenant_id", tenantId)
     .eq("operatore_id", params.operatoreId)
     .eq("stato", "confermato")
-    .gte("inizio", inizioGiornoUTC(params.inizio).toISOString())
-    .lte("inizio", fineGiornoUTC(params.fine).toISOString());
+    .gte("inizio", inizioFinestraReale.toISOString())
+    .lte("inizio", fineFinestraReale.toISOString());
 
   if (error) throw new Error(`Errore verificando conflitti: ${error.message}`);
 
@@ -282,8 +303,8 @@ export async function verificaConflittoTenant(
     .filter((r) => r.id !== params.ignoraAppuntamentoId)
     .map((r) => ({
       operatoreId: r.operatore_id as string,
-      inizio: new Date(r.inizio),
-      fine: new Date(r.fine),
+      inizio: realeAPseudoUtc(new Date(r.inizio), fusoOrario),
+      fine: realeAPseudoUtc(new Date(r.fine), fusoOrario),
       stato: r.stato,
     }));
 
@@ -294,8 +315,9 @@ export async function verificaConflittoTenant(
     supabase,
     tenantId,
     [params.operatoreId],
-    inizioGiornoUTC(params.inizio),
-    fineGiornoUTC(params.fine)
+    inizioFinestraReale,
+    fineFinestraReale,
+    fusoOrario
   );
 
   return verificaConflitto(
@@ -414,6 +436,11 @@ export async function creaAppuntamentoTenant(
     .single();
   if (!servizio) return { ok: false, errore: "Servizio non trovato." };
 
+  // Durata sommata in spazio pseudo-UTC (timezone-invariante: è
+  // un'aritmetica su millisecondi, non su ore civili) -- `fine` resta
+  // pseudo qui, coerente con `params.inizio` e con verificaConflittoTenant
+  // (che converte in reale internamente). Solo appena prima di scrivere su
+  // Postgres (sotto) i due vengono convertiti nell'istante reale.
   const fine = new Date(params.inizio.getTime() + servizio.durata_minuti * 60_000);
 
   const conflitto = await verificaConflittoTenant(supabase, tenantId, {
@@ -441,6 +468,7 @@ export async function creaAppuntamentoTenant(
     clienteId = risultato.id;
   }
 
+  const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
   const { data: appuntamento, error } = await supabase
     .from("appuntamenti")
     .insert({
@@ -448,8 +476,8 @@ export async function creaAppuntamentoTenant(
       operatore_id: params.operatoreId,
       servizio_id: params.servizioId,
       cliente_id: clienteId,
-      inizio: params.inizio.toISOString(),
-      fine: fine.toISOString(),
+      inizio: pseudoUtcAReale(params.inizio, fusoOrario).toISOString(),
+      fine: pseudoUtcAReale(fine, fusoOrario).toISOString(),
       stato: "confermato",
       creato_da: params.creatoDa,
       note: params.note ?? null,
@@ -513,9 +541,14 @@ export async function modificaAppuntamentoTenant(
     };
   }
 
+  const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
   const { error } = await supabase
     .from("appuntamenti")
-    .update({ operatore_id: params.operatoreId, inizio: params.inizio.toISOString(), fine: fine.toISOString() })
+    .update({
+      operatore_id: params.operatoreId,
+      inizio: pseudoUtcAReale(params.inizio, fusoOrario).toISOString(),
+      fine: pseudoUtcAReale(fine, fusoOrario).toISOString(),
+    })
     .eq("id", appuntamentoId)
     .eq("tenant_id", tenantId);
 

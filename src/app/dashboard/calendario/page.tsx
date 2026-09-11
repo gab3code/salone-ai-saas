@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { trovaSlotDisponibiliTenant } from "@/lib/booking-engine.server";
+import { pseudoUtcAReale, realeAPseudoUtc } from "@/lib/fuso-orario";
+import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { cancellaAppuntamento, modificaAppuntamento } from "./azioni";
 import { PannelloNuovoAppuntamento } from "./pannello-nuovo-appuntamento";
 
@@ -43,6 +45,14 @@ export default async function PaginaCalendario({
   const operatoreId = sp.operatore_id ?? "";
   const modificaId = sp.modifica ?? "";
 
+  const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
+  // dataYMD è un giorno "civile" del salone (pseudo-UTC): i confini reali
+  // per interrogare la colonna timestamptz vera si ottengono convertendo
+  // gli estremi pseudo del giorno, non usando le stringhe direttamente
+  // come se fossero già tempo reale (vedi src/lib/fuso-orario.ts).
+  const inizioGiornoReale = pseudoUtcAReale(new Date(`${dataYMD}T00:00:00Z`), fusoOrario);
+  const fineGiornoReale = pseudoUtcAReale(new Date(`${giornoAdiacente(dataYMD, 1)}T00:00:00Z`), fusoOrario);
+
   const [operatoriRes, serviziRes, appuntamentiRes] = await Promise.all([
     supabase.from("operatori").select("id, nome").eq("tenant_id", tenantId).eq("attivo", true).order("nome"),
     supabase
@@ -55,8 +65,8 @@ export default async function PaginaCalendario({
       .from("appuntamenti")
       .select("id, inizio, fine, stato, operatore_id, operatori(nome), servizi(nome), clienti(nome, telefono)")
       .eq("tenant_id", tenantId)
-      .gte("inizio", `${dataYMD}T00:00:00Z`)
-      .lt("inizio", `${giornoAdiacente(dataYMD, 1)}T00:00:00Z`)
+      .gte("inizio", inizioGiornoReale.toISOString())
+      .lt("inizio", fineGiornoReale.toISOString())
       .neq("stato", "cancellato")
       .order("inizio"),
   ]);
@@ -67,7 +77,14 @@ export default async function PaginaCalendario({
     nome: s.nome,
     durataMinuti: s.durata_minuti,
   }));
-  const appuntamenti = appuntamentiRes.data ?? [];
+  // Righe grezze convertite subito in pseudo-UTC: da qui in giù (display e
+  // form di modifica) tutto il resto della pagina ragiona nella stessa
+  // convenzione di sempre, mai un istante reale in mezzo al JSX.
+  const appuntamenti = (appuntamentiRes.data ?? []).map((a) => ({
+    ...a,
+    inizio: realeAPseudoUtc(new Date(a.inizio), fusoOrario).toISOString(),
+    fine: realeAPseudoUtc(new Date(a.fine), fusoOrario).toISOString(),
+  }));
 
   let slots: { operatoreId: string; inizio: string }[] = [];
   if (servizioId) {

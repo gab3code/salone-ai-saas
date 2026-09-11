@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calcolaMetriche, type Metriche } from "@/lib/metriche";
+import { realeAPseudoUtc } from "@/lib/fuso-orario";
+import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 
 /**
  * Livello di collegamento tra il calcolo puro (metriche.ts) e Supabase --
@@ -16,7 +18,12 @@ import { calcolaMetriche, type Metriche } from "@/lib/metriche";
  * storici.
  */
 export async function caricaMetriche(supabase: SupabaseClient, tenantId: string): Promise<Metriche> {
-  const adesso = new Date();
+  const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
+  // "Adesso" in pseudo-UTC (non il new Date() reale): calcolaMetriche
+  // confronta questo valore con gli appuntamenti/clienti sotto, anch'essi
+  // convertiti a pseudo-UTC -- stessa convenzione del booking engine, vedi
+  // src/lib/fuso-orario.ts.
+  const adesso = realeAPseudoUtc(new Date(), fusoOrario);
   const giornoSettimanaOggi = adesso.getUTCDay();
 
   const [orarioRes, appuntamentiRes, servizioRes, clientiRes] = await Promise.all([
@@ -49,14 +56,17 @@ export async function caricaMetriche(supabase: SupabaseClient, tenantId: string)
   return calcolaMetriche({
     adesso,
     appuntamenti: (appuntamentiRes.data ?? []).map((a) => ({
-      inizio: new Date(a.inizio),
-      fine: new Date(a.fine),
+      inizio: realeAPseudoUtc(new Date(a.inizio), fusoOrario),
+      fine: realeAPseudoUtc(new Date(a.fine), fusoOrario),
       stato: a.stato,
       clienteId: a.cliente_id,
       operatoreId: a.operatore_id,
       servizioId: a.servizio_id,
     })),
-    clienti: (clientiRes.data ?? []).map((c) => ({ id: c.id, createdAt: new Date(c.created_at) })),
+    clienti: (clientiRes.data ?? []).map((c) => ({
+      id: c.id,
+      createdAt: realeAPseudoUtc(new Date(c.created_at), fusoOrario),
+    })),
     prezzoCentesimiPerServizio,
     orarioOggi: orarioRes.data
       ? {

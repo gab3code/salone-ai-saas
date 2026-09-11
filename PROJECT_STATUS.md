@@ -140,10 +140,22 @@ l'11/09/2026 via MCP diretto).
 
 ## Problemi noti aperti
 
-1. **Fuso orario semplificato come UTC** in tutto il booking engine (vedi commento in
-   `booking-engine.server.ts`): corretto solo se l'ora del tenant coincide con UTC in quel
-   momento. Va aggiunto un campo fuso orario su `tenants` prima che la prenotazione si possa
-   considerare davvero finita (vedi Fase 7 in PIANO.md).
+1. ~~Fuso orario semplificato come UTC in tutto il booking engine~~ **CODICE FATTO
+   11/09/2026, in attesa di verifica dal vivo dopo il deploy**: aggiunta colonna
+   `tenants.fuso_orario` (migrazione 0010, default `'Europe/Rome'`, già applicata al
+   database reale), nuovo modulo `src/lib/fuso-orario.ts` (`realeAPseudoUtc`/
+   `pseudoUtcAReale`, con test) e conversione applicata ai DUE confini dove serve un
+   istante reale: la colonna `timestamptz` di `appuntamenti` (scrittura in
+   `creaAppuntamentoTenant`/`modificaAppuntamentoTenant`, lettura in
+   `caricaContestoBooking`/`verificaConflittoTenant`) e le API Google/CalDAV
+   (`collegamenti.server.ts`). Il motore puro (`booking-engine.ts`), `parsaOrarioLocale`
+   e la UI della dashboard restano invariati: continuano a ragionare nella stessa
+   convenzione "pseudo-UTC" di sempre. Trovato dal vivo l'11/09/2026 durante la verifica
+   del sync Google Calendar (un test iniziale sembrava indicare un sync rotto: era invece
+   proprio questo bug, con gli appuntamenti sfasati dell'offset del fuso). Test e build
+   passano; verifica dal vivo post-deploy ancora da fare (non eseguibile dalla sandbox:
+   le chiamate dirette a Supabase da qui sono bloccate dalla stessa policy di rete
+   dell'organizzazione già documentata in DECISIONS.md per github.com/Vercel).
 2. ~~Repo Git canonico nel sandbox cloud effimero, nessun remote GitHub permanente~~
    **RISOLTO 11/09/2026**: repo spostata su `github.com/gab3code/salone-ai-saas` (privata),
    progetto Vercel collegato via GitHub App (deploy automatico ad ogni push su `main`). Vedi

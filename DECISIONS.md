@@ -460,3 +460,51 @@ precedenti, ma presente. Avvisi di sicurezza Supabase controllati e invariati ri
 quanto già noto (vedi PROJECT_STATUS.md, problemi aperti): nessuna azione presa su questi ora,
 restano pianificati per la Fase 6 (revisione sicurezza) per non toccare `SECURITY DEFINER`/RLS
 alla leggera senza un giro di test dedicato.
+
+---
+
+## 2026-09-11 — Fuso orario: risolto il problema noto #1 (booking engine "come se fosse UTC")
+
+**Contesto**: la prima verifica dal vivo del sync Google Calendar in questa stessa sessione è
+sembrata inizialmente rotta (un evento creato per un orario Rome-locale non risultava bloccato
+al posto giusto). Un secondo test controllato (evento allineato a un orario che coincide in UTC
+e a Roma) ha confermato che il sync funziona -- il difetto vero era il problema noto #1, mai
+prima osservato concretamente: tutto il booking engine tratta i campi UTC di un `Date` come se
+fossero l'ora civile del salone ("pseudo-UTC" nei commenti del codice), semplificazione
+corretta per i confronti SOLO interni (motore puro, dashboard) ma sbagliata ai due confini dove
+il tempo è per forza assoluto: la colonna `timestamptz` di `appuntamenti` e le API di Google/
+CalDAV. Prima di questo fix, un salone italiano vedeva ogni appuntamento reale sfasato di 1-2
+ore (l'offset di fuso) rispetto a quanto digitato/mostrato -- innocuo finché tutto restava
+dentro l'app (stesso "errore" su entrambi i lati del confronto), evidente solo toccando un
+sistema realmente esterno come un calendario Google/Apple.
+
+**Decisione**: aggiunta `tenants.fuso_orario` (migrazione 0010, default `'Europe/Rome'` per i
+tenant di oggi, applicata al database reale) + nuovo modulo puro `src/lib/fuso-orario.ts`
+(`realeAPseudoUtc`/`pseudoUtcAReale`, via `Intl.DateTimeFormat` senza dipendenze esterne,
+stesso approccio già usato in `ics.ts` per i TZID). La conversione è applicata SOLO ai due
+confini reali (scrittura/lettura di `appuntamenti.inizio/fine`, finestra e risultati di
+Google/CalDAV in `collegamenti.server.ts`) e a ogni punto che legge `appuntamenti`/`clienti`
+grezzi per mostrarli in dashboard o restituirli all'AI (`calendario/page.tsx`,
+`clienti/[id]/page.tsx`, il tool `cerca_prenotazioni_cliente`) -- il motore puro
+(`booking-engine.ts`), `parsaOrarioLocale` e la costruzione del system prompt dell'AI restano
+INVARIATI, perché continuano a ricevere/produrre solo valori pseudo-UTC come sempre (punto 9:
+nessuna logica duplicata). `clienti.created_at`/`appuntamenti.created_at` (generati da
+`now()` di Postgres, mai stati pseudo) sono stati lasciati come sono ovunque servano per un
+confronto relativo (30/60 giorni, tetto mensile) -- un errore di 1-2 ore è irrilevante su quella
+scala, e provare a "correggerli" avrebbe introdotto inconsistenza, non correttezza.
+
+**Alternative scartate**: una libreria tz (es. `date-fns-tz`, `luxon`) -- scartata per lo stesso
+motivo per cui il progetto già evita `googleapis`: la superficie di conversione necessaria qui
+(civile <-> istante reale per un singolo IANA timezone alla volta) è risolvibile in poche righe
+con `Intl.DateTimeFormat`, già nativo, senza una dipendenza in più da mantenere.
+
+**Verifica**: 7 nuovi test per le funzioni di conversione (inverno/estate/round-trip, incluso il
+caso noto non invertibile del cambio ora legale di fine ottobre, documentato nel test invece che
+nascosto) + tutti i 64 test della suite passano + build di produzione pulita. Verifica dal vivo
+contro il database reale tentata da questa sessione con uno script diretto, ma bloccata dalla
+STESSA policy di rete che blocca già github.com/Vercel (confermato: `Host not in allowlist:
+weeaggiqovnmtovdjzxy.supabase.co` chiamando l'API REST di Supabase direttamente, non tramite gli
+strumenti MCP dedicati) -- nota per il futuro, stesso limite strutturale già documentato sopra,
+esteso ora anche alle chiamate dirette a Supabase. La verifica dal vivo vera resta da fare dopo
+il deploy, con lo stesso approccio già usato per Google Calendar (creare/spostare un
+appuntamento reale e controllare l'orario mostrato).

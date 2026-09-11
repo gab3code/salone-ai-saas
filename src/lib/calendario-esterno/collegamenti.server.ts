@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppuntamentoEsistente } from "@/lib/booking-engine";
+import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { estraiIntervalliOccupati } from "./ics";
 import { recuperaIcsGrezzo, verificaCredenzialiCaldav } from "./caldav.server";
 import { recuperaImpegniGoogle, rinnovaTokenGoogle } from "./google.server";
@@ -117,13 +118,22 @@ export async function scollegaCalendario(
  * ALTRI operatori, né far fallire l'intera richiesta di prenotazione.
  * L'errore viene comunque salvato su `ultimo_errore` per essere visibile
  * nelle impostazioni.
+ *
+ * NOTA fuso orario: `da`/`a` qui sono istanti REALI (il chiamante li
+ * converte da pseudo-UTC prima di passarli, vedi booking-engine.server.ts)
+ * -- Google/CalDAV parlano solo tempo reale. `fusoOrario` serve invece qui
+ * dentro per la conversione INVERSA: gli orari degli eventi che Google/
+ * CalDAV restituiscono sono anch'essi reali, e vanno riportati a
+ * pseudo-UTC prima di tornare come `AppuntamentoEsistente`, la stessa
+ * convenzione degli appuntamenti interni (mai mischiare le due).
  */
 export async function caricaImpegniEsterni(
   supabase: SupabaseClient,
   tenantId: string,
   operatoreIds: string[],
   da: Date,
-  a: Date
+  a: Date,
+  fusoOrario: string
 ): Promise<AppuntamentoEsistente[]> {
   if (operatoreIds.length === 0) return [];
 
@@ -139,8 +149,8 @@ export async function caricaImpegniEsterni(
   const risultati = await Promise.all(
     data.map((collegamento) =>
       collegamento.provider === "apple"
-        ? impegniDaCaldav(supabase, collegamento, da, a)
-        : impegniDaGoogle(supabase, collegamento, da, a)
+        ? impegniDaCaldav(supabase, collegamento, da, a, fusoOrario)
+        : impegniDaGoogle(supabase, collegamento, da, a, fusoOrario)
     )
   );
 
@@ -163,7 +173,8 @@ async function impegniDaCaldav(
   supabase: SupabaseClient,
   collegamento: RigaCollegamento,
   da: Date,
-  a: Date
+  a: Date,
+  fusoOrario: string
 ): Promise<AppuntamentoEsistente[]> {
   if (!collegamento.caldav_url || !collegamento.caldav_username || !collegamento.caldav_password) {
     return [];
@@ -186,8 +197,8 @@ async function impegniDaCaldav(
   return estraiIntervalliOccupati(grezzo.valore, da, a).map(
     (i): AppuntamentoEsistente => ({
       operatoreId: collegamento.operatore_id,
-      inizio: i.inizio,
-      fine: i.fine,
+      inizio: realeAPseudoUtc(i.inizio, fusoOrario),
+      fine: realeAPseudoUtc(i.fine, fusoOrario),
       stato: "confermato",
     })
   );
@@ -205,7 +216,8 @@ async function impegniDaGoogle(
   supabase: SupabaseClient,
   collegamento: RigaCollegamento,
   da: Date,
-  a: Date
+  a: Date,
+  fusoOrario: string
 ): Promise<AppuntamentoEsistente[]> {
   if (!collegamento.google_refresh_token || !collegamento.google_calendar_id) return [];
 
@@ -231,8 +243,8 @@ async function impegniDaGoogle(
     return eventi.map(
       (e): AppuntamentoEsistente => ({
         operatoreId: collegamento.operatore_id,
-        inizio: e.inizio,
-        fine: e.fine,
+        inizio: realeAPseudoUtc(e.inizio, fusoOrario),
+        fine: realeAPseudoUtc(e.fine, fusoOrario),
         stato: "confermato",
       })
     );

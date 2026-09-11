@@ -5,6 +5,7 @@ import { rispondiConversazione } from "@/lib/ai/agente";
 import { ottieniOCreaConversazione, caricaMessaggi, salvaMessaggio, segnaPassataAOperatore } from "@/lib/ai/conversazione.server";
 import { pianoHaAccessoAIChatWeb, limiteMensileMessaggi, INTERVALLO_MINIMO_MS_TRA_MESSAGGI } from "@/lib/ai/limiti";
 import { contaMessaggiClienteQuestoMese, ultimoMessaggioTroppoRecente } from "@/lib/ai/limiti.server";
+import { FUSO_ORARIO_PREDEFINITO, realeAPseudoUtc } from "@/lib/fuso-orario";
 
 /**
  * Endpoint pubblico della chat AI (Task #66) -- NESSUNA autenticazione
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ errore: "Attività non trovata." }, { status: 404 });
   }
 
-  const { data: tenant } = await supabase.from("tenants").select("nome, piano").eq("id", tenantId).single();
+  const { data: tenant } = await supabase.from("tenants").select("nome, piano, fuso_orario").eq("id", tenantId).single();
 
   // Gate di piano (Free/Starter non hanno la chat AI affatto -- decisione
   // 02/09/2026, vedi DECISIONS.md): controllato PRIMA di creare/toccare
@@ -84,11 +85,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     await salvaMessaggio(supabase, conversazione.id, "cliente", messaggio);
 
-    const risultato = await rispondiConversazione(storico, messaggio, {
-      supabase,
-      tenantId,
-      nomeAttivita: tenant?.nome ?? "l'attività",
-    });
+    // "Adesso" passato esplicitamente in pseudo-UTC (mai il new Date() reale
+    // di default di rispondiConversazione): il system prompt dell'AI
+    // costruisce data/giorno-settimana da questo valore con gli stessi
+    // getUTC* usati ovunque nel booking engine (vedi src/lib/fuso-orario.ts).
+    const adessoPseudo = realeAPseudoUtc(new Date(), tenant?.fuso_orario || FUSO_ORARIO_PREDEFINITO);
+
+    const risultato = await rispondiConversazione(
+      storico,
+      messaggio,
+      {
+        supabase,
+        tenantId,
+        nomeAttivita: tenant?.nome ?? "l'attività",
+      },
+      undefined, // client Anthropic di default (parametro 5° è "adesso", non va confuso)
+      adessoPseudo
+    );
 
     await salvaMessaggio(supabase, conversazione.id, "assistente", risultato.rispostaTesto);
     if (risultato.trasferitoAUmano) {

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { realeAPseudoUtc } from "@/lib/fuso-orario";
+import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { aggiornaCliente } from "../azioni";
 
 /**
@@ -35,12 +37,21 @@ export default async function PaginaClienteDettaglio({
 
   if (!cliente) notFound();
 
-  const { data: appuntamenti } = await supabase
+  const { data: appuntamentiGrezzi } = await supabase
     .from("appuntamenti")
     .select("id, inizio, fine, stato, creato_da, servizi(nome), operatori(nome)")
     .eq("tenant_id", tenantId)
     .eq("cliente_id", id)
     .order("inizio", { ascending: false });
+
+  // `inizio` in colonna è un istante reale (timestamptz) -- va riportato
+  // all'ora civile del salone prima di mostrarlo, stessa convenzione
+  // "pseudo-UTC" di tutto il resto della dashboard (vedi src/lib/fuso-orario.ts).
+  const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
+  const appuntamenti = (appuntamentiGrezzi ?? []).map((a) => ({
+    ...a,
+    inizio: realeAPseudoUtc(new Date(a.inizio), fusoOrario).toISOString(),
+  }));
 
   const etichetteStato: Record<string, string> = {
     confermato: "Confermato",

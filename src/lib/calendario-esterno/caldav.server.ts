@@ -67,6 +67,12 @@ async function richiestaDav(
         Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
         "Content-Type": "application/xml; charset=utf-8",
         Depth: String(depth),
+        // iCloud risponde 400 (corpo vuoto, nessun dettaglio) alle richieste
+        // senza uno User-Agent riconoscibile -- il fetch nativo di Node non
+        // ne manda uno di default (a differenza di un browser o di curl).
+        // Scoperto dal vivo l'11/09/2026: stesso identico sintomo riportato
+        // qui da Gabriel (400 senza corpo sulla PROPFIND iniziale).
+        "User-Agent": "salone-ai-saas-caldav/1.0",
       },
       body: corpo,
     });
@@ -77,9 +83,12 @@ async function richiestaDav(
       // formato della richiesta o di blocco anti-abuso lato server.
       const corpoErrore = await risposta.text().catch(() => "");
       const estratto = corpoErrore.trim().slice(0, 300);
-      throw new Error(
-        `${metodo} ${url} -> HTTP ${risposta.status}${estratto ? `: ${estratto}` : ""}`
-      );
+      // Se anche il corpo è vuoto (es. il 400 "muto" di iCloud visto senza
+      // User-Agent), un header come WWW-Authenticate spesso è l'unico
+      // indizio rimasto sul motivo reale.
+      const wwwAuth = risposta.headers.get("www-authenticate");
+      const dettaglio = estratto || (wwwAuth ? `WWW-Authenticate: ${wwwAuth}` : "");
+      throw new Error(`${metodo} ${url} -> HTTP ${risposta.status}${dettaglio ? `: ${dettaglio}` : ""}`);
     }
     return { testo: await risposta.text(), urlFinale: risposta.url || url };
   } finally {

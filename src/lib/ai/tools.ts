@@ -7,6 +7,8 @@ import {
   cancellaAppuntamentoTenant,
   parsaOrarioLocale,
 } from "@/lib/booking-engine.server";
+import { realeAPseudoUtc } from "@/lib/fuso-orario";
+import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 
 /**
  * Strumenti che l'AI receptionist (Fase 2) usa per agire sul booking engine
@@ -309,13 +311,18 @@ async function eseguiStrumentoInterno(
         .order("inizio");
       if (error) return { errore: error.message };
 
+      // `inizio`/`fine` in colonna sono istanti reali (timestamptz):
+      // convertiti qui all'ora civile del salone prima di restituirli
+      // all'AI, che li ripete al cliente come se fossero già l'ora giusta
+      // da leggere -- mai un istante reale grezzo in una risposta in chat.
+      const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
       return {
         trovato: true,
         cliente_nome: cliente.nome,
         prenotazioni: (appuntamenti ?? []).map((a) => ({
           id: a.id,
-          inizio: a.inizio,
-          fine: a.fine,
+          inizio: realeAPseudoUtc(new Date(a.inizio), fusoOrario).toISOString(),
+          fine: realeAPseudoUtc(new Date(a.fine), fusoOrario).toISOString(),
           // Le relazioni Supabase su chiave singola tornano un oggetto, non un array.
           servizio: (a.servizi as unknown as { nome: string } | null)?.nome ?? null,
           operatore: (a.operatori as unknown as { nome: string } | null)?.nome ?? null,
