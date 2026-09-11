@@ -18,8 +18,8 @@ export function Nav() {
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-      className={`sticky top-0 z-40 transition-colors duration-300 ${
-        scrollato ? "bg-zinc-950/80 backdrop-blur-md" : "bg-transparent"
+      className={`fixed inset-x-0 top-0 z-40 transition-colors duration-300 ${
+        scrollato ? "bg-noir/80 backdrop-blur-md" : "bg-transparent"
       }`}
     >
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">

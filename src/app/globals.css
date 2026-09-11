@@ -5,9 +5,16 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Palette landing (Giro 3): un unico "nero" e un unico "chiaro" invece di
+     mescolare bg-white/bg-zinc-50/bg-zinc-950/bg-zinc-900 in punti diversi --
+     Gabriel ha segnalato che l'alternanza sembrava "bianco e nero" generico
+     invece di un'unica identità cromatica. Entrambi leggermente tinti di
+     viola (stessa famiglia dell'accento) invece di neutri puri. */
+  --color-noir: #07040d;
+  --color-crema: #f8f6fb;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);

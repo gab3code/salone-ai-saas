@@ -11,7 +11,7 @@ const NODI_FLUSSO = ["Il cliente scrive\n(chat o pagina pubblica)", "Un unico mo
 function FlussoAnimato() {
   return (
     <div className="relative mx-auto mt-14 max-w-3xl px-6">
-      <div className="absolute top-5 right-[10%] left-[10%] h-px bg-zinc-200" />
+      <div className="absolute top-5 right-[10%] left-[10%] h-px bg-white/10" />
       <motion.div
         aria-hidden
         className="absolute top-5 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500 shadow-[0_0_14px_2px_rgba(168,85,247,0.55)]"
@@ -21,10 +21,10 @@ function FlussoAnimato() {
       <div className="relative grid grid-cols-3 gap-3 text-center">
         {NODI_FLUSSO.map((testo, i) => (
           <div key={testo} className="flex flex-col items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-xs font-semibold text-zinc-500 shadow-sm">
+            <span className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold text-white/60 shadow-sm">
               {i + 1}
             </span>
-            <p className="text-xs leading-snug whitespace-pre-line text-zinc-500 sm:text-sm">{testo}</p>
+            <p className="text-xs leading-snug whitespace-pre-line text-white/50 sm:text-sm">{testo}</p>
           </div>
         ))}
       </div>
@@ -70,8 +70,8 @@ export function PercheNoi() {
     <section className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
       <Lampada>
         <div className="text-center">
-          <h2 className="text-sm font-medium text-violet-600">Perché questo, non un gestionale qualsiasi</h2>
-          <p className="mx-auto mt-2 max-w-xl text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
+          <h2 className="text-sm font-medium text-violet-400">Perché questo, non un gestionale qualsiasi</h2>
+          <p className="mx-auto mt-2 max-w-xl text-3xl font-semibold tracking-tight text-white sm:text-4xl">
             Le differenze che contano quando lo usi ogni giorno.
           </p>
         </div>
@@ -84,12 +84,12 @@ export function PercheNoi() {
       <RevealStagger className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {DIFFERENZIATORI.map((d) => (
           <RevealItem key={d.titolo}>
-            <SpotlightCard className="h-full rounded-2xl border border-zinc-200 bg-white p-5">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+            <SpotlightCard className="h-full rounded-2xl border border-white/10 bg-white/5 p-5">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
                 <d.icona className="size-4.5" />
               </span>
-              <h3 className="mt-3 text-[15px] font-medium text-zinc-900">{d.titolo}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-zinc-500">{d.testo}</p>
+              <h3 className="mt-3 text-[15px] font-medium text-white">{d.titolo}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-white/60">{d.testo}</p>
             </SpotlightCard>
           </RevealItem>
         ))}

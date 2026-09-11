@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
+import "@fontsource-variable/inter";
 import "./globals.css";
 
-// Font di sistema (nessuna dipendenza da Google Fonts al momento della build):
-// più veloce e affidabile in qualsiasi ambiente, anche senza rete verso
-// fonts.googleapis.com (problema riscontrato nel sandbox cloud). L'init di
-// shadcn (11/09/2026, installazione componenti beautifui) aveva reintrodotto
-// Geist da next/font/google -- ripristinato ai font di sistema.
-const fontVariablesClassName = "font-sans";
+// Un solo font, deliberato, in tutta l'app (richiesta esplicita di Gabriel,
+// Giro 3: "scegli un font e mantienilo in tutta la pagina"). Prima si usava
+// next/font/google, ma il build in questo sandbox non riesce a raggiungere
+// fonts.googleapis.com (proxy di rete del sandbox, 403 sul CONNECT) -- non
+// era un problema transitorio, riprovato e confermato bloccato. Passato a
+// @fontsource-variable/inter: stesso font Inter, ma i file woff2 sono
+// scaricati da npm (raggiungibile) e impacchettati nel bundle a build time,
+// zero dipendenze di rete sia in build che a runtime per l'utente finale.
+// Font variabile (un solo file copre tutti i pesi 100-900 usati nella
+// landing: font-medium, font-semibold, ecc.).
 
 export const metadata: Metadata = {
   title: "Salone AI SaaS",
@@ -15,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="it" className={`${fontVariablesClassName} h-full antialiased`}>
+    <html lang="it" className="font-sans h-full antialiased">
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

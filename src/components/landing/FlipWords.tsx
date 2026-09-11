@@ -25,23 +25,28 @@ export function FlipWords({
   }, [parole.length, durata]);
 
   return (
-    <span className={`relative inline-grid ${className}`}>
+    <span className={`relative isolate inline-block align-top ${className}`} style={{ transform: "translateZ(0)" }}>
+      {/* copia invisibile della parola più lunga: riserva lo spazio (posizionamento
+          normale, non grid) così il layout non "salta" cambiando parola. Il
+          wrapper ha `isolate` + `translateZ(0)` perché sopra uno sfondo WebGL
+          (LiquidMetal in Hero) Chromium a volte non dipinge il testo pur
+          calcolando opacity:1 correttamente -- forzare un proprio layer di
+          compositing risolve il problema, verificato con screenshot Playwright. */}
+      <span aria-hidden className="invisible whitespace-nowrap">
+        {parole.reduce((a, b) => (b.length > a.length ? b : a))}
+      </span>
       <AnimatePresence mode="wait">
         <motion.span
           key={parole[indice]}
-          initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          exit={{ opacity: 0, y: -16, filter: "blur(8px)" }}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-          className="col-start-1 row-start-1 inline-block whitespace-nowrap"
+          className="absolute inset-0 inline-block whitespace-nowrap"
         >
           {parole[indice]}
         </motion.span>
       </AnimatePresence>
-      {/* copia invisibile della parola più lunga per riservare lo spazio e non far "saltare" il layout */}
-      <span aria-hidden className="invisible col-start-1 row-start-1 whitespace-nowrap">
-        {parole.reduce((a, b) => (b.length > a.length ? b : a))}
-      </span>
     </span>
   );
 }

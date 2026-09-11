@@ -1,19 +1,20 @@
 "use client";
 
-import { useRef, useState, type MouseEvent } from "react";
-import { motion } from "framer-motion";
 import { Calendar, Check, MessageCircle, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
 import { Grana } from "./Grana";
 import { MagneticButton } from "./MagneticButton";
-import { RaggiSfondo } from "./RaggiSfondo";
+import { LiquidMetal } from "./LiquidMetal";
 import { FlipWords } from "./FlipWords";
-import { BorderBeam } from "./BorderBeam";
 
 const PROFESSIONI = ["salone", "studio", "centro", "spazio"];
 
 function Titolo() {
   return (
-    <h1 className="max-w-3xl text-4xl leading-[1.08] font-semibold tracking-tight text-white sm:text-6xl">
+    <h1
+      className="max-w-3xl text-4xl leading-[1.08] font-semibold tracking-tight text-white sm:text-6xl"
+      style={{ textShadow: "0 2px 28px rgba(0,0,0,0.75), 0 1px 3px rgba(0,0,0,0.6)" }}
+    >
       <span className="block overflow-hidden">
         <motion.span
           className="block"
@@ -129,40 +130,20 @@ function AnteprimaProdotto() {
 }
 
 export function Hero() {
-  const rifSezione = useRef<HTMLDivElement>(null);
-  const [glow, setGlow] = useState({ x: 50, y: 20 });
-
-  function alMovimentoMouse(e: MouseEvent<HTMLDivElement>) {
-    const rect = rifSezione.current?.getBoundingClientRect();
-    if (!rect) return;
-    setGlow({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
-  }
-
   return (
-    <div
-      id="top"
-      ref={rifSezione}
-      onMouseMove={alMovimentoMouse}
-      className="relative isolate overflow-hidden bg-zinc-950"
-    >
-      {/* griglia + glow che segue il mouse, ispirati a pattern hero comuni (Aceternity/21st) ma
-          riscritti su misura -- vedi docs/librerie-ui.md */}
+    <div id="top" className="relative isolate overflow-hidden bg-noir">
+      {/* Liquid Metal (OriginKit, vedi docs/librerie-ui.md "Giro 3"): l'unico
+          "protagonista" visivo della hero -- niente altri sfondi animati in
+          competizione. Reagisce lievemente al mouse (tilt dello sfondo), mai
+          al cursore reale. */}
+      <LiquidMetal />
+      {/* velo scuro dietro al blocco di testo: garantisce leggibilità del
+          titolo qualunque sia il colore dello shader in quel momento */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-40 transition-[background] duration-300"
-        style={{
-          background: `radial-gradient(600px circle at ${glow.x}% ${glow.y}%, rgba(168,85,247,0.18), transparent 70%)`,
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.07]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
-          backgroundSize: "44px 44px",
-        }}
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(65% 60% at 50% 34%, rgba(5,1,8,0.72), transparent 75%)" }}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      <RaggiSfondo />
       <Grana opacita={0.045} />
 
       <div className="relative mx-auto flex max-w-5xl flex-col items-center px-5 pt-28 pb-20 text-center sm:px-8 sm:pt-36">
@@ -182,7 +163,8 @@ export function Hero() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.45 }}
-          className="mt-6 max-w-xl text-base text-white/60 sm:text-lg"
+          className="mt-6 max-w-xl text-base text-white/70 sm:text-lg"
+          style={{ textShadow: "0 2px 16px rgba(0,0,0,0.7)" }}
         >
           I tuoi clienti prenotano da soli dalla tua pagina, un&apos;assistente AI risponde a chi
           scrive fuori orario, e tu vedi tutto in un unico calendario -- senza cambiare il modo
@@ -195,15 +177,12 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.6 }}
           className="mt-8 flex flex-wrap items-center justify-center gap-3"
         >
-          <div className="relative inline-block rounded-full p-px">
-            <BorderBeam durata={5} />
-            <MagneticButton
-              href="/registrati"
-              className="relative block rounded-full bg-white px-6 py-3 text-sm font-medium text-zinc-900 shadow-lg shadow-white/10"
-            >
-              Inizia gratis -- nessuna carta richiesta
-            </MagneticButton>
-          </div>
+          <MagneticButton
+            href="/registrati"
+            className="block rounded-full bg-white px-6 py-3 text-sm font-medium text-zinc-900 shadow-lg shadow-white/10"
+          >
+            Inizia gratis -- nessuna carta richiesta
+          </MagneticButton>
           <MagneticButton
             href="#funzionalita"
             forza={0.25}

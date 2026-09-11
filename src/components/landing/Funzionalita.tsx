@@ -56,17 +56,17 @@ const VOCI: Voce[] = [
 
 function Cella({ v }: { v: Voce }) {
   return (
-    <SpotlightCard className="h-full rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow duration-300 hover:shadow-lg">
+    <SpotlightCard className="h-full rounded-2xl border border-white/10 bg-white/5 p-5 transition-colors duration-300 hover:border-white/20">
       <div className="relative flex items-start justify-between gap-2">
-        <span className="flex size-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+        <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
           <v.icona className="size-4" />
         </span>
         {v.inArrivo && (
-          <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-600">in arrivo</span>
+          <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">in arrivo</span>
         )}
       </div>
-      <h3 className="relative mt-4 text-[15px] font-medium text-zinc-900">{v.titolo}</h3>
-      <p className="relative mt-1.5 text-sm leading-relaxed text-zinc-500">{v.descrizione}</p>
+      <h3 className="relative mt-4 text-[15px] font-medium text-white">{v.titolo}</h3>
+      <p className="relative mt-1.5 text-sm leading-relaxed text-white/60">{v.descrizione}</p>
     </SpotlightCard>
   );
 }
@@ -75,8 +75,8 @@ export function Funzionalita() {
   return (
     <section id="funzionalita" className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
       <Reveal className="max-w-lg">
-        <h2 className="text-sm font-medium text-violet-600">Tutto quello che include</h2>
-        <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
+        <h2 className="text-sm font-medium text-violet-400">Tutto quello che include</h2>
+        <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Cosa c&apos;è oggi, cosa arriva dopo -- detto chiaro.
         </p>
       </Reveal>

@@ -47,7 +47,7 @@ export function ProdottoScroll() {
   }, []);
 
   return (
-    <section ref={rifSezione} className="relative overflow-hidden bg-zinc-950 py-20 sm:py-28">
+    <section ref={rifSezione} className="relative overflow-hidden bg-noir py-20 sm:py-28">
       <Grana opacita={0.035} />
       <div className="relative mx-auto max-w-5xl px-5 text-center sm:px-8" style={{ perspective: 1600 }}>
         <Reveal>

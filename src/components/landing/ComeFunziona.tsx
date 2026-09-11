@@ -22,8 +22,8 @@ export function ComeFunziona() {
   return (
     <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
       <Reveal className="max-w-lg">
-        <h2 className="text-sm font-medium text-violet-600">Come funziona</h2>
-        <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
+        <h2 className="text-sm font-medium text-violet-400">Come funziona</h2>
+        <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Operativo lo stesso giorno.
         </p>
       </Reveal>
@@ -31,9 +31,9 @@ export function ComeFunziona() {
       <RevealStagger className="mt-12 grid gap-8 sm:grid-cols-3" gapMs={0.12}>
         {PASSI.map((p) => (
           <RevealItem key={p.numero} className="relative">
-            <span className="text-5xl font-semibold text-zinc-100">{p.numero}</span>
-            <h3 className="mt-3 text-lg font-medium text-zinc-900">{p.titolo}</h3>
-            <p className="mt-2 text-sm text-zinc-500">{p.testo}</p>
+            <span className="text-5xl font-semibold text-white/10">{p.numero}</span>
+            <h3 className="mt-3 text-lg font-medium text-white">{p.titolo}</h3>
+            <p className="mt-2 text-sm text-white/60">{p.testo}</p>
           </RevealItem>
         ))}
       </RevealStagger>

@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Calendar, Globe2, MessageSquareText, RefreshCw, Check, Users, BellRing, CalendarClock, type LucideIcon } from "lucide-react";
+import { ThinkingOrb } from "thinking-orbs";
 import { Reveal } from "./Reveal";
 import { Grana } from "./Grana";
 
@@ -95,6 +96,18 @@ function VisualeScena({ indice }: { indice: number }) {
         <div className="self-end rounded-2xl rounded-br-sm bg-white/10 px-3 py-2 text-xs text-white/80">
           Siete aperti domenica?
         </div>
+        {/* L'orb non è decorazione: rende letteralmente visibile il momento in
+            cui l'AI sta elaborando la risposta, prima che compaia -- stato
+            "connecting" di thinking-orbs, pensato apposta per agenti AI. */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 1, 0] }}
+          transition={{ duration: 1.4, times: [0, 0.15, 0.75, 1], repeat: Infinity, repeatDelay: 2.2 }}
+          className="flex items-center gap-1.5 self-start pl-1"
+        >
+          <ThinkingOrb state="connecting" size={20} theme="dark" aria-label="L'assistente sta elaborando la risposta" />
+          <span className="text-[10px] text-white/40">sta scrivendo…</span>
+        </motion.div>
         <div className="self-start rounded-2xl rounded-bl-sm bg-gradient-to-br from-violet-500/80 to-fuchsia-500/80 px-3 py-2 text-xs text-white">
           Siamo chiusi la domenica, ma sabato ho le 11:00 libere!
         </div>
@@ -202,7 +215,7 @@ export function Vetrina() {
   }, []);
 
   return (
-    <section className="relative overflow-hidden bg-zinc-950 py-4">
+    <section className="relative overflow-hidden bg-noir py-4">
       <Grana opacita={0.035} />
       <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
         <Reveal className="pt-16">

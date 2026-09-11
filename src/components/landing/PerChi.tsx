@@ -43,11 +43,11 @@ const PERSONE: Persona[] = [
 
 export function PerChi() {
   return (
-    <section id="per-chi" className="bg-zinc-50 py-24">
+    <section id="per-chi" className="py-24">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
         <Reveal className="max-w-lg">
-          <h2 className="text-sm font-medium text-violet-600">Per chi è</h2>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
+          <h2 className="text-sm font-medium text-violet-400">Per chi è</h2>
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
             Pensato per chi lavora su appuntamento -- non solo per i saloni.
           </p>
         </Reveal>
@@ -56,12 +56,12 @@ export function PerChi() {
           {PERSONE.map((p) => (
             <RevealItem key={p.titolo}>
               <TiltCard className="h-full">
-                <SpotlightCard className="flex h-full flex-col rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-                  <span className="flex size-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                <SpotlightCard className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
                     <p.icona className="size-4.5" />
                   </span>
-                  <h3 className="relative mt-3.5 text-[15px] font-medium text-zinc-900">{p.titolo}</h3>
-                  <p className="relative mt-1.5 text-sm leading-relaxed text-zinc-500">{p.testo}</p>
+                  <h3 className="relative mt-3.5 text-[15px] font-medium text-white">{p.titolo}</h3>
+                  <p className="relative mt-1.5 text-sm leading-relaxed text-white/60">{p.testo}</p>
                 </SpotlightCard>
               </TiltCard>
             </RevealItem>

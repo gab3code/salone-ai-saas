@@ -126,3 +126,82 @@ Riferimento rapido per non re-inventarli in una sessione futura -- tutti in
   di elementi non le riempie esattamente (lascia buchi vuoti -- usare una griglia uniforme, o uno
   showcase scroll-driven come `Vetrina.tsx` per gli elementi "principali"), non usare mockup
   generici di browser-chrome senza personalizzarli col vero contesto del prodotto.
+
+## Giro 3 (11/09/2026): rifacimento con METODO, dopo il rifiuto esplicito di v2
+
+Gabriel ha bocciato il Giro 2 ("raffazzonato, buttato lì a caso") e ha dato un
+metodo preciso da seguire (vedi il messaggio con la sequenza narrativa
+mandato a lui prima di toccare codice, non ripetuto qui): un solo linguaggio
+visivo per tutta la pagina, un solo "protagonista" per sezione, codice reale
+dai connettori (OriginKit/21st) invece di reinventare a mano, screenshot e
+autovalutazione dopo ogni sezione prima di andare avanti.
+
+**Decisioni prese in questo giro, con motivazione (richiesta esplicita di
+Gabriel -- "dimmi cosa hai deciso e perché"):**
+
+- **Beautiful UI** (`src/app/beautifui/`) -- NON usato in questa landing. Ha
+  un sistema di token separato (oklch, `--ink`/`--surface`/ecc., pensato per
+  tabelle/UI dati fitte -- vedi `foundation.css` + `records-table.css`), un
+  registro visivo da prodotto/dashboard, non da pagina marketing. Ha senso
+  rivalutarlo per la dashboard vera del prodotto, non per questa pagina.
+- **Thinking Orbs** (pacchetto npm) -- usato in UN punto solo, mirato:
+  `Vetrina.tsx`, scena "assistente AI" (indice 2), un piccolo
+  `<ThinkingOrb state="connecting" size={20} theme="dark" />` che compare
+  per un attimo tra la domanda del cliente e la risposta dell'AI ("sta
+  scrivendo…"). Non è decorazione: rende visibile letteralmente il momento
+  in cui l'AI sta elaborando, prima che compaia la risposta.
+- **`network-lines`** (OriginKit, il candidato per "perché noi") -- NON
+  usato, anche dopo lo sblocco del piano premium: la sezione "perché noi" è
+  testuale/fiducia, non uno showcase -- un effetto WebGL pesante lì
+  competerebbe col contenuto invece di rinforzarlo. Resta il flusso animato
+  semplice già presente (`FlussoAnimato` dentro `PercheNoi.tsx`, 3 nodi
+  numerati + puntino che scorre) -- scelta di disciplina visiva, non un
+  ripiego per un limite di piano.
+- **Effetti "wow" per Hero e CTA finale** -- `liquid-metal` (OriginKit, codice
+  reale scaricato via `mcp__OriginKit__get_component`, `LiquidMetal.tsx`):
+  sfondo WebGL "metallo liquido" viola->fucsia, riusato con parametri diversi
+  in Hero e CTAFinale (stesso linguaggio visivo, non una copia identica --
+  un "eco" in apertura e chiusura pagina). Aggiunto un lievissimo tilt di
+  parallasse al mouse (reagisce solo allo sfondo, mai al cursore reale, come
+  richiesto). `shine-card` (OriginKit) valutato per la griglia Funzionalita
+  ma scartato: non ha uno slot `children`, e comunque aggiungere 15 canvas
+  WebGL a una griglia di contenuto avrebbe violato la priorità
+  "performance/fluidità prima degli effetti". `moving-gradient-button`
+  valutato e scartato (troppa configurazione per il beneficio) a favore di
+  riusare `glow-border` (OriginKit, `GlowBorder.tsx`) ovunque serva un anello
+  luminoso attorno a un bordo: piano consigliato in Prezzi, bottone CTA
+  finale.
+- **Font unico e palette unificata** (11/09/2026, in risposta al feedback di
+  Gabriel "non mi piace il bianco e nero... scegli un font e mantienilo"):
+  Inter in tutta l'app via `@fontsource-variable/inter` (non
+  `next/font/google` -- il build in questo sandbox non riesce a raggiungere
+  fonts.googleapis.com, proxy di rete bloccato con 403 sul CONNECT, non un
+  problema transitorio; il pacchetto fontsource scarica i woff2 da npm,
+  raggiungibile, e li impacchetta a build time, zero dipendenze di rete
+  anche per l'utente finale). Aggiunti due token Tailwind (`--color-noir` /
+  `--color-crema`) per unificare gli sfondi.
+- **Dark theme unico per tutta la landing** (11/09/2026, in risposta al
+  feedback successivo di Gabriel "o chiaro o scuro, segui il prompt e non
+  rendere la pagina confusionaria"): l'alternanza sezioni scure/chiare
+  (pensata inizialmente per dare ritmo) è stata giudicata confusionaria --
+  tornata su un'unica identità scura (`bg-noir`) per l'intera pagina, testo
+  bianco/violet-400 ovunque, card `bg-white/5` con bordo `border-white/10`.
+  Il token `--color-crema` resta definito in `globals.css` ma non è più
+  usato in questa landing (tenuto per eventuale riuso altrove nell'app, che
+  resta a tema chiaro). I mockup "UI dentro la UI" (chat/dashboard finti
+  dentro Hero/Vetrina/ProdottoScroll, pannello "senza AI" nel compare slider
+  di PrimaDopo) restano con colori propri anche diversi dallo sfondo di
+  sezione -- sono illustrazioni di prodotto, non blocchi di pagina, quindi
+  non violano la regola "una sola identità" della pagina.
+- **Bug reale trovato e risolto: parola rotante in Hero bloccata invisibile**
+  (`FlipWords.tsx`) -- la parola animata ("salone"/"studio"/...) restava
+  bloccata per sempre allo stato iniziale (`opacity: 0`, `filter: blur(8px)`)
+  invece di animarsi, verificato via Playwright leggendo gli stili calcolati
+  nel tempo (non solo screenshot). Causa isolata per esclusione: rimuovendo
+  `filter: blur()` dalle keyframe di ingresso/uscita (tenendo solo
+  opacity+y) l'animazione riparte e completa normalmente -- indica un
+  conflitto tra l'animazione del `filter` di Framer Motion e il layer di
+  compositing forzato (`isolate` + `translateZ(0)`) aggiunto in un giro
+  precedente per un diverso bug di rendering WebGL. Effetto finale invariato
+  nella sostanza (fade + slide verticale), solo la sfocatura d'ingresso è
+  stata tolta.
