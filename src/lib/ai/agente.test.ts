@@ -89,4 +89,20 @@ describe("rispondiConversazione", () => {
       { role: "user", content: "Quanto dura?" },
     ]);
   });
+
+  it("include la data odierna reale nel system prompt, così il modello non deve chiederla al cliente", async () => {
+    const create = vi.fn().mockResolvedValue(testoFinale("Certo, domani alle 15:00 è libero."));
+
+    await rispondiConversazione(
+      [],
+      "Vorrei prenotare domani pomeriggio",
+      ctx,
+      { messages: { create } } as ClienteAnthropic,
+      new Date("2026-09-03T10:00:00Z")
+    );
+
+    const primaChiamata = create.mock.calls[0][0];
+    expect(primaChiamata.system).toContain("2026-09-03");
+    expect(primaChiamata.system).toContain("giovedì");
+  });
 });

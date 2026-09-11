@@ -48,11 +48,32 @@ export interface RisultatoConversazione {
   trasferitoAUmano: boolean;
 }
 
-function costruisciSystemPrompt(nomeAttivita: string): string {
+const GIORNI_SETTIMANA_IT = [
+  "domenica",
+  "lunedì",
+  "martedì",
+  "mercoledì",
+  "giovedì",
+  "venerdì",
+  "sabato",
+];
+
+function costruisciSystemPrompt(nomeAttivita: string, adesso: Date): string {
+  // Verificato dal vivo (Task #66): senza questa data il modello non inventa
+  // un giorno a caso (bene), ma la chiede al cliente per calcolare "domani" --
+  // pessima esperienza, e se il cliente sbagliasse la data digitata sarebbe
+  // comunque un dato "inventato" (dall'utente, non dal modello, ma altrettanto
+  // sbagliato). Fuso orario semplificato come UTC, stessa scelta già fatta nel
+  // motore di prenotazione (vedi problema noto #1 in PROJECT_STATUS.md).
+  const dataOggi = adesso.toISOString().slice(0, 10);
+  const giornoSettimana = GIORNI_SETTIMANA_IT[adesso.getUTCDay()];
+
   return `Sei l'assistente alla prenotazione di "${nomeAttivita}", disponibile tramite chat sulla pagina pubblica dell'attività.
 
+Contesto attuale: oggi è ${giornoSettimana} ${dataOggi} (formato YYYY-MM-DD). Usa SEMPRE questa data per calcolare "oggi", "domani", "dopodomani", giorni della settimana, ecc. Non chiederla mai al cliente e non presumerne una diversa.
+
 REGOLE ASSOLUTE, non negoziabili:
-1. Non inventare MAI servizi, prezzi, durate, orari o disponibilità. Ogni informazione di questo tipo deve venire da uno strumento -- se non l'hai ancora chiamato, chiamalo prima di rispondere.
+1. Non inventare MAI servizi, prezzi, durate, orari o disponibilità. Ogni informazione di questo tipo deve venire da uno strumento -- se non l'hai ancora chiamato, chiamalo prima di rispondere. Quando uno strumento richiede un id (servizio_id, servizio_ids, operatore_id, appuntamento_id), usa SEMPRE l'id esatto restituito da elenca_servizi/elenca_operatori/cerca_prenotazioni_cliente -- mai il nome del servizio o dell'operatore al suo posto.
 2. Prima di proporre un orario, chiama sempre verifica_disponibilita: non calcolare o supporre mai una disponibilità da solo.
 3. Per creare/modificare/cancellare una prenotazione ti serve sempre il telefono del cliente (è come lo riconosciamo tra un messaggio e l'altro, e tra i canali). Chiedilo se non lo conosci già in questa conversazione.
 4. Mantieni il contesto per tutta la conversazione: se il cliente ha già detto il servizio, non richiederlo di nuovo; ricorda cosa avete già stabilito finché non cambia.
@@ -78,7 +99,8 @@ export async function rispondiConversazione(
   storico: MessaggioConversazione[],
   messaggioNuovo: string,
   ctx: ContestoStrumento & { nomeAttivita: string },
-  clientAnthropic: ClienteAnthropic = ottieniClientPredefinito()
+  clientAnthropic: ClienteAnthropic = ottieniClientPredefinito(),
+  adesso: Date = new Date()
 ): Promise<RisultatoConversazione> {
   const messages: Anthropic.MessageParam[] = [
     ...storico.map(
@@ -96,7 +118,7 @@ export async function rispondiConversazione(
     const risposta = await clientAnthropic.messages.create({
       model: MODELLO,
       max_tokens: 1024,
-      system: costruisciSystemPrompt(ctx.nomeAttivita),
+      system: costruisciSystemPrompt(ctx.nomeAttivita, adesso),
       tools: STRUMENTI_AI as unknown as Anthropic.Tool[],
       messages,
     });

@@ -3,6 +3,8 @@ import { creaClientAdmin } from "@/lib/supabase/admin";
 import { risolviTenantIdDaSlug } from "@/lib/ai/tools";
 import { rispondiConversazione } from "@/lib/ai/agente";
 import { ottieniOCreaConversazione, caricaMessaggi, salvaMessaggio, segnaPassataAOperatore } from "@/lib/ai/conversazione.server";
+import { pianoHaAccessoAIChatWeb, limiteMensileMessaggi, INTERVALLO_MINIMO_MS_TRA_MESSAGGI } from "@/lib/ai/limiti";
+import { contaMessaggiClienteQuestoMese, ultimoMessaggioTroppoRecente } from "@/lib/ai/limiti.server";
 
 /**
  * Endpoint pubblico della chat AI (Task #66) -- NESSUNA autenticazione
@@ -44,10 +46,40 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ errore: "Attività non trovata." }, { status: 404 });
   }
 
-  const { data: tenant } = await supabase.from("tenants").select("nome").eq("id", tenantId).single();
+  const { data: tenant } = await supabase.from("tenants").select("nome, piano").eq("id", tenantId).single();
+
+  // Gate di piano (Free/Starter non hanno la chat AI affatto -- decisione
+  // 02/09/2026, vedi DECISIONS.md): controllato PRIMA di creare/toccare
+  // qualunque conversazione, così un tenant senza AI non lascia comunque
+  // tracce nel database per ogni visitatore che prova a scriverci.
+  if (!tenant || !pianoHaAccessoAIChatWeb(tenant.piano)) {
+    return NextResponse.json(
+      { errore: "La chat AI non è inclusa nel piano di questa attività." },
+      { status: 403 }
+    );
+  }
 
   try {
     const conversazione = await ottieniOCreaConversazione(supabase, tenantId, identificatoreSessione);
+
+    // Anti-burst e quota mensile: l'endpoint è pubblico e non autenticato,
+    // quindi queste due difese vengono PRIMA di salvare il messaggio e PRIMA
+    // di chiamare il modello -- un messaggio rifiutato qui non genera alcun
+    // costo Anthropic (vedi limiti.ts per il perché di entrambe).
+    if (await ultimoMessaggioTroppoRecente(supabase, conversazione.id, INTERVALLO_MINIMO_MS_TRA_MESSAGGI)) {
+      return NextResponse.json(
+        { errore: "Stai scrivendo troppo velocemente, aspetta un attimo e riprova." },
+        { status: 429 }
+      );
+    }
+    const usatiQuestoMese = await contaMessaggiClienteQuestoMese(supabase, tenantId);
+    if (usatiQuestoMese >= limiteMensileMessaggi(tenant.piano)) {
+      return NextResponse.json(
+        { errore: "Questa attività ha raggiunto il limite mensile di messaggi AI. Contattala direttamente per prenotare." },
+        { status: 429 }
+      );
+    }
+
     const storico = await caricaMessaggi(supabase, conversazione.id);
 
     await salvaMessaggio(supabase, conversazione.id, "cliente", messaggio);

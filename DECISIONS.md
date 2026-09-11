@@ -232,3 +232,198 @@ dato finanziario) incollata in chat per configurare il proprio progetto rientra 
 normale, non nelle categorie vietate (credenziali finanziarie, password di login, ecc.).
 Diverso il discorso per scriverla io stesso sul suo Mac da remoto: lì la restrizione tecnica
 del bridge è corretta e non ho cercato di aggirarla.
+
+## 2026-09-02 — Struttura piani e prezzi (punto 20 di CLAUDE.md)
+
+**Decisione**: struttura a 5 piani, stesso schema di nomi già previsto in `tenants.piano`
+(`free | starter | growth | pro | enterprise`), diversa da Estetia nel posizionamento
+dell'AI:
+
+| Piano | Prezzo | Prenotazioni | AI chat web | AI WhatsApp | Altro |
+|---|---|---|---|---|---|
+| Free | €0 | tetto 60/mese | no | no | 1 operatore, calendario, pagina pubblica, CRM base |
+| Starter | €19,90 | illimitate | no | no | multi-operatore, CRM completo |
+| Growth | €39,90 | illimitate | **sì** | no | analytics, reminder |
+| Pro | €69,90 | illimitate | sì | **sì** | SMS, Prompt Lab |
+| Enterprise | su preventivo | illimitate | sì | sì | Instagram/Telegram, PWA, supporto dedicato |
+
+**Ricerca su cui si basa**: Estetia (estetia.tidycode.it, verificato dal vivo il 02/09/2026)
+usa Free (€0, 1 operatore, niente AI/CRM) → Starter (€29,90, CRM + "chat AI di base") →
+Growth (€49,90, analytics + reminder WhatsApp) → Pro (€89,90, AI conversazionale web+WhatsApp
++ SMS + Prompt Lab) → Enterprise (a preventivo). Nessun tetto numerico dichiarato su
+prenotazioni/messaggi -- segmentano per funzionalità, non per volume. **Anche loro non
+mettono mai l'AI nel Free.**
+
+**Calcolo costo AI** (Claude Haiku 4.5, prezzi ufficiali Anthropic verificati il 02/09/2026:
+$1/milione token input, $5/milione token output): conversazione informativa ~$0,006,
+prenotazione completa ~$0,02. Su 1.000 conversazioni/mese (salone molto attivo) il costo
+Anthropic totale è ~12$/mese -- ampiamente coperto anche dal piano più economico con AI
+(Growth, €39,90).
+
+**Perché l'AI a Growth e non solo a Pro (diverso da Estetia)**: il costo reale per
+conversazione è basso, quindi vincolarla al piano più caro sprecherebbe un differenziatore a
+basso costo che conviene mostrare prima, come leva per far salire i clienti oltre Starter
+(punto 20: "i piani premium devono avere un ROI evidente"). WhatsApp resta riservato al piano
+più costoso a prezzo fisso (Pro) su richiesta esplicita di Gabriel ("regolati tu, devono
+esserci dei vantaggi reali") -- la differenza reale tra Growth e Pro non è "stessa AI in due
+posti", è raggiungere il cliente dove già è (WhatsApp) invece di richiedere che visiti la
+pagina pubblica, più SMS e Prompt Lab (personalizzazione del tono dell'AI).
+
+**Nota onesta discussa con Gabriel**: il costo per conversazione è basso -- il vincolo
+"l'AI deve essere a pagamento" è più posizionamento/monetizzazione che sopravvivenza sui
+costi variabili (coerente comunque con come si muove il mercato, vedi Estetia sopra). Il
+rischio reale di andare in perdita non è il costo per conversazione, è l'assenza di un tetto
+tecnico su un endpoint pubblico e non autenticato -- per questo, insieme alla struttura dei
+piani, Gabriel ha chiesto di costruire subito la difesa tecnica (vedi voce successiva) prima
+di aprire l'AI ai piani a pagamento. Il tetto prenotazioni sul Free (60/mese, scelto da
+Gabriel) è invece puramente una leva di prodotto/upsell: una prenotazione costa quasi zero
+(una riga nel database), non c'è alcun rischio economico nel lasciarle illimitate anche lì --
+l'enforcement tecnico di questo tetto non è stato ancora costruito (vedi problemi noti in
+PROJECT_STATUS.md).
+
+**Alternative considerate**: AI già da Starter (scartata: rinuncia a una leva di upsell da
+Starter a Growth) o solo da Pro come Estetia (scartata: troppo prudente rispetto al costo
+reale, che è basso).
+
+## 2026-09-02 — Difesa tecnica anti-abuso sulla chat AI, prima di aprirla ai piani a pagamento
+
+**Decisione**: `src/lib/ai/limiti.ts` + `limiti.server.ts`, applicati in
+`api/chat/[slug]/route.ts` PRIMA di salvare il messaggio o chiamare il modello (un messaggio
+rifiutato da questi controlli non genera alcun costo Anthropic):
+1. Gate di piano: Free/Starter ricevono un 403 esplicito, nessuna conversazione viene
+   nemmeno creata nel database per loro.
+2. Anti-burst: un secondo messaggio nella stessa conversazione a meno di 2 secondi dal
+   precedente viene rifiutato (probabile script, non persona che digita).
+3. Quota mensile per tenant, contata sui messaggi reali del cliente nel mese corrente
+   (mai un contatore separato che potrebbe disallinearsi dal dato vero): 1.000/mese Growth,
+   3.000/mese Pro, illimitato Enterprise -- numeri di partenza, facili da rivedere con dati
+   reali di utilizzo.
+
+**Motivazione**: l'endpoint `/api/chat/[slug]` è pubblico e senza autenticazione -- senza
+queste difese, uno script che manda migliaia di messaggi farebbe pagare la bolletta Anthropic
+a Gabriel indipendentemente dal piano del tenant colpito. Richiesto esplicitamente da Gabriel
+prima di collegare l'AI ai piani a pagamento.
+
+## 2026-09-02 — Sincronizzazione calendari esterni: Google via OAuth completo, Apple via CalDAV
+
+**Decisione**: nuovo obiettivo (Fase 6bis in PIANO.md, non nei 33 punti originali, richiesto da
+Gabriel). Sincronizzazione bidirezionale vera (vedere gli appuntamenti del salone nel
+calendario personale dell'operatore + bloccare uno slot se l'operatore ha già un impegno
+personale lì), non solo un link di sola lettura:
+- **Google Calendar**: OAuth2 + Google Calendar API v3, tempo reale. Richiede un progetto
+  Google Cloud e, per essere disponibile a clienti reali (non solo Gabriel in test), la
+  revisione di Google per gli scope "sensibili" del calendario -- stesso tipo di iter (tempi
+  non garantiti) già affrontato con Meta per WhatsApp (vedi voce del 2026-09-0X su WhatsApp
+  come canale opzionale). Gabriel ha scelto esplicitamente questa strada accettando l'attesa,
+  invece dell'alternativa "link webcal universale, zero attese" che gli ho proposto prima.
+- **Apple/iCloud Calendar**: CalDAV con password specifica per l'app (l'operatore la genera dal
+  suo account Apple) -- nessuna revisione esterna: è un protocollo standard, non un permesso
+  che Apple approva. Disponibile appena costruito.
+
+**Alternativa considerata e proposta per prima**: link "webcal://" di sola lettura generato da
+noi (per l'esportazione) combinato con l'indirizzo privato ICS del calendario personale
+dell'operatore (per l'importazione/blocco) -- copre lo stesso bisogno (vedere + bloccare) senza
+alcuna autorizzazione esterna da nessuna delle due parti, ma con aggiornamento non istantaneo
+(minuti/ore, non secondi) e un piccolo passo di configurazione manuale per l'operatore.
+Scartata da Gabriel a favore della sincronizzazione vera con Google, accettando l'attesa della
+revisione.
+
+**Motivazione della scelta di Gabriel**: sincronizzazione istantanea e un login "Accedi con
+Google" più semplice per l'utente finale valgono l'attesa della revisione, soprattutto perché
+può comunque testare la funzionalità lui stesso da subito, prima che la revisione sia
+completata.
+
+---
+
+## 2026-09-02 -- Fase 6bis, prima metà costruita: Apple/iCloud via CalDAV (import/blocco)
+
+Costruita e verificata con test automatici (non ancora con un account iCloud reale, vedi
+PIANO.md) la parte Apple della sincronizzazione calendari decisa sopra, mentre Google resta in
+attesa delle credenziali OAuth di Gabriel (nessun blocco reciproco tra le due: Apple non
+dipendeva da nulla di esterno, quindi è la prima ad essere pronta).
+
+**Scelte tecniche fatte in autonomia, degne di nota**:
+- **Nessuna libreria CalDAV/XML esterna**: un client minimale scritto a mano
+  (`src/lib/calendario-esterno/caldav.server.ts`) con autodiscovery standard (principal ->
+  calendar-home-set -> elenco calendari) ed estrazione dei pochi tag XML che servono via
+  regex tollerante al prefisso del namespace, invece di aggiungere una dipendenza (es. `tsdav`)
+  per una superficie di parsing comunque piccola. Se in futuro servisse molto di più (es.
+  scrittura/aggiornamento eventi per la direzione export), vale la pena rivalutare una libreria
+  vera piuttosto che far crescere questo file a mano.
+- **Parser ICS puro e testato separatamente** (`ics.ts`, nessuna rete, nessun database) --
+  stessa filosofia pura/collegata-al-DB già usata ovunque nel progetto (booking-engine.ts vs
+  .server.ts). Gestisce RRULE settimanale (con BYDAY) espandendola davvero in tutte le
+  occorrenze nella finestra richiesta -- necessario perché un impegno personale ricorrente
+  (es. "palestra ogni martedì alle 18") è comunissimo e ignorarlo avrebbe reso la funzione
+  "blocco" molto meno utile nella pratica. RRULE mensile/annuale NON è espansa (fallback:
+  mostra solo la prima occorrenza, mai un crash o un impegno perso del tutto silenziosamente)
+  -- limitazione consapevole, documentata nel file, accettabile perché rara per calendari
+  personali.
+- **Fail-open per collegamento esterno**: se un calendario CalDAV non risponde o dà errore
+  (rete, password scaduta, server giù), quell'operatore risulta "senza impegni esterni noti in
+  questo momento" invece di far fallire l'intera richiesta di disponibilità/prenotazione --
+  stessa asimmetria già scelta per il tetto prenotazioni Free (vedi voce sopra sul piano
+  Growth/Pro/Enterprise): un calendario personale irraggiungibile non deve mai costare una
+  prenotazione vera persa. L'errore resta comunque visibile nelle impostazioni
+  (`ultimo_errore` sulla riga del collegamento), non sparisce silenziosamente.
+- **Credenziali verificate DAVVERO prima di salvarle**: la UI di collegamento si connette
+  davvero al server CalDAV (autodiscovery completa) prima di scrivere qualunque riga nel
+  database -- un Apple ID o una password sbagliata dà un errore subito in fase di collegamento,
+  mai un collegamento "salvato" che poi fallisce silenziosamente ogni volta che viene usato.
+- **Nota di sicurezza aperta, non risolta ora di proposito**: le credenziali CalDAV (come
+  altre colonne token già esistenti nel progetto) sono salvate in chiaro nel database per
+  questa fase. Rimandato al giro di sicurezza di Fase 6 (punto 29) insieme a tutte le altre
+  colonne token, invece di risolverlo isolatamente solo per questa tabella -- non prima che ci
+  siano clienti paganti reali con dati qui dentro.
+
+**Cosa NON è ancora stato costruito in questo giro** (per essere onesti sullo stato reale,
+vedi PIANO.md per la lista completa): la direzione export (mostrare gli appuntamenti del
+salone nel calendario personale dell'operatore -- la tabella `eventi_calendario_esterni` è
+pronta per questo ma la scrittura vera non è ancora scritta), e una verifica dal vivo con un
+vero account iCloud (oggi solo `npx vitest run` + `npm run build` puliti).
+
+---
+
+## 2026-09-02 -- Fase 6bis, seconda metà: Google Calendar via OAuth2 (import/blocco)
+
+Stesso pomeriggio, subito dopo la parte Apple sopra: Gabriel ha configurato il suo progetto
+Google Cloud (Calendar API abilitata, schermata di consenso OAuth, Client ID/Secret) e mandato
+le credenziali in chat -- costruito il collegamento OAuth2 vero mentre erano fresche.
+
+**Scelte tecniche fatte in autonomia, degne di nota**:
+- **Nessun SDK Google ufficiale (`googleapis`)**: solo 3 chiamate HTTP dirette (authorize URL,
+  token exchange/refresh, `events.list`) in `src/lib/calendario-esterno/google.server.ts` --
+  stessa logica di "niente dipendenza pesante per una superficie piccola" già applicata al
+  client CalDAV scritto poco prima nello stesso pomeriggio.
+- **`singleEvents=true` su `events.list`**: Google espande da solo le ricorrenze (RRULE) in
+  occorrenze singole -- molto più semplice del parser RRULE scritto a mano per CalDAV/ICS (dove
+  Apple non offre questo servizio). Nessuna logica di espansione ricorrenze duplicata per
+  Google: non serve, la fa l'API.
+- **OAuth2 per-operatore, non un service account condiviso**: ogni operatore autorizza il
+  collegamento al PROPRIO calendario con il proprio consenso esplicito (coerente con l'idea
+  stessa della funzionalità -- bloccare i SUOI impegni personali), non un accesso della
+  piattaforma a calendari altrui. `access_type=offline` + `prompt=consent` per garantire di
+  ricevere sempre un refresh_token, necessario per rinnovare l'accesso dopo che scade
+  (~1 ora) senza richiedere all'operatore di autorizzare di nuovo ogni volta.
+- **Protezione anti-CSRF con nonce in cookie httpOnly**: lo `state` OAuth porta l'operatoreId
+  attraverso il giro su Google, ma un `state` da solo è manomettibile da chi intercetta l'URL
+  di ritorno -- il nonce salvato in un cookie httpOnly di 5 minuti, verificato di nuovo nel
+  callback, impedisce che qualcuno possa forzare il collegamento del calendario di un
+  operatore diverso da quello scelto dall'utente che ha avviato il flusso. In più, il callback
+  ricontrolla che l'operatore appartenga DAVVERO al tenant dell'utente loggato in quel momento,
+  non si fida di quanto dichiarato nello state -- doppia rete di sicurezza, coerente con la
+  disciplina già usata per l'isolamento multi-tenant nel resto del progetto (RLS + controllo
+  applicativo).
+- **Stesso fail-open/aggregazione della parte Apple**: `caricaImpegniEsterni`
+  (`collegamenti.server.ts`) ora interroga entrambi i provider e li concatena nella stessa
+  forma `AppuntamentoEsistente` prima di passarli al motore puro -- nessuna differenza di
+  trattamento tra un impegno Apple e uno Google agli occhi del motore di disponibilità (punto
+  9: un'unica logica di conflitto). Un token Google scaduto viene rinnovato automaticamente
+  prima di ogni lettura; un refresh_token revocato dall'operatore (es. ha rimosso l'accesso
+  dalle impostazioni del suo account Google) fa fallire quella lettura senza bloccare nessuna
+  prenotazione reale, con l'errore visibile nelle impostazioni.
+
+**Cosa resta aperto**: verifica dal vivo con un consenso Google reale (Gabriel deve aggiungersi
+come utente di test nella schermata di consenso prima di poter provare), la revisione di
+Google per rendere la funzione disponibile a clienti reali non di test, e la direzione export
+per entrambi i provider (invariata rispetto alla voce sopra).

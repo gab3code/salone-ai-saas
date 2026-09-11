@@ -41,7 +41,12 @@ export async function risolviTenantIdDaSlug(
   supabase: SupabaseClient,
   slug: string
 ): Promise<string | null> {
-  const { data } = await supabase.from("tenants").select("id").eq("slug", slug).maybeSingle();
+  const { data, error } = await supabase.from("tenants").select("id").eq("slug", slug).maybeSingle();
+  if (error) {
+    // Non silenziare un errore reale (es. service_role key mancante/errata) dietro
+    // un fuorviante "tenant non trovato": logghiamo per capire davvero cosa è successo.
+    console.error("Errore risolvendo il tenant dallo slug:", slug, error);
+  }
   return data?.id ?? null;
 }
 
@@ -159,6 +164,16 @@ export const STRUMENTI_AI = [
 
 export type NomeStrumento = (typeof STRUMENTI_AI)[number]["name"];
 
+// Tutti gli id in questo schema sono uuid generati dal database (mai scelti
+// dal chiamante) -- una validazione di formato PRIMA di interrogare il
+// database trasforma un errore Postgres criptico ("invalid input syntax for
+// type uuid") in un messaggio che l'AI può capire e correggere da sola nello
+// stesso turno (es. ha passato il NOME del servizio invece del suo id).
+const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function eUuidValido(valore: unknown): valore is string {
+  return typeof valore === "string" && FORMATO_UUID.test(valore);
+}
+
 /**
  * Esegue lo strumento richiesto dal modello e restituisce SEMPRE un oggetto
  * serializzabile (mai un'eccezione non gestita) -- il loop di tool-calling
@@ -167,6 +182,31 @@ export type NomeStrumento = (typeof STRUMENTI_AI)[number]["name"];
  * utile all'AI per rispondere onestamente, non un caso da nascondere.
  */
 export async function eseguiStrumento(
+  nome: NomeStrumento,
+  input: Record<string, unknown>,
+  ctx: ContestoStrumento
+): Promise<Record<string, unknown>> {
+  // Le funzioni di booking-engine.server.ts LANCIANO su errore (contratto
+  // corretto per la dashboard, dove un umano vede una pagina d'errore e
+  // riprova) -- ma qui romperebbero la promessa di questa funzione e
+  // farebbero fallire l'intera richiesta HTTP della chat con un 500, invece
+  // di lasciare che l'AI legga l'errore e si corregga da sola nello stesso
+  // turno (es. un id di servizio sbagliato passato dal modello invece
+  // dell'id vero restituito da elenca_servizi -- visto dal vivo il
+  // 02/09/2026: "invalid input syntax for type uuid" su un nome anziché un
+  // id). Da qui in giù: mai lasciar scappare un'eccezione non gestita.
+  try {
+    return await eseguiStrumentoInterno(nome, input, ctx);
+  } catch (errore) {
+    console.error(`Errore eseguendo lo strumento "${nome}":`, errore);
+    return {
+      errore:
+        "Si è verificato un problema tecnico eseguendo questa operazione. Riprova, e se il problema persiste passa la conversazione a un operatore.",
+    };
+  }
+}
+
+async function eseguiStrumentoInterno(
   nome: NomeStrumento,
   input: Record<string, unknown>,
   ctx: ContestoStrumento
@@ -220,6 +260,15 @@ export async function eseguiStrumento(
       const dataStr = input.data;
       if (!Array.isArray(servizioIds) || servizioIds.length === 0 || typeof dataStr !== "string") {
         return { errore: "servizio_ids e data sono obbligatori." };
+      }
+      if (!servizioIds.every(eUuidValido)) {
+        return {
+          errore:
+            "servizio_ids deve contenere gli id esatti (uuid) restituiti da elenca_servizi, non i nomi dei servizi. Chiama prima elenca_servizi se non li hai già.",
+        };
+      }
+      if (input.operatore_id !== undefined && !eUuidValido(input.operatore_id)) {
+        return { errore: "operatore_id deve essere l'id esatto (uuid) restituito da elenca_operatori." };
       }
       const data = new Date(`${dataStr}T00:00:00Z`);
       if (Number.isNaN(data.getTime())) return { errore: "Data non valida, usa il formato YYYY-MM-DD." };
@@ -287,6 +336,12 @@ export async function eseguiStrumento(
       ) {
         return { errore: "servizio_id, operatore_id, inizio e cliente_telefono sono obbligatori." };
       }
+      if (!eUuidValido(servizio_id) || !eUuidValido(operatore_id)) {
+        return {
+          errore:
+            "servizio_id e operatore_id devono essere gli id esatti (uuid) restituiti da elenca_servizi/elenca_operatori, non i loro nomi.",
+        };
+      }
       const inizioData = parsaOrarioLocale(inizio);
       if (!inizioData) return { errore: "inizio non valido, usa il formato YYYY-MM-DDTHH:MM." };
 
@@ -308,6 +363,12 @@ export async function eseguiStrumento(
       if (typeof appuntamento_id !== "string" || typeof operatore_id !== "string" || typeof inizio !== "string") {
         return { errore: "appuntamento_id, operatore_id e inizio sono obbligatori." };
       }
+      if (!eUuidValido(appuntamento_id) || !eUuidValido(operatore_id)) {
+        return {
+          errore:
+            "appuntamento_id e operatore_id devono essere gli id esatti (uuid) restituiti dagli altri strumenti (es. cerca_prenotazioni_cliente, elenca_operatori), non nomi o descrizioni.",
+        };
+      }
       const inizioData = parsaOrarioLocale(inizio);
       if (!inizioData) return { errore: "inizio non valido, usa il formato YYYY-MM-DDTHH:MM." };
 
@@ -321,7 +382,12 @@ export async function eseguiStrumento(
 
     case "cancella_prenotazione": {
       const appuntamentoId = input.appuntamento_id;
-      if (typeof appuntamentoId !== "string") return { errore: "appuntamento_id obbligatorio." };
+      if (!eUuidValido(appuntamentoId)) {
+        return {
+          errore:
+            "appuntamento_id deve essere l'id esatto (uuid) restituito da cerca_prenotazioni_cliente, non una descrizione.",
+        };
+      }
       const risultato = await cancellaAppuntamentoTenant(supabase, tenantId, appuntamentoId);
       if (!risultato.ok) return { errore: risultato.errore };
       return { cancellato: true };

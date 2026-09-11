@@ -6,9 +6,11 @@
 -- RLS restano il vero controllo di isolamento tra tenant; questo file è il
 -- prerequisito senza il quale RLS non viene nemmeno raggiunta.
 --
--- service_role NON ha bisogno di nulla di tutto questo: bypassa RLS e ha già
--- pieno accesso alle tabelle di "public" per come Supabase lo configura di
--- default -- per questo admin.ts ha sempre funzionato senza questo file.
+-- service_role bypassa le POLICY di RLS, ma questo NON lo esenta dai GRANT di
+-- base a livello di tabella (sono due controlli indipendenti in Postgres).
+-- L'assunzione originale qui era che service_role avesse già pieno accesso
+-- di default -- FALSO, verificato dal vivo nel Task #66: vedi la migrazione
+-- 0007_grant_service_role.sql, che concede a service_role gli stessi GRANT.
 --
 -- whatsapp_credenziali resta DI PROPOSITO senza alcun GRANT qui: deve restare
 -- illeggibile/inscrivibile per chiunque non sia service_role, non solo grazie

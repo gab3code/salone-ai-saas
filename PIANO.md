@@ -117,19 +117,47 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       corso d'opera: `new Date("stringa-a-caso:00Z")` non restituisce `NaN` in V8 ma una data
       valida del 2000 -- ora c'è una validazione rigida del formato PRIMA di `new Date()`
       (`parsaOrarioLocale`, condivisa con la dashboard, che aveva la stessa debolezza).
-- [ ] Architettura tool-calling: AI interpreta, il backend decide (pattern già validato nel
-      progetto precedente con `cervello.py` -- lo riprendiamo, non lo reinventiamo). Richiede
-      `@anthropic-ai/sdk` (da installare) e `ANTHROPIC_API_KEY` (da chiedere a Gabriel, la ha
-      già dal progetto precedente) -- non ancora nel `.env.local` di questo progetto.
-- [ ] Migrazione `identificatore_sessione` su `conversazioni` (file già pronto,
-      `supabase/migrations/0006_conversazioni_sessione.sql`) -- **non ancora applicata al
-      database reale**: serve accesso alla dashboard Supabase (login di Gabriel) o una stringa
-      di connessione diretta con password, nessuna delle due disponibile in autonomia in questa
-      sessione. Da applicare appena possibile, prima del motore di conversazione.
-- [ ] Contesto di conversazione persistente in `conversazioni.slot_in_costruzione`
-- [ ] Canale chat web -> AI -> booking engine -> risposta (motore condiviso con tutti i canali)
+- [x] Architettura tool-calling: `src/lib/ai/agente.ts`, loop MESSAGGIO -> AI -> tool_use ->
+      `eseguiStrumento` (reale, mai simulato) -> risultato -> AI -> risposta, fino a un testo
+      finale o al limite di sicurezza (8 iterazioni). `@anthropic-ai/sdk` installato,
+      `ANTHROPIC_API_KEY` ricevuta da Gabriel e aggiunta a mano nel suo `.env.local` (il bridge
+      blocca di proposito la scrittura remota di quel file). Modello: `claude-haiku-4-5`,
+      isolato in una costante, facile da cambiare. 5 test con client Anthropic finto (nessuna
+      chiamata di rete reale nella suite).
+- [x] Migrazione `identificatore_sessione` su `conversazioni` (0006) applicata da Gabriel
+      nell'SQL Editor il 02/09/2026 -- confermata funzionante dal vivo collegando il motore di
+      conversazione (una chat di test riconosce e riprende la stessa sessione tra un messaggio
+      e l'altro).
+- [ ] Contesto di conversazione persistente in `conversazioni.slot_in_costruzione` -- colonna
+      esiste nello schema ma non ancora usata: il contesto oggi funziona (verificato dal vivo:
+      il modello ricorda servizio/orario/telefono già dati nello stesso turno) semplicemente
+      rileggendo tutto lo storico messaggi ad ogni turno, senza uno stato strutturato separato.
+      Da valutare se serve davvero (es. per dare a un operatore umano un riassunto strutturato
+      al momento del passaggio, invece di fargli rileggere tutta la chat) prima di costruirlo.
+- [x] Canale chat web -> AI -> booking engine -> risposta: `api/chat/[slug]/route.ts` (pubblico,
+      nessuna autenticazione Supabase, riconosce il visitatore da `identificatoreSessione`) +
+      `prova-chat/[slug]` (pagina di test manuale, non la pagina pubblica definitiva --
+      quella è Fase 4). **Verificato dal vivo il 02/09/2026, ciclo completo**: "quali servizi
+      offrite" -> risposta con prezzo reale; "vorrei prenotare un taglio domani alle 15" ->
+      calcola da solo la data (fix dedicato, vedi DECISIONS.md/PROJECT_STATUS.md), verifica
+      disponibilità, crea la prenotazione vera -- confermata presente nel calendario dashboard,
+      stessa booking engine (punto 9). Un bug reale trovato e corretto nel percorso: il modello
+      può passare il NOME di un servizio invece del suo id, ora gestito con validazione +
+      messaggio che lo fa autocorreggere invece di un crash 500 (vedi PROJECT_STATUS.md #12).
+      Ora protetto anche da gate di piano + quota mensile + anti-burst (Fase 5).
 - [ ] Collegamento webhook WhatsApp/Telegram -> stesso motore, quando attivati per il tenant
-- [ ] Test sugli scenari di conversazione ambigua/interrotta/multi-servizio
+- [x] Test sugli scenari di conversazione ambigua/interrotta -- **verificato dal vivo il
+      02/09/2026** su `/prova-chat/salone-ad2fec99`: (1) richiesta ambigua ("vorrei prenotare
+      qualcosa", nessun servizio specificato) -- l'AI ha chiamato elenca_servizi e, essendocene
+      solo uno, l'ha proposto direttamente invece di inventare o chiedere inutilmente; (2)
+      ripensamento a metà ("mettiamo le 10" poi, nello stesso messaggio del telefono, "in realtà
+      alle 11") -- prenotazione creata correttamente alle 11:00, non alle 10:00, confermato nel
+      calendario; (3) richiesta fuori competenza (reclamo, "voglio parlare col responsabile") --
+      trasferita correttamente a un operatore umano con un messaggio di cortesia, banner
+      "passata a un operatore" mostrato. Scenario multi-servizio (più servizi consecutivi nello
+      stesso appuntamento) NON testato dal vivo -- il salone di test ha un solo servizio
+      attivo; la logica pura lo supporta già (`calcolaSlotServiziConsecutivi`, testata in
+      isolamento) ma manca una verifica end-to-end reale con più servizi.
 
 ## Fase 3 -- CRM e Dashboard (punti 15, 21, 22)
 - [x] Anagrafica cliente con storico completo: `/dashboard/clienti` (elenco con ricerca per
@@ -158,18 +186,94 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
 
 ## Fase 4 -- Pagina pubblica, foto, PWA (punti 18, 19, 20)
 - [ ] Pagina pubblica per-salone generata automaticamente, condivisibile
+- [ ] Widget chat AI mostrato SOLO se `tenant.piano` la include (vedi `src/lib/ai/limiti.ts`,
+      `pianoHaAccessoAIChatWeb`) -- un salone Free/Starter non deve vedere nemmeno il box della
+      chat, non un box che dice "non disponibile" (deciso con Gabriel il 02/09/2026). Il blocco
+      lato server in `api/chat/[slug]/route.ts` resta comunque, indipendentemente da questo --
+      qui è solo UX, non l'unica difesa
 - [ ] Galleria/upload immagini (Supabase Storage)
 - [ ] PWA installabile, notifiche push dove supportato
 
 ## Fase 5 -- Billing self-service e admin panel (punti 6, 7, 23, 24)
-- [ ] Checkout Stripe, webhook, gestione stato abbonamento, feature gating per piano
-- [ ] Piani Free -> Enterprise progettati (non copiati) con limiti applicati tecnicamente
+- [x] Piani Free -> Enterprise progettati (non copiati), prezzi e posizionamento AI decisi
+      il 02/09/2026 -- vedi DECISIONS.md per il confronto con Estetia e il calcolo costi
+- [x] Difesa tecnica anti-abuso sulla chat AI (gate di piano, quota mensile, anti-burst) --
+      `src/lib/ai/limiti.ts`/`limiti.server.ts`, vedi DECISIONS.md
+- [x] Enforcement tecnico del tetto prenotazioni sul piano Free (60/mese) -- `src/lib/piani.ts`
+      + controllo in `creaAppuntamentoTenant` (`booking-engine.server.ts`), quindi vale
+      automaticamente sia da dashboard che da AI (punto 9, stessa funzione per entrambe). Da
+      verificare dal vivo con un vero tenant Free quando possibile (oggi verificato solo con
+      `npx vitest run` + `npm run build` puliti, non ancora con un giro nel browser reale)
+- [ ] Checkout Stripe, webhook, gestione stato abbonamento reale (oggi `tenants.piano` si
+      cambia solo a mano nel database, nessun flusso di pagamento/upgrade self-service)
 - [ ] Pannello admin per te: saloni, abbonamenti, utilizzo, interventi manuali quando serve
 
 ## Fase 6 -- Automazioni e sicurezza (punti 16, 29, 30)
 - [ ] Motore di automazioni configurabili (reminder, follow-up, inattività, compleanno)
 - [ ] Revisione sicurezza (RLS, permessi tool AI, rate limiting, input validation)
 - [ ] Test completo su tutti gli scenari del punto 30
+
+## Fase 6bis -- Sincronizzazione calendari esterni (deciso con Gabriel il 02/09/2026, non nei 33 punti originali)
+Il calendario del database (`appuntamenti`) resta l'unica fonte di verità (punto 9) -- questa
+fase aggiunge una sincronizzazione bidirezionale verso il calendario personale
+dell'operatore, in entrambe le direzioni: vedere gli appuntamenti del salone nel proprio
+calendario personale, E bloccare uno slot se l'operatore ha già un impegno personale lì.
+- [x] Schema DB (migrazione `0008_calendari_esterni.sql`, da eseguire da Gabriel in Supabase
+      SQL Editor come le precedenti): `collegamenti_calendario_esterni` (credenziali per
+      operatore per provider, Google o Apple) + `eventi_calendario_esterni` (mappatura
+      appuntamento interno <-> evento esterno, pronta per quando costruiremo anche la
+      direzione export). RLS + grant service_role già inclusi nella migrazione, stessa
+      disciplina di 0007 dopo il bug reale trovato lì.
+- [x] **Apple/iCloud Calendar (direzione import/blocco -- quella che Gabriel ha chiesto per
+      prima)**: client CalDAV puro (`src/lib/calendario-esterno/caldav.server.ts`) con
+      autodiscovery standard (principal -> calendar-home-set -> elenco calendari, segue i
+      redirect di iCloud verso il "pod" giusto dell'account) + parser ICS puro e testato
+      (`ics.ts`, 10 test verdi: orari con TZID, tutto il giorno, DURATION, RRULE settimanale
+      con BYDAY espansa davvero -- es. "palestra ogni martedì" genera tutte le occorrenze nella
+      finestra richiesta, non solo la prima -- EXDATE, eventi CANCELLED esclusi). RRULE
+      mensile/annuale non ancora espansa (fallback: mostra comunque la prima occorrenza,
+      mai un impegno perso silenziosamente) -- raro per impegni personali, non blocca questa
+      fase. NESSUNA revisione esterna da aspettare, funzionante da subito.
+- [x] **Google Calendar (direzione import/blocco)**: OAuth2 + Google Calendar API v3 scritti --
+      `src/lib/calendario-esterno/google.server.ts` (authorize URL, scambio/rinnovo token,
+      `events.list` con `singleEvents=true`, che fa espandere le ricorrenze direttamente a
+      Google, molto più semplice del parsing RRULE fatto a mano per CalDAV) + due route
+      (`/api/calendario/google/connect` e `/callback`) con verifica anti-CSRF (nonce in cookie
+      httpOnly) e controllo che l'operatore collegato appartenga davvero al tenant dell'utente
+      loggato in quel momento, non solo a quanto dichiarato nello `state`. Credenziali OAuth di
+      Gabriel ricevute e configurate nel suo `.env.local` il 02/09/2026 (progetto Google Cloud
+      con Calendar API già abilitata). Per essere utilizzabile da clienti reali (non solo da
+      Gabriel in test) resta da fare la revisione di Google per gli scope "sensibili" del
+      calendario -- stesso tipo di iter (tempi non garantiti) già affrontato con Meta per
+      WhatsApp, vedi `docs/embedded-signup-whatsapp.md` come precedente. **Non ancora
+      verificato dal vivo con un consenso Google reale** (solo `npx vitest run` + `npm run
+      build` puliti) -- da fare appena Gabriel prova il collegamento dal suo account (deve
+      prima essere aggiunto come "utente di test" nella schermata di consenso OAuth).
+- [x] UI nelle impostazioni (`/dashboard/impostazioni/calendari`): collega/scollega Apple per
+      operatore (Apple ID + password per l'app, verificate DAVVERO collegandosi al server
+      PRIMA di salvarle, mai salvate "a scatola chiusa"), collega Google per operatore (redirect
+      al consenso vero, non un placeholder), lista dei collegamenti con eventuale errore
+      visibile, banner di esito dopo il ritorno dal consenso Google.
+- [x] Il motore di disponibilità considera gli impegni esterni come "occupato" per ENTRAMBI i
+      provider: sia `caricaContestoBooking` (per la ricerca slot) sia `verificaConflittoTenant`
+      (per creare/spostare un appuntamento) ora concatenano gli impegni Apple/CalDAV e Google
+      importati agli appuntamenti interni PRIMA di chiamare il motore puro -- stessa forma dati
+      (`AppuntamentoEsistente`), stessa funzione di prima, mai una seconda logica di conflitto
+      (punto 9). Fail-open per collegamento: un calendario esterno irraggiungibile (o un token
+      Google scaduto/revocato) non blocca mai una prenotazione reale, l'errore resta visibile
+      nelle impostazioni. **Non ancora verificato dal vivo con account reali** (solo `npx
+      vitest run` + `npm run build` puliti finora) -- da fare appena Gabriel ha un momento per
+      provare un collegamento vero su entrambi i provider.
+- [ ] Direzione export (mostrare gli appuntamenti del salone nel calendario personale
+      dell'operatore): tabella `eventi_calendario_esterni` già pronta per questo, ma la
+      scrittura vera e propria (creare/aggiornare/cancellare l'evento sul calendario esterno
+      quando cambia un appuntamento interno) non è ancora stata scritta -- prossimo pezzo di
+      questa fase, indipendente da Google/Apple (funziona sull'uno o sull'altro).
+- [ ] Nota sicurezza aperta (vedi commento nella migrazione 0008): oggi sia le credenziali
+      CalDAV sia i token OAuth Google (access/refresh token) sono salvati in chiaro nel
+      database, come altre colonne token già esistenti nel progetto -- da valutare il
+      cifraggio a riposo prima della revisione di sicurezza di Fase 6 (punto 29), non prima di
+      avere clienti paganti reali con dati qui dentro.
 
 ## Fase 7 -- Parità/superiorità estetica con Estetia, responsive completo (punti 25, 26, 27, 28)
 Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davvero "fatto" e non
@@ -195,6 +299,16 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
 2. Business verification Meta + P.IVA per attivare WhatsApp -- già in pausa per tua scelta,
    vedi `docs/embedded-signup-whatsapp.md`. Non blocca nulla nel frattempo (canale di default
    è la chat web).
-3. Ogni tanto: un `npm install` + `npm run dev` sul tuo Mac per testare tu stesso i progressi
+3. ~~Un progetto Google Cloud con OAuth consent screen configurato~~ **FATTO 02/09/2026**:
+   Calendar API abilitata, schermata di consenso configurata, Client ID/Secret creati e
+   aggiunti a `.env.local`. Resta da fare, quando ti va: aggiungere il tuo account Google come
+   "utente di test" nella schermata di consenso OAuth (necessario per poter provare tu stesso
+   il collegamento prima che Google completi la revisione per renderlo pubblico a tutti i
+   clienti) e poi provare davvero il pulsante "Collega Google" in
+   `/dashboard/impostazioni/calendari`.
+4. Eseguire la migrazione `0008_calendari_esterni.sql` nell'SQL Editor di Supabase (stesso
+   posto delle precedenti) prima di poter usare i collegamenti calendario -- senza questa le
+   tabelle non esistono ancora sul database vero.
+5. Ogni tanto: un `npm install` + `npm run dev` sul tuo Mac per testare tu stesso i progressi
    nel browser vero, quando te lo chiedo -- è il modo più veloce per verificare le cose che
    dalla mia rete non riesco a raggiungere direttamente.

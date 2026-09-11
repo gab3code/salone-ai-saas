@@ -10,6 +10,8 @@ import {
   type OrarioGiorno,
   type SlotDisponibile,
 } from "@/lib/booking-engine";
+import { limiteMensilePrenotazioni } from "@/lib/piani";
+import { caricaImpegniEsterni } from "@/lib/calendario-esterno/collegamenti.server";
 
 /**
  * Livello di collegamento tra il motore puro (booking-engine.ts, già testato
@@ -161,7 +163,22 @@ export async function caricaContestoBooking(
     stato: r.stato,
   }));
 
-  return { orari, chiusure, operatori, appuntamenti };
+  // Impegni sui calendari personali collegati (Google/Apple, Fase 6bis):
+  // stessa forma "AppuntamentoEsistente", concatenati qui così il motore
+  // puro li tratta come uno qualunque degli appuntamenti interni -- mai una
+  // seconda logica di conflitto separata (punto 9). Fail-open per
+  // collegamento (vedi caricaImpegniEsterni): un calendario esterno
+  // irraggiungibile non deve mai impedire di vedere/prenotare gli slot
+  // liberi, solo far perdere il blocco di QUELL'impegno specifico.
+  const impegniEsterni = await caricaImpegniEsterni(
+    supabase,
+    tenantId,
+    operatori.map((o) => o.id),
+    inizioGiornoUTC(da),
+    fineGiornoUTC(a)
+  );
+
+  return { orari, chiusure, operatori, appuntamenti: [...appuntamenti, ...impegniEsterni] };
 }
 
 /**
@@ -270,11 +287,22 @@ export async function verificaConflittoTenant(
       stato: r.stato,
     }));
 
+  // Stesso principio di caricaContestoBooking: un impegno sul calendario
+  // personale collegato dell'operatore blocca la scrittura tanto quanto un
+  // appuntamento interno (Fase 6bis, punto 9 -- unica fonte di verità).
+  const impegniEsterni = await caricaImpegniEsterni(
+    supabase,
+    tenantId,
+    [params.operatoreId],
+    inizioGiornoUTC(params.inizio),
+    fineGiornoUTC(params.fine)
+  );
+
   return verificaConflitto(
     params.inizio,
     params.fine,
     params.operatoreId,
-    appuntamentiRilevanti,
+    [...appuntamentiRilevanti, ...impegniEsterni],
     params.bufferMinuti
   );
 }
@@ -329,6 +357,38 @@ export interface CreaAppuntamentoParams {
 }
 
 /**
+ * Controllo del tetto di prenotazioni mensili (solo Free = 60/mese, vedi
+ * `src/lib/piani.ts` per il perché) -- count/head: non serve scaricare le
+ * righe, solo il numero. Non riuscire a leggere piano/conteggio non deve mai
+ * bloccare una prenotazione reale: fail-open, coerente con `piani.ts`.
+ */
+async function superatoTettoPrenotazioniMensile(
+  supabase: SupabaseClient,
+  tenantId: string
+): Promise<boolean> {
+  const { data: tenant, error: erroreTenant } = await supabase
+    .from("tenants")
+    .select("piano")
+    .eq("id", tenantId)
+    .single();
+  if (erroreTenant || !tenant) return false;
+
+  const limite = limiteMensilePrenotazioni(tenant.piano);
+  if (limite === Infinity) return false;
+
+  const adesso = new Date();
+  const inizioMese = new Date(Date.UTC(adesso.getUTCFullYear(), adesso.getUTCMonth(), 1));
+  const { count, error } = await supabase
+    .from("appuntamenti")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .gte("created_at", inizioMese.toISOString());
+  if (error) return false;
+
+  return (count ?? 0) >= limite;
+}
+
+/**
  * Crea un appuntamento con la doppia difesa anti-conflitto: controllo
  * applicativo qui (messaggio chiaro), vincolo `niente_sovrapposizioni` a
  * livello Postgres come rete di sicurezza finale contro le race condition.
@@ -338,6 +398,14 @@ export async function creaAppuntamentoTenant(
   tenantId: string,
   params: CreaAppuntamentoParams
 ): Promise<RisultatoScrittura<{ appuntamentoId: string }>> {
+  if (await superatoTettoPrenotazioniMensile(supabase, tenantId)) {
+    return {
+      ok: false,
+      errore:
+        "Limite di prenotazioni del piano Free raggiunto per questo mese. Passa a un piano superiore per prenotazioni illimitate.",
+    };
+  }
+
   const { data: servizio } = await supabase
     .from("servizi")
     .select("durata_minuti")

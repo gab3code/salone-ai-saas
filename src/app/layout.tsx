@@ -3,7 +3,9 @@ import "./globals.css";
 
 // Font di sistema (nessuna dipendenza da Google Fonts al momento della build):
 // più veloce e affidabile in qualsiasi ambiente, anche senza rete verso
-// fonts.googleapis.com (problema riscontrato nel sandbox cloud).
+// fonts.googleapis.com (problema riscontrato nel sandbox cloud). L'init di
+// shadcn (11/09/2026, installazione componenti beautifui) aveva reintrodotto
+// Geist da next/font/google -- ripristinato ai font di sistema.
 const fontVariablesClassName = "font-sans";
 
 export const metadata: Metadata = {

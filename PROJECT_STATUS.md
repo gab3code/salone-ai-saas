@@ -1,18 +1,29 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 02/09/2026 (refactor scrittura appuntamenti). Aggiornare questo file ogni volta che cambia lo stato reale
-di qualcosa (una funzionalità passa da mock a vera, un problema si apre/chiude, una fase
-si chiude) — non lasciarlo invecchiare. Vedi `CLAUDE.md` per le regole di lavoro,
-`DECISIONS.md` per il perché delle scelte architetturali, `PIANO.md` per il piano a fasi.
+Ultimo aggiornamento: 02/09/2026 (chat AI collegata dal vivo, piani/prezzi decisi e applicati
+tecnicamente, sincronizzazione calendari esterni -- Apple/iCloud via CalDAV E Google via OAuth2
+-- costruita per entrambi i provider). Aggiornare questo file ogni volta che cambia lo stato
+reale di qualcosa (una funzionalità passa da mock a vera, un problema si apre/chiude, una fase
+si chiude) — non lasciarlo invecchiare. Vedi `CLAUDE.md` per le regole di lavoro, `DECISIONS.md`
+per il perché delle scelte architetturali, `PIANO.md` per il piano a fasi.
 
 ## In una riga
 
 Fase 0 (fondamenta multi-tenant) e Fase 1 (booking engine collegato al database) **chiuse e
-verificate dal vivo con un salone di test reale**. Fase 2 (AI conversazionale): strumenti scritti
-e testati, migrazione applicata, chiave Anthropic ricevuta (02/09/2026) -- il loop di
-tool-calling vero e proprio è il prossimo passo. Fase 3: CRM di base e dashboard con metriche
-reali/insight **chiusi e verificati dal vivo**; analytics più avanzate non ancora iniziate. Tutto
-il resto (pagina pubblica, automazioni, billing, admin panel, PWA) non ancora iniziato.
+verificate dal vivo con un salone di test reale**. Fase 2 (AI conversazionale): il loop completo
+MESSAGGIO -> AI -> strumenti -> booking engine -> risposta **funziona ed è stato verificato dal
+vivo**, inclusi gli scenari di conversazione ambigua/interrotta/trasferimento a operatore --
+resta da fare solo WhatsApp/Telegram (bloccato su business verification Meta). Fase 3: CRM di
+base e dashboard con metriche reali/insight **chiusi e verificati dal vivo**; analytics più
+avanzate non ancora iniziate. Fase 5: struttura piani (Free -> Enterprise) decisa con Gabriel e
+**applicata tecnicamente** (gate AI per piano, quota mensile, anti-burst, tetto prenotazioni
+Free) -- manca ancora Stripe/checkout reale (oggi il piano si cambia solo a mano nel database) e
+il pannello admin. Fase 6bis (fuori dai 33 punti originali, aggiunta su richiesta di Gabriel):
+sincronizzazione calendario personale dell'operatore, direzione import/blocco, **per entrambi i
+provider (Apple/iCloud via CalDAV, Google via OAuth2) costruita e compilata/testata** -- non
+ancora verificata dal vivo con account reali, e la direzione export (mostrare gli appuntamenti
+del salone sul calendario personale) non ancora scritta per nessuno dei due. Tutto il resto
+(pagina pubblica, automazioni, PWA) non ancora iniziato.
 
 ## Stack reale (verificato in `package.json`)
 
@@ -71,6 +82,21 @@ vedi "Problemi aperti").
   AI (client admin) chiameranno esattamente lo stesso codice, mai due implementazioni separate
   (CLAUDE.md punto 9). `dashboard/calendario/azioni.ts` è ora solo parsing form + chiamata.
   Verificato dal vivo l'intero ciclo (creazione/spostamento/cancellazione) dopo il refactor.
+- **Sincronizzazione calendari personali, direzione import/blocco (Fase 6bis)**: entrambi i
+  provider costruiti nello stesso pomeriggio. Apple/iCloud: client CalDAV puro
+  (`src/lib/calendario-esterno/caldav.server.ts`, autodiscovery standard, segue il redirect di
+  iCloud verso il pod giusto dell'account) + parser ICS puro con 10 test verdi (`ics.ts`, RRULE
+  settimanale con BYDAY espansa davvero, EXDATE, eventi CANCELLED esclusi). Google: OAuth2 vero
+  (`google.server.ts` + route `/api/calendario/google/{connect,callback}`, nonce anti-CSRF,
+  refresh automatico del token) -- credenziali di Gabriel ricevute e configurate lo stesso
+  giorno. UI unica in `/dashboard/impostazioni/calendari` che verifica le credenziali CalDAV per
+  davvero prima di salvarle e fa collegare Google con un consenso reale, non un placeholder. Gli
+  impegni importati da entrambi bloccano gli stessi slot degli appuntamenti interni sia in
+  ricerca disponibilità sia in creazione/modifica (fail-open se un calendario esterno non
+  risponde o un token è scaduto/revocato). **Non ancora verificato dal vivo con account reali**
+  -- solo `npx vitest run` (57/57) e `npm run build` puliti finora. Richiede la migrazione
+  `0008_calendari_esterni.sql`, non ancora eseguita da Gabriel, e Gabriel come "utente di test"
+  nella schermata di consenso OAuth Google prima di poter provare quel lato.
 
 ## Cosa è mock, incompleto o non ancora iniziato
 
@@ -92,6 +118,10 @@ vedi "Problemi aperti").
   no-show in particolare non ha ancora nessun flusso che lo marchi davvero, vedi sotto).
 - **Pagina pubblica per-attività**: zero codice. `tenants.slug` esiste nello schema ma non è
   servito da nessuna route pubblica.
+- **Sincronizzazione calendari, direzione export (Fase 6bis)**: mostrare gli appuntamenti del
+  salone sul calendario personale dell'operatore non è ancora scritto per nessuno dei due
+  provider -- la tabella `eventi_calendario_esterni` esiste già in previsione di questo (vedi
+  sopra per la direzione import/blocco, quella già costruita).
 - **Foto/galleria**: zero codice. Colonne `logo_url`/`cover_url` esistono sullo schema
   `tenants` ma senza upload né Supabase Storage configurato.
 - **Automazioni**: tabella `automazioni` esiste nello schema, nessun motore che la legga o
@@ -116,11 +146,16 @@ vedi "Problemi aperti").
 2. **Repo Git canonico nel sandbox cloud effimero**, nessun remote GitHub permanente ancora
    configurato — rischio reale di perdita storia se la sessione cloud scade. Da risolvere
    prima possibile (non solo prima della Fase 7).
-3. **iCloud Drive che sincronizza la cartella Desktop sul Mac di Gabriel** causa errori
-   intermittenti di lettura file dentro `node_modules` sotto Turbopack (`EOF while parsing`,
-   `Resource deadlock avoided`). Non blocca (verificato: la pagina carica comunque), ma
-   rallenta la compilazione e resta fastidioso. Fix suggerito e non ancora fatto: spostare il
-   progetto fuori da una cartella sincronizzata iCloud.
+3. **Causa più probabile degli errori intermittenti in `node_modules` sotto Turbopack** (`EOF
+   while parsing`, `Resource deadlock avoided`), rivista il 02/09/2026: inizialmente attribuiti
+   a iCloud Drive che sincronizza la cartella Desktop; scoperta oggi una causa alternativa più
+   concreta -- i tool del bridge (`device_bash`) eseguono in una VM Linux separata che monta la
+   STESSA cartella del progetto sul Mac. Un `npm install` lanciato da lì scriverebbe binari
+   nativi Linux (es. SWC) nello stesso `node_modules` che poi il Terminal reale del Mac
+   (macOS/arm64) prova a usare -- gli stessi sintomi di "file JSON corrotto"/"deadlock" che si
+   sono visti. **Non ancora confermato con certezza, ma per sicurezza: `npm install` va sempre
+   lanciato nel Terminal reale del Mac di Gabriel, mai tramite i tool del bridge**, finché non
+   si verifica altrimenti. iCloud resta una causa concorrente plausibile, non esclusa.
 4. **Nessun test automatico per `booking-engine.server.ts`** (il layer collegato al DB): solo
    verificato manualmente nel browser. I 16 test automatici coprono solo `booking-engine.ts`
    (logica pura). Rischio: una regressione nel layer di query/conversione non verrebbe
@@ -139,10 +174,43 @@ vedi "Problemi aperti").
    come `no_show` (solo `confermato`/`cancellato` esistono nei dati reali) -- la metrica esiste
    già in `metriche.ts` mostra onestamente 0 finché non c'è un'azione "cliente non si è
    presentato" da qualche parte nella UI. Da aggiungere insieme al resto del CRM/calendario.
-9. **`ANTHROPIC_API_KEY` in `.env.local` solo nel sandbox cloud**: Gabriel l'ha data il
-   02/09/2026, salvata qui, ma questa sessione non può scrivere `.env.local` sul suo Mac (i
-   tool del bridge lo bloccano di proposito) -- deve aggiungerla lui a mano nel suo
-   `.env.local` locale prima di testare l'AI dal vivo nel browser.
+9. ~~`ANTHROPIC_API_KEY` in `.env.local` solo nel sandbox cloud~~ **RISOLTO 02/09/2026**:
+   Gabriel l'ha aggiunta a mano nel suo `.env.local` locale (il bridge blocca di proposito la
+   scrittura di quel file) e l'ha verificata con `grep` -- confermata presente.
+10. ~~`service_role` senza GRANT di base su nessuna tabella `public`~~ **RISOLTO 02/09/2026**:
+    scoperto dal vivo durante il primo vero test della chat AI (Task #66) -- `risolviTenantIdDaSlug`
+    falliva con `permission denied for table tenants` (Postgres 42501), non con "0 righe".
+    L'assunzione scritta nel commento originale di 0005 ("service_role ha già pieno accesso di
+    default") era sbagliata: bypassa le POLICY di RLS ma non i GRANT di tabella, due controlli
+    indipendenti. Fix in `0007_grant_service_role.sql`, eseguita da Gabriel nell'SQL Editor --
+    confermato dal vivo che risolve.
+11. **Il modello non conosceva la data odierna**: senza contesto esplicito, `costruisciSystemPrompt`
+    non passava la data reale, quindi il modello chiedeva al cliente di calcolare "domani" da
+    solo (pessima UX, e un rischio di dato sbagliato se il cliente sbagliava il calcolo). Fix:
+    la data/ora reale (`adesso: Date`, iniettabile nei test) è ora nel system prompt --
+    verificato dal vivo che il modello calcola correttamente "domani" senza chiederlo.
+12. **`eseguiStrumento` non manteneva davvero la sua promessa di non lasciar scappare eccezioni**:
+    scoperto dal vivo -- il modello ha passato il NOME di un servizio ("taglio") invece del suo
+    uuid a `verifica_disponibilita`, e `caricaServizi` in `booking-engine.server.ts` lancia
+    un'eccezione su un id in formato non valido (contratto corretto per la dashboard, dove un
+    umano vede una pagina d'errore) che però rompeva l'intera richiesta HTTP della chat con un
+    500 invece di lasciare che l'AI si correggesse nello stesso turno. Fix su più livelli: (a)
+    `eseguiStrumento` ora avvolge davvero ogni chiamata in un try/catch, (b) validazione esplicita
+    del formato uuid per ogni id in input PRIMA di interrogare il database, con un messaggio che
+    dice esplicitamente all'AI di usare l'id restituito da elenca_servizi/elenca_operatori, non il
+    nome, (c) la regola 1 del system prompt lo dice esplicitamente. Test di regressione aggiunti
+    in `tools.test.ts`.
+13. ~~Struttura piani decisa ma parzialmente applicata~~ **RISOLTO 02/09/2026**: sia la chat AI
+    (`src/lib/ai/limiti.ts`, gate + quota mensile + anti-burst, collegati in
+    `api/chat/[slug]/route.ts`) sia il tetto di 60 prenotazioni/mese sul piano Free
+    (`src/lib/piani.ts`, controllo dentro `creaAppuntamentoTenant` -- vale sia da dashboard che
+    da AI, stessa funzione) ora sono applicati tecnicamente, non solo decisi. Verificato con
+    `npx vitest run` (47/47) e `npm run build` puliti; il tetto prenotazioni non è ancora stato
+    verificato dal vivo nel browser con un vero tenant Free (nessun modo pratico di creare 60
+    prenotazioni reali per il test) -- rischio residuo basso, la stessa query count/head è già
+    usata e verificata altrove nel progetto. Nota operativa: il tenant di test di Gabriel
+    ("Salone Test Fase1", slug `salone-ad2fec99`) è stato alzato a `piano = 'growth'` per poter
+    continuare a testare la chat AI dal vivo.
 
 ## Mappa dei file principali
 
@@ -163,9 +231,15 @@ vedi "Problemi aperti").
 - `src/app/dashboard/{page,azioni}.tsx` — dashboard minima + logout.
 - `src/app/dashboard/configura/` — onboarding orari/operatori/servizi.
 - `src/app/dashboard/calendario/` — vista calendario, creazione/modifica/cancellazione.
+- `src/lib/calendario-esterno/{ics,caldav.server,google.server,collegamenti.server}.ts` —
+  sincronizzazione calendari personali (Fase 6bis): parser ICS puro e testato, client CalDAV,
+  client OAuth2/Calendar API Google, collegamento al motore di disponibilità.
+- `src/app/api/calendario/google/{connect,callback}/route.ts` — flusso OAuth2 Google Calendar.
+- `src/app/dashboard/impostazioni/calendari/` — UI collega/scollega calendario Apple/Google per
+  operatore.
 - `src/proxy.ts` — refresh sessione Supabase (era `middleware.ts`, rinominato per Next 16).
-- `supabase/migrations/0001-0005` — schema multi-tenant, chiusure, prep WhatsApp,
-  provisioning automatico, fix GRANT.
+- `supabase/migrations/0001-0008` — schema multi-tenant, chiusure, prep WhatsApp,
+  provisioning automatico, fix GRANT (x2), sessione conversazioni, calendari esterni.
 - `docs/analisi-estetia.md` — analisi competitiva (screenshot + giro dal vivo sul sito).
 - `docs/verifica-stack-automazione.md`, `docs/verifica-fattibilita-33-punti.md` — verifica
   che lo stack supporti il funnel self-service richiesto.

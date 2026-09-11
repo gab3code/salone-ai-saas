@@ -74,6 +74,31 @@ describe("eseguiStrumento -- validazione input prima di toccare il database", ()
     expect(risultato.errore).toBeDefined();
   });
 
+  it("verifica_disponibilita con il NOME del servizio invece del suo id restituisce un errore esplicito, non un crash", async () => {
+    // Regressione: visto dal vivo il 02/09/2026 -- il modello ha passato
+    // "taglio" (il nome) invece dell'uuid restituito da elenca_servizi, e la
+    // query a Postgres falliva con "invalid input syntax for type uuid",
+    // un'eccezione non gestita che rompeva l'intera richiesta HTTP (500)
+    // invece di dare all'AI un errore su cui correggersi nello stesso turno.
+    const risultato = await eseguiStrumento(
+      "verifica_disponibilita",
+      { servizio_ids: ["taglio"], data: "2026-09-05" },
+      ctx
+    );
+    expect(risultato.errore).toBeDefined();
+    expect(String(risultato.errore)).toMatch(/elenca_servizi/);
+  });
+
+  it("crea_prenotazione con il NOME del servizio invece del suo id restituisce un errore esplicito, non un crash", async () => {
+    const risultato = await eseguiStrumento(
+      "crea_prenotazione",
+      { servizio_id: "taglio", operatore_id: "mario", inizio: "2026-09-05T15:00", cliente_telefono: "3331234567" },
+      ctx
+    );
+    expect(risultato.errore).toBeDefined();
+    expect(String(risultato.errore)).toMatch(/elenca_servizi|elenca_operatori/);
+  });
+
   it("cerca_prenotazioni_cliente senza telefono restituisce un errore esplicito", async () => {
     const risultato = await eseguiStrumento("cerca_prenotazioni_cliente", {}, ctx);
     expect(risultato.errore).toBeDefined();
