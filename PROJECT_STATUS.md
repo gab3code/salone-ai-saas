@@ -1,8 +1,9 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 02/09/2026 (chat AI collegata dal vivo, piani/prezzi decisi e applicati
-tecnicamente, sincronizzazione calendari esterni -- Apple/iCloud via CalDAV E Google via OAuth2
--- costruita per entrambi i provider). Aggiornare questo file ogni volta che cambia lo stato
+Ultimo aggiornamento: 11/09/2026 (fuso orario reale del tenant risolto e verificato dal vivo;
+Apple/iCloud CalDAV probabilmente inutilizzabile da Vercel per un blocco lato Apple sugli IP di
+data center -- vedi problema noto #14 -- Google Calendar resta il canale affidabile). Aggiornare
+questo file ogni volta che cambia lo stato
 reale di qualcosa (una funzionalità passa da mock a vera, un problema si apre/chiude, una fase
 si chiude) — non lasciarlo invecchiare. Vedi `CLAUDE.md` per le regole di lavoro, `DECISIONS.md`
 per il perché delle scelte architetturali, `PIANO.md` per il piano a fasi.
@@ -19,9 +20,12 @@ avanzate non ancora iniziate. Fase 5: struttura piani (Free -> Enterprise) decis
 **applicata tecnicamente** (gate AI per piano, quota mensile, anti-burst, tetto prenotazioni
 Free) -- manca ancora Stripe/checkout reale (oggi il piano si cambia solo a mano nel database) e
 il pannello admin. Fase 6bis (fuori dai 33 punti originali, aggiunta su richiesta di Gabriel):
-sincronizzazione calendario personale dell'operatore, direzione import/blocco, **per entrambi i
-provider (Apple/iCloud via CalDAV, Google via OAuth2) costruita e compilata/testata** -- non
-ancora verificata dal vivo con account reali, e la direzione export (mostrare gli appuntamenti
+sincronizzazione calendario personale dell'operatore, direzione import/blocco, costruita per
+entrambi i provider ma **verificata dal vivo solo per Google** (funziona) -- **Apple/iCloud via
+CalDAV è tecnicamente corretto (client verificato via test comparativo diretto con `curl`) ma
+probabilmente inutilizzabile in produzione perché Apple sembra bloccare il traffico CalDAV che
+arriva da IP di data center/cloud come quelli di Vercel** (problema noto #14, non risolvibile
+lato nostro senza un proxy con IP non-datacenter). La direzione export (mostrare gli appuntamenti
 del salone sul calendario personale) non ancora scritta per nessuno dei due. Tutto il resto
 (pagina pubblica, automazioni, PWA) non ancora iniziato.
 
@@ -141,11 +145,10 @@ l'11/09/2026 via MCP diretto).
 ## Problemi noti aperti
 
 1. ~~Fuso orario semplificato come UTC in tutto il booking engine~~ **CODICE FATTO
-   11/09/2026, in attesa di verifica dal vivo dopo il deploy**: aggiunta colonna
-   `tenants.fuso_orario` (migrazione 0010, default `'Europe/Rome'`, già applicata al
-   database reale), nuovo modulo `src/lib/fuso-orario.ts` (`realeAPseudoUtc`/
-   `pseudoUtcAReale`, con test) e conversione applicata ai DUE confini dove serve un
-   istante reale: la colonna `timestamptz` di `appuntamenti` (scrittura in
+   11/09/2026**: aggiunta colonna `tenants.fuso_orario` (migrazione 0010, default
+   `'Europe/Rome'`, già applicata al database reale), nuovo modulo `src/lib/fuso-orario.ts`
+   (`realeAPseudoUtc`/`pseudoUtcAReale`, con test) e conversione applicata ai DUE confini
+   dove serve un istante reale: la colonna `timestamptz` di `appuntamenti` (scrittura in
    `creaAppuntamentoTenant`/`modificaAppuntamentoTenant`, lettura in
    `caricaContestoBooking`/`verificaConflittoTenant`) e le API Google/CalDAV
    (`collegamenti.server.ts`). Il motore puro (`booking-engine.ts`), `parsaOrarioLocale`
@@ -153,9 +156,7 @@ l'11/09/2026 via MCP diretto).
    convenzione "pseudo-UTC" di sempre. Trovato dal vivo l'11/09/2026 durante la verifica
    del sync Google Calendar (un test iniziale sembrava indicare un sync rotto: era invece
    proprio questo bug, con gli appuntamenti sfasati dell'offset del fuso). Test e build
-   passano; verifica dal vivo post-deploy ancora da fare (non eseguibile dalla sandbox:
-   le chiamate dirette a Supabase da qui sono bloccate dalla stessa policy di rete
-   dell'organizzazione già documentata in DECISIONS.md per github.com/Vercel).
+   passano.
 2. ~~Repo Git canonico nel sandbox cloud effimero, nessun remote GitHub permanente~~
    **RISOLTO 11/09/2026**: repo spostata su `github.com/gab3code/salone-ai-saas` (privata),
    progetto Vercel collegato via GitHub App (deploy automatico ad ogni push su `main`). Vedi
@@ -235,6 +236,24 @@ l'11/09/2026 via MCP diretto).
     usata e verificata altrove nel progetto. Nota operativa: il tenant di test di Gabriel
     ("Salone Test Fase1", slug `salone-ad2fec99`) è stato alzato a `piano = 'growth'` per poter
     continuare a testare la chat AI dal vivo.
+14. **Apple/iCloud CalDAV probabilmente inutilizzabile da hosting cloud standard (Vercel)**:
+    scoperto dal vivo l'11/09/2026 con Gabriel dopo tre giri di fix reali e verificati sul
+    client CalDAV (User-Agent mancante, `Authorization` perso su un presunto redirect,
+    un'eccezione non gestita che lasciava una richiesta appesa -- tutti e tre bug veri,
+    confermati leggendo il codice, non ipotesi) -- la stessa identica richiesta PROPFIND con
+    le stesse credenziali (password app-specifica reale, verificata funzionante) torna
+    `207 Multi-Status` da `curl` lanciato dal Mac di Gabriel e `400` senza corpo/header utili
+    quando parte da una funzione serverless su Vercel. Diagnosi: non è più un problema di
+    codice (le credenziali sono confermate corrette, il client CalDAV è confermato corretto
+    via test comparativo diretto), ma un blocco lato Apple sul traffico CalDAV che origina da
+    IP di data center/cloud (pattern noto e documentato altrove per iCloud). **Non risolvibile
+    lato nostro senza instradare le chiamate attraverso un IP non-datacenter** (proxy
+    residenziale a pagamento, comunque non garantito nel tempo). Raccomandazione: non investire
+    altro tempo a rincorrere il client CalDAV Apple da Vercel; trattare Google Calendar (OAuth,
+    non CalDAV grezzo, nessun blocco di questo tipo riscontrato) come l'unico canale di
+    sincronizzazione calendario personale realmente affidabile per ora, e documentare Apple
+    come "supportato solo se il salone gestisce la connessione da un ambiente non-cloud" o
+    non supportato, a seconda di cosa deciderà Gabriel.
 
 ## Mappa dei file principali
 
