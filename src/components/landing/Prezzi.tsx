@@ -49,7 +49,13 @@ const PIANI = [
     nome: "Pro",
     prezzo: "€69,90",
     periodo: "/mese",
-    descrizione: "Anche su WhatsApp.",
+    // Trovato durante il tour "da cliente" del 11/09/2026: la voce dentro
+    // `voci` sotto ("Assistente AI su WhatsApp") aveva già il badge onesto
+    // "in arrivo", ma questa tagline in cima alla card lo diceva senza
+    // avviso -- chi legge solo nome/prezzo/tagline (prima di scorrere la
+    // lista intera) capirebbe che il piano Pro include WhatsApp oggi.
+    // Stesso avviso anche qui per coerenza.
+    descrizione: "Anche su WhatsApp (in arrivo).",
     voci: [
       "Tutto di Growth",
       { testo: "Assistente AI su WhatsApp", inArrivo: true },

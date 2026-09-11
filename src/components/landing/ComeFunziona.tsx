@@ -4,7 +4,7 @@ const PASSI = [
   {
     numero: "01",
     titolo: "Ti registri e configuri il salone",
-    testo: "Orari, operatori e servizi -- 5 minuti, nessun tecnico necessario.",
+    testo: "Orari, operatori e servizi — 5 minuti, nessun tecnico necessario.",
   },
   {
     numero: "02",

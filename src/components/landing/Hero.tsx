@@ -184,7 +184,7 @@ export function Hero() {
           style={{ textShadow: "0 2px 16px rgba(0,0,0,0.7)" }}
         >
           I tuoi clienti prenotano da soli dalla tua pagina, un&apos;assistente AI risponde a chi
-          scrive fuori orario, e tu vedi tutto in un unico calendario -- senza cambiare il modo
+          scrive fuori orario, e tu vedi tutto in un unico calendario — senza cambiare il modo
           in cui lavori oggi.
         </motion.p>
 
@@ -198,7 +198,7 @@ export function Hero() {
             href="/registrati"
             className="block rounded-full bg-white px-6 py-3 text-sm font-medium text-zinc-900 shadow-lg shadow-white/10"
           >
-            Inizia gratis -- nessuna carta richiesta
+            Inizia gratis — nessuna carta richiesta
           </MagneticButton>
           <MagneticButton
             href="#funzionalita"

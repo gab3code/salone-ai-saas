@@ -37,19 +37,19 @@ const DIFFERENZIATORI = [
     icona: Sparkles,
     titolo: "L'AI dove serve, non solo sul piano più caro",
     testo:
-      "L'assistente che risponde ai clienti è già incluso da un piano intermedio, non riservato al piano top -- il costo reale per conversazione è basso, non c'è motivo di nasconderlo dietro il prezzo più alto.",
+      "L'assistente che risponde ai clienti è già incluso da un piano intermedio, non riservato al piano top — perché è una delle funzioni che aiuta di più chi sta ancora crescendo, non un premio per chi paga già di più.",
   },
   {
     icona: Globe2,
     titolo: "Pagina di prenotazione inclusa da subito",
     testo:
-      "Un link tuo, condivisibile ovunque, con prenotazione self-service -- anche sul piano gratuito. Non è un extra da sbloccare più avanti.",
+      "Un link tuo, condivisibile ovunque, con prenotazione self-service — anche sul piano gratuito. Non è un extra da sbloccare più avanti.",
   },
   {
     icona: ShieldCheck,
     titolo: "I tuoi dati sono solo tuoi",
     testo:
-      "Isolamento reale a livello di database tra ogni attività iscritta, non solo un filtro nell'applicazione -- un bug altrove non può mai far leggere i tuoi clienti a qualcun altro.",
+      "Isolamento reale a livello di database tra ogni attività iscritta, non solo un filtro nell'applicazione — un bug altrove non può mai far leggere i tuoi clienti a qualcun altro.",
   },
   {
     icona: Layers,

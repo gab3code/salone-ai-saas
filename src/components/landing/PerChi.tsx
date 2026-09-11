@@ -16,7 +16,7 @@ const PERSONE: Persona[] = [
   {
     titolo: "Parrucchieri e centri estetici con team",
     testo:
-      "Più operatori, servizi con durate diverse e pause tra un trattamento e l'altro gestiti in automatico -- niente più agenda cartacea con gli incastri fatti a mano.",
+      "Più operatori, servizi con durate diverse e pause tra un trattamento e l'altro gestiti in automatico — niente più agenda cartacea con gli incastri fatti a mano.",
     icona: Scissors,
   },
   {
@@ -26,7 +26,7 @@ const PERSONE: Persona[] = [
   },
   {
     titolo: "Centri estetici premium",
-    testo: "Pacchetti di trattamenti, prenotazione online curata quanto il servizio che offri -- la prima impressione conta anche prima di entrare.",
+    testo: "Pacchetti di trattamenti, prenotazione online curata quanto il servizio che offri — la prima impressione conta anche prima di entrare.",
     icona: Sparkles,
   },
   {
@@ -48,7 +48,7 @@ export function PerChi() {
         <Reveal className="max-w-lg">
           <h2 className="text-sm font-medium text-violet-400">Per chi è</h2>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Pensato per chi lavora su appuntamento -- non solo per i saloni.
+            Pensato per chi lavora su appuntamento — non solo per i saloni.
           </p>
         </Reveal>
 

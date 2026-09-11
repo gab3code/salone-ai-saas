@@ -22,11 +22,20 @@ export function Nav() {
         scrollato ? "bg-noir/80 backdrop-blur-md" : "bg-transparent"
       }`}
     >
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
-        <a href="#top" className="text-sm font-semibold tracking-tight text-white">
+      {/* Bug segnalato da Gabriel ("la navbar mi sembra decentrata"): con
+          `justify-between` su 3 elementi, quello centrale non è centrato
+          sulla PAGINA -- è solo a metà dello spazio che resta tra gli altri
+          due, e a destra c'è sempre più roba (Accedi + bottone pieno) che a
+          sinistra (solo il logo), quindi i link scivolavano verso sinistra.
+          Griglia a 3 colonne con quella centrale `auto`: le due colonne
+          laterali sono sempre uguali (`1fr` ciascuna), quindi quella
+          centrale cade esattamente al centro della pagina qualunque sia la
+          larghezza del logo o del blocco bottoni. */}
+      <nav className="mx-auto grid max-w-6xl grid-cols-[1fr_auto] items-center px-5 py-4 sm:grid-cols-[1fr_auto_1fr] sm:px-8">
+        <a href="#top" className="justify-self-start text-sm font-semibold tracking-tight text-white">
           Salone AI
         </a>
-        <div className="hidden items-center gap-8 text-sm text-white/70 sm:flex">
+        <div className="hidden items-center justify-self-center gap-8 text-sm text-white/70 sm:flex">
           <a href="#funzionalita" className="transition-colors hover:text-white">
             Funzionalità
           </a>
@@ -37,7 +46,7 @@ export function Nav() {
             Prezzi
           </a>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-self-end gap-3">
           <a href="/accedi" className="hidden text-sm text-white/70 transition-colors hover:text-white sm:block">
             Accedi
           </a>

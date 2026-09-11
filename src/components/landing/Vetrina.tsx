@@ -32,7 +32,7 @@ const SCENE: Scena[] = [
   {
     titolo: "Un unico motore di prenotazione",
     testo:
-      "Calendario, pagina pubblica e assistente AI leggono e scrivono sugli stessi appuntamenti in tempo reale -- mai due sistemi che raccontano storie diverse.",
+      "Calendario, pagina pubblica e assistente AI leggono e scrivono sugli stessi appuntamenti in tempo reale — mai due sistemi che raccontano storie diverse.",
     icona: RefreshCw,
   },
   {
@@ -42,12 +42,12 @@ const SCENE: Scena[] = [
   },
   {
     titolo: "L'assistente AI, sempre presente",
-    testo: "Risponde su chat web e (in arrivo) WhatsApp a domande su orari e prezzi e prenota da sola -- e passa la mano a te quando serve davvero una persona.",
+    testo: "Risponde su chat web e (in arrivo) WhatsApp a domande su orari e prezzi e prenota da sola — e passa la mano a te quando serve davvero una persona.",
     icona: MessageSquareText,
   },
   {
     titolo: "Anagrafica clienti che si aggiorna da sola",
-    testo: "Ogni prenotazione, da dashboard o da AI, finisce nella stessa scheda cliente -- storico completo, mai due archivi da tenere allineati a mano.",
+    testo: "Ogni prenotazione, da dashboard o da AI, finisce nella stessa scheda cliente — storico completo, mai due archivi da tenere allineati a mano.",
     icona: Users,
   },
   {

@@ -88,7 +88,7 @@ export function Funzionalita() {
       <Reveal className="max-w-lg">
         <h2 className="text-sm font-medium text-violet-400">Tutto quello che include</h2>
         <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-          Cosa c&apos;è oggi, cosa arriva dopo -- detto chiaro.
+          Cosa c&apos;è oggi, cosa arriva dopo — detto chiaro.
         </p>
       </Reveal>
 
@@ -109,7 +109,7 @@ export function Funzionalita() {
           pannello, non altre 6 card identiche alle prime 9. */}
       <Reveal>
         <div className="mt-6 rounded-2xl border border-dashed border-amber-400/20 bg-amber-400/[0.03] p-5">
-          <p className="text-xs font-medium tracking-wide text-amber-300/80 uppercase">Nel roadmap -- non ancora incluso</p>
+          <p className="text-xs font-medium tracking-wide text-amber-300/80 uppercase">Nel roadmap — non ancora incluso</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {IN_ARRIVO.map((v) => (
               <span
