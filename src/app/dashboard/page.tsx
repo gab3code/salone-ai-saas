@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { caricaMetriche } from "@/lib/metriche.server";
 import { esci } from "./azioni";
+import { AvviaCheckoutSeNecessario } from "./avvia-checkout-se-necessario";
 
 /**
  * Prima pagina protetta: prova che l'intera catena funziona davvero, non
@@ -10,7 +12,12 @@ import { esci } from "./azioni";
  * tenant di questo utente (mai quello di un altro), profilo creato dal
  * trigger di provisioning automatico alla registrazione (migrazione 0004).
  */
-export default async function PaginaDashboard() {
+export default async function PaginaDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ piano?: string; checkout?: string }>;
+}) {
+  const { checkout } = await searchParams;
   const supabase = await creaClientServer();
 
   const {
@@ -48,18 +55,30 @@ export default async function PaginaDashboard() {
       </div>
 
       {tenant && (
+        <Suspense fallback={null}>
+          <AvviaCheckoutSeNecessario pianoAttuale={tenant.piano} />
+        </Suspense>
+      )}
+
+      {checkout === "successo" && (
+        <p className="mt-4 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Abbonamento attivato. Bentornato!
+        </p>
+      )}
+
+      {tenant && (
         <div className="mt-4 flex gap-3 text-sm">
           <a href="/dashboard/calendario" className="rounded border border-zinc-300 px-3 py-1.5">
             Calendario
           </a>
-          <a href="/dashboard/clienti" className="rounded border border-zinc-300 px-3 py-1.5">
+          <Link href="/dashboard/clienti" className="rounded border border-zinc-300 px-3 py-1.5">
             Clienti
-          </a>
+          </Link>
           <a href="/dashboard/configura" className="rounded border border-zinc-300 px-3 py-1.5">
             Configura il salone
           </a>
-          <a href="/dashboard/impostazioni/calendari" className="rounded border border-zinc-300 px-3 py-1.5">
-            Calendari personali
+          <a href="/dashboard/impostazioni" className="rounded border border-zinc-300 px-3 py-1.5">
+            Impostazioni
           </a>
         </div>
       )}

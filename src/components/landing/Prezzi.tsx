@@ -44,6 +44,10 @@ const PIANI = [
     descrizione: "Con l'assistente AI.",
     voci: ["Tutto di Starter", "Assistente AI via chat web", { testo: "Analytics", inArrivo: true }, { testo: "Promemoria automatici", inArrivo: true }],
     consigliato: true,
+    // 10 giorni di prova prima del primo addebito (decisione con Gabriel
+    // dell'11/09/2026, vedi giorniDiProva in src/lib/stripe/piani.ts): solo
+    // sui piani con l'AI vera, non un trial "a copertura" su Starter.
+    trial: true,
   },
   {
     nome: "Pro",
@@ -63,6 +67,7 @@ const PIANI = [
       { testo: "Tono dell'AI personalizzabile", inArrivo: true },
     ],
     consigliato: false,
+    trial: true,
   },
   {
     nome: "Enterprise",
@@ -79,6 +84,29 @@ function testoVoce(v: string | { testo: string; inArrivo?: boolean }): string {
 }
 function inArrivoVoce(v: string | { testo: string; inArrivo?: boolean }): boolean {
   return typeof v === "string" ? false : Boolean(v.inArrivo);
+}
+
+// Collegato a Stripe l'11/09/2026: prima ogni card puntava a `/registrati`
+// (creava sempre e solo un account Free, a prescindere dal piano cliccato --
+// non esisteva ancora un vero checkout). Ora Starter/Growth/Pro portano alla
+// registrazione con il piano scelto in query string (`?piano=...`): dopo la
+// registrazione la dashboard apre da sola la Checkout Session Stripe (vedi
+// AvviaCheckoutSeNecessario). Free resta un account gratuito puro, nessun
+// passaggio da Stripe. Enterprise è a preventivo/gestito a mano -- "Richiedi
+// info" deve aprire un'email, non creare silenziosamente un account.
+function hrefVoceCTA(nome: string): string {
+  switch (nome) {
+    case "Starter":
+      return "/registrati?piano=starter";
+    case "Growth":
+      return "/registrati?piano=growth";
+    case "Pro":
+      return "/registrati?piano=pro";
+    case "Enterprise":
+      return "mailto:gabrielmazzucchelli3@gmail.com?subject=Salone%20AI%20-%20Piano%20Enterprise";
+    default:
+      return "/registrati";
+  }
 }
 
 export function Prezzi() {
@@ -128,6 +156,9 @@ export function Prezzi() {
                 <span className={`text-sm ${p.consigliato ? "text-white/50" : "text-white/40"}`}>{p.periodo}</span>
               </div>
               <p className={`mt-1 text-xs ${p.consigliato ? "text-white/50" : "text-white/40"}`}>{p.descrizione}</p>
+              {"trial" in p && p.trial && (
+                <p className="mt-1 text-xs font-medium text-emerald-400">10 giorni di prova, poi si paga</p>
+              )}
 
               <ul className="mt-4 flex flex-1 flex-col gap-2 text-sm">
                 {p.voci.map((v) => (
@@ -142,24 +173,23 @@ export function Prezzi() {
               </ul>
 
               <a
-                href="/registrati"
+                href={hrefVoceCTA(p.nome)}
                 className={`mt-5 rounded-full px-4 py-2 text-center text-sm font-medium transition-colors ${
                   p.consigliato ? "bg-white text-zinc-900 hover:bg-white/90" : "border border-white/15 bg-white/5 text-white hover:bg-white/10"
                 }`}
               >
-                {/* Bug reale segnalato da Gabriel: "Inizia gratis" compariva
-                    anche su Starter/Growth/Pro (€19,90-69,90), come se
-                    l'abbonamento a pagamento partisse gratis -- confuso a
-                    ragione. Verità tecnica (DECISIONS.md + PROJECT_STATUS.md):
-                    non esiste ancora uno Stripe checkout, "/registrati" crea
-                    SEMPRE lo stesso account sul piano Free, qualunque card
-                    si clicchi -- il piano si cambia oggi solo a mano nel
-                    database. "Inizia gratis" resta quindi accurato SOLO per
-                    la card Free; per i piani a pagamento il copy non deve
-                    promettere un'attivazione che non esiste -- "Crea il tuo
-                    account" è vero per tutti (l'account è sempre gratuito da
-                    creare), senza dichiarare che quel piano specifico parte
-                    subito. */}
+                {/* Bug reale segnalato da Gabriel (fisso ancora prima dello
+                    Stripe checkout): "Inizia gratis" compariva anche su
+                    Starter/Growth/Pro (€19,90-69,90), come se l'abbonamento a
+                    pagamento partisse gratis -- confuso a ragione. Da quando
+                    il checkout Stripe è collegato (11/09/2026), "Crea il tuo
+                    account" è comunque il label più onesto per i piani a
+                    pagamento: descrive il primo passo reale (l'account nasce
+                    sempre prima, gratis), il secondo passo (pagamento
+                    Stripe, con 10gg di prova su Growth/Pro) viene spiegato
+                    subito dopo nella pagina di registrazione, non promesso
+                    qui. "Inizia gratis" resta quindi riservato alla card
+                    Free, l'unica dove è letteralmente l'intera storia. */}
                 {p.nome === "Enterprise" ? "Richiedi info" : p.nome === "Free" ? "Inizia gratis" : "Crea il tuo account"}
               </a>
               </div>

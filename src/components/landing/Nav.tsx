@@ -50,8 +50,13 @@ export function Nav() {
           <a href="/accedi" className="hidden text-sm text-white/70 transition-colors hover:text-white sm:block">
             Accedi
           </a>
+          {/* Richiesta di Gabriel dell'11/09/2026: invece di portare dritti a
+              /registrati, ora scende alla sezione prezzi -- così chi clicca
+              vede prima i piani (e può comunque scegliere Free per iniziare
+              gratis da lì) invece di creare un account senza aver ancora
+              visto cosa include ogni piano. */}
           <a
-            href="/registrati"
+            href="#prezzi"
             className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition-transform hover:scale-105"
           >
             Inizia gratis
