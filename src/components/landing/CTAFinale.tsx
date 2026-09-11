@@ -12,9 +12,13 @@ import { GlowBorder } from "./GlowBorder";
  */
 export function CTAFinale() {
   return (
-    <section className="mx-auto max-w-6xl px-5 pb-24 sm:px-8">
+    // Prima non c'era nessun padding-top: il box viola nasceva incollato
+    // subito sotto la griglia prezzi, senza respiro tra le due sezioni
+    // (segnalato da Gabriel, "parte finale orrenda"). Aggiunto pt- e più
+    // py- interno per farla sentire come una vera chiusura, non un'appendice.
+    <section className="mx-auto max-w-6xl px-5 pt-12 pb-24 sm:px-8 sm:pt-16">
       <Reveal>
-        <div className="relative overflow-hidden rounded-3xl bg-noir px-8 py-16 text-center">
+        <div className="relative overflow-hidden rounded-3xl bg-noir px-8 py-20 text-center sm:py-24">
           <LiquidMetal angle={115} twist={3.4} stretch={6} bands={6} relief={7} scale={8.5} flow={9} voidSize={0.6} frost={1} sweep={6} />
           <div
             className="pointer-events-none absolute inset-0"

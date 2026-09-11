@@ -61,10 +61,16 @@ export function Prezzi() {
         </p>
       </Reveal>
 
-      <RevealStagger className="mt-12 grid gap-4 lg:grid-cols-5" gapMs={0.06}>
+      {/* Bug segnalato da Gabriel: piani "di lunghezze diverse e storti" --
+          causa reale: h-full sull'ultimo div non aveva un'altezza da cui
+          ereditare, perché nessun antenato tra il grid item e lì aveva
+          h-full esplicito (una griglia CSS stira il grid item stesso, ma
+          non i suoi figli a cascata). Aggiunto h-full su RevealItem e sul
+          wrapper -- ora le 5 card hanno sempre la stessa altezza di riga. */}
+      <RevealStagger className="mt-12 grid items-stretch gap-4 lg:grid-cols-5" gapMs={0.06}>
         {PIANI.map((p) => (
-          <RevealItem key={p.nome}>
-            <div className={`relative rounded-2xl ${p.consigliato ? "p-px" : ""}`}>
+          <RevealItem key={p.nome} className="h-full">
+            <div className={`relative h-full rounded-2xl ${p.consigliato ? "p-px" : ""}`}>
               {p.consigliato && <GlowBorder rounded={14} borderWidth={1.5} speed={6} tailLength={45} glowColor="#f0abfc" tailColor="rgba(217,70,239,0.4)" baseColor="rgba(255,255,255,0.04)" />}
               <div
                 className={`relative flex h-full flex-col rounded-2xl border p-5 text-white ${

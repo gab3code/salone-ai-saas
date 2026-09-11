@@ -52,9 +52,28 @@ export function PerChi() {
           </p>
         </Reveal>
 
+        {/* Stesso fix di PercheNoi: 5 elementi su 3 colonne lascerebbero un
+            buco di 1 colonna nell'ultima riga (che ha 2 elementi, non 1) --
+            le prime 3 nella griglia normale, le ultime 2 in una riga a parte
+            centrata e della stessa larghezza che avrebbero nella griglia. */}
         <RevealStagger className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" gapMs={0.06}>
-          {PERSONE.map((p) => (
+          {PERSONE.slice(0, 3).map((p) => (
             <RevealItem key={p.titolo}>
+              <TiltCard className="h-full">
+                <SpotlightCard className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+                    <p.icona className="size-4.5" />
+                  </span>
+                  <h3 className="relative mt-3.5 text-[15px] font-medium text-white">{p.titolo}</h3>
+                  <p className="relative mt-1.5 text-sm leading-relaxed text-white/60">{p.testo}</p>
+                </SpotlightCard>
+              </TiltCard>
+            </RevealItem>
+          ))}
+        </RevealStagger>
+        <RevealStagger className="mt-4 flex flex-wrap justify-center gap-4" gapMs={0.06}>
+          {PERSONE.slice(3).map((p) => (
+            <RevealItem key={p.titolo} className="w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc((100%-2rem)/3)]">
               <TiltCard className="h-full">
                 <SpotlightCard className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/5 p-5">
                   <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">

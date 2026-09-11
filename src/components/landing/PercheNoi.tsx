@@ -81,9 +81,29 @@ export function PercheNoi() {
         <FlussoAnimato />
       </Reveal>
 
+      {/* 5 elementi su una griglia a 3 colonne: l'ultima riga (2 elementi)
+          lascerebbe un buco a destra (bug reale segnalato da Gabriel -- un
+          semplice "col-start" non basta perché la riga finale non ha UN
+          elemento solo, ne ha due). Le prime 3 vanno nella griglia normale,
+          le ultime 2 in una riga a parte centrata, larghe quanto sarebbero
+          state nella griglia (stesso gap) -- nessun buco, nessuna card
+          storta. */}
       <RevealStagger className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {DIFFERENZIATORI.map((d) => (
+        {DIFFERENZIATORI.slice(0, 3).map((d) => (
           <RevealItem key={d.titolo}>
+            <SpotlightCard className="h-full rounded-2xl border border-white/10 bg-white/5 p-5">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+                <d.icona className="size-4.5" />
+              </span>
+              <h3 className="mt-3 text-[15px] font-medium text-white">{d.titolo}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-white/60">{d.testo}</p>
+            </SpotlightCard>
+          </RevealItem>
+        ))}
+      </RevealStagger>
+      <RevealStagger className="mt-4 flex flex-wrap justify-center gap-4">
+        {DIFFERENZIATORI.slice(3).map((d) => (
+          <RevealItem key={d.titolo} className="w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc((100%-2rem)/3)]">
             <SpotlightCard className="h-full rounded-2xl border border-white/10 bg-white/5 p-5">
               <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
                 <d.icona className="size-4.5" />

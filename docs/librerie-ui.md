@@ -205,3 +205,34 @@ Gabriel -- "dimmi cosa hai deciso e perché"):**
   precedente per un diverso bug di rendering WebGL. Effetto finale invariato
   nella sostanza (fade + slide verticale), solo la sfocatura d'ingresso è
   stata tolta.
+- **Bug reali di layout trovati e risolti dopo un secondo giro di feedback
+  duro di Gabriel** ("il sito fa pena... piramide messa a caso, spaziato
+  male, abbonamenti storti, parte finale orrenda") -- tutti bug concreti,
+  non impressioni:
+  - `Lampada.tsx` (usato in PercheNoi): il "cono di luce" sopra il titolo
+    usava un `clip-path: polygon(...)` per ritagliare un rettangolo sfocato
+    a forma di trapezio -- con il blur non abbastanza forte rispetto alla
+    dimensione della forma, si vedevano gli spigoli dritti del poligono
+    invece di un bagliore morbido (la "piramide"). Riscritto senza
+    clip-path: solo un'ellisse (`rounded-full`) molto sfocata, geometricamente
+    impossibile che mostri uno spigolo.
+  - `PercheNoi.tsx` e `PerChi.tsx`: entrambi mappano 5 elementi su una
+    griglia a 3 colonne (`sm:grid-cols-2 lg:grid-cols-3`) -- 5 non è
+    multiplo di 3, quindi l'ultima riga aveva 2 elementi a sinistra e un
+    buco vuoto a destra. Fix: le prime 3 card restano nella griglia normale,
+    le ultime 2 vanno in una riga a parte (`flex flex-wrap justify-center`)
+    larga quanto sarebbero state nella griglia (`calc((100%-2rem)/3)`) --
+    centrate come coppia, nessun buco. (Un primo tentativo con
+    `lg:col-start-2` sul solo ultimo elemento era sbagliato: funziona solo
+    se la riga finale ha UN elemento, qui ne ha due.)
+  - `Prezzi.tsx`: le 5 card piano avevano altezze diverse ("storto") --
+    causa reale: `h-full` sulla card interna non aveva nulla da cui
+    ereditare l'altezza, perché né `RevealItem` né il wrapper `p-px` del
+    piano consigliato avevano un'altezza esplicita (una griglia CSS stira
+    il grid item, ma non i suoi discendenti a cascata senza `h-full` ad
+    ogni livello). Aggiunto `h-full` su `RevealItem` e sul wrapper --
+    tutte le card ora hanno sempre l'altezza della riga.
+  - `CTAFinale.tsx`: nessun padding-top -- il box viola nasceva incollato
+    subito sotto la griglia prezzi. Aggiunto `pt-12`/`sm:pt-16` alla
+    sezione e più `py` interno al box per una chiusura che respira invece
+    di un'appendice incollata.
