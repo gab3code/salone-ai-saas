@@ -190,7 +190,13 @@ l'11/09/2026 via MCP diretto).
     default") era sbagliata: bypassa le POLICY di RLS ma non i GRANT di tabella, due controlli
     indipendenti. Fix in `0007_grant_service_role.sql`, eseguita da Gabriel nell'SQL Editor --
     confermato dal vivo che risolve.
-11. **Il modello non conosceva la data odierna**: senza contesto esplicito, `costruisciSystemPrompt`
+11a. ~~Manca il GRANT per `authenticated` su `collegamenti_calendario_esterni`/
+    `eventi_calendario_esterni`~~ **RISOLTO 11/09/2026** (migrazione 0009): stesso identico bug
+    del problema #10 (RLS corretta ma GRANT di tabella mancante), stavolta per il ruolo
+    `authenticated` invece di `service_role` -- scoperto dal vivo con un 500 reale su
+    `/dashboard/impostazioni/calendari` non appena un utente vero ha provato la pagina sul
+    deploy Vercel. La migrazione 0008 aveva concesso i permessi solo a `service_role`.
+12. **Il modello non conosceva la data odierna**: senza contesto esplicito, `costruisciSystemPrompt`
     non passava la data reale, quindi il modello chiedeva al cliente di calcolare "domani" da
     solo (pessima UX, e un rischio di dato sbagliato se il cliente sbagliava il calcolo). Fix:
     la data/ora reale (`adesso: Date`, iniettabile nei test) è ora nel system prompt --
