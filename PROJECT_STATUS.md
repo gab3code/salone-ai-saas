@@ -174,10 +174,19 @@ l'11/09/2026 via MCP diretto).
    sono visti. **Non ancora confermato con certezza, ma per sicurezza: `npm install` va sempre
    lanciato nel Terminal reale del Mac di Gabriel, mai tramite i tool del bridge**, finché non
    si verifica altrimenti. iCloud resta una causa concorrente plausibile, non esclusa.
-4. **Nessun test automatico per `booking-engine.server.ts`** (il layer collegato al DB): solo
-   verificato manualmente nel browser. I 16 test automatici coprono solo `booking-engine.ts`
-   (logica pura). Rischio: una regressione nel layer di query/conversione non verrebbe
-   presa da `npx vitest run`.
+4. ~~Nessun test automatico per `booking-engine.server.ts`~~ **RISOLTO 11/09/2026**: 29 test
+   nuovi in `booking-engine.server.test.ts`, con un client Supabase finto
+   (`src/test/supabase-finto.ts`, riutilizzabile per testare altri file `*.server.ts` in
+   futuro -- code FIFO per tabella/operazione, cattura i payload scritti per verificarli).
+   Copertura: `parsaOrarioLocale` (formati validi/invalidi, prima non testato affatto),
+   `caricaContestoBooking` (mapping + fusione impegni esterni + propagazione errori),
+   `verificaConflittoTenant` (conflitto sì/no, esclusione dell'appuntamento in modifica,
+   impegni esterni), `creaAppuntamentoTenant`/`modificaAppuntamentoTenant` (tetto mensile
+   Free, servizio non trovato, conflitto bloccante, **conversione fuso orario corretta
+   scritta su Postgres** -- verificato anche "in negativo": reintrodotto di proposito il
+   vecchio bug del fuso e confermato che i test lo beccano, poi ripristinato il codice
+   corretto -- cliente trovato/creato, mapping dell'errore Postgres `23P01`),
+   `cancellaAppuntamentoTenant`. Suite totale ora 93/93 verde, build pulita.
 5. **Concorrenza non testata su questo progetto**: il vincolo DB esiste ma non è stato
    ancora verificato con un vero test a due richieste simultanee (era stato fatto con
    successo sul progetto precedente con un meccanismo diverso).
