@@ -427,3 +427,36 @@ le credenziali in chat -- costruito il collegamento OAuth2 vero mentre erano fre
 come utente di test nella schermata di consenso prima di poter provare), la revisione di
 Google per rendere la funzione disponibile a clienti reali non di test, e la direzione export
 per entrambi i provider (invariata rispetto alla voce sopra).
+
+## 2026-09-11 — Repo Git spostata su GitHub reale (gab3code/salone-ai-saas) e primo deploy Vercel
+
+**Decisione**: creata una repo GitHub privata dell'account personale di Gabriel
+(`github.com/gab3code/salone-ai-saas`) e collegato un progetto Vercel ad essa via GitHub App
+di Vercel (non tramite il token usato per il push iniziale, che serviva solo a quello ed è
+stato poi revocato). Deploy automatico ad ogni push su `main` da qui in avanti.
+
+**Perché**: il sandbox cloud effimero era l'unico posto con lo storico commit reale (problema
+noto #2 in PROJECT_STATUS.md) -- rischio di perdita in caso di scadenza sessione. La strada
+inizialmente tentata (deploy manuale via `deploy_to_vercel` con contenuto file trascritto a
+mano nella chat) è stata abbandonata a metà per fragilità: trascrivere ~5900 righe di codice a
+mano rischiava errori difficili da individuare, contro l'obiettivo di Gabriel di "fare la cosa
+più semplice". Git risolve entrambi i problemi in un colpo solo.
+
+**Ostacolo emerso e aggirato**: né il sandbox cloud né la VM del bridge verso il Mac di Gabriel
+possono raggiungere `github.com` (policy di rete bloccano l'host, confermato con un 403 dal
+proxy in entrambi gli ambienti) -- il push finale è stato fatto da Gabriel stesso dal Terminale
+reale del suo Mac, con un git bundle (tutto lo storico commit) trasferito lì da questa
+sessione e un Personal Access Token fine-grained creato da lui apposta (scope Contents:
+Read and write, solo su quella repo, scadenza 7 giorni, poi revocato). Nota per il futuro:
+qualunque necessità di raggiungere github.com da questa sessione richiederà lo stesso giro
+(bundle + push manuale di Gabriel), non è un problema di configurazione risolvibile da qui.
+
+**Effetto collaterale positivo**: avendo ora accesso MCP diretto al progetto Supabase reale
+(`weeaggiqovnmtovdjzxy`), verificato in questa stessa sessione che: la region è `eu-west-1`
+(risolve il problema noto #6, EU confermata), e la migrazione `0008_calendari_esterni.sql`
+risulta già applicata sul database vero (le tabelle esistono) -- non tracciata in
+`supabase_migrations.schema_migrations` perché applicata a mano da SQL Editor come le
+precedenti, ma presente. Avvisi di sicurezza Supabase controllati e invariati rispetto a
+quanto già noto (vedi PROJECT_STATUS.md, problemi aperti): nessuna azione presa su questi ora,
+restano pianificati per la Fase 6 (revisione sicurezza) per non toccare `SECURITY DEFINER`/RLS
+alla leggera senza un giro di test dedicato.

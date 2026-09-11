@@ -30,8 +30,8 @@ del salone sul calendario personale) non ancora scritta per nessuno dei due. Tut
 Next.js 16.3.4 (App Router, Turbopack) + React 19.2.8 + TypeScript + Tailwind CSS v4 +
 Supabase (`@supabase/ssr` 0.12.5, `@supabase/supabase-js` 2.113.0) + Vitest per i test.
 Stripe e Anthropic Claude SDK non ancora integrati nel codice (pianificati Fase 2/5).
-Progetto Supabase reale collegato: `weeaggiqovnmtovdjzxy` (region da verificare che sia EU —
-vedi "Problemi aperti").
+Progetto Supabase reale collegato: `weeaggiqovnmtovdjzxy` (region `eu-west-1`, confermata EU
+l'11/09/2026 via MCP diretto).
 
 ## Cosa è REALMENTE funzionante (verificato dal vivo, non solo compilato)
 
@@ -94,9 +94,10 @@ vedi "Problemi aperti").
   impegni importati da entrambi bloccano gli stessi slot degli appuntamenti interni sia in
   ricerca disponibilità sia in creazione/modifica (fail-open se un calendario esterno non
   risponde o un token è scaduto/revocato). **Non ancora verificato dal vivo con account reali**
-  -- solo `npx vitest run` (57/57) e `npm run build` puliti finora. Richiede la migrazione
-  `0008_calendari_esterni.sql`, non ancora eseguita da Gabriel, e Gabriel come "utente di test"
-  nella schermata di consenso OAuth Google prima di poter provare quel lato.
+  -- solo `npx vitest run` (57/57) e `npm run build` puliti finora. Migrazione
+  `0008_calendari_esterni.sql` **confermata gia' applicata** sul database vero (verificato
+  11/09/2026 via MCP diretto: le tabelle esistono) -- manca ancora solo Gabriel come "utente di
+  test" nella schermata di consenso OAuth Google prima di poter provare quel lato dal vivo.
 
 ## Cosa è mock, incompleto o non ancora iniziato
 
@@ -143,9 +144,13 @@ vedi "Problemi aperti").
    `booking-engine.server.ts`): corretto solo se l'ora del tenant coincide con UTC in quel
    momento. Va aggiunto un campo fuso orario su `tenants` prima che la prenotazione si possa
    considerare davvero finita (vedi Fase 7 in PIANO.md).
-2. **Repo Git canonico nel sandbox cloud effimero**, nessun remote GitHub permanente ancora
-   configurato — rischio reale di perdita storia se la sessione cloud scade. Da risolvere
-   prima possibile (non solo prima della Fase 7).
+2. ~~Repo Git canonico nel sandbox cloud effimero, nessun remote GitHub permanente~~
+   **RISOLTO 11/09/2026**: repo spostata su `github.com/gab3code/salone-ai-saas` (privata),
+   progetto Vercel collegato via GitHub App (deploy automatico ad ogni push su `main`). Vedi
+   DECISIONS.md per il dettaglio (incluso l'ostacolo di rete aggirato per il push iniziale).
+   Primo deploy di test live: https://salone-ai-saas.vercel.app (variabili d'ambiente Supabase/
+   Anthropic configurate su Vercel; Google Calendar/Stripe/WhatsApp non ancora, non servono per
+   questo test).
 3. **Causa più probabile degli errori intermittenti in `node_modules` sotto Turbopack** (`EOF
    while parsing`, `Resource deadlock avoided`), rivista il 02/09/2026: inizialmente attribuiti
    a iCloud Drive che sincronizza la cartella Desktop; scoperta oggi una causa alternativa più
@@ -163,8 +168,9 @@ vedi "Problemi aperti").
 5. **Concorrenza non testata su questo progetto**: il vincolo DB esiste ma non è stato
    ancora verificato con un vero test a due richieste simultanee (era stato fatto con
    successo sul progetto precedente con un meccanismo diverso).
-6. **Region Supabase EU non ancora confermata** — rilevante sia per GDPR sia per poter
-   dichiarare lo stesso claim di Estetia ("server in Europa").
+6. ~~Region Supabase EU non ancora confermata~~ **RISOLTO 11/09/2026**: confermato via MCP
+   diretto al progetto (`weeaggiqovnmtovdjzxy`) — region `eu-west-1`. Possiamo dichiarare "dati
+   in Europa" come Estetia.
 7. **Migrazione 0006 (`identificatore_sessione` su `conversazioni`)**: applicata da Gabriel
    direttamente nell'SQL Editor di Supabase il 02/09/2026 (non verificata da questa sessione con
    una query -- nessun modo autonomo di leggere lo schema senza toccare credenziali che non

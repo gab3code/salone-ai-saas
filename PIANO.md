@@ -306,9 +306,12 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
    il collegamento prima che Google completi la revisione per renderlo pubblico a tutti i
    clienti) e poi provare davvero il pulsante "Collega Google" in
    `/dashboard/impostazioni/calendari`.
-4. Eseguire la migrazione `0008_calendari_esterni.sql` nell'SQL Editor di Supabase (stesso
-   posto delle precedenti) prima di poter usare i collegamenti calendario -- senza questa le
-   tabelle non esistono ancora sul database vero.
+4. ~~Eseguire la migrazione `0008_calendari_esterni.sql`~~ **FATTO** (confermato 11/09/2026 via
+   accesso MCP diretto al progetto Supabase: le tabelle esistono già sul database vero).
 5. Ogni tanto: un `npm install` + `npm run dev` sul tuo Mac per testare tu stesso i progressi
    nel browser vero, quando te lo chiedo -- è il modo più veloce per verificare le cose che
    dalla mia rete non riesco a raggiungere direttamente.
+6. Aggiungerti come "utente di test" nella schermata di consenso OAuth Google (Google Cloud
+   Console -- vedi punto 3 sopra) per poter provare dal vivo "Collega Google" in
+   `/dashboard/impostazioni/calendari`. Unico passo rimasto per chiudere la verifica dal vivo
+   di Fase 6bis (import/blocco).
