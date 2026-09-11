@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { collegaCalendarioApple, scollegaCalendarioAzione } from "./azioni";
+import { scollegaCalendarioAzione } from "./azioni";
 
 interface Operatore {
   id: string;
@@ -17,10 +17,21 @@ interface Collegamento {
 }
 
 /**
- * UI di collegamento calendari personali (Fase 6bis). Apple/iCloud è
- * funzionante da subito (CalDAV, nessuna revisione esterna); Google Calendar
- * è mostrato ma disabilitato finché l'OAuth non è pronto (vedi PIANO.md) --
+ * UI di collegamento calendari personali (Fase 6bis). Google Calendar è
+ * mostrato ma disabilitato finché l'OAuth non è pronto (vedi PIANO.md) --
  * niente pulsante che promette qualcosa che non fa ancora nulla.
+ *
+ * Apple/iCloud (CalDAV) è stato TOLTO da questa UI l'11/09/2026 (deciso con
+ * Gabriel): il client è tecnicamente corretto (verificato via test
+ * comparativo diretto con `curl` -- stesse credenziali, 207 dal Mac di
+ * Gabriel, 400 muto da Vercel) ma probabilmente inutilizzabile in produzione
+ * perché Apple sembra bloccare il traffico CalDAV che arriva da IP di data
+ * center/cloud come quelli di Vercel (vedi PROJECT_STATUS.md, problema noto
+ * #14). Il codice backend (`collegaCalendarioApple` in `azioni.ts`, tutto
+ * `caldav.server.ts`, il ramo apple di `collegamenti.server.ts`) resta
+ * intatto e funzionante per un eventuale riutilizzo futuro (es. se Apple
+ * cambia policy, o dietro un proxy con IP non-datacenter) -- va solo
+ * ricollegato qui a un form quando servirà di nuovo.
  */
 export function PannelloCalendari({
   operatori,
@@ -30,18 +41,9 @@ export function PannelloCalendari({
   collegamenti: Collegamento[];
 }) {
   const [errore, setErrore] = useState<string | null>(null);
-  const [invioInCorso, setInvioInCorso] = useState(false);
   const [operatoreGoogleSelezionato, setOperatoreGoogleSelezionato] = useState("");
 
   const operatoriPerId = new Map(operatori.map((o) => [o.id, o.nome]));
-
-  async function inviaCollegamento(formData: FormData) {
-    setInvioInCorso(true);
-    setErrore(null);
-    const risultato = await collegaCalendarioApple(formData);
-    setInvioInCorso(false);
-    if (risultato?.errore) setErrore(risultato.errore);
-  }
 
   async function scollega(id: string) {
     setErrore(null);
@@ -86,57 +88,7 @@ export function PannelloCalendari({
         )}
       </section>
 
-      {/* --- Collega Apple/iCloud --- */}
-      <section>
-        <h2 className="text-base font-medium">Collega Apple/iCloud Calendar</h2>
-        <p className="mt-1 text-sm text-zinc-600">
-          Serve una <strong>password specifica per l&apos;app</strong> (non la password del tuo
-          Apple ID): si genera una volta sola su{" "}
-          <a href="https://appleid.apple.com" target="_blank" rel="noreferrer" className="underline">
-            appleid.apple.com
-          </a>{" "}
-          -&gt; Accesso e sicurezza -&gt; Password per le app.
-        </p>
-        <form action={inviaCollegamento} className="mt-3 flex flex-wrap items-end gap-3 text-sm">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-500">Operatore</label>
-            <select name="operatore_id" required className="rounded border border-zinc-300 px-2 py-1">
-              <option value="">Scegli...</option>
-              {operatori.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-500">Apple ID (email)</label>
-            <input
-              name="apple_id"
-              type="email"
-              required
-              className="rounded border border-zinc-300 px-2 py-1"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-500">Password per l&apos;app</label>
-            <input
-              name="password_app"
-              type="password"
-              required
-              className="rounded border border-zinc-300 px-2 py-1"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={invioInCorso}
-            className="rounded bg-black px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
-          >
-            {invioInCorso ? "Verifico..." : "Collega"}
-          </button>
-        </form>
-        {errore && <p className="mt-2 text-sm text-red-600">{errore}</p>}
-      </section>
+      {errore && <p className="text-sm text-red-600">{errore}</p>}
 
       {/* --- Google --- */}
       <section>
