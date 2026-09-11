@@ -71,7 +71,15 @@ async function richiestaDav(
       body: corpo,
     });
     if (!risposta.ok) {
-      throw new Error(`${metodo} ${url} -> HTTP ${risposta.status}`);
+      // Il corpo della risposta spesso contiene il motivo vero (es. il testo
+      // d'errore XML di Apple) -- senza questo un 400/401 generico non dice
+      // nulla di utile per capire se è un problema di credenziali, di
+      // formato della richiesta o di blocco anti-abuso lato server.
+      const corpoErrore = await risposta.text().catch(() => "");
+      const estratto = corpoErrore.trim().slice(0, 300);
+      throw new Error(
+        `${metodo} ${url} -> HTTP ${risposta.status}${estratto ? `: ${estratto}` : ""}`
+      );
     }
     return { testo: await risposta.text(), urlFinale: risposta.url || url };
   } finally {
