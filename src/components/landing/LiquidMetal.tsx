@@ -10,9 +10,13 @@ import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from
  * Zero dipendenze, pausa da solo fuori schermo/tab nascosta, rispetta
  * prefers-reduced-motion -- va bene anche su mobile.
  *
- * Aggiunta nostra (non nell'originale): un lievissimo tilt di parallasse che
- * segue il mouse sul contenitore. Non tocca MAI il cursore reale -- fa
- * reagire lo sfondo, come richiesto esplicitamente da Gabriel.
+ * Aggiunta nostra (non nell'originale): un tilt di parallasse + un alone di
+ * luce che seguono il mouse sul contenitore. Non tocca MAI il cursore reale
+ * -- fa reagire lo sfondo, come richiesto esplicitamente da Gabriel. Prima
+ * il tilt era di soli 3 gradi con una transizione da mezzo secondo, quasi
+ * impercettibile su uno shader già "vivo" di suo ("lo sfondo è poco
+ * reattivo", Giro 4) -- portato a 9 gradi, più scattante (150ms), con in
+ * più un alone radiale bianco che segue davvero il punto sotto il cursore.
  */
 
 const MAX_STOPS = 6;
@@ -266,6 +270,7 @@ export function LiquidMetal({
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const glowRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
 
   const propsRef = useRef({ colors, refraction, frost, voidSize, angle, twist, stretch, bands, relief, scale, flow, shimmer, sweep });
@@ -278,13 +283,24 @@ export function LiquidMetal({
     const rect = wrapRef.current.getBoundingClientRect();
     const nx = (e.clientX - rect.left) / rect.width - 0.5;
     const ny = (e.clientY - rect.top) / rect.height - 0.5;
-    // tilt minimo: reagisce lo sfondo, il cursore del sistema resta invariato
-    wrapRef.current.style.transform = `perspective(1200px) rotateX(${(-ny * 3).toFixed(2)}deg) rotateY(${(nx * 3).toFixed(2)}deg) scale(1.02)`;
+    // Tilt + un alone di luce che segue il puntatore: reagisce lo sfondo,
+    // il cursore del sistema resta invariato. Prima il tilt era di soli 3
+    // gradi con una transizione da mezzo secondo -- praticamente
+    // impercettibile con uno shader già "vivo" di suo (segnalato da
+    // Gabriel, "lo sfondo è poco reattivo"). Alzato a 9 gradi e reso più
+    // scattante (150ms), più un alone radiale che illumina davvero il
+    // punto sotto il cursore invece di un tilt quasi invisibile.
+    wrapRef.current.style.transform = `perspective(1200px) rotateX(${(-ny * 9).toFixed(2)}deg) rotateY(${(nx * 9).toFixed(2)}deg) scale(1.035)`;
+    if (glowRef.current) {
+      glowRef.current.style.opacity = "1";
+      glowRef.current.style.background = `radial-gradient(360px circle at ${((nx + 0.5) * 100).toFixed(1)}% ${((ny + 0.5) * 100).toFixed(1)}%, rgba(255,255,255,0.16), transparent 70%)`;
+    }
   }
 
   function alResetMouse() {
     if (!wrapRef.current) return;
     wrapRef.current.style.transform = "perspective(1200px) rotateX(0deg) rotateY(0deg) scale(1)";
+    if (glowRef.current) glowRef.current.style.opacity = "0";
   }
 
   useEffect(() => {
@@ -485,13 +501,21 @@ export function LiquidMetal({
       onMouseMove={alMovimentoMouse}
       onMouseLeave={alResetMouse}
     >
-      <div ref={wrapRef} className="absolute inset-[-4%] transition-transform duration-500 ease-out will-change-transform">
+      <div ref={wrapRef} className="absolute inset-[-4%] transition-transform duration-150 ease-out will-change-transform">
         <canvas
           ref={canvasRef}
           className="block h-full w-full"
           style={failed ? { background: "radial-gradient(ellipse at 50% 40%, #4c1d95, #1e0b3d 55%, #07040d 85%)" } : undefined}
         />
       </div>
+      {parallasse && (
+        <div
+          ref={glowRef}
+          aria-hidden
+          className="pointer-events-none absolute inset-0 mix-blend-screen transition-opacity duration-300 ease-out"
+          style={{ opacity: 0 }}
+        />
+      )}
     </div>
   );
 }

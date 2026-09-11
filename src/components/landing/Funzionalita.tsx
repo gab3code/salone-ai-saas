@@ -16,6 +16,8 @@ import {
   Send,
   SlidersHorizontal,
   Scissors,
+  BarChart3,
+  MessageSquareMore,
 } from "lucide-react";
 import { RevealItem, RevealStagger, Reveal } from "./Reveal";
 import { SpotlightCard } from "./SpotlightCard";
@@ -64,6 +66,8 @@ const IN_ARRIVO: Voce[] = [
   { titolo: "App installabile (PWA)", descrizione: "Dashboard a schermo intero, come un'app nativa.", icona: Smartphone },
   { titolo: "AI su Instagram e Telegram", descrizione: "Stessa reception AI, su altri canali dove serve.", icona: Send },
   { titolo: "Tono dell'AI personalizzabile", descrizione: "Guida il modo in cui l'assistente risponde ai tuoi clienti.", icona: SlidersHorizontal },
+  { titolo: "Analytics", descrizione: "Andamento prenotazioni e clienti nel tempo, non solo i numeri di oggi.", icona: BarChart3 },
+  { titolo: "SMS", descrizione: "Promemoria e conferme anche senza WhatsApp o smartphone.", icona: MessageSquareMore },
 ];
 
 function Cella({ v }: { v: Voce }) {

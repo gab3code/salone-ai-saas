@@ -32,7 +32,17 @@ function Titolo() {
           animate={{ y: "0%" }}
           transition={{ duration: 0.7, delay: 0.25, ease: [0.23, 1, 0.32, 1] }}
         >
-          <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">mai più senza risposta.</span>
+          {/* Prima: testo in gradient viola->fucsia (bg-clip-text) sopra lo
+              stesso shader viola->fucsia dell'Hero -- a seconda della fase
+              dello shader il testo poteva finire quasi dello stesso colore
+              dello sfondo dietro, leggendo come "sporco"/illeggibile invece
+              che come un accento (segnalato da Gabriel, "colore orrendo").
+              Bianco pieno è sempre leggibile sopra il velo scuro qui sotto,
+              a qualunque fase sia lo shader; il colore resta comunque
+              presente come bagliore (text-shadow), non sparisce. */}
+          <span className="text-white" style={{ textShadow: "0 0 34px rgba(217,70,239,0.55), 0 0 64px rgba(124,58,237,0.35)" }}>
+            mai più senza risposta.
+          </span>
         </motion.span>
       </span>
     </h1>
@@ -112,7 +122,14 @@ function AnteprimaProdotto() {
               className="flex items-start gap-2 self-start rounded-2xl rounded-bl-sm bg-gradient-to-br from-violet-500/80 to-fuchsia-500/80 px-3 py-2 text-xs text-white"
             >
               <Sparkles className="mt-0.5 size-3 shrink-0" />
-              Sì! Domani alle 16:30 con Marco, ti va bene?
+              {/* Prima diceva "con Marco" -- ma il calendario a sinistra
+                  mostra già un cliente chiamato "Marco R." alle 10:00: lo
+                  stesso nome riusato per quello che sembra un operatore
+                  diverso leggeva come un errore, non come un esempio pulito
+                  (segnalato da Gabriel, "l'esempio concreto è strano").
+                  Tolto il nome: la risposta resta vera qualunque sia la
+                  struttura del salone (anche a operatore singolo). */}
+              Sì! Domani alle 16:30, ti va bene?
             </motion.div>
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}

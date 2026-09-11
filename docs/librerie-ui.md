@@ -273,3 +273,64 @@ Gabriel -- "dimmi cosa hai deciso e perché"):**
     onesto di prima, ma un peso visivo minore perché minore è davvero.
   - Verificato con screenshot Playwright desktop+mobile (0px di overflow
     orizzontale, 0 errori console su entrambi) prima di committare.
+- **Quarto giro (11/09/2026), feedback su uno screenshot dal vivo di
+  salone-ai-saas.vercel.app + audit di fattibilità richiesto esplicitamente
+  ("verifica che tutto quello che offriamo lo possiamo effettivamente
+  realizzare")**:
+  - `Hero.tsx`: "mai più senza risposta." era in gradient viola->fucsia
+    (`bg-clip-text`) sopra lo shader Liquid Metal, anch'esso viola->fucsia --
+    a seconda della fase dello shader il testo poteva quasi sparire nello
+    sfondo ("colore orrendo"). Passato a testo bianco pieno + bagliore
+    (`text-shadow`), sempre leggibile a qualunque fase. Rimosso anche "con
+    Marco" dalla risposta dell'AI nel mockup: il calendario a fianco mostra
+    già un cliente "Marco R." alle 10:00, riusare lo stesso nome per quello
+    che sembra un operatore leggeva come un errore, non un esempio pulito.
+  - `LiquidMetal.tsx`: il tilt di parallasse al mouse era di soli 3 gradi con
+    mezzo secondo di transizione -- impercettibile su uno shader già "vivo"
+    di suo ("lo sfondo è poco reattivo"). Portato a 9 gradi, 150ms, aggiunto
+    un alone radiale bianco (`mix-blend-screen`) che segue davvero il punto
+    sotto il cursore.
+  - `ProdottoScroll.tsx`: bug reale, non di percezione -- sotto "3 clienti
+    non prenotano da 60 giorni" la lista riusava lo stesso array
+    orario+servizio degli appuntamenti DI OGGI mostrati sopra ("hai messo
+    robe a caso"). Sostituito con nomi diversi (formato nome + iniziale,
+    come richiesto) e un'etichetta "Contatta" per azione, coerente con
+    "un pulsante per contattare i clienti inattivi" già promesso altrove.
+  - `Prezzi.tsx`: il badge "Consigliato" viveva dentro il flusso della card
+    (prima di nome/prezzo) -- su Growth aggiungeva ~36px che le altre 4 card
+    non avevano, disallineando nome/prezzo/descrizione lungo la riga
+    ("rovina l'ordine"). Spostato fuori dal flusso: etichetta assoluta che
+    sporge sopra il bordo della card.
+  - `Vetrina.tsx`: ogni scena portava la propria mini-finestra (bordo +
+    pallini) annidata dentro il grande pannello che GIÀ la incornicia --
+    "riquadro dentro un altro riquadro, e quello dentro è minuscolo".
+    Riscritto: UNA sola barra da finestra sul pannello esterno (con l'URL
+    che cambia per scena), le scene ora restituiscono solo il contenuto a
+    piena larghezza. Aggiunta animazione di ingresso a stagger sul
+    contenuto di alcune scene per sentirsi più "vive" ("poco fluida").
+  - `PrimaDopo.tsx`: aggiunto un calcolo economico illustrativo sotto lo
+    slider ("un messaggio senza risposta a settimana, su uno scontrino
+    medio di 35€, sono oltre 1.800€/anno") per rendere concreto il
+    vantaggio, richiesto da Gabriel ("vantaggi economici, quanto fatturato
+    salverebbero"). Non un dato reale medio sui clienti (non ne abbiamo
+    ancora, il prodotto non è live) -- un calcolo con ipotesi dichiarate ed
+    esplicitamente etichettato come illustrativo, stessa disciplina già
+    usata per gli altri mockup ("mai dati finti spacciati per reali").
+  - **Audit di fattibilità** (richiesta esplicita di Gabriel): incrociando
+    Prezzi.tsx/Funzionalita.tsx con PROJECT_STATUS.md sono emerse 5 voci
+    vendute come incluse su un piano a pagamento ma in realtà MAI costruite
+    (zero codice, non solo "da rifinire"): **Analytics** (Growth -- zero
+    codice oltre ai dati grezzi in tabella), **SMS** (Pro -- nessuna
+    integrazione, mai menzionato nel codice prima d'ora), oltre a WhatsApp/
+    Tono AI/Instagram-Telegram/PWA (già noti "in arrivo" altrove ma non
+    marcati qui). Aggiunto badge "in arrivo" inline su ogni voce non ancora
+    costruita nelle card prezzi, e aggiunte Analytics+SMS alla griglia
+    Funzionalita.tsx per coerenza. Trovato anche un caso più serio: Vetrina
+    prometteva "Apple/iCloud tecnicamente pronto, in attesa di essere
+    riaperto" -- ma PROJECT_STATUS.md (problema #14) documenta che è
+    bloccato lato Apple sul traffico CalDAV da IP di data center/cloud,
+    **non risolvibile da Vercel senza instradare da un IP non-cloud** -- non
+    è "quasi pronto", potrebbe non esserlo mai su questo hosting. Rimossa la
+    promessa dal marketing (testo raccontato solo per Google Calendar,
+    Apple nel mockup passato a "in valutazione" invece di "pronto");
+    posizionamento finale da decidere con Gabriel (vedi messaggio a parte).

@@ -7,6 +7,18 @@ import { GlowBorder } from "./GlowBorder";
  * (voce "Struttura piani Free -> Enterprise") -- NON numeri inventati per la
  * landing. L'AI è inclusa da Growth in su (non solo Pro): il costo reale per
  * conversazione è basso, vedi DECISIONS.md per il ragionamento completo.
+ *
+ * Ogni voce può essere un testo semplice o `{ testo, inArrivo: true }`.
+ * Aggiunto dopo la richiesta di Gabriel di verificare che "tutto quello che
+ * offriamo lo possiamo effettivamente realizzare": controllato ogni voce
+ * contro PROJECT_STATUS.md e Funzionalita.tsx -- Analytics (zero codice
+ * oltre ai dati grezzi), Promemoria automatici, Assistente AI su WhatsApp,
+ * SMS (zero codice, nessuna integrazione), Tono dell'AI personalizzabile,
+ * Instagram/Telegram e PWA sono tutte funzioni ancora da costruire, non
+ * disponibili oggi -- venderle senza dirlo su un piano a pagamento sarebbe
+ * una promessa che oggi non possiamo mantenere. Marcate "in arrivo" come
+ * già fatto altrove sul sito, non tolte (restano vere decisioni di prezzo/
+ * posizionamento, solo non ancora costruite).
  */
 const PIANI = [
   {
@@ -30,7 +42,7 @@ const PIANI = [
     prezzo: "€39,90",
     periodo: "/mese",
     descrizione: "Con l'assistente AI.",
-    voci: ["Tutto di Starter", "Assistente AI via chat web", "Analytics", "Promemoria automatici"],
+    voci: ["Tutto di Starter", "Assistente AI via chat web", { testo: "Analytics", inArrivo: true }, { testo: "Promemoria automatici", inArrivo: true }],
     consigliato: true,
   },
   {
@@ -38,7 +50,12 @@ const PIANI = [
     prezzo: "€69,90",
     periodo: "/mese",
     descrizione: "Anche su WhatsApp.",
-    voci: ["Tutto di Growth", "Assistente AI su WhatsApp", "SMS", "Tono dell'AI personalizzabile"],
+    voci: [
+      "Tutto di Growth",
+      { testo: "Assistente AI su WhatsApp", inArrivo: true },
+      { testo: "SMS", inArrivo: true },
+      { testo: "Tono dell'AI personalizzabile", inArrivo: true },
+    ],
     consigliato: false,
   },
   {
@@ -46,10 +63,17 @@ const PIANI = [
     prezzo: "Su misura",
     periodo: "",
     descrizione: "Per catene e gruppi.",
-    voci: ["Tutto di Pro", "Instagram e Telegram", "App installabile (PWA)", "Supporto dedicato"],
+    voci: ["Tutto di Pro", { testo: "Instagram e Telegram", inArrivo: true }, { testo: "App installabile (PWA)", inArrivo: true }, "Supporto dedicato"],
     consigliato: false,
   },
 ];
+
+function testoVoce(v: string | { testo: string; inArrivo?: boolean }): string {
+  return typeof v === "string" ? v : v.testo;
+}
+function inArrivoVoce(v: string | { testo: string; inArrivo?: boolean }): boolean {
+  return typeof v === "string" ? false : Boolean(v.inArrivo);
+}
 
 export function Prezzi() {
   return (
@@ -70,8 +94,21 @@ export function Prezzi() {
       <RevealStagger className="mt-12 grid items-stretch gap-4 lg:grid-cols-5" gapMs={0.06}>
         {PIANI.map((p) => (
           <RevealItem key={p.nome} className="h-full">
+            {/* Bug segnalato da Gabriel: il badge "Consigliato" viveva DENTRO
+                il flusso della card (prima di nome/prezzo) -- su Growth
+                aggiungeva ~36px prima del titolo che le altre 4 card non
+                avevano, quindi nome/prezzo/descrizione di Growth partivano
+                più in basso delle altre e rompevano l'allineamento della
+                riga ("rovina l'ordine"). Ora è un'etichetta assoluta che
+                sporge SOPRA il bordo della card, fuori dal flusso -- il
+                contenuto interno riparte identico su tutti e 5 i piani. */}
             <div className={`relative h-full rounded-2xl ${p.consigliato ? "p-px" : ""}`}>
               {p.consigliato && <GlowBorder rounded={14} borderWidth={1.5} speed={6} tailLength={45} glowColor="#f0abfc" tailColor="rgba(217,70,239,0.4)" baseColor="rgba(255,255,255,0.04)" />}
+              {p.consigliato && (
+                <span className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-violet-600 px-2.5 py-1 text-[11px] font-medium whitespace-nowrap text-white shadow-md shadow-violet-950/40">
+                  Consigliato
+                </span>
+              )}
               <div
                 className={`relative flex h-full flex-col rounded-2xl border p-5 text-white ${
                   p.consigliato
@@ -79,11 +116,6 @@ export function Prezzi() {
                     : "border-white/10 bg-white/[0.03]"
                 }`}
               >
-              {p.consigliato && (
-                <span className="mb-3 inline-block w-fit rounded-full bg-violet-600 px-2.5 py-1 text-[11px] font-medium text-white">
-                  Consigliato
-                </span>
-              )}
               <h3 className={`text-sm font-medium ${p.consigliato ? "text-white/70" : "text-white/50"}`}>{p.nome}</h3>
               <div className="mt-1 flex items-baseline gap-1">
                 <span className="text-2xl font-semibold tracking-tight">{p.prezzo}</span>
@@ -93,9 +125,12 @@ export function Prezzi() {
 
               <ul className="mt-4 flex flex-1 flex-col gap-2 text-sm">
                 {p.voci.map((v) => (
-                  <li key={v} className={`flex items-start gap-2 ${p.consigliato ? "text-white/80" : "text-white/60"}`}>
+                  <li key={testoVoce(v)} className={`flex items-start gap-2 ${p.consigliato ? "text-white/80" : "text-white/60"}`}>
                     <Check className="mt-0.5 size-3.5 shrink-0 text-violet-400" />
-                    {v}
+                    <span>
+                      {testoVoce(v)}
+                      {inArrivoVoce(v) && <span className="ml-1.5 inline-block rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap text-amber-300">in arrivo</span>}
+                    </span>
                   </li>
                 ))}
               </ul>

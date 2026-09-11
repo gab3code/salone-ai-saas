@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Check, Clock, MessageCircleWarning } from "lucide-react";
+import { X, Check, Clock, MessageCircleWarning, Calculator } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { CompareSlider } from "./CompareSlider";
 
@@ -54,6 +54,30 @@ export function PrimaDopo() {
         <CompareSlider sinistra={<PannelloPrima />} destra={<PannelloDopo />} className="aspect-[4/3] w-full sm:aspect-[16/9]" />
       </Reveal>
       <p className="mt-3 text-center text-xs text-white/40">Situazioni tipiche, non dati di un cliente reale.</p>
+
+      {/* Richiesta di Gabriel: far capire il vantaggio ECONOMICO, non solo
+          l'esperienza. Non abbiamo clienti reali su cui basare una media
+          (il prodotto non è ancora live, vedi PROJECT_STATUS.md) -- inventare
+          "in media i clienti risparmiano X€" sarebbe un dato falso spacciato
+          per statistica, la stessa cosa che il progetto evita ovunque
+          (CLAUDE.md punto 7). Un calcolo esplicito con ipotesi dichiarate
+          (non un numero misterioso) resta onesto e fa comunque capire la
+          scala del problema. */}
+      <Reveal>
+        <div className="mt-6 flex flex-col items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:flex-row sm:items-center">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+            <Calculator className="size-4.5" />
+          </span>
+          <p className="text-sm text-white/70">
+            <span className="font-medium text-white">Un solo messaggio senza risposta alla settimana</span>, su uno scontrino
+            medio di 35€, sono <span className="font-medium text-white">oltre 1.800€ l&apos;anno</span> di prenotazioni che
+            non arrivano nemmeno a diventare un &quot;no&quot;.
+          </p>
+        </div>
+        <p className="mt-2 text-center text-xs text-white/30">
+          Calcolo illustrativo (1 messaggio/settimana × 35€ × 52 settimane) per far capire la scala del problema, non una media misurata sui nostri clienti.
+        </p>
+      </Reveal>
     </section>
   );
 }

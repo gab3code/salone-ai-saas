@@ -111,14 +111,24 @@ export function ProdottoScroll() {
                 ))}
               </div>
 
+              {/* Bug reale segnalato da Gabriel ("ha senso ma hai messo robe
+                  a caso"): questa lista riusava lo stesso array
+                  orario+servizio degli appuntamenti DI OGGI mostrati sopra --
+                  sotto un titolo "3 clienti non prenotano da 60 giorni" non
+                  ha senso mostrare orari di oggi. Un insight su clienti
+                  inattivi non ha bisogno di orario/servizio, solo di chi
+                  sono (nome + iniziale del cognome, come richiesto) e di
+                  un'azione -- coerente con "un pulsante per contattare i
+                  clienti inattivi" già promesso in Funzionalita.tsx. */}
               <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
                 <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-white/50">
                   <TrendingUp className="size-3.5" /> 3 clienti non prenotano da 60 giorni
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  {["09:00 · Marco R. · Barba e capelli", "11:30 · Giulia B. · Taglio e piega", "15:00 · Sara V. · Colore"].map((r) => (
-                    <div key={r} className="rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] text-white/70">
-                      {r}
+                  {["Elena T.", "Davide P.", "Francesca M."].map((nome) => (
+                    <div key={nome} className="flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
+                      <span className="text-white/70">{nome}</span>
+                      <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-medium text-violet-300">Contatta</span>
                     </div>
                   ))}
                 </div>

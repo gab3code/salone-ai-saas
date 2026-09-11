@@ -58,41 +58,72 @@ const SCENE: Scena[] = [
   },
   {
     titolo: "Il tuo calendario personale, sempre sincronizzato",
-    testo: "Google Calendar già collegabile: gli impegni personali bloccano lo slot in automatico, e viceversa. Apple/iCloud tecnicamente pronto, in attesa di essere riaperto.",
+    // Prima diceva anche "Apple/iCloud tecnicamente pronto, in attesa di
+    // essere riaperto" -- verificato in PROJECT_STATUS.md (problema noto
+    // #14): non è "quasi pronto", è bloccato lato Apple sul traffico CalDAV
+    // che arriva da IP di data center/cloud, non risolvibile da qui senza
+    // instradare le chiamate da un IP non-cloud -- una promessa che rischiava
+    // di non poter essere mantenuta. Tolta dal marketing finché Gabriel non
+    // decide come posizionarla (vedi messaggio a parte).
+    testo: "Google Calendar già collegabile: gli impegni personali bloccano lo slot in automatico, e viceversa.",
     icona: CalendarClock,
   },
 ];
 
+/** Percorso mostrato nella barra del finto browser che incornicia la scena --
+ * un solo "schermo" persistente, coerente con quale parte del prodotto la
+ * scena sta raccontando (pagina pubblica vs dashboard). */
+const PERCORSI = [
+  "salone-ai-saas.vercel.app/dashboard",
+  "salone-ai-saas.vercel.app/s/il-tuo-salone",
+  "salone-ai-saas.vercel.app/s/il-tuo-salone",
+  "salone-ai-saas.vercel.app/dashboard/clienti",
+  "salone-ai-saas.vercel.app/dashboard/clienti",
+  "salone-ai-saas.vercel.app/dashboard/impostazioni/calendari",
+];
+
+/**
+ * Riscritte (Giro 4, feedback di Gabriel su uno screenshot: "riquadro dentro
+ * un altro riquadro, e quello dentro è minuscolo"). Causa reale: ogni scena
+ * portava con sé la propria mini-finestra (bordo + pallini rosso/giallo/
+ * verde), annidata dentro il grande pannello "palco" che GIÀ la incornicia
+ * -- due finestre una dentro l'altra, e quella interna a `max-w-xs` restava
+ * piccola nel grande spazio del palco. Ora il palco stesso mostra UNA sola
+ * barra da finestra (sotto, sempre presente, con l'URL che cambia in base
+ * alla scena) e queste funzioni restituiscono solo il CONTENUTO -- niente
+ * bordo/pallini propri, larghezza piena del palco.
+ */
 function VisualeScena({ indice }: { indice: number }) {
   if (indice === 1) {
     return (
-      <div className="w-full max-w-xs overflow-hidden rounded-xl border border-white/10 bg-zinc-950">
-        <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
-          <span className="size-2 rounded-full bg-red-400/70" />
-          <span className="size-2 rounded-full bg-amber-400/70" />
-          <span className="size-2 rounded-full bg-emerald-400/70" />
-        </div>
-        <div className="space-y-2 p-4">
-          <div className="h-2.5 w-2/3 rounded bg-white/20" />
-          <div className="h-2 w-1/2 rounded bg-white/10" />
-          <div className="mt-3 flex gap-2">
-            {["Taglio", "Colore", "Piega"].map((s) => (
-              <span key={s} className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] text-white/70">
-                {s}
-              </span>
-            ))}
-          </div>
-          <div className="mt-3 rounded-lg bg-violet-500/20 px-3 py-2 text-[11px] text-violet-200">
-            Ven 15 · 16:30 disponibile
-          </div>
-        </div>
-      </div>
+      <motion.div
+        initial="nascosto"
+        animate="visibile"
+        variants={{ visibile: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } } }}
+        className="w-full max-w-sm"
+      >
+        <motion.div variants={{ nascosto: { opacity: 0, y: 8 }, visibile: { opacity: 1, y: 0 } }} className="h-3 w-2/3 rounded bg-white/20" />
+        <motion.div variants={{ nascosto: { opacity: 0, y: 8 }, visibile: { opacity: 1, y: 0 } }} className="mt-2 h-2 w-1/2 rounded bg-white/10" />
+        <motion.div variants={{ nascosto: { opacity: 0, y: 8 }, visibile: { opacity: 1, y: 0 } }} className="mt-4 flex gap-2">
+          {["Taglio", "Colore", "Piega"].map((s) => (
+            <span key={s} className="rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/70">
+              {s}
+            </span>
+          ))}
+        </motion.div>
+        <motion.div
+          variants={{ nascosto: { opacity: 0, y: 8 }, visibile: { opacity: 1, y: 0 } }}
+          className="mt-4 rounded-xl bg-violet-500/20 px-4 py-3 text-sm text-violet-200"
+        >
+          Ven 15 · 16:30 disponibile
+        </motion.div>
+      </motion.div>
     );
   }
 
   if (indice === 2) {
     return (
-      <div className="flex w-full max-w-xs flex-col gap-2">
+      <div className="flex w-full max-w-sm flex-col gap-2">
         <div className="self-end rounded-2xl rounded-br-sm bg-white/10 px-3 py-2 text-xs text-white/80">
           Siete aperti domenica?
         </div>
@@ -120,35 +151,40 @@ function VisualeScena({ indice }: { indice: number }) {
 
   if (indice === 3) {
     return (
-      <div className="w-full max-w-xs overflow-hidden rounded-xl border border-white/10 bg-zinc-950">
-        <div className="border-b border-white/10 px-3 py-2 text-[11px] text-white/50">Scheda cliente</div>
-        <div className="space-y-2.5 p-4">
-          <div className="flex items-center gap-2">
-            <span className="flex size-7 items-center justify-center rounded-full bg-violet-500/20 text-[10px] font-medium text-violet-200">GB</span>
-            <div className="h-2 w-1/2 rounded bg-white/20" />
-          </div>
+      <motion.div
+        initial="nascosto"
+        animate="visibile"
+        variants={{ visibile: { transition: { staggerChildren: 0.1, delayChildren: 0.1 } } }}
+        className="w-full max-w-sm"
+      >
+        <motion.div variants={{ nascosto: { opacity: 0, y: 8 }, visibile: { opacity: 1, y: 0 } }} className="flex items-center gap-2.5">
+          <span className="flex size-9 items-center justify-center rounded-full bg-violet-500/20 text-xs font-medium text-violet-200">GB</span>
+          <div className="h-2.5 w-1/2 rounded bg-white/20" />
+        </motion.div>
+        <div className="mt-3.5 flex flex-col gap-2">
           {["Taglio · 12/09", "Colore · 20/08 (da AI)", "Piega · 02/08"].map((r) => (
-            <div key={r} className="rounded-lg bg-white/5 px-2.5 py-1.5 text-[10px] text-white/60">
+            <motion.div
+              key={r}
+              variants={{ nascosto: { opacity: 0, y: 8 }, visibile: { opacity: 1, y: 0 } }}
+              className="rounded-lg bg-white/5 px-3 py-2 text-xs text-white/60"
+            >
               {r}
-            </div>
+            </motion.div>
           ))}
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   if (indice === 4) {
     return (
-      <div className="w-full max-w-xs overflow-hidden rounded-xl border border-dashed border-white/15 bg-zinc-950">
-        <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-          <span className="text-[11px] text-white/50">Promemoria automatico</span>
-          <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[9px] font-medium text-amber-300">in arrivo</span>
+      <div className="w-full max-w-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-xs text-white/50">Promemoria automatico</span>
+          <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">in arrivo</span>
         </div>
-        <div className="space-y-2 p-4">
-          <div className="rounded-lg bg-white/5 px-2.5 py-2 text-[10px] text-white/50">
-            &quot;Ciao Giulia, ti aspettiamo domani alle 16:30 da noi 👋&quot;
-          </div>
-          <div className="h-1.5 w-2/3 rounded bg-white/10" />
+        <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-3 text-sm text-white/50">
+          &quot;Ciao Giulia, ti aspettiamo domani alle 16:30 da noi 👋&quot;
         </div>
       </div>
     );
@@ -156,18 +192,18 @@ function VisualeScena({ indice }: { indice: number }) {
 
   if (indice === 5) {
     return (
-      <div className="grid w-full max-w-xs grid-cols-2 gap-2">
+      <div className="grid w-full max-w-sm grid-cols-2 gap-3">
         {[
           { nome: "Google", stato: "collegato" },
-          { nome: "Apple", stato: "pronto" },
+          { nome: "Apple", stato: "in valutazione" },
         ].map((p) => (
-          <div key={p.nome} className="flex flex-col items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 p-3">
-            <CalendarClock className="size-4 text-violet-300" />
-            <span className="text-[10px] text-white/70">{p.nome}</span>
-            <span className="text-[9px] text-emerald-400">{p.stato}</span>
+          <div key={p.nome} className="flex flex-col items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 p-4">
+            <CalendarClock className="size-5 text-violet-300" />
+            <span className="text-xs text-white/70">{p.nome}</span>
+            <span className={`text-[10px] ${p.stato === "collegato" ? "text-emerald-400" : "text-white/40"}`}>{p.stato}</span>
           </div>
         ))}
-        <div className="col-span-2 mt-1 rounded-lg bg-white/5 px-3 py-2 text-center text-[11px] text-white/50">
+        <div className="col-span-2 mt-1 rounded-lg bg-white/5 px-3 py-2.5 text-center text-xs text-white/50">
           impegni personali = slot bloccato
         </div>
       </div>
@@ -175,14 +211,14 @@ function VisualeScena({ indice }: { indice: number }) {
   }
 
   return (
-    <div className="grid w-full max-w-xs grid-cols-3 gap-2">
+    <div className="grid w-full max-w-sm grid-cols-3 gap-3">
       {[Calendar, Globe2, MessageSquareText].map((Icona, i) => (
-        <div key={i} className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-3">
-          <Icona className="size-4 text-violet-300" />
+        <div key={i} className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-4">
+          <Icona className="size-4.5 text-violet-300" />
           <span className="h-1.5 w-full rounded bg-white/15" />
         </div>
       ))}
-      <div className="col-span-3 mt-1 rounded-lg bg-white/5 px-3 py-2 text-center text-[11px] text-white/50">
+      <div className="col-span-3 mt-1 rounded-lg bg-white/5 px-3 py-2.5 text-center text-xs text-white/50">
         stessi dati, ovunque
       </div>
     </div>
@@ -268,20 +304,46 @@ export function Vetrina() {
               ))}
             </div>
 
-            <div className="relative order-1 flex h-72 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 sm:h-96 lg:order-2">
-              <div className="pointer-events-none absolute inset-0 opacity-60" style={{ background: "radial-gradient(280px circle at 50% 20%, rgba(168,85,247,0.15), transparent 70%)" }} />
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={attivo}
-                  initial={{ opacity: 0, scale: 0.94 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.94 }}
-                  transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-                  className="relative flex items-center justify-center"
-                >
-                  <VisualeScena indice={attivo} />
-                </motion.div>
-              </AnimatePresence>
+            {/* Un solo "schermo" persistente (barra con pallini + URL), non
+                una finestra diversa per ogni scena -- prima ogni scena
+                portava la propria mini-finestra dentro questa già presente,
+                risultando in un riquadro minuscolo dentro un riquadro
+                grande (feedback di Gabriel su screenshot). L'URL nella
+                barra cambia con la scena, per dare comunque il senso di
+                "stiamo guardando parti diverse del prodotto". */}
+            <div className="relative order-1 flex h-80 flex-col overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 sm:h-[26rem] lg:order-2">
+              <div className="flex items-center gap-1.5 border-b border-white/10 px-4 py-3">
+                <span className="size-2.5 rounded-full bg-red-400/70" />
+                <span className="size-2.5 rounded-full bg-amber-400/70" />
+                <span className="size-2.5 rounded-full bg-emerald-400/70" />
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={attivo}
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    transition={{ duration: 0.25 }}
+                    className="ml-3 truncate text-xs text-white/40"
+                  >
+                    {PERCORSI[attivo]}
+                  </motion.span>
+                </AnimatePresence>
+              </div>
+              <div className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-6 sm:px-10">
+                <div className="pointer-events-none absolute inset-0 opacity-60" style={{ background: "radial-gradient(280px circle at 50% 20%, rgba(168,85,247,0.15), transparent 70%)" }} />
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={attivo}
+                    initial={{ opacity: 0, scale: 0.94 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.94 }}
+                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                    className="relative flex items-center justify-center"
+                  >
+                    <VisualeScena indice={attivo} />
+                  </motion.div>
+                </AnimatePresence>
+              </div>
             </div>
           </div>
         </div>
