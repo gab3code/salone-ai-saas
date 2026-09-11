@@ -1,57 +1,73 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { motion } from "framer-motion";
-import { CalendarClock, Users, ShieldCheck } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Globe2,
+  CalendarClock,
+  Users,
+  MessageSquareText,
+  ShieldCheck,
+  LayoutDashboard,
+  UserPlus,
+  MessageCircle,
+  BellRing,
+  CreditCard,
+  Smartphone,
+  Send,
+  SlidersHorizontal,
+  Scissors,
+} from "lucide-react";
 import { RevealItem, RevealStagger, Reveal } from "./Reveal";
+import { SpotlightCard } from "./SpotlightCard";
 
-interface VoceBento {
+interface Voce {
   titolo: string;
   descrizione: string;
-  icona: ReactNode;
+  icona: LucideIcon;
+  inArrivo?: boolean;
 }
 
-// Griglia volutamente REGOLARE (3 colonne, nessuno span disomogeneo): un bento
-// con riquadri di larghezza diversa è elegante solo quando il numero di voci
-// si incastra senza buchi -- con un numero che cambia nel tempo (aggiungeremo
-// funzionalità) un buco orfano è quasi garantito. I 3 differenziatori
-// "principali" hanno la loro vetrina animata sopra (Vetrina.tsx); qui restano
-// le funzionalità di supporto, in forma più sobria.
-const VOCI: VoceBento[] = [
-  {
-    titolo: "CRM clienti integrato",
-    descrizione: "Storico completo di ogni cliente, qualunque canale abbia usato per prenotare.",
-    icona: <Users className="size-4" />,
-  },
-  {
-    titolo: "Calendario sempre allineato",
-    descrizione: "Si sincronizza con il Google Calendar personale di ogni operatore: niente doppie prenotazioni.",
-    icona: <CalendarClock className="size-4" />,
-  },
-  {
-    titolo: "Isolamento dati per salone",
-    descrizione: "I dati di ogni attività restano separati e protetti: il tuo salone vede solo i tuoi dati.",
-    icona: <ShieldCheck className="size-4" />,
-  },
+/**
+ * Griglia COMPLETA delle funzionalità, attuali e pianificate (richiesta di
+ * Gabriel dell'11/09/2026: spiegare tutto, non solo quello che c'è oggi) --
+ * ogni voce onestamente etichettata "disponibile ora" o "in arrivo", mai
+ * presentata come pronta se non lo è (CLAUDE.md punto 7 esteso al
+ * marketing). Vetrina.tsx sopra racconta la storia di 6 di queste in modo
+ * scroll-driven; questa griglia è il colpo d'occhio completo per chi vuole
+ * scorrere tutto velocemente.
+ */
+const VOCI: Voce[] = [
+  { titolo: "Pagina di prenotazione online", descrizione: "Link tuo, condivisibile ovunque, self-service 24/7.", icona: Globe2 },
+  { titolo: "Calendario intelligente", descrizione: "Disponibilità calcolata da orari, pause, ferie e durata reale del servizio.", icona: CalendarClock },
+  { titolo: "CRM clienti", descrizione: "Storico completo, qualunque canale abbia usato per prenotare.", icona: Users },
+  { titolo: "Assistente AI via chat web", descrizione: "Risponde e prenota da sola, passa la mano a te quando serve una persona.", icona: MessageSquareText },
+  { titolo: "Multi-operatore e servizi", descrizione: "Ogni operatore con i propri orari, servizi e prezzi.", icona: Scissors },
+  { titolo: "Dashboard con insight azionabili", descrizione: "Non solo numeri: un pulsante per contattare i clienti inattivi.", icona: LayoutDashboard },
+  { titolo: "Registrazione zero-attrito", descrizione: "Ti registri e il tuo spazio è già pronto, nessun passaggio manuale.", icona: UserPlus },
+  { titolo: "Isolamento dati reale", descrizione: "Separazione a livello di database tra ogni attività, non solo applicativa.", icona: ShieldCheck },
+  { titolo: "Sync Google Calendar", descrizione: "Impegni personali dell'operatore bloccano lo slot in automatico.", icona: CalendarClock },
+  { titolo: "Assistente AI su WhatsApp", descrizione: "Stesso assistente, dove i tuoi clienti scrivono già.", icona: MessageCircle, inArrivo: true },
+  { titolo: "Promemoria automatici", descrizione: "Reminder e follow-up ai clienti inattivi, senza pensarci.", icona: BellRing, inArrivo: true },
+  { titolo: "Pagamenti e upgrade self-service", descrizione: "Cambio piano dal pannello, senza scriverci.", icona: CreditCard, inArrivo: true },
+  { titolo: "App installabile (PWA)", descrizione: "Dashboard a schermo intero, come un'app nativa.", icona: Smartphone, inArrivo: true },
+  { titolo: "AI su Instagram e Telegram", descrizione: "Stessa reception AI, su altri canali dove serve.", icona: Send, inArrivo: true },
+  { titolo: "Tono dell'AI personalizzabile", descrizione: "Guida il modo in cui l'assistente risponde ai tuoi clienti.", icona: SlidersHorizontal, inArrivo: true },
 ];
 
-function Cella({ v }: { v: VoceBento }) {
+function Cella({ v }: { v: Voce }) {
   return (
-    <motion.div
-      whileHover={{ y: -4 }}
-      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-      className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow duration-300 hover:shadow-lg"
-    >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-        style={{ background: "radial-gradient(320px circle at 20% 0%, rgba(168,85,247,0.08), transparent 70%)" }}
-      />
-      <div className="relative flex size-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
-        {v.icona}
+    <SpotlightCard className="h-full rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow duration-300 hover:shadow-lg">
+      <div className="relative flex items-start justify-between gap-2">
+        <span className="flex size-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+          <v.icona className="size-4" />
+        </span>
+        {v.inArrivo && (
+          <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-600">in arrivo</span>
+        )}
       </div>
       <h3 className="relative mt-4 text-[15px] font-medium text-zinc-900">{v.titolo}</h3>
       <p className="relative mt-1.5 text-sm leading-relaxed text-zinc-500">{v.descrizione}</p>
-    </motion.div>
+    </SpotlightCard>
   );
 }
 
@@ -59,13 +75,13 @@ export function Funzionalita() {
   return (
     <section id="funzionalita" className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
       <Reveal className="max-w-lg">
-        <h2 className="text-sm font-medium text-violet-600">E ancora</h2>
+        <h2 className="text-sm font-medium text-violet-600">Tutto quello che include</h2>
         <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
-          Le basi, fatte bene.
+          Cosa c&apos;è oggi, cosa arriva dopo -- detto chiaro.
         </p>
       </Reveal>
 
-      <RevealStagger className="mt-12 grid gap-4 sm:grid-cols-3" gapMs={0.08}>
+      <RevealStagger className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" gapMs={0.05}>
         {VOCI.map((v) => (
           <RevealItem key={v.titolo}>
             <Cella v={v} />

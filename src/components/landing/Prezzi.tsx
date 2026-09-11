@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { Reveal, RevealItem, RevealStagger } from "./Reveal";
+import { BorderBeam } from "./BorderBeam";
 
 /**
  * Struttura piani reale, decisa con Gabriel e documentata in DECISIONS.md
@@ -63,13 +64,15 @@ export function Prezzi() {
       <RevealStagger className="mt-12 grid gap-4 lg:grid-cols-5" gapMs={0.06}>
         {PIANI.map((p) => (
           <RevealItem key={p.nome}>
-            <div
-              className={`flex h-full flex-col rounded-2xl border p-5 ${
-                p.consigliato
-                  ? "border-violet-600 bg-zinc-900 text-white shadow-xl shadow-violet-600/10"
-                  : "border-zinc-200 bg-white"
-              }`}
-            >
+            <div className={`relative rounded-2xl ${p.consigliato ? "p-px" : ""}`}>
+              {p.consigliato && <BorderBeam durata={6} />}
+              <div
+                className={`relative flex h-full flex-col rounded-2xl border p-5 ${
+                  p.consigliato
+                    ? "border-transparent bg-zinc-900 text-white shadow-xl shadow-violet-600/10"
+                    : "border-zinc-200 bg-white"
+                }`}
+              >
               {p.consigliato && (
                 <span className="mb-3 inline-block w-fit rounded-full bg-violet-600 px-2.5 py-1 text-[11px] font-medium text-white">
                   Consigliato
@@ -99,6 +102,7 @@ export function Prezzi() {
               >
                 {p.nome === "Enterprise" ? "Richiedi info" : "Inizia gratis"}
               </a>
+              </div>
             </div>
           </RevealItem>
         ))}

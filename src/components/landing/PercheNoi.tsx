@@ -1,0 +1,99 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { ShieldCheck, Sparkles, Globe2, Layers, UserCheck } from "lucide-react";
+import { Reveal, RevealStagger, RevealItem } from "./Reveal";
+import { Lampada } from "./Lampada";
+import { SpotlightCard } from "./SpotlightCard";
+
+const NODI_FLUSSO = ["Il cliente scrive\n(chat o pagina pubblica)", "Un unico motore\ndecide la disponibilità", "Calendario, CRM e AI\nsempre allineati"];
+
+function FlussoAnimato() {
+  return (
+    <div className="relative mx-auto mt-14 max-w-3xl px-6">
+      <div className="absolute top-5 right-[10%] left-[10%] h-px bg-zinc-200" />
+      <motion.div
+        aria-hidden
+        className="absolute top-5 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500 shadow-[0_0_14px_2px_rgba(168,85,247,0.55)]"
+        animate={{ left: ["10%", "90%"] }}
+        transition={{ duration: 2.8, repeat: Infinity, repeatType: "loop", ease: "easeInOut", repeatDelay: 0.6 }}
+      />
+      <div className="relative grid grid-cols-3 gap-3 text-center">
+        {NODI_FLUSSO.map((testo, i) => (
+          <div key={testo} className="flex flex-col items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-xs font-semibold text-zinc-500 shadow-sm">
+              {i + 1}
+            </span>
+            <p className="text-xs leading-snug whitespace-pre-line text-zinc-500 sm:text-sm">{testo}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const DIFFERENZIATORI = [
+  {
+    icona: Sparkles,
+    titolo: "L'AI dove serve, non solo sul piano più caro",
+    testo:
+      "L'assistente che risponde ai clienti è già incluso da un piano intermedio, non riservato al piano top -- il costo reale per conversazione è basso, non c'è motivo di nasconderlo dietro il prezzo più alto.",
+  },
+  {
+    icona: Globe2,
+    titolo: "Pagina di prenotazione inclusa da subito",
+    testo:
+      "Un link tuo, condivisibile ovunque, con prenotazione self-service -- anche sul piano gratuito. Non è un extra da sbloccare più avanti.",
+  },
+  {
+    icona: ShieldCheck,
+    titolo: "I tuoi dati sono solo tuoi",
+    testo:
+      "Isolamento reale a livello di database tra ogni attività iscritta, non solo un filtro nell'applicazione -- un bug altrove non può mai far leggere i tuoi clienti a qualcun altro.",
+  },
+  {
+    icona: Layers,
+    titolo: "Prezzi che si capiscono a colpo d'occhio",
+    testo:
+      "Pochi piani chiari, senza una decina di componenti aggiuntivi da combinare per capire quanto pagherai davvero.",
+  },
+  {
+    icona: UserCheck,
+    titolo: "L'AI sa quando fermarsi",
+    testo:
+      "Richieste ambigue, reclami, casi fuori dal normale: passati a te con tutto il contesto, non gestiti a forza da un modello che indovina.",
+  },
+];
+
+export function PercheNoi() {
+  return (
+    <section className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+      <Lampada>
+        <div className="text-center">
+          <h2 className="text-sm font-medium text-violet-600">Perché questo, non un gestionale qualsiasi</h2>
+          <p className="mx-auto mt-2 max-w-xl text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
+            Le differenze che contano quando lo usi ogni giorno.
+          </p>
+        </div>
+      </Lampada>
+
+      <Reveal>
+        <FlussoAnimato />
+      </Reveal>
+
+      <RevealStagger className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {DIFFERENZIATORI.map((d) => (
+          <RevealItem key={d.titolo}>
+            <SpotlightCard className="h-full rounded-2xl border border-zinc-200 bg-white p-5">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                <d.icona className="size-4.5" />
+              </span>
+              <h3 className="mt-3 text-[15px] font-medium text-zinc-900">{d.titolo}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-zinc-500">{d.testo}</p>
+            </SpotlightCard>
+          </RevealItem>
+        ))}
+      </RevealStagger>
+    </section>
+  );
+}

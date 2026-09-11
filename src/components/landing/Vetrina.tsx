@@ -4,19 +4,30 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { Calendar, Globe2, MessageSquareText, RefreshCw, Check } from "lucide-react";
+import { Calendar, Globe2, MessageSquareText, RefreshCw, Check, Users, BellRing, CalendarClock, type LucideIcon } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { Grana } from "./Grana";
 
+interface Scena {
+  titolo: string;
+  testo: string;
+  icona: LucideIcon;
+  inArrivo?: boolean;
+}
+
 /**
- * Vetrina scroll-driven dei 3 differenziatori principali del prodotto --
- * questa è la sezione "vetrina" vera della landing (richiesta di Gabriel
- * dell'11/09/2026 di spingere di più su GSAP/Framer Motion invece di un
- * semplice bento statico): un pannello resta fisso mentre si scorre, e
- * cambia scena in base a quanto si è scrollato -- pattern da vero
- * "scrollytelling" (GSAP ScrollTrigger con pin+scrub), non un fade-in a caso.
+ * Vetrina scroll-driven -- questa è la sezione "vetrina" vera della landing
+ * (richiesta di Gabriel dell'11/09/2026 di spingere di più su GSAP/Framer
+ * Motion invece di un semplice bento statico, poi estesa il giorno stesso a
+ * coprire TUTTO il set di funzionalità, attuali e pianificate, non solo 3):
+ * un pannello resta fisso mentre si scorre, e cambia scena in base a quanto
+ * si è scrollato -- pattern da vero "scrollytelling" (GSAP ScrollTrigger con
+ * pin+scrub), non un fade-in a caso. Le scene con `inArrivo: true`
+ * corrispondono a funzionalità pianificate in PIANO.md ma non ancora
+ * disponibili -- badge onesto, mai spacciate per già pronte (CLAUDE.md
+ * punto 7 esteso al marketing).
  */
-const SCENE = [
+const SCENE: Scena[] = [
   {
     titolo: "Un unico motore di prenotazione",
     testo:
@@ -30,8 +41,24 @@ const SCENE = [
   },
   {
     titolo: "L'assistente AI, sempre presente",
-    testo: "Risponde a domande su orari e prezzi e prenota da sola -- e passa la mano a te quando serve davvero una persona.",
+    testo: "Risponde su chat web e (in arrivo) WhatsApp a domande su orari e prezzi e prenota da sola -- e passa la mano a te quando serve davvero una persona.",
     icona: MessageSquareText,
+  },
+  {
+    titolo: "Anagrafica clienti che si aggiorna da sola",
+    testo: "Ogni prenotazione, da dashboard o da AI, finisce nella stessa scheda cliente -- storico completo, mai due archivi da tenere allineati a mano.",
+    icona: Users,
+  },
+  {
+    titolo: "Promemoria e clienti da recontattare",
+    testo: "Un insight ti segnala chi non prenota da un po'; i promemoria automatici via messaggio sono in arrivo per chiudere il cerchio da soli.",
+    icona: BellRing,
+    inArrivo: true,
+  },
+  {
+    titolo: "Il tuo calendario personale, sempre sincronizzato",
+    testo: "Google Calendar già collegabile: gli impegni personali bloccano lo slot in automatico, e viceversa. Apple/iCloud tecnicamente pronto, in attesa di essere riaperto.",
+    icona: CalendarClock,
   },
 ];
 
@@ -73,6 +100,62 @@ function VisualeScena({ indice }: { indice: number }) {
         </div>
         <div className="mt-1 flex items-center gap-1.5 self-start text-[11px] text-emerald-400">
           <Check className="size-3" /> Nessuno del salone ha dovuto rispondere
+        </div>
+      </div>
+    );
+  }
+
+  if (indice === 3) {
+    return (
+      <div className="w-full max-w-xs overflow-hidden rounded-xl border border-white/10 bg-zinc-950">
+        <div className="border-b border-white/10 px-3 py-2 text-[11px] text-white/50">Scheda cliente</div>
+        <div className="space-y-2.5 p-4">
+          <div className="flex items-center gap-2">
+            <span className="flex size-7 items-center justify-center rounded-full bg-violet-500/20 text-[10px] font-medium text-violet-200">GB</span>
+            <div className="h-2 w-1/2 rounded bg-white/20" />
+          </div>
+          {["Taglio · 12/09", "Colore · 20/08 (da AI)", "Piega · 02/08"].map((r) => (
+            <div key={r} className="rounded-lg bg-white/5 px-2.5 py-1.5 text-[10px] text-white/60">
+              {r}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (indice === 4) {
+    return (
+      <div className="w-full max-w-xs overflow-hidden rounded-xl border border-dashed border-white/15 bg-zinc-950">
+        <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+          <span className="text-[11px] text-white/50">Promemoria automatico</span>
+          <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[9px] font-medium text-amber-300">in arrivo</span>
+        </div>
+        <div className="space-y-2 p-4">
+          <div className="rounded-lg bg-white/5 px-2.5 py-2 text-[10px] text-white/50">
+            &quot;Ciao Giulia, ti aspettiamo domani alle 16:30 da noi 👋&quot;
+          </div>
+          <div className="h-1.5 w-2/3 rounded bg-white/10" />
+        </div>
+      </div>
+    );
+  }
+
+  if (indice === 5) {
+    return (
+      <div className="grid w-full max-w-xs grid-cols-2 gap-2">
+        {[
+          { nome: "Google", stato: "collegato" },
+          { nome: "Apple", stato: "pronto" },
+        ].map((p) => (
+          <div key={p.nome} className="flex flex-col items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 p-3">
+            <CalendarClock className="size-4 text-violet-300" />
+            <span className="text-[10px] text-white/70">{p.nome}</span>
+            <span className="text-[9px] text-emerald-400">{p.stato}</span>
+          </div>
+        ))}
+        <div className="col-span-2 mt-1 rounded-lg bg-white/5 px-3 py-2 text-center text-[11px] text-white/50">
+          impegni personali = slot bloccato
         </div>
       </div>
     );
@@ -129,9 +212,10 @@ export function Vetrina() {
           </p>
         </Reveal>
 
-        {/* contenitore alto 3x lo schermo: GSAP anima "attivo" mentre lo si
-            attraversa scrollando, il pannello di destra resta fisso (pin) */}
-        <div ref={contenitoreRef} className="relative mt-8 h-[300vh]">
+        {/* contenitore alto NxSchermo (una "schermata" di scroll per scena): GSAP
+            anima "attivo" mentre lo si attraversa scrollando, il pannello di
+            destra resta fisso (pin) */}
+        <div ref={contenitoreRef} className="relative mt-8" style={{ height: `${SCENE.length * 100}vh` }}>
           <div ref={pinRef} className="grid gap-10 py-10 lg:grid-cols-2 lg:items-center">
             <div className="order-2 flex flex-col gap-3 lg:order-1">
               {SCENE.map((s, i) => (
@@ -160,6 +244,9 @@ export function Vetrina() {
                     <h3 className={`text-[15px] font-medium transition-colors duration-300 ${attivo === i ? "text-white" : "text-white/50"}`}>
                       {s.titolo}
                     </h3>
+                    {s.inArrivo && (
+                      <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">in arrivo</span>
+                    )}
                   </div>
                   <p className={`mt-2 text-sm leading-relaxed transition-colors duration-300 ${attivo === i ? "text-white/70" : "text-white/30"}`}>
                     {s.testo}

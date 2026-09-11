@@ -4,9 +4,11 @@ Ultimo aggiornamento: 11/09/2026 (fuso orario reale del tenant risolto e verific
 Apple/iCloud CalDAV probabilmente inutilizzabile da Vercel per un blocco lato Apple sugli IP di
 data center -- vedi problema noto #14 -- Google Calendar resta il canale affidabile; Fase 4,
 pagina pubblica del salone, codice scritto e testato ma non ancora verificato dal vivo -- vedi
-sotto; nuova landing page di marketing (`/`) scritta da zero, animata con Framer Motion + GSAP
-ScrollTrigger su richiesta esplicita di Gabriel di un livello "top del top" -- verificata dal
-vivo in-sandbox con Playwright, poiché non dipende da Supabase). Aggiornare questo file ogni volta che cambia lo stato
+sotto; nuova landing page di marketing (`/`) scritta da zero, poi ampliata una seconda volta lo
+stesso giorno su feedback esplicito di Gabriel ("fa schifo, manca fluidità/interattività") --
+ora copre l'intero set di funzionalità (attuali + pianificate, marcate oneste "in arrivo"),
+con pattern ispirati sia ad Aceternity sia a Magic UI (vedi `docs/librerie-ui.md`) -- verificata
+dal vivo in-sandbox con Playwright, poiché non dipende da Supabase). Aggiornare questo file ogni volta che cambia lo stato
 reale di qualcosa (una funzionalità passa da mock a vera, un problema si apre/chiude, una fase
 si chiude) — non lasciarlo invecchiare. Vedi `CLAUDE.md` per le regole di lavoro, `DECISIONS.md`
 per il perché delle scelte architetturali, `PIANO.md` per il piano a fasi.
@@ -33,13 +35,19 @@ del salone sul calendario personale) non ancora scritta per nessuno dei due. Fas
 pubblica per-attività, punto 15): **codice scritto e testato l'11/09/2026** (`/s/[slug]`,
 prenotazione self-service, widget chat AI) ma **non ancora verificato dal vivo in un browser
 reale** -- da fare dopo il deploy (vedi sopra il perché). Landing page di marketing (`/`, fuori
-dai 33 punti originali, richiesta esplicita di Gabriel l'11/09/2026): **scritta e verificata dal
-vivo in-sandbox** (nessuna dipendenza da Supabase, quindi verificabile qui con Playwright) --
-sezioni Hero (con anteprima animata del prodotto, mai dati finti spacciati per reali), Come
-funziona, una "vetrina" scroll-driven (GSAP `ScrollTrigger` pin+scrub) per i 3 differenziatori
-principali, funzionalità secondarie, per-chi, prezzi (dati reali da `DECISIONS.md`), CTA finale.
-Dettagli tecnici e libreria di pattern riusabili in `docs/librerie-ui.md`. Tutto il resto
-(automazioni, PWA, Stripe/checkout) non ancora iniziato.
+dai 33 punti originali, richiesta esplicita di Gabriel l'11/09/2026, ampliata lo stesso giorno
+su suo feedback): **scritta e verificata dal vivo in-sandbox** (nessuna dipendenza da Supabase,
+quindi verificabile qui con Playwright) -- sezioni Hero (parola che ruota tra salone/studio/
+centro/spazio, anteprima animata del prodotto, sfondo a fasci di luce), un "MacBook scroll"
+del dashboard vero, un confronto prima/dopo trascinabile, Come funziona, una "vetrina"
+scroll-driven (GSAP `ScrollTrigger` pin+scrub) estesa a 6 scene che copre TUTTO il set di
+funzionalità (attuali + pianificate, marcate oneste "in arrivo"), una sezione "perché questo"
+con i differenziatori reali (senza nominare concorrenti, deciso con Gabriel), una griglia
+completa di 15 funzionalità con badge disponibilità, per-chi (5 persone, non solo saloni),
+prezzi (dati reali da `DECISIONS.md`, piano consigliato con bordo animato), CTA finale con
+sfondo a particelle. Dettagli tecnici e libreria di pattern riusabili (Aceternity + Magic UI)
+in `docs/librerie-ui.md`. Tutto il resto (automazioni, PWA, Stripe/checkout) non ancora
+iniziato.
 
 ## Stack reale (verificato in `package.json`)
 
@@ -338,11 +346,15 @@ l'11/09/2026 via MCP diretto).
   `FlussoPrenotazione.tsx` (stepper client di prenotazione), `ChatWidgetPubblico.tsx` (widget
   chat AI flottante, riusa l'endpoint `/api/chat/[slug]` già esistente).
 - `src/app/page.tsx` + `src/components/landing/` — landing page di marketing: `Nav`, `Hero`
-  (+ `AnteprimaProdotto`), `ComeFunziona`, `Vetrina` (showcase scroll-driven GSAP dei 3
-  differenziatori principali), `Funzionalita` (griglia uniforme, funzionalità secondarie),
-  `PerChi`, `Prezzi`, `CTAFinale`, `Footer`, più i primitivi riusabili `Reveal.tsx` (scroll-reveal
-  Framer Motion), `MagneticButton.tsx` (CTA che segue il cursore), `Grana.tsx` (texture di rumore
-  SVG per sfondi scuri).
+  (+ `AnteprimaProdotto`, parola che ruota, sfondo a fasci di luce), `ProdottoScroll` (dashboard
+  vero stile "MacBook scroll"), `ComeFunziona`, `PrimaDopo` (confronto trascinabile), `Vetrina`
+  (showcase scroll-driven GSAP, 6 scene, tutto il set di funzionalità), `PercheNoi`
+  (differenziatori reali, senza nominare concorrenti), `Funzionalita` (griglia completa, 15 voci
+  con badge "in arrivo"), `PerChi` (5 persone), `Prezzi`, `CTAFinale` (sfondo a particelle),
+  `Footer`, più i primitivi riusabili `Reveal.tsx`, `MagneticButton.tsx`, `Grana.tsx`,
+  `RaggiSfondo.tsx`, `SpotlightCard.tsx`, `TiltCard.tsx`, `CompareSlider.tsx`, `FlipWords.tsx`,
+  `Lampada.tsx`, `VorticeSfondo.tsx`, `BorderBeam.tsx` (dettagli di ognuno in
+  `docs/librerie-ui.md`).
 
 ## Prossimo passo pianificato
 

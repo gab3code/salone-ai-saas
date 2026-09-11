@@ -5,24 +5,35 @@ import { motion } from "framer-motion";
 import { Calendar, Check, MessageCircle, Sparkles } from "lucide-react";
 import { Grana } from "./Grana";
 import { MagneticButton } from "./MagneticButton";
+import { RaggiSfondo } from "./RaggiSfondo";
+import { FlipWords } from "./FlipWords";
+import { BorderBeam } from "./BorderBeam";
 
-const PAROLE_TITOLO = ["Il tuo salone,", "mai più senza risposta."];
+const PROFESSIONI = ["salone", "studio", "centro", "spazio"];
 
 function Titolo() {
   return (
     <h1 className="max-w-3xl text-4xl leading-[1.08] font-semibold tracking-tight text-white sm:text-6xl">
-      {PAROLE_TITOLO.map((riga, i) => (
-        <span key={riga} className="block overflow-hidden">
-          <motion.span
-            className="block"
-            initial={{ y: "110%" }}
-            animate={{ y: "0%" }}
-            transition={{ duration: 0.7, delay: 0.15 + i * 0.1, ease: [0.23, 1, 0.32, 1] }}
-          >
-            {i === 1 ? <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">{riga}</span> : riga}
-          </motion.span>
-        </span>
-      ))}
+      <span className="block overflow-hidden">
+        <motion.span
+          className="block"
+          initial={{ y: "110%" }}
+          animate={{ y: "0%" }}
+          transition={{ duration: 0.7, delay: 0.15, ease: [0.23, 1, 0.32, 1] }}
+        >
+          Il tuo <FlipWords parole={PROFESSIONI} />,
+        </motion.span>
+      </span>
+      <span className="block overflow-hidden">
+        <motion.span
+          className="block"
+          initial={{ y: "110%" }}
+          animate={{ y: "0%" }}
+          transition={{ duration: 0.7, delay: 0.25, ease: [0.23, 1, 0.32, 1] }}
+        >
+          <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">mai più senza risposta.</span>
+        </motion.span>
+      </span>
     </h1>
   );
 }
@@ -151,6 +162,7 @@ export function Hero() {
         }}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <RaggiSfondo />
       <Grana opacita={0.045} />
 
       <div className="relative mx-auto flex max-w-5xl flex-col items-center px-5 pt-28 pb-20 text-center sm:px-8 sm:pt-36">
@@ -183,12 +195,15 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.6 }}
           className="mt-8 flex flex-wrap items-center justify-center gap-3"
         >
-          <MagneticButton
-            href="/registrati"
-            className="inline-block rounded-full bg-white px-6 py-3 text-sm font-medium text-zinc-900 shadow-lg shadow-white/10"
-          >
-            Inizia gratis -- nessuna carta richiesta
-          </MagneticButton>
+          <div className="relative inline-block rounded-full p-px">
+            <BorderBeam durata={5} />
+            <MagneticButton
+              href="/registrati"
+              className="relative block rounded-full bg-white px-6 py-3 text-sm font-medium text-zinc-900 shadow-lg shadow-white/10"
+            >
+              Inizia gratis -- nessuna carta richiesta
+            </MagneticButton>
+          </div>
           <MagneticButton
             href="#funzionalita"
             forza={0.25}
