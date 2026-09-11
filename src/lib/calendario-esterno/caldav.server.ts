@@ -37,6 +37,14 @@ import https from "node:https";
 
 const TIMEOUT_MS = 8_000;
 const MASSIMO_REDIRECT = 5;
+// Riusa le connessioni TCP/TLS verso lo stesso host (es. le 2-3 chiamate
+// sequenziali di verificaCredenzialiCaldav finiscono quasi sempre sullo
+// stesso pod dopo il primo redirect) -- senza questo `https.request` apre e
+// chiude un handshake TLS nuovo ad ogni chiamata (l'agente globale di Node
+// di default NON tiene le connessioni vive), aggiungendo latenza reale che
+// in una funzione serverless con un tetto di esecuzione può fare la
+// differenza tra rispondere in tempo o essere ammazzati a metà.
+const agenteKeepAlive = new https.Agent({ keepAlive: true, maxSockets: 6 });
 
 interface RispostaHttps {
   status: number;
@@ -69,27 +77,40 @@ function eseguiRichiestaHttps(
         path: u.pathname + u.search,
         method: metodo,
         headers: { ...headers, "Content-Length": String(corpoBuffer.byteLength) },
+        agent: agenteKeepAlive,
       },
       (res) => {
         const pezzi: Buffer[] = [];
         res.on("data", (pezzo) => pezzi.push(pezzo));
+        res.on("error", reject);
         res.on("end", () => {
-          const status = res.statusCode ?? 0;
-          const location = res.headers.location;
-          if ([301, 302, 303, 307, 308].includes(status) && location && redirectRestanti > 0) {
-            const urlSuccessivo = new URL(location, url).toString();
-            eseguiRichiestaHttps(urlSuccessivo, metodo, headers, corpo, redirectRestanti - 1).then(
-              resolve,
-              reject
-            );
-            return;
+          // Qualunque eccezione qui dentro (es. un Location malformato) NON
+          // deve lasciare la Promise appesa per sempre -- una richiesta che
+          // non si risolve né si rifiuta mai resta viva finché la piattaforma
+          // non ammazza la funzione per timeout, e il browser vede una
+          // connessione interrotta a metà ("This page couldn't load") invece
+          // di un errore leggibile. Scoperto dal vivo l'11/09/2026 dopo il
+          // primo giro di test di Gabriel sul deploy con il fix redirect.
+          try {
+            const status = res.statusCode ?? 0;
+            const location = res.headers.location;
+            if ([301, 302, 303, 307, 308].includes(status) && location && redirectRestanti > 0) {
+              const urlSuccessivo = new URL(location, url).toString();
+              eseguiRichiestaHttps(urlSuccessivo, metodo, headers, corpo, redirectRestanti - 1).then(
+                resolve,
+                reject
+              );
+              return;
+            }
+            resolve({
+              status,
+              headers: res.headers as Record<string, string | string[] | undefined>,
+              testo: Buffer.concat(pezzi).toString("utf-8"),
+              urlFinale: url,
+            });
+          } catch (errore) {
+            reject(errore instanceof Error ? errore : new Error(String(errore)));
           }
-          resolve({
-            status,
-            headers: res.headers as Record<string, string | string[] | undefined>,
-            testo: Buffer.concat(pezzi).toString("utf-8"),
-            urlFinale: url,
-          });
         });
       }
     );
