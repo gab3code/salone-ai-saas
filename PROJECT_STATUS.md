@@ -4,7 +4,9 @@ Ultimo aggiornamento: 11/09/2026 (fuso orario reale del tenant risolto e verific
 Apple/iCloud CalDAV probabilmente inutilizzabile da Vercel per un blocco lato Apple sugli IP di
 data center -- vedi problema noto #14 -- Google Calendar resta il canale affidabile; Fase 4,
 pagina pubblica del salone, codice scritto e testato ma non ancora verificato dal vivo -- vedi
-sotto). Aggiornare questo file ogni volta che cambia lo stato
+sotto; nuova landing page di marketing (`/`) scritta da zero, animata con Framer Motion + GSAP
+ScrollTrigger su richiesta esplicita di Gabriel di un livello "top del top" -- verificata dal
+vivo in-sandbox con Playwright, poiché non dipende da Supabase). Aggiornare questo file ogni volta che cambia lo stato
 reale di qualcosa (una funzionalità passa da mock a vera, un problema si apre/chiude, una fase
 si chiude) — non lasciarlo invecchiare. Vedi `CLAUDE.md` per le regole di lavoro, `DECISIONS.md`
 per il perché delle scelte architetturali, `PIANO.md` per il piano a fasi.
@@ -30,8 +32,14 @@ lato nostro senza un proxy con IP non-datacenter). La direzione export (mostrare
 del salone sul calendario personale) non ancora scritta per nessuno dei due. Fase 4 (pagina
 pubblica per-attività, punto 15): **codice scritto e testato l'11/09/2026** (`/s/[slug]`,
 prenotazione self-service, widget chat AI) ma **non ancora verificato dal vivo in un browser
-reale** -- da fare dopo il deploy (vedi sopra il perché). Tutto il resto (automazioni, PWA,
-Stripe/checkout) non ancora iniziato.
+reale** -- da fare dopo il deploy (vedi sopra il perché). Landing page di marketing (`/`, fuori
+dai 33 punti originali, richiesta esplicita di Gabriel l'11/09/2026): **scritta e verificata dal
+vivo in-sandbox** (nessuna dipendenza da Supabase, quindi verificabile qui con Playwright) --
+sezioni Hero (con anteprima animata del prodotto, mai dati finti spacciati per reali), Come
+funziona, una "vetrina" scroll-driven (GSAP `ScrollTrigger` pin+scrub) per i 3 differenziatori
+principali, funzionalità secondarie, per-chi, prezzi (dati reali da `DECISIONS.md`), CTA finale.
+Dettagli tecnici e libreria di pattern riusabili in `docs/librerie-ui.md`. Tutto il resto
+(automazioni, PWA, Stripe/checkout) non ancora iniziato.
 
 ## Stack reale (verificato in `package.json`)
 
@@ -320,12 +328,21 @@ l'11/09/2026 via MCP diretto).
 - `docs/verifica-stack-automazione.md`, `docs/verifica-fattibilita-33-punti.md` — verifica
   che lo stack supporti il funnel self-service richiesto.
 - `docs/embedded-signup-whatsapp.md` — guida tecnica Embedded Signup Meta.
+- `docs/librerie-ui.md` — quali connettori/librerie UI usare (21st, OriginKit, Framer Motion,
+  GSAP) per superfici rivolte all'esterno (landing, pagina pubblica) -- leggere PRIMA di
+  costruire una nuova sezione visuale, non riscoprire da zero ogni volta.
 - `src/lib/pagina-pubblica.server.ts` — loader del profilo pubblico di un salone (tenant +
   servizi/operatori attivi) per slug, client admin, solo colonne pensate per essere pubbliche.
 - `src/app/s/[slug]/` — pagina pubblica del salone (Fase 4): `page.tsx` (Server Component),
   `azioni.ts` (server action pubbliche `cercaSlotPubblici`/`prenotaPubblico`),
   `FlussoPrenotazione.tsx` (stepper client di prenotazione), `ChatWidgetPubblico.tsx` (widget
   chat AI flottante, riusa l'endpoint `/api/chat/[slug]` già esistente).
+- `src/app/page.tsx` + `src/components/landing/` — landing page di marketing: `Nav`, `Hero`
+  (+ `AnteprimaProdotto`), `ComeFunziona`, `Vetrina` (showcase scroll-driven GSAP dei 3
+  differenziatori principali), `Funzionalita` (griglia uniforme, funzionalità secondarie),
+  `PerChi`, `Prezzi`, `CTAFinale`, `Footer`, più i primitivi riusabili `Reveal.tsx` (scroll-reveal
+  Framer Motion), `MagneticButton.tsx` (CTA che segue il cursore), `Grana.tsx` (texture di rumore
+  SVG per sfondi scuri).
 
 ## Prossimo passo pianificato
 
@@ -333,4 +350,6 @@ Fase 4 (pagina pubblica) ha il codice scritto e testato -- resta da: 1) fare il 
 verificare dal vivo in un browser reale (Gabriel, vedi sopra il perché non può farlo Claude dal
 sandbox), 2) task #21, Stripe Checkout + webhook (connettore Stripe già collegato l'11/09/2026
 in vista di questo), 3) valutare l'anti-abuso della prenotazione pubblica (problema noto #15)
-prima di pubblicare il link di un salone vero.
+prima di pubblicare il link di un salone vero. Landing page (`/`): codice scritto e verificato
+in-sandbox -- resta solo il deploy per una verifica dal vivo definitiva (glow del mouse, showcase
+scroll-driven, bottoni magnetici su hardware/browser reale di Gabriel).

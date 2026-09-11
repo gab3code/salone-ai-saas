@@ -1,0 +1,205 @@
+"use client";
+
+import { useRef, useState, type MouseEvent } from "react";
+import { motion } from "framer-motion";
+import { Calendar, Check, MessageCircle, Sparkles } from "lucide-react";
+import { Grana } from "./Grana";
+import { MagneticButton } from "./MagneticButton";
+
+const PAROLE_TITOLO = ["Il tuo salone,", "mai più senza risposta."];
+
+function Titolo() {
+  return (
+    <h1 className="max-w-3xl text-4xl leading-[1.08] font-semibold tracking-tight text-white sm:text-6xl">
+      {PAROLE_TITOLO.map((riga, i) => (
+        <span key={riga} className="block overflow-hidden">
+          <motion.span
+            className="block"
+            initial={{ y: "110%" }}
+            animate={{ y: "0%" }}
+            transition={{ duration: 0.7, delay: 0.15 + i * 0.1, ease: [0.23, 1, 0.32, 1] }}
+          >
+            {i === 1 ? <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">{riga}</span> : riga}
+          </motion.span>
+        </span>
+      ))}
+    </h1>
+  );
+}
+
+/** Il mock del prodotto della hero: NON una demo cliccabile -- un'illustrazione animata
+ * (dati d'esempio, mai spacciati per statistiche reali) di cosa succede davvero dietro le
+ * quinte: una prenotazione arriva sulla pagina pubblica, l'AI risponde, il calendario si aggiorna.
+ * Stesso principio del resto del prodotto (punto 7 di CLAUDE.md, "l'AI non deve inventare dati")
+ * esteso al marketing: qui non ci sono numeri finti, solo un esempio di flusso. */
+function AnteprimaProdotto() {
+  const APPUNTAMENTI = [
+    { ora: "10:00", nome: "Marco R.", servizio: "Barba e capelli" },
+    { ora: "11:30", nome: "Giulia B.", servizio: "Taglio e piega" },
+    { ora: "15:00", nome: "Sara V.", servizio: "Colore" },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 40, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.8, delay: 0.5, ease: [0.23, 1, 0.32, 1] }}
+      className="relative mx-auto mt-14 w-full max-w-3xl"
+    >
+      <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-br from-violet-600/30 via-fuchsia-500/20 to-orange-400/20 blur-2xl" />
+
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/80 shadow-2xl backdrop-blur">
+        <div className="flex items-center gap-1.5 border-b border-white/10 px-4 py-3">
+          <span className="size-2.5 rounded-full bg-red-400/70" />
+          <span className="size-2.5 rounded-full bg-amber-400/70" />
+          <span className="size-2.5 rounded-full bg-emerald-400/70" />
+          <span className="ml-3 text-xs text-white/40">salone-ai-saas.vercel.app/s/il-tuo-salone</span>
+        </div>
+
+        <div className="grid gap-px bg-white/5 sm:grid-cols-[1.3fr_1fr]">
+          {/* calendario che si popola da solo */}
+          <div className="bg-zinc-900/95 p-5">
+            <div className="mb-3 flex items-center gap-2 text-xs font-medium text-white/50">
+              <Calendar className="size-3.5" /> Oggi
+            </div>
+            <div className="flex flex-col gap-2">
+              {APPUNTAMENTI.map((a, i) => (
+                <motion.div
+                  key={a.ora}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5, delay: 1.1 + i * 0.25, ease: [0.23, 1, 0.32, 1] }}
+                  className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                >
+                  <span className="text-white/80">
+                    <span className="font-medium text-white">{a.ora}</span> · {a.nome}
+                  </span>
+                  <span className="text-xs text-white/40">{a.servizio}</span>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* chat AI che risponde da sola */}
+          <div className="flex flex-col justify-end gap-2 bg-zinc-900/95 p-5">
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium text-white/50">
+              <MessageCircle className="size-3.5" /> Assistente AI
+            </div>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 1.9 }}
+              className="self-end rounded-2xl rounded-br-sm bg-white/10 px-3 py-2 text-xs text-white/80"
+            >
+              Avete un buco domani pomeriggio per un taglio?
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 2.4 }}
+              className="flex items-start gap-2 self-start rounded-2xl rounded-bl-sm bg-gradient-to-br from-violet-500/80 to-fuchsia-500/80 px-3 py-2 text-xs text-white"
+            >
+              <Sparkles className="mt-0.5 size-3 shrink-0" />
+              Sì! Domani alle 16:30 con Marco, ti va bene?
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, delay: 3 }}
+              className="mt-1 flex items-center gap-1.5 self-start text-[11px] text-emerald-400"
+            >
+              <Check className="size-3" /> Prenotazione confermata sul calendario
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+export function Hero() {
+  const rifSezione = useRef<HTMLDivElement>(null);
+  const [glow, setGlow] = useState({ x: 50, y: 20 });
+
+  function alMovimentoMouse(e: MouseEvent<HTMLDivElement>) {
+    const rect = rifSezione.current?.getBoundingClientRect();
+    if (!rect) return;
+    setGlow({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
+  }
+
+  return (
+    <div
+      id="top"
+      ref={rifSezione}
+      onMouseMove={alMovimentoMouse}
+      className="relative isolate overflow-hidden bg-zinc-950"
+    >
+      {/* griglia + glow che segue il mouse, ispirati a pattern hero comuni (Aceternity/21st) ma
+          riscritti su misura -- vedi docs/librerie-ui.md */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-40 transition-[background] duration-300"
+        style={{
+          background: `radial-gradient(600px circle at ${glow.x}% ${glow.y}%, rgba(168,85,247,0.18), transparent 70%)`,
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
+          backgroundSize: "44px 44px",
+        }}
+      />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <Grana opacita={0.045} />
+
+      <div className="relative mx-auto flex max-w-5xl flex-col items-center px-5 pt-28 pb-20 text-center sm:px-8 sm:pt-36">
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/70"
+        >
+          <Sparkles className="size-3.5 text-fuchsia-300" />
+          Prenotazioni, CRM e reception AI in un&apos;unica piattaforma
+        </motion.div>
+
+        <Titolo />
+
+        <motion.p
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.45 }}
+          className="mt-6 max-w-xl text-base text-white/60 sm:text-lg"
+        >
+          I tuoi clienti prenotano da soli dalla tua pagina, un&apos;assistente AI risponde a chi
+          scrive fuori orario, e tu vedi tutto in un unico calendario -- senza cambiare il modo
+          in cui lavori oggi.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="mt-8 flex flex-wrap items-center justify-center gap-3"
+        >
+          <MagneticButton
+            href="/registrati"
+            className="inline-block rounded-full bg-white px-6 py-3 text-sm font-medium text-zinc-900 shadow-lg shadow-white/10"
+          >
+            Inizia gratis -- nessuna carta richiesta
+          </MagneticButton>
+          <MagneticButton
+            href="#funzionalita"
+            forza={0.25}
+            className="inline-block rounded-full border border-white/15 px-6 py-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+          >
+            Guarda come funziona
+          </MagneticButton>
+        </motion.div>
+
+        <AnteprimaProdotto />
+      </div>
+    </div>
+  );
+}

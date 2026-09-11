@@ -1,24 +1,44 @@
+import type { Metadata } from "next";
+import { Nav } from "@/components/landing/Nav";
+import { Hero } from "@/components/landing/Hero";
+import { ComeFunziona } from "@/components/landing/ComeFunziona";
+import { Vetrina } from "@/components/landing/Vetrina";
+import { Funzionalita } from "@/components/landing/Funzionalita";
+import { PerChi } from "@/components/landing/PerChi";
+import { Prezzi } from "@/components/landing/Prezzi";
+import { CTAFinale } from "@/components/landing/CTAFinale";
+import { Footer } from "@/components/landing/Footer";
+
 /**
- * Placeholder minimo -- la landing page premium vera arriva in una fase
- * successiva (dopo aver studiato a fondo quella di Estetia). Per ora serve
- * solo a poter navigare verso registrazione/accesso e verificare il funnel.
+ * Landing page di presentazione del servizio (Fase 5bis, fuori dai 33 punti
+ * originali -- richiesta esplicita di Gabriel l'11/09/2026: la SOLA pagina
+ * dove vale la pena investire in un livello di rifinitura "top del top",
+ * animazioni comprese, perché è il primo contatto di un libero professionista
+ * col prodotto. Il resto dell'app (dashboard, pagina pubblica per-salone)
+ * resta volutamente più sobrio -- vedi docs/librerie-ui.md per il perché e
+ * quali librerie/connettori usare quando si tocca ancora questa pagina.
+ *
+ * Zero numeri o testimonianze finte: ogni cifra qui dentro (prezzi, limiti di
+ * piano) viene da DECISIONS.md, non inventata per l'occasione.
  */
+export const metadata: Metadata = {
+  title: "Salone AI -- Prenotazioni, CRM e reception AI per il tuo salone",
+  description:
+    "La piattaforma tutto-in-uno per parrucchieri, barbieri, centri estetici e liberi professionisti: pagina di prenotazione online, CRM clienti e un'assistente AI che risponde 24/7.",
+};
+
 export default function Home() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
-      <h1 className="text-2xl font-semibold">Salone AI SaaS</h1>
-      <p className="max-w-md text-zinc-600">
-        Landing page definitiva da costruire in una fase successiva. Per ora: prova il funnel di
-        registrazione.
-      </p>
-      <div className="flex gap-3">
-        <a href="/registrati" className="rounded bg-black px-4 py-2 text-sm font-medium text-white">
-          Crea il tuo salone
-        </a>
-        <a href="/accedi" className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium">
-          Accedi
-        </a>
-      </div>
+    <div className="flex flex-1 flex-col bg-white">
+      <Nav />
+      <Hero />
+      <ComeFunziona />
+      <Vetrina />
+      <Funzionalita />
+      <PerChi />
+      <Prezzi />
+      <CTAFinale />
+      <Footer />
     </div>
   );
 }
