@@ -106,7 +106,20 @@ export function Prezzi() {
                   p.consigliato ? "bg-white text-zinc-900 hover:bg-white/90" : "border border-white/15 bg-white/5 text-white hover:bg-white/10"
                 }`}
               >
-                {p.nome === "Enterprise" ? "Richiedi info" : "Inizia gratis"}
+                {/* Bug reale segnalato da Gabriel: "Inizia gratis" compariva
+                    anche su Starter/Growth/Pro (€19,90-69,90), come se
+                    l'abbonamento a pagamento partisse gratis -- confuso a
+                    ragione. Verità tecnica (DECISIONS.md + PROJECT_STATUS.md):
+                    non esiste ancora uno Stripe checkout, "/registrati" crea
+                    SEMPRE lo stesso account sul piano Free, qualunque card
+                    si clicchi -- il piano si cambia oggi solo a mano nel
+                    database. "Inizia gratis" resta quindi accurato SOLO per
+                    la card Free; per i piani a pagamento il copy non deve
+                    promettere un'attivazione che non esiste -- "Crea il tuo
+                    account" è vero per tutti (l'account è sempre gratuito da
+                    creare), senza dichiarare che quel piano specifico parte
+                    subito. */}
+                {p.nome === "Enterprise" ? "Richiedi info" : p.nome === "Free" ? "Inizia gratis" : "Crea il tuo account"}
               </a>
               </div>
             </div>

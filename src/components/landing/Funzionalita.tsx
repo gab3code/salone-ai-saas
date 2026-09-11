@@ -24,7 +24,6 @@ interface Voce {
   titolo: string;
   descrizione: string;
   icona: LucideIcon;
-  inArrivo?: boolean;
 }
 
 /**
@@ -35,8 +34,18 @@ interface Voce {
  * marketing). Vetrina.tsx sopra racconta la storia di 6 di queste in modo
  * scroll-driven; questa griglia è il colpo d'occhio completo per chi vuole
  * scorrere tutto velocemente.
+ *
+ * Riorganizzata (Giro 4, feedback di Gabriel: "le funzioni mi sembrano un
+ * po' troppe ed incasinate"). Causa reale: 15 card identiche (10 vere + 5
+ * pianificate) tutte con lo stesso peso visivo in un'unica griglia -- niente
+ * distingueva "puoi usarlo oggi" da "arriverà" se non un piccolo badge
+ * ambra sparso qua e là, difficile da notare a colpo d'occhio con 15 box
+ * uguali. Ora sono due gruppi separati con peso diverso: le funzioni vere
+ * restano card complete (quello che vendi oggi merita spazio), quelle in
+ * arrivo diventano una fascia compatta di chip -- onesta ma minore, perché
+ * minore è davvero.
  */
-const VOCI: Voce[] = [
+const DISPONIBILI: Voce[] = [
   { titolo: "Pagina di prenotazione online", descrizione: "Link tuo, condivisibile ovunque, self-service 24/7.", icona: Globe2 },
   { titolo: "Calendario intelligente", descrizione: "Disponibilità calcolata da orari, pause, ferie e durata reale del servizio.", icona: CalendarClock },
   { titolo: "CRM clienti", descrizione: "Storico completo, qualunque canale abbia usato per prenotare.", icona: Users },
@@ -46,25 +55,23 @@ const VOCI: Voce[] = [
   { titolo: "Registrazione zero-attrito", descrizione: "Ti registri e il tuo spazio è già pronto, nessun passaggio manuale.", icona: UserPlus },
   { titolo: "Isolamento dati reale", descrizione: "Separazione a livello di database tra ogni attività, non solo applicativa.", icona: ShieldCheck },
   { titolo: "Sync Google Calendar", descrizione: "Impegni personali dell'operatore bloccano lo slot in automatico.", icona: CalendarClock },
-  { titolo: "Assistente AI su WhatsApp", descrizione: "Stesso assistente, dove i tuoi clienti scrivono già.", icona: MessageCircle, inArrivo: true },
-  { titolo: "Promemoria automatici", descrizione: "Reminder e follow-up ai clienti inattivi, senza pensarci.", icona: BellRing, inArrivo: true },
-  { titolo: "Pagamenti e upgrade self-service", descrizione: "Cambio piano dal pannello, senza scriverci.", icona: CreditCard, inArrivo: true },
-  { titolo: "App installabile (PWA)", descrizione: "Dashboard a schermo intero, come un'app nativa.", icona: Smartphone, inArrivo: true },
-  { titolo: "AI su Instagram e Telegram", descrizione: "Stessa reception AI, su altri canali dove serve.", icona: Send, inArrivo: true },
-  { titolo: "Tono dell'AI personalizzabile", descrizione: "Guida il modo in cui l'assistente risponde ai tuoi clienti.", icona: SlidersHorizontal, inArrivo: true },
+];
+
+const IN_ARRIVO: Voce[] = [
+  { titolo: "Assistente AI su WhatsApp", descrizione: "Stesso assistente, dove i tuoi clienti scrivono già.", icona: MessageCircle },
+  { titolo: "Promemoria automatici", descrizione: "Reminder e follow-up ai clienti inattivi, senza pensarci.", icona: BellRing },
+  { titolo: "Pagamenti e upgrade self-service", descrizione: "Cambio piano dal pannello, senza scriverci.", icona: CreditCard },
+  { titolo: "App installabile (PWA)", descrizione: "Dashboard a schermo intero, come un'app nativa.", icona: Smartphone },
+  { titolo: "AI su Instagram e Telegram", descrizione: "Stessa reception AI, su altri canali dove serve.", icona: Send },
+  { titolo: "Tono dell'AI personalizzabile", descrizione: "Guida il modo in cui l'assistente risponde ai tuoi clienti.", icona: SlidersHorizontal },
 ];
 
 function Cella({ v }: { v: Voce }) {
   return (
     <SpotlightCard className="h-full rounded-2xl border border-white/10 bg-white/5 p-5 transition-colors duration-300 hover:border-white/20">
-      <div className="relative flex items-start justify-between gap-2">
-        <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
-          <v.icona className="size-4" />
-        </span>
-        {v.inArrivo && (
-          <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">in arrivo</span>
-        )}
-      </div>
+      <span className="relative flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+        <v.icona className="size-4" />
+      </span>
       <h3 className="relative mt-4 text-[15px] font-medium text-white">{v.titolo}</h3>
       <p className="relative mt-1.5 text-sm leading-relaxed text-white/60">{v.descrizione}</p>
     </SpotlightCard>
@@ -81,13 +88,38 @@ export function Funzionalita() {
         </p>
       </Reveal>
 
+      {/* 9 elementi, griglia pulita a 3 colonne (3 righe piene, nessun
+          resto): niente più il mix con le 5 voci "in arrivo" che appesantiva
+          il colpo d'occhio. */}
       <RevealStagger className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" gapMs={0.05}>
-        {VOCI.map((v) => (
+        {DISPONIBILI.map((v) => (
           <RevealItem key={v.titolo}>
             <Cella v={v} />
           </RevealItem>
         ))}
       </RevealStagger>
+
+      {/* Fascia "in arrivo" separata e volutamente più leggera -- stesso
+          contenuto onesto di prima (nulla è nascosto), ma un peso visivo
+          minore perché non è ancora vendibile: chip compatte in un unico
+          pannello, non altre 6 card identiche alle prime 9. */}
+      <Reveal>
+        <div className="mt-6 rounded-2xl border border-dashed border-amber-400/20 bg-amber-400/[0.03] p-5">
+          <p className="text-xs font-medium tracking-wide text-amber-300/80 uppercase">Nel roadmap -- non ancora incluso</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {IN_ARRIVO.map((v) => (
+              <span
+                key={v.titolo}
+                title={v.descrizione}
+                className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 py-1.5 pr-3 pl-2 text-xs text-white/70"
+              >
+                <v.icona className="size-3.5 text-amber-300/80" />
+                {v.titolo}
+              </span>
+            ))}
+          </div>
+        </div>
+      </Reveal>
     </section>
   );
 }

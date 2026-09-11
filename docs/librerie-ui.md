@@ -236,3 +236,40 @@ Gabriel -- "dimmi cosa hai deciso e perché"):**
     subito sotto la griglia prezzi. Aggiunto `pt-12`/`sm:pt-16` alla
     sezione e più `py` interno al box per una chiusura che respira invece
     di un'appendice incollata.
+- **Terzo giro di feedback (11/09/2026), su cose più di sostanza che di
+  bug puntuali** -- "prima di fare il push, la cosa in fondo non mi piace...
+  la cosa dell'inizia gratis degli abbonamenti non la capisco... le
+  funzioni mi sembrano un po' troppe ed incasinate":
+  - `CTAFinale.tsx` riscritta da zero, non solo aggiustata. Causa del
+    "non mi piace": riusava `LiquidMetal` (lo stesso shader animato
+    dell'Hero) dentro una card piccola con solo un titolo e un bottone --
+    in Hero lo shader è a piena pagina con badge/titolo/mockup prodotto
+    sopra a bilanciarlo, qui diventava l'UNICO elemento visivo e leggeva
+    come un gradient viola da "template AI generico", non come una chiusura
+    sobria da SaaS vero. Sostituito con un bagliore ambientale morbido
+    (due ellissi sfocate agli angoli, stessa tecnica di `Lampada.tsx`, mai
+    un vortice a piena card) + un `GlowBorder` sottile sul bordo dell'intera
+    card (dettaglio, non protagonista) + tre garanzie concrete come chip
+    ("Nessuna carta richiesta", "Attivo in 5 minuti", "Cancella quando
+    vuoi") al posto di una riga di sottotitolo -- più contenuto vero, meno
+    colore.
+  - `Prezzi.tsx`: bug reale, non solo di percezione -- il bottone diceva
+    "Inizia gratis" anche su Starter/Growth/Pro (€19,90-69,90). Verificato
+    in `DECISIONS.md` e `PROJECT_STATUS.md`: non esiste ancora uno Stripe
+    checkout, "/registrati" crea SEMPRE lo stesso account sul piano Free
+    a prescindere da quale card si clicchi -- il piano si cambia oggi solo
+    a mano nel database. "Inizia gratis" resta quindi vero solo per la
+    card Free; le altre ora dicono "Crea il tuo account" (vero per
+    tutte, senza promettere un'attivazione a pagamento che il prodotto
+    non sa ancora fare da solo). Enterprise invariato ("Richiedi info").
+  - `Funzionalita.tsx`: 15 card identiche (10 vere + 5 pianificate) con lo
+    stesso peso visivo erano il problema, non il numero in sé -- un badge
+    ambra piccolo tra 15 box uguali non basta a far percepire la gerarchia
+    "disponibile ora" vs "in arrivo". Separate in due gruppi con peso
+    diverso: le 9 funzioni vere restano card complete in una griglia pulita
+    a 3 colonne (righe piene, nessun resto); le 6 pianificate diventano una
+    fascia unica sotto, bordo tratteggiato ambra, chip compatte con solo
+    icona+titolo (descrizione nel `title` dell'elemento) -- stesso contenuto
+    onesto di prima, ma un peso visivo minore perché minore è davvero.
+  - Verificato con screenshot Playwright desktop+mobile (0px di overflow
+    orizzontale, 0 errori console su entrambi) prima di committare.
