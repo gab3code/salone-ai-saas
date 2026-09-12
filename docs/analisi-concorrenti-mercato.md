@@ -134,3 +134,107 @@ alcuni fronti (prezzo più basso di Calendix, feature vocale di Skedula).
    da tenere in mente per non farci sorprendere.
 4. Non sottovalutare il prezzo: Calendix parte da 24€/mese con AI inclusa fin dal piano più
    basso -- la nostra futura pagina prezzi deve reggere il confronto, non solo con Estetia.
+
+## AGGIORNAMENTO CRITICO (12/09/2026, mega-controllo richiesto da Gabriel) -- il nostro
+## differenziale principale ha una scadenza, non è più solo "raro"
+
+Ricerca dal vivo su richiesta esplicita di Gabriel ("superare i nostri competitor"). Tre
+scoperte cambiano la lettura strategica del progetto rispetto a tutto quanto scritto sopra --
+non invalidano il lavoro fatto, ma vanno lette PRIMA di decidere su cosa investire tempo adesso.
+
+### 1. Treatwell ha lanciato un'AI receptionist 3 GIORNI FA (09/09/2026), Fresha da maggio 2026
+
+Non è più solo "i marketplace rubano la relazione col cliente" (il pericolo già noto) -- ora
+fanno anche esattamente quello che è il NOSTRO differenziale principale dichiarato in home page
+("mai più senza risposta"):
+- **Treatwell "AI Receptionist"** (comunicato stampa anche in italiano su mediakey.it, 9/09/2026):
+  risponde alle chiamate del salone, prenota/sposta/cancella appuntamenti da sola nel calendario,
+  risponde a domande usando i dati veri del salone (servizi/staff/orari), verifica disponibilità
+  in tempo reale, passa i casi complessi a un operatore -- **lo stesso schema "AI decide, umano
+  fa fallback" che abbiamo progettato noi in Fase 2**. Prezzo da 69€/mese (3 fasce). Copre già
+  95.000+ saloni partner e 2,5M+ prenotazioni/mese. WhatsApp è dichiarato "in arrivo", non ancora
+  attivo -- oggi risponde a chiamate telefoniche, non messaggi. Non confermata la disponibilità
+  Italia salone-per-salone, ma il comunicato in italiano lascia intendere che l'Italia è nei
+  piani, non un mercato escluso.
+- **Fresha "AI Concierge"** (dal loro blog, 18/05/2026): risponde a chiamate/messaggi/chat in-app
+  istantaneamente, guida tutta la prenotazione/modifica/cancellazione, gestisce voce con accento
+  personalizzabile, lavora 24/7, incassa pagamenti anticipati DURANTE la conversazione. "Già
+  usato in decine di migliaia di interazioni nei saloni pilota." Partito dai mercati
+  anglofoni, altre lingue (quindi presumibilmente l'italiano) pianificate ma non ancora attive.
+
+**Lettura onesta**: il nostro claim "un assistente AI che risponde da solo ai tuoi clienti" non
+è più un differenziale raro sul mercato generale -- lo è ancora oggi rispetto ai gestionali
+italiani generalisti (Estetia/WeGest) e resta unico rispetto a Calendix/Skedula solo su
+dettagli (vedi sotto), ma tra 6-12 mesi, quando questi due colossi arriveranno in italiano, un
+salone potrà avere "l'AI risponde da sola" anche dentro un marketplace gratuito per il canone
+base. **Non significa che il progetto non abbia senso -- significa che "l'AI risponde da sola"
+da solo non basta più come argomento di vendita, deve essere una tra più ragioni per scegliere
+Salone AI, non l'unica.**
+
+### 2. CutApp (cutapp.it) -- concorrente diretto italiano verificato, non solo sospettato
+
+A differenza di Sagomapp (nome introvabile, quasi certamente una confusione con un altro nome --
+da NON ripetere in materiale commerciale) e WeGest (gestionale generalista, la sua "AI" genera
+solo testi di marketing, non prenota nulla da sola), **CutApp ha davvero un'AI su
+WhatsApp/telefono che capisce le richieste, propone slot e prenota da sola 24/7** -- funzionalità
+quasi identica alla nostra Fase 2. Differenze concrete da usare nel confronto:
+- L'AI di CutApp è un **add-on a consumo separato dal gestionale base** (24,99€/mese base +
+  42,90€/mese per 100 prenotazioni gestite dall'AI, scalare fino a 97,90€/mese per 300) -- la
+  nostra AI è inclusa nel canone del piano (Growth in su), senza un tetto a pagamento aggiuntivo
+  per prenotazione gestita. Argomento di vendita concreto: "prezzo prevedibile, non a consumo".
+- CutApp ha già una **lista d'attesa intelligente** (stesso gap nostro già segnalato sopra
+  rispetto a Calendix) e marketing automatico di compleanno/promozioni via SMS/WhatsApp.
+- Target dichiarato: solo parrucchieri/barbieri/centri estetici -- il nostro target
+  volutamente più ampio (qualunque professionista con appuntamenti) resta un vero differenziale
+  di posizionamento contro CutApp specificamente.
+
+### 3. Deposito/caparra anti-no-show: gap reale in TUTTO il mercato italiano, standard nei marketplace
+
+Verificato dal vivo: **Fresha e Booksy hanno entrambi deposito/pagamento anticipato o carta in
+garanzia per penale di cancellazione come feature pubblicizzata direttamente in prima pagina**
+("save a card on file to charge a cancellation fee if a client cancels" -- Booksy). **Nessun
+gestionale italiano verificato finora (Estetia, Calendix, Skedula, WeGest, CutApp) offre
+questo** -- tutti si fermano al promemoria automatico. Questo è un gap reale e concreto che
+possiamo colmare PRIMA dei nostri concorrenti italiani diretti, usando Stripe che abbiamo già
+integrato per il billing (stessa competenza tecnica, provider già collegato) -- non richiede
+di inseguire i marketplace internazionali sul loro terreno (community/traffico), solo di
+raggiungere un livello di serietà anti-no-show che oggi manca a TUTTO il software italiano di
+categoria. Non ancora in `PIANO.md` prima di questo aggiornamento -- aggiunto in Fase 6.
+
+### 4. Trovato un problema nostro, non dei concorrenti: stiamo vendendo una funzione che non esiste
+
+Controllo incrociato tra `Prezzi.tsx` (copy della landing) e il codice reale: il piano **Pro
+(69,90€/mese) pubblicizza "Tono dell'AI personalizzabile"** come funzione inclusa, ma non esiste
+NESSUNA colonna nello schema, NESSUNA UI nelle impostazioni, NESSUN collegamento nel prompt
+dell'AI (`src/lib/ai/agente.ts`) per personalizzare davvero il tono -- il prompt è hardcoded
+uguale per ogni tenant su ogni piano. Non è un problema urgente OGGI (Stripe/pagamenti reali non
+ancora verificati dal vivo, nessun cliente pagante Pro esiste ancora), ma **diventa un problema
+serio di credibilità (vendere una feature inesistente) nel momento stesso in cui il primo
+cliente reale paga per Pro** -- va costruito PRIMA di aprire i pagamenti veri su quel piano, non
+dopo. Aggiunto come voce bloccante in `PIANO.md`, Fase 5.
+
+### Nomi nuovi trovati, non ancora verificati (bassa priorità, da tenere d'occhio)
+Bookizon (business.bookizon.it, menziona "intelligenza artificiale" ma senza dettagli pubblici),
+SalonAppy, Magnolia (magnolia-pro.it), Dylog Beauty (dylog.it), PrenotaSì, BarberApp Pro --
+nessuno verificato a fondo in questo giro, nessun segnale che abbiano un'AI conversazionale
+paragonabile a Estetia/Calendix/Skedula/CutApp/Fresha/Treatwell.
+
+### Sintesi: su cosa vinciamo DAVVERO, aggiornata dopo questa scoperta
+Non più (solo) "abbiamo un'AI che risponde da sola" -- quello sta diventando table-stakes tra i
+grandi player. La combinazione difendibile, verificata punto per punto contro quanto sopra:
+1. **Zero commissione sui nuovi clienti e zero app che il cliente deve scaricare** (vero contro
+   Fresha/Treatwell/Booksy, confermato con dati reali sopra e in `docs/analisi-estetia.md`) --
+   l'unica cosa che i marketplace non possono replicare senza smettere di essere marketplace.
+   Se anche la loro AI diventa uguale alla nostra, il MODELLO di business resta diverso.
+2. **Prezzo tutto incluso, non a consumo** (vero contro CutApp, l'unico concorrente italiano
+   con un'AI booking reale) -- un salone piccolo sa esattamente quanto spende ogni mese.
+3. **Deposito/caparra anti-no-show** (gap vero contro OGNI concorrente italiano, standard solo
+   nei marketplace) -- da costruire, non ancora fatto, priorità alta in `PIANO.md`.
+4. **Target volutamente più ampio** di "solo saloni estetici" (vero contro Estetia/CutApp/WeGest,
+   tutti fermi al settore beauty) -- qualunque professionista con appuntamenti.
+5. **Velocità ed esistenza di un fondatore raggiungibile personalmente**, non un ticket di
+   supporto in coda -- vero solo finché il numero di clienti resta piccolo, non un vantaggio
+   strutturale permanente, ma reale nella fase attuale del progetto.
+Punto NON più difendibile da solo: "abbiamo l'AI, loro no" -- vero solo contro i gestionali
+italiani senza AI (Estetia, WeGest), falso contro CutApp (AI reale, seppure a consumo) e in
+scadenza contro Fresha/Treatwell (AI reale, in arrivo su altre lingue/mercati).

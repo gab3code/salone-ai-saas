@@ -868,3 +868,55 @@ che di un buco nel componente.
 **Verifica**: vedi PROJECT_STATUS.md, sezione "Controlli generali UI (12/09/2026)". Il resto del
 controllo generale (tutti i breakpoint, nav/scroll, FAQ accordion, hover CTA, `/registrati`,
 `/accedi`) non ha trovato altri bug reali -- solo questo.
+
+## 2026-09-12 — Riposizionamento strategico: "l'AI risponde da sola" non è più un differenziale
+## a sé stante, deve diventare una combinazione di ragioni
+
+**Decisione**: continuare il progetto senza modifiche di rotta immediate, ma smettere di trattare
+"un'AI che risponde da sola ai clienti" come L'argomento di vendita principale nel materiale
+futuro (landing, pitch, pagina prezzi) -- deve diventare uno tra 4-5 argomenti combinati, non il
+primo e unico.
+
+**Cosa ha causato la decisione**: mega-controllo competitor richiesto da Gabriel il 12/09/2026
+(dettaglio completo in `docs/analisi-concorrenti-mercato.md`, sezione "AGGIORNAMENTO CRITICO").
+Treatwell ha lanciato un'"AI Receptionist" il 9/09/2026 (3 giorni prima di questo controllo,
+comunicato anche in italiano): risponde alle chiamate, prenota/sposta/cancella da sola, passa i
+casi complessi a un operatore -- lo stesso schema esatto pianificato per la nostra Fase 2. Fresha
+ha "AI Concierge" dal 18/05/2026 con capacità equivalenti o superiori (voce, pagamento in
+conversazione). Entrambi non ancora attivi in italiano/Italia in modo confermato, ma
+esplicitamente in roadmap. In più, CutApp (concorrente italiano diretto, verificato per la prima
+volta in questo giro) ha già oggi un'AI booking reale su WhatsApp, seppur a consumo.
+
+**Alternativa considerata e scartata**: ignorare la notizia e continuare a comunicare "l'AI
+risponde da sola" come differenziale primario, scommettendo che i grandi player non arrivino
+davvero in italiano in tempi brevi.
+
+**Motivazione dello scarto**: rischio inutile e verificabile nel tempo -- il comunicato stampa di
+Treatwell è già in lingua italiana, segno che l'Italia è un mercato pianificato, non escluso.
+Costruire tutta la narrativa commerciale su un vantaggio con una scadenza nota è una scelta
+peggiore che diversificare subito su ragioni più difendibili strutturalmente (vedi sotto),
+soprattutto perché il progetto ha ancora mesi di lavoro prima di un lancio commerciale vero (nes-
+sun pagamento reale verificato, WhatsApp bloccato su Meta) -- il tempo per riposizionare c'è.
+
+**Nuova combinazione di argomenti, in ordine di forza** (dettaglio verifiche in
+`docs/analisi-concorrenti-mercato.md`): (1) zero commissione sui nuovi clienti + zero app
+obbligatoria per il cliente finale + pagina pubblica sul brand del salone, strutturalmente
+impossibile da replicare per un marketplace; (2) deposito/caparra anti-no-show, gap reale in
+TUTTO il software italiano di categoria (nessuno tra Estetia/Calendix/Skedula/WeGest/CutApp lo
+offre), standard invece nei marketplace -- nuovo task aggiunto a `PIANO.md` Fase 6, priorità
+alta, va costruito per colmare questo gap PRIMA che lo colmi un concorrente italiano; (3) prezzo
+tutto incluso mai a consumo (vero contro CutApp specificamente); (4) target volutamente più
+ampio del solo settore beauty (vero contro Estetia/CutApp/WeGest).
+
+**Trovato anche, durante la stessa ricerca, un problema nostro slegato dai competitor**: il piano
+Pro pubblicizza "Tono dell'AI personalizzabile" senza che esista nessuna implementazione reale
+(nessuna colonna, UI o collegamento al prompt in `src/lib/ai/agente.ts`). Non è una decisione di
+prodotto ma un bug di onestà commerciale non ancora dannoso solo perché nessun cliente Pro reale
+esiste ancora -- aggiunto come task bloccante in `PIANO.md` Fase 5, da chiudere prima di aprire i
+pagamenti veri su quel piano.
+
+**Verifica**: nessuna modifica di codice in questo giro, solo ricerca (due sottoagenti in
+parallelo, uno sui gestionali italiani non ancora verificati -- Sagomapp/WeGest/CutApp -- uno sul
+fetch diretto delle pagine "for business" di Fresha/Treatwell/Booksy e delle relative notizie
+2025/2026) e aggiornamento di `docs/analisi-concorrenti-mercato.md`, `PIANO.md`,
+`PROJECT_STATUS.md`.

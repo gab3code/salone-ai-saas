@@ -17,6 +17,45 @@ pensati da subito per parlare a qualunque professionista con agenda, non solo al
 estetico. Estetia resta il riferimento competitivo perché è lo stesso tipo di prodotto
 (booking + CRM + AI), anche se il loro mercato dichiarato è più stretto del nostro.
 
+## Sintesi strategica: come superare i competitor (aggiornata 12/09/2026, mega-controllo)
+
+Ricerca dal vivo completa in `docs/analisi-concorrenti-mercato.md` (leggerla per il dettaglio
+verificato, qui solo la sintesi operativa). **Scoperta più importante**: Treatwell ha lanciato
+un'AI receptionist il 9/09/2026 (3 giorni prima di questo controllo) e Fresha ha "AI Concierge"
+da maggio 2026 -- il nostro claim principale ("un'AI che risponde da sola ai tuoi clienti") sta
+diventando table-stakes tra i grandi marketplace, non è più un differenziale raro. Non cambia se
+costruire il progetto, cambia SU COSA vincere: non "abbiamo l'AI, loro no" (falso contro CutApp,
+in scadenza contro Fresha/Treatwell), ma la combinazione qui sotto, in ordine di priorità:
+
+1. **Zero commissione sui nuovi clienti, zero app obbligatoria per il cliente finale, pagina
+   pubblica sul dominio/brand del salone** -- l'unica cosa strutturalmente impossibile da
+   replicare per un marketplace senza smettere di essere un marketplace. Già vero oggi (Fase 4),
+   va solo comunicato con più forza nel materiale di vendita quando esisterà (Fase 5).
+2. **Deposito/caparra anti-no-show** -- gap reale e verificato in TUTTO il software italiano di
+   categoria (Estetia/Calendix/Skedula/WeGest/CutApp: nessuno ce l'ha), standard invece nei
+   marketplace (Fresha/Booksy). Stripe è già integrato (Fase 5) -- stessa competenza tecnica,
+   "solo" da estendere a un pagamento/blocco carta al momento della prenotazione pubblica.
+   **Nuovo task, priorità alta, aggiunto in Fase 6 sotto.**
+3. **Prezzo tutto incluso, mai a consumo** -- vero solo contro CutApp (l'unico concorrente
+   italiano con AI booking reale, ma a pagamento extra per prenotazione gestita dall'AI). Non
+   richiede nessun lavoro: è già così nella nostra struttura piani, va solo tenuto fermo quando
+   si discute qualunque modifica ai prezzi.
+4. **Target volutamente più ampio** di "solo settore beauty" (vero contro Estetia/CutApp/WeGest,
+   tutti fermi lì) -- già deciso il 02/09/2026, richiede solo di completare la generalizzazione
+   del copy ancora salone-specifico (vedi "Copy generico per il target ampio" in
+   PROJECT_STATUS.md, non urgente ma non dimenticarlo prima del lancio pubblico).
+5. **Lista d'attesa automatica alla cancellazione** (vista su Calendix e CutApp, non su Estetia)
+   -- nessun lavoro architetturale enorme sopra il booking engine esistente. **Nuovo task,
+   aggiunto in Fase 6 sotto.**
+
+**Trovato anche un problema nostro, non dei concorrenti**: il piano Pro pubblicizza in
+`Prezzi.tsx` un "Tono dell'AI personalizzabile" che **non esiste nel codice** -- nessuna
+colonna, nessuna UI, nessun collegamento al prompt (`src/lib/ai/agente.ts`, hardcoded uguale per
+tutti). Non urgente finché non esistono clienti Pro paganti reali, ma **bloccante prima di
+aprire i pagamenti veri su quel piano** -- aggiunto come task esplicito in Fase 5 sotto, non
+dimenticarlo. Vedere `docs/analisi-concorrenti-mercato.md`, sezione "AGGIORNAMENTO CRITICO",
+punto 4, per il dettaglio completo di come è stato trovato.
+
 ## Perché a fasi e non tutto insieme
 Fondamenta sbagliate (schema dati, isolamento multi-tenant) si ripagano care più avanti --
 un bug di isolamento tra saloni scoperto dopo aver costruito CRM/dashboard sopra costringe a
@@ -207,9 +246,33 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
 - [ ] Checkout Stripe, webhook, gestione stato abbonamento reale (oggi `tenants.piano` si
       cambia solo a mano nel database, nessun flusso di pagamento/upgrade self-service)
 - [ ] Pannello admin per te: saloni, abbonamenti, utilizzo, interventi manuali quando serve
+- [ ] **BLOCCANTE prima di aprire pagamenti veri sul piano Pro** (trovato nel mega-controllo del
+      12/09/2026, vedi `docs/analisi-concorrenti-mercato.md`): `Prezzi.tsx` pubblicizza "Tono
+      dell'AI personalizzabile" su Pro, ma non esiste nessuna colonna/UI/collegamento reale al
+      prompt (`src/lib/ai/agente.ts` è hardcoded uguale per tutti i tenant). Da costruire:
+      colonna su `tenants` (es. `tono_ai`, testo libero o poche opzioni guidate -- vedi
+      `docs/analisi-estetia.md` punto 3: guidato a domande è più accessibile di un prompt
+      libero), UI in `/dashboard/impostazioni`, iniezione nel system prompt di `agente.ts`.
+      Non bloccante finché Stripe non è verificato dal vivo (nessun cliente Pro reale ancora),
+      ma va fatto PRIMA, non dopo il primo incasso su quel piano.
 
 ## Fase 6 -- Automazioni e sicurezza (punti 16, 29, 30)
 - [ ] Motore di automazioni configurabili (reminder, follow-up, inattività, compleanno)
+- [ ] **Deposito/caparra anti-no-show** (nuovo task, mega-controllo competitor 12/09/2026): gap
+      reale verificato in TUTTO il software italiano di categoria (Estetia, Calendix, Skedula,
+      WeGest, CutApp -- nessuno lo offre), standard invece nei marketplace internazionali
+      (Fresha, Booksy: carta in garanzia o pagamento anticipato per ridurre i no-show). Stripe
+      è già integrato per il billing (Fase 5) -- stessa competenza tecnica: `PaymentIntent`
+      con blocco carta o pagamento anticipato al momento della prenotazione pubblica (`/s/
+      [slug]`, `FlussoPrenotazione.tsx`), configurabile per tenant (obbligatorio/opzionale/
+      importo). Priorità alta: colma un gap reale contro tutti i concorrenti italiani diretti,
+      non solo contro i marketplace. Vedere `docs/analisi-concorrenti-mercato.md`, sezione
+      "AGGIORNAMENTO CRITICO", punto 3.
+- [ ] **Lista d'attesa automatica alla cancellazione** (vista su Calendix e CutApp, non su
+      Estetia): a una cancellazione, proporre lo slot liberato al primo cliente in coda invece
+      di lasciarlo semplicemente libero. Nessun lavoro architetturale enorme sopra il booking
+      engine esistente -- una tabella `lista_attesa` (tenant/servizio/operatore/cliente/data
+      preferita) + un trigger o controllo alla cancellazione che notifica il primo in coda.
 - [ ] Revisione sicurezza (RLS, permessi tool AI, rate limiting, input validation)
 - [ ] Test completo su tutti gli scenari del punto 30
 

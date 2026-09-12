@@ -1,6 +1,26 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026 notte -- controlli generali dell'interfaccia richiesti da
+Ultimo aggiornamento: 12/09/2026 notte -- "mega controllo" competitor richiesto da Gabriel
+("cosa dobbiamo fare per superare i competitor"). Risultato più importante, e più urgente di
+tutto il resto scritto in questo file: **Treatwell ha lanciato un'AI receptionist il 9/09/2026
+(3 giorni prima di questo controllo) e Fresha ha "AI Concierge" da maggio 2026** -- il nostro
+argomento di vendita principale ("un'AI che risponde da sola ai clienti") sta diventando
+standard tra i grandi marketplace, non è più raro sul mercato generale (resta vero solo contro i
+gestionali italiani senza AI -- Estetia, WeGest -- ed è già falso contro CutApp, concorrente
+italiano diretto verificato in questo giro con un'AI booking reale su WhatsApp, seppur a
+pagamento a consumo). Non cambia SE il progetto ha senso, cambia SU COSA vincere: dettaglio
+completo e sintesi strategica aggiornata in `docs/analisi-concorrenti-mercato.md` (sezione
+"AGGIORNAMENTO CRITICO") e `PIANO.md` (sezione "Sintesi strategica", in cima al file). In breve,
+la combinazione difendibile ora è zero commissione/zero app obbligatoria per il cliente finale
+(strutturale, i marketplace non possono replicarla), deposito/caparra anti-no-show (gap reale
+verificato in TUTTO il software italiano di categoria, non ancora costruito -- nuovo task Fase
+6 di `PIANO.md`, priorità alta), prezzo tutto incluso mai a consumo (vero contro CutApp), target
+volutamente più ampio del solo settore beauty. **Trovato anche un problema nostro**: il piano
+Pro pubblicizza "Tono dell'AI personalizzabile" che non esiste nel codice (nessuna colonna/UI/
+collegamento al prompt) -- non urgente oggi (nessun cliente Pro reale ancora) ma bloccante prima
+di aprire i pagamenti veri su quel piano, nuovo task esplicito in Fase 5 di `PIANO.md`. Nessuna
+modifica di codice in questo giro: solo ricerca e aggiornamento dei piano/documenti, come
+richiesto. Aggiornamento precedente, 12/09/2026 notte -- controlli generali dell'interfaccia richiesti da
 Gabriel ("continua a fare controlli generali dell'ui"), non un giro su un punto specifico.
 Metodo: screenshot con SCROLL VERO (non un `fullPage` istantaneo, che non fa scattare le reveal
 `whileInView` e produce falsi "buchi neri" -- capitato e verificato come falso positivo in questo
