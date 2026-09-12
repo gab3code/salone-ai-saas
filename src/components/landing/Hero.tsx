@@ -155,33 +155,44 @@ function Titolo() {
               più vicino a uno stile "Apple" (nessun bagliore/alone dietro il
               testo, solo il metallo). */}
           <span className="relative inline-grid" style={{ textShadow: "none" }}>
-            <span style={{ gridArea: "1 / 1", color: "#1a1224", WebkitTextStroke: "4px #0c0812" }}>
+            <span style={{ gridArea: "1 / 1", color: "#1a1224", WebkitTextStroke: "4px #110722" }}>
               mai più senza risposta.
             </span>
-            <span style={{ gridArea: "1 / 1", color: "#1a1224", WebkitTextStroke: "2px #ecd3f1" }}>
+            {/* Quinto giro, quinta parte -- Gabriel, guardando ancora il
+                titolo accanto al pulsante Growth: "è un metallico poco
+                premium... poco lucido e troppo opaco, prendi spunto dal
+                colore dei pulsanti, tipo il pulsante di growth, non riesci a
+                dare il bordo ad ogni lettera come il bordo viola metallico
+                del pulsante growth?". Il contorno chiaro (questa copia) e le
+                bande sotto usavano una tinta viola DESATURATA apposta (vedi
+                commento della terza parte più sotto: "i metalli sono per
+                natura desaturati anche quando hanno una tinta") -- scelta
+                corretta per un metallo "argento tendente al viola", ma
+                Gabriel non vuole quello: vuole letteralmente gli STESSI
+                colori saturi del pulsante Growth (`METAL_PIANI.Growth.colors`
+                in Prezzi.tsx: #2e1065 -> #4c1d95 -> #7c3aed -> #c026d3),
+                calcolati con `colorsys` sulla base di quei 4 valori esatti
+                (non a occhio) invece di una nuova palette desaturata
+                inventata da zero. Contorno chiaro portato a un fucsia
+                acceso chiarissimo (`#efc1f6`, lo stop più chiaro di Growth
+                schiarito ulteriormente) per leggere come un vero riflesso
+                metallico, non più un lilla spento. */}
+            <span style={{ gridArea: "1 / 1", color: "#1a1224", WebkitTextStroke: "2px #efc1f6" }}>
               mai più senza risposta.
             </span>
-            {/* Riempimento "metallo spazzolato" -- tinta rivista una TERZA
-                volta (quinto giro, quarta parte -- Gabriel: "carino ma...
-                troppo spento"). Il giro precedente aveva seguito la
-                progressione di tonalità corretta (freddo->caldo, ~262°->
-                ~290°, calcolata con `colorsys` sui colori reali del sito) ma
-                con una gamma di luminosità/saturazione troppo compressa
-                verso il centro -- il risultato restava leggibile ma
-                "piatto", poco vivo. Ricalcolato con la STESSA progressione
-                di tonalità (nessun colore inventato a occhio) ma un range
-                più ampio: gli stop scuri scendono più vicino al nero
-                (L~10%) e quelli chiari salgono più vicino al bianco caldo
-                (L~88%), con saturazione alzata su tutti gli stop (~34-50%
-                invece di ~20-42%) -- più contrasto interno alle bande, più
-                "vivo" senza diventare un viola acceso da neon (la luminosità
-                degli stop centrali resta media, non tutta la banda è
-                sparata in alto). */}
+            {/* Riempimento "metallo spazzolato" -- quinto giro, quinta
+                parte: non più una palette desaturata "argento-viola" ma le
+                4 tinte VERE del pulsante Growth, ripetute più volte con uno
+                schema chiaro-scuro-chiaro (come una superficie di metallo
+                spazzolato reale, che riflette la luce a bande, non con un
+                unico gradiente morbido da un capo all'altro) -- più bande di
+                passaggio chiaro/scuro = più "lucido" percepito, la stessa
+                tecnica usata per il testo "cromato" nel web design. */}
             <span
               style={{
                 gridArea: "1 / 1",
                 backgroundImage:
-                  "linear-gradient(180deg, #4c2f6a 0%, #dfbbe7 14%, #644082 30%, #211532 46%, #9a5eba 62%, #ebd1f0 76%, #412a5a 90%, #170f24 100%)",
+                  "linear-gradient(180deg, #110722 0%, #4c1d95 12%, #c026d3 24%, #7c3aed 36%, #2e1065 48%, #efc1f6 62%, #7c3aed 76%, #4c1d95 88%, #110722 100%)",
                 WebkitBackgroundClip: "text",
                 backgroundClip: "text",
                 color: "transparent",
@@ -196,29 +207,26 @@ function Titolo() {
                 CSS/Framer Motion invece che con lo stesso shader WebGL (che
                 qui in sandbox non regge mai, vedi giri precedenti -- un
                 eventuale bug nel mask non lo scoprirei prima di Gabriel).
-                Quinto giro, quarta parte -- Gabriel: "rallenta l'animazione
-                e migliorala". La velocità è già rallentata in
-                useRiflessoMetallico sopra; qui il "migliorala" è sulla FORMA
-                del riflesso stesso -- prima era una fascia stretta a bordi
-                netti (transparent 40% -> pieno 50% -> transparent 60%, un
-                "lampo" che si accende e spegne di colpo), ora è una curva a
-                campana più morbida e più larga (sei stop invece di tre, con
-                un nucleo luminoso più stretto e una dissolvenza ai lati più
-                graduale) -- si accende e si spegne con dolcezza invece di
-                comparire/sparire di scatto, più vicino a un vero riflesso di
-                luce su una superficie lucida che a un evidenziatore che
-                scorre. */}
+                Quinto giro, quinta parte -- insieme alle bande più sopra,
+                schiarito il nucleo del riflesso a un quasi-bianco (prima era
+                un lilla tenue, troppo debole per leggersi come un vero
+                riflesso lucido) e passato da `mixBlendMode: "overlay"` a
+                `"screen"` -- "overlay" scurisce le zone già scure della
+                banda (contro-intuitivo per un riflesso, che dovrebbe sempre
+                schiarire), "screen" schiarisce sempre, indipendentemente dal
+                colore sotto: più vicino a un vero bagliore di luce che
+                attraversa una superficie lucida. */}
             <motion.span
               style={{
                 gridArea: "1 / 1",
                 backgroundImage:
-                  "linear-gradient(100deg, transparent 0%, transparent 32%, rgba(236,219,240,0.16) 42%, rgba(255,244,255,0.7) 50%, rgba(236,219,240,0.16) 58%, transparent 68%, transparent 100%)",
+                  "linear-gradient(100deg, transparent 0%, transparent 32%, rgba(240,171,252,0.25) 42%, rgba(255,255,255,0.92) 50%, rgba(240,171,252,0.25) 58%, transparent 68%, transparent 100%)",
                 backgroundSize: "260% 100%",
                 backgroundPosition: riflessoBackgroundPosition,
                 WebkitBackgroundClip: "text",
                 backgroundClip: "text",
                 color: "transparent",
-                mixBlendMode: "overlay",
+                mixBlendMode: "screen",
               }}
             >
               mai più senza risposta.

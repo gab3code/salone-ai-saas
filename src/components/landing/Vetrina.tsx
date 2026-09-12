@@ -338,7 +338,7 @@ function Schermo({ indice, altezza }: { indice: number; altezza: string }) {
 export function Vetrina() {
   const [attivo, setAttivo] = useState(0);
   const contenitoreRef = useRef<HTMLDivElement>(null);
-  const pinRef = useRef<HTMLDivElement>(null);
+  const schermoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -360,16 +360,35 @@ export function Vetrina() {
     // da `lg` in su; sotto `lg` la sezione usa un layout completamente
     // diverso (vedi il blocco JSX `lg:hidden` più sotto), scritto apposta
     // per lo scroll verticale invece di essere lo stesso desktop rimpicciolito.
+    //
+    // Quinto giro, quinta parte -- lo stesso identico bug si è ripresentato
+    // anche su DESKTOP (screenshot di Gabriel: "anche questo viene
+    // tagliato", l'ultima scena della lista tagliata in basso). L'assunzione
+    // scritta sopra ("il layout a 2 colonne è molto meno alto") era vera
+    // solo in media, non sempre -- la lista di 6 pulsanti-scena (titolo +
+    // descrizione + icona ciascuno) supera comunque l'altezza della finestra
+    // su schermi non altissimi (es. un laptop con la barra degli indirizzi
+    // visibile), e prima pinnavamo l'INTERA griglia a 2 colonne (lista +
+    // palco insieme) -- stesso identico problema del pin mobile, spostato di
+    // un breakpoint più in alto. Fix: pinnare SOLO il palco di destra
+    // (`schermoRef`, un riquadro di altezza fissa 20-26rem che entra in
+    // QUALUNQUE viewport ragionevole), non più l'intera griglia -- la lista
+    // di sinistra torna un elemento normale nel flusso della pagina, libera
+    // di essere alta quanto serve e sempre scorrevole/raggiungibile per
+    // intero, esattamente come già garantito sotto `lg` per un motivo
+    // analogo. Il progresso di scroll (`onUpdate`, quale scena è "attivo")
+    // resta legato allo stesso trigger di 600vh su `contenitoreRef` -- cambia
+    // solo COSA viene pinnato, non il ritmo della scrollytelling.
     const mm = gsap.matchMedia();
 
     mm.add("(min-width: 1024px)", () => {
-      if (!contenitoreRef.current || !pinRef.current) return;
+      if (!contenitoreRef.current || !schermoRef.current) return;
 
       const trigger = ScrollTrigger.create({
         trigger: contenitoreRef.current,
         start: "top top+=72",
         end: "bottom bottom",
-        pin: pinRef.current,
+        pin: schermoRef.current,
         pinSpacing: false,
         scrub: true,
         onUpdate: (self) => {
@@ -385,8 +404,24 @@ export function Vetrina() {
   }, []);
 
   return (
-    <section className="relative overflow-hidden bg-noir py-4">
-      <Grana opacita={0.035} />
+    <section className="relative bg-noir py-4">
+      {/* Quinto giro, quinta parte -- `overflow-hidden` viveva sulla
+          <section> stessa (per ritagliare la texture di Grana ai suoi
+          bordi). Bug reale: `overflow: hidden` su un ANTENATO disattiva
+          `position: sticky` su ogni discendente (la lista qui sotto, appena
+          resa sticky per il fix del pin) -- non per un conflitto visivo, ma
+          perché la spec CSS lega lo sticky al più vicino "contenitore di
+          scroll", e un antenato con overflow diverso da `visible` conta
+          come tale anche se non è mai scrollabile a mano dall'utente:
+          rispetto a QUEL contenitore (che non scorre mai) lo sticky non ha
+          mai un motivo per attivarsi, anche se la PAGINA attorno scorre
+          normalmente. Spostato `overflow-hidden` su un contenitore dedicato
+          solo alla texture -- stessa resa visiva (Grana resta ritagliata ai
+          bordi della sezione), ma la sezione stessa torna "aperta" per la
+          sticky positioning dei suoi discendenti. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <Grana opacita={0.035} />
+      </div>
       <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
         {/* Centrato (terzo giro, segnalazione di Gabriel: "il titolo della
             sezione non è al centro") -- allineato con le altre sezioni. */}
@@ -402,8 +437,43 @@ export function Vetrina() {
             GSAP anima "attivo" mentre lo si attraversa scrollando, il
             pannello di destra resta fisso (pin). */}
         <div ref={contenitoreRef} className="relative mt-8 hidden lg:block" style={{ height: `${SCENE.length * 100}vh` }}>
-          <div ref={pinRef} className="grid gap-10 py-10 lg:grid-cols-2 lg:items-center">
-            <div className="order-2 flex flex-col gap-3 lg:order-1">
+          <div className="grid h-full gap-10 py-10 lg:grid-cols-2 lg:items-start">
+            {/* Quinto giro, quinta parte -- tolto il pin GSAP da questa lista
+                (vedi il commento nell'useEffect sopra), ma lasciarla come
+                normale contenuto scorrevole crea un problema NUOVO: la lista
+                (alta ~900px) è molto più corta dei 5400px di scroll assegnati
+                alle 6 scene, quindi dopo il primo ~20% dello scroll la lista
+                finisce fuori dalla pagina e resta solo il palco pinnato a
+                destra, con uno spazio vuoto e morto a sinistra per il resto
+                della sezione -- peggio della clip, ora sembra rotta per un
+                motivo diverso. Fix: `sticky` invece di `fixed` (via GSAP) --
+                la lista resta agganciata in vista per l'intera durata dello
+                scroll, ESATTAMENTE come il palco, ma con `overflow-y-auto` +
+                un `max-height` legato alla viewport: se anche in futuro
+                dovesse superare l'altezza disponibile, scorre CON LA ROTELLA
+                del mouse al suo interno invece di tagliare l'ultima voce --
+                non più raggiungibile "mai" (il bug originale) ma sempre
+                raggiungibile scrollando, qualunque sia l'altezza della lista
+                o della finestra.
+
+                Due insidie trovate SOLO verificando con uno scroll reale via
+                Playwright (non bastava leggere il CSS): (1) `position:
+                sticky` smetteva di agganciarsi dopo pochi px -- il
+                CONTENITORE diretto della lista (questo `<div>`) aveva
+                altezza automatica (quella del contenuto), quindi lo spazio
+                in cui la lista poteva restare "attaccata" era cortissimo.
+                Aggiunto `h-full` qui sopra (eredita i 5400px di
+                `contenitoreRef`) per dare alla sticky tutto lo spazio dei
+                600vh di scroll. (2) Farlo con `lg:items-center` (come prima)
+                centrava però il PALCO di destra al centro di una riga alta
+                5400px -- cioè a metà scroll di distanza dall'alto, fuori
+                dallo schermo -- e GSAP calcola la posizione del pin dalla
+                posizione "naturale" dell'elemento AL MOMENTO in cui lo crea:
+                risultato, il palco veniva pinnato a `top: 2564px`, invisibile
+                per tutta la sezione. Cambiato in `lg:items-start`: il palco
+                nasce in cima alla riga (accanto al titolo), dove GSAP lo
+                pinna correttamente vicino alla cima dello schermo. */}
+            <div className="order-2 flex flex-col gap-3 lg:order-1 lg:sticky lg:top-[72px] lg:max-h-[calc(100vh-96px)] lg:self-start lg:overflow-y-auto lg:pr-1">
               {SCENE.map((s, i) => (
                 <button
                   key={s.titolo}
@@ -457,7 +527,7 @@ export function Vetrina() {
                 grande (feedback di Gabriel su screenshot). L'URL nella
                 barra cambia con la scena, per dare comunque il senso di
                 "stiamo guardando parti diverse del prodotto". */}
-            <div className="order-1 h-80 sm:h-[26rem] lg:order-2">
+            <div ref={schermoRef} className="order-1 h-80 sm:h-[26rem] lg:order-2">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={attivo}

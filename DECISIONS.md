@@ -731,6 +731,46 @@ all'effetto (velocità, colore, intensità) si fa in un solo punto per tutto il 
 **Verifica**: vedi PROJECT_STATUS.md, sezione "Quinto giro, seconda parte", per l'esito di
 test/build/controllo visivo.
 
+## 2026-09-12 — Quinto giro, quinta parte: pinnare solo l'elemento piccolo, mai un blocco composito
+
+Bug: la sezione "Vetrina" (scrollytelling) pinnava con GSAP l'INTERA griglia a 2 colonne (lista di
+6 voci + palco del mockup) come un unico blocco `position: fixed` per tutta la durata dello
+scroll. Su schermi non altissimi, l'ultima voce della lista finiva oltre il bordo inferiore della
+finestra e restava lì per sempre -- un `position: fixed` non permette scroll interno, quindi
+qualunque contenuto ecceda la sua altezza in quel momento è irraggiungibile finché il pin resta
+attivo. Stesso identico bug già trovato e risolto su MOBILE in un giro precedente (lì la scelta fu
+un layout non pinnato del tutto sotto `lg`), ripresentato su desktop perché l'assunzione "il
+layout a 2 colonne è più corto" era vera in media, non sempre.
+
+**Decisione**: quando si pinna per una scrollytelling (un pannello che deve restare fermo mentre
+si scorre un elenco a fianco), pinnare SOLO l'elemento la cui altezza è fissa e piccola (qui, il
+"palco" del mockup, 20-26rem -- entra in qualunque finestra ragionevole), mai un contenitore
+composito la cui altezza dipende dal CONTENUTO (qui, la lista testuale, che cresce se il testo si
+allunga, se si aggiunge una settima voce, o se il font è più grande su un altro dispositivo). Un
+pin su un elemento a contenuto variabile è una bomba a orologeria: funziona finché il contenuto
+resta sotto una soglia mai scritta esplicitamente da nessuna parte, e si rompe silenziosamente il
+giorno che qualcuno aggiunge una riga di testo o una voce alla lista. L'elemento a contenuto
+variabile va reso `position: sticky` (che permette comunque di restare "agganciato" in vista, ma
+senza il rischio di clipping permanente) con un `overflow-y-auto` + `max-height` di sicurezza, così
+anche un contenuto futuro più lungo del previsto resta raggiungibile scorrendo, mai tagliato.
+
+**Due insidie CSS non ovvie, trovate solo scrollando davvero con Playwright** (utile per la
+prossima volta che si tocca `position: sticky` in questo progetto):
+1. Un `overflow: hidden` su QUALUNQUE antenato (qui, sulla `<section>`, per ritagliare una texture
+   di sfondo decorativa) disattiva silenziosamente `sticky` su ogni discendente -- la spec CSS lo
+   lega al più vicino "contenitore di scroll", e un antenato con overflow diverso da `visible`
+   conta come tale anche se in pratica non scorre mai da solo. Va spostato su un contenitore
+   dedicato SOLO alla texture, non sulla sezione intera.
+2. Il contenitore DIRETTO dell'elemento sticky deve essere alto quanto l'intero intervallo di
+   scroll per cui lo si vuole "agganciato" -- se la sua altezza è quella naturale del contenuto
+   (più corta), lo sticky si stacca non appena quell'altezza viene superata, molto prima della
+   fine dello scroll previsto.
+
+**Verifica**: vedi PROJECT_STATUS.md, sezione "Quinto giro, quinta parte" -- scroll programmato a 6
+punti distinti dell'intervallo, non 2-3 screenshot presi a caso, proprio perché un bug come questo
+(dipendente dall'altezza reale del contenuto rispetto alla finestra) non si vede scorrendo solo
+l'inizio o solo un frame casuale.
+
 ## 2026-09-12 — Quinto giro, quarta parte: margine di sicurezza sulla tonalità invece di un colore fisso
 
 Gabriel ha segnalato di nuovo, per la stessa animazione dell'anello Pro, che il colore

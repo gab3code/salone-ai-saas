@@ -1,6 +1,29 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026, quinto giro QUARTA PARTE (Gabriel ha guardato ancora il titolo
+Ultimo aggiornamento: 12/09/2026, quinto giro QUINTA PARTE (due segnalazioni indipendenti di
+Gabriel, entrambe con bug reali dietro). Prima: il titolo Hero era "carino ma poco premium... poco
+lucido e troppo opaco", con una richiesta specifica -- "prendi spunto dal colore dei pulsanti,
+tipo il pulsante di growth, non riesci a dare il bordo ad ogni lettera come il bordo viola
+metallico del pulsante growth?". Le bande di metallo e il contorno del titolo usavano una tinta
+viola VOLUTAMENTE desaturata (scelta della terza parte: "i metalli sono desaturati anche con una
+tinta"), ma Gabriel voleva letteralmente i colori SATURI del pulsante Growth, non un'interpretazione
+attenuata -- ricalcolato tutto (contorno chiaro/scuro, bande, riflesso) con `colorsys` sulle 4
+tinte esatte di `METAL_PIANI.Growth.colors`, ripetute a bande chiaro-scuro (tecnica del "testo
+cromato") invece di un gradiente morbido, e il riflesso animato schiarito con `mixBlendMode:
+"screen"` (schiarisce sempre) al posto di `"overlay"` (che poteva scurire, contro-intuitivo per
+un riflesso). Seconda segnalazione, uno screenshot separato durante lo stesso giro ("anche questo
+viene tagliato"): la sezione "Vetrina" (scrollytelling con pin GSAP) aveva lo STESSO identico bug
+già risolto su mobile nel primo giro di questo batch, ma su DESKTOP -- la lista di 6 voci veniva
+pinnata insieme al palco di destra dentro un unico blocco `position: fixed`, e su una finestra non
+altissima l'ultima voce ("Il tuo calendario personale...") restava sempre oltre il bordo inferiore,
+mai raggiungibile. Fix strutturale (non un ritocco di stile): pinnare SOLO il palco (piccolo,
+entra ovunque), rendere la lista `position: sticky` con scroll interno di sicurezza -- ma la sticky
+positioning ha richiesto due correzioni non ovvie trovate solo scrollando DAVVERO con Playwright
+(non leggendo il CSS): un `overflow-hidden` su un antenato (per la texture di sfondo) disattivava
+sticky su TUTTI i discendenti; e `items-center` su una riga di griglia alta 5400px centrava il
+palco di destra a metà di quell'altezza (fuori schermo) proprio nel momento in cui GSAP calcolava
+dove pinnarlo. Vedi le due sezioni dedicate più sotto per il dettaglio completo. Aggiornamento
+precedente, 12/09/2026 quinto giro QUARTA PARTE (Gabriel ha guardato ancora il titolo
 Hero e il pulsante Pro sul sito vero: "carino ma... troppo spento", "ce ancora lo sfondo sfumato
 scuro dietro la frase", "le p sono tagliate sotto", "rallenta l'animazione e migliorala", e "il
 pulsante di pro tende ancora al verde... fai solo oro"). Cinque correzioni, tre delle quali bug
@@ -613,6 +636,73 @@ in questa sandbox. Per il titolo Hero, invece, il metodo di verifica è cambiato
 sfondo scuro indovinato a caso, ma il TUO screenshot reale usato come sfondo di prova in
 Playwright (canvas nascosto, la tua immagine al suo posto) -- molto più affidabile, anche se resta
 comunque un'immagine ferma, non lo shader animato vero.
+
+## Quinto giro, quinta parte -- titolo "premium" come Growth, e clipping desktop in Vetrina (12/09/2026)
+
+**Titolo Hero -- "prendi spunto dal colore dei pulsanti, tipo il pulsante di growth"**: dalla
+terza parte in poi, il contorno e le bande di metallo del titolo usavano una tinta viola
+DESATURATA di proposito ("i metalli sono desaturati per natura anche quando hanno una tinta" --
+ragionamento corretto in astratto, ma non quello che Gabriel stava chiedendo). Guardando il
+titolo accanto al pulsante Growth vero, Gabriel ha chiesto esplicitamente gli stessi colori
+SATURI di quel pulsante, non un'interpretazione "metallica" più tenue. Cambiamenti, tutti con i 4
+colori esatti di `METAL_PIANI.Growth.colors` (`#2e1065`, `#4c1d95`, `#7c3aed`, `#c026d3`) come
+unica fonte, passati per `colorsys` invece che scelti a occhio:
+- Contorno esterno portato a `#110722` (più scuro del più scuro di Growth, per contrasto);
+  contorno interno portato a `#efc1f6` (il fucsia più chiaro di Growth, schiarito ulteriormente).
+- Riempimento delle bande: non più un gradiente morbido da un capo all'altro, ma le 4 tinte di
+  Growth ripetute con uno schema chiaro-scuro-chiaro-scuro (9 stop) -- la stessa tecnica usata per
+  il "testo cromato" nel web design: più passaggi chiaro/scuro leggono come più superfici che
+  riflettono la luce a angolazioni diverse, cioè più "lucido".
+- Riflesso animato: nucleo schiarito a quasi-bianco (prima era lilla tenue, troppo debole) e
+  `mixBlendMode` cambiato da `"overlay"` a `"screen"` -- `overlay` scurisce le zone già scure della
+  banda sotto (contro-intuitivo per un riflesso, che dovrebbe sempre illuminare), `screen`
+  schiarisce sempre a prescindere dal colore sotto.
+
+**Vetrina.tsx -- lo stesso bug del pin mobile, ripresentato su desktop**: Gabriel ha mandato uno
+screenshot della sezione "Perché è diverso" con l'ultima voce della lista ("Il tuo calendario
+personale, sempre sincronizzato") tagliata in basso -- "anche questo viene tagliato", lo stesso
+linguaggio usato per il bug delle lettere "p" del titolo pochi minuti prima. Causa reale,
+diagnosticata leggendo il codice: la sezione usa GSAP ScrollTrigger con `pin` per tenere fermo un
+"palco" (mockup del prodotto) mentre si scorre una lista di 6 voci a fianco -- lo stesso pattern
+già causa di un bug IDENTICO su mobile (vedi "Quinto giro" più sotto), risolto allora dando al
+mobile un layout completamente diverso, non pinnato. L'assunzione scritta in quel fix ("su
+desktop il layout a 2 colonne è molto meno alto, il pin ci sta") era vera in media ma non sempre:
+la lista di 6 pulsanti-scena, con titolo+descrizione+icona ciascuno, supera comunque l'altezza
+della finestra su schermi non altissimi -- e l'intera griglia (lista + palco) veniva pinnata
+insieme, quindi qualunque parte oltre il bordo inferiore della finestra restava permanentemente
+irraggiungibile per tutta la durata del pin, esattamente come su mobile.
+
+Fix (non un ritocco, una correzione strutturale): pinnare SOLO il palco di destra (piccolo,
+altezza fissa 20-26rem, entra in qualunque finestra ragionevole) invece dell'intera griglia; la
+lista di sinistra diventa `position: sticky` con `overflow-y-auto` + `max-height` legato alla
+viewport come rete di sicurezza (se in futuro dovesse comunque superare lo spazio disponibile,
+scorre con la rotella invece di tagliare l'ultima voce -- non più "mai raggiungibile", sempre
+raggiungibile).
+
+Verificato con Playwright che questa scelta NON fosse solo corretta sulla carta, con uno scroll
+reale (non un salto istantaneo) sono emerse due insidie che la sola lettura del CSS non avrebbe
+mostrato:
+1. `position: sticky` smetteva di agganciarsi dopo pochi pixel di scroll. Causa: il contenitore
+   diretto della lista aveva altezza automatica (quella del contenuto, ~900px) invece dei 5400px
+   di scroll assegnati alle 6 scene -- lo spazio in cui la lista poteva restare "attaccata" era
+   cortissimo. Fix: quel contenitore eredita l'altezza piena (`h-full`) del blocco di scroll da
+   5400px.
+2. Con quella correzione, `items-center` (per centrare verticalmente le due colonne) centrava il
+   PALCO di destra a metà di una riga alta 5400px -- cioè circa 2700px sotto la cima della
+   sezione, fuori da qualunque finestra. GSAP calcola dove "congelare" un elemento pinnato dalla
+   sua posizione naturale nell'istante in cui lo pinna: il palco veniva quindi pinnato a
+   `top: 2564px`, invisibile per l'intera sezione (bug nuovo, introdotto dal fix del punto 1,
+   trovato anch'esso solo scrollando davvero e leggendo la posizione reale dell'elemento, non
+   supponendola). Fix: `items-start` al posto di `items-center` sulla riga -- il palco nasce in
+   cima, dove GSAP lo pinna in un punto visibile.
+
+Verifica finale (scroll programmato attraverso l'intero intervallo, non solo 2-3 screenshot a
+caso): tutte e 6 le voci della lista sempre visibili e raggiungibili; il palco di destra sempre
+nella stessa posizione a schermo; il contenuto del palco e l'URL nella barra corrispondono sempre
+alla voce evidenziata nella lista, verificato a 6 punti di scroll distinti (inizio, 20%, 45%, 60%,
+75%, fine).
+
+`tsc --noEmit`, `eslint` sui file toccati, `vitest run` (112/112) e `next build` tutti puliti.
 
 ## Quinto giro, quarta parte -- ancora titolo Hero e pulsante Pro, sul sito vero (12/09/2026)
 
