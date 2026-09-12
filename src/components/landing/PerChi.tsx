@@ -17,9 +17,7 @@ interface Persona {
  * Riscritta (12/09/2026, punto 15 di Gabriel: la griglia uniforme "fa
  * schifo", scelta dopo aver visto le opzioni una bento grid asimmetrica
  * come Funzionalita.tsx -- stesso linguaggio visivo in tutto il sito
- * invece di un pattern diverso per ogni sezione). Il pubblico principale
- * (saloni/parrucchieri con team, da cui il nome del prodotto) prende un
- * riquadro doppio ed è il primo che si nota; gli altri restano normali.
+ * invece di un pattern diverso per ogni sezione).
  *
  * Aggiunta una sesta voce, esplicitamente un "chiunque altro" (richiesta
  * di Gabriel: "basta che attiri tutte le persone che prendono
@@ -36,14 +34,31 @@ interface Persona {
  * settima voce porta il totale a 8 unità, multiplo di entrambi: nessun
  * buco. Scelta una categoria vera e distinta dalle altre 6 (fotografi),
  * non un riempitivo senza senso.
+ *
+ * Aggiornamento 12/09/2026 (terzo giro) -- il riquadro doppio (il primo che
+ * si nota) è passato da "Parrucchieri e centri estetici con team" al
+ * catch-all "Qualunque attività lavori su appuntamento" (richiesta esplicita
+ * di Gabriel: il titolo della sezione non deve più essere incentrato sui
+ * saloni/estetisti, "è PER TUTTI quelli che usano appuntamenti" -- il
+ * riquadro più in vista deve dirlo, non una singola categoria). Il testo
+ * del catch-all è stato rafforzato per reggere il ruolo di card
+ * riepilogativa: nomina esplicitamente anche saloni/palestre invece di
+ * lasciarli solo nelle card sotto, e chiarisce che quelle sotto sono
+ * esempi, non un elenco chiuso.
  */
 const PERSONE: Persona[] = [
+  {
+    titolo: "Qualunque attività lavori su appuntamento",
+    testo:
+      "Saloni, studi medici, centri benessere, palestre, scuole, noleggi: se i tuoi clienti prenotano un orario, è pensato per te. Le categorie qui sotto sono solo alcuni esempi, non un elenco chiuso.",
+    icona: CalendarCheck,
+    grande: true,
+  },
   {
     titolo: "Parrucchieri e centri estetici con team",
     testo:
       "Più operatori, servizi con durate diverse e pause tra un trattamento e l'altro gestiti in automatico — niente più agenda cartacea con gli incastri fatti a mano.",
     icona: Scissors,
-    grande: true,
   },
   {
     titolo: "Barbieri",
@@ -64,11 +79,6 @@ const PERSONE: Persona[] = [
     titolo: "Consulenti e liberi professionisti",
     testo: "Fisioterapisti, massaggiatori, tatuatori, consulenti: un'agenda seria anche senza uno studio con reception.",
     icona: Briefcase,
-  },
-  {
-    titolo: "Qualunque attività lavori su appuntamento",
-    testo: "Studi medici, centri benessere, scuole, noleggi: se i tuoi clienti prenotano un orario, funziona anche per te.",
-    icona: CalendarCheck,
   },
   {
     titolo: "Fotografi e studi fotografici",
@@ -99,10 +109,15 @@ export function PerChi() {
   return (
     <section id="per-chi" className="scroll-mt-24 py-24">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
-        <Reveal className="max-w-lg">
+        {/* Titolo riscritto e centrato (terzo giro, richiesta di Gabriel:
+            "basta essere incentrato su sti estetisti, è PER TUTTI quelli
+            che usano appuntamenti" + "i titoli sono allineati a sinistra e
+            non al centro") -- non elenca più specifici settori, la card
+            grande sotto lo fa già in modo esplicito. */}
+        <Reveal className="mx-auto max-w-xl text-center">
           <h2 className="text-sm font-medium text-violet-400">Per chi è</h2>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Fatto per chi lavora su appuntamento — saloni, centri estetici e liberi professionisti.
+            Fatto per chi lavora su appuntamento, qualunque sia il tuo settore.
           </p>
         </Reveal>
 

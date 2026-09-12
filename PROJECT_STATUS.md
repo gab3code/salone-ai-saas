@@ -1,6 +1,20 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026, terzo giro (Gabriel ha scaricato e usato lui stesso il sito
+Ultimo aggiornamento: 12/09/2026, quarto giro (Gabriel ha usato il sito pubblicato dal terzo
+giro e segnalato 13 nuovi punti via screenshot + testo; 4 erano scelte di design ambigue --
+chiarite con `AskUserQuestion` prima di agire, come richiesto esplicitamente da Gabriel in
+chiusura del suo messaggio -- le altre erano bug/rifiniture concrete. Vedi la sezione dedicata
+più sotto per il dettaglio completo: griglia Funzionalita riordinata per un bug reale di
+`grid-auto-flow: dense` a 3 colonne, non solo "riordinata a caso"; click-scroll di Vetrina.tsx
+corretto (usava `offsetTop`, relativo all'antenato posizionato più vicino, non al documento);
+card featured di PerChi spostata su "chiunque lavori su appuntamento"; TiltCard aggiunto alle
+card di PercheNoi; pulsanti dei piani a pagamento con effetto LiquidMetal graduato (Starter ->
+Growth -> Pro, sempre più "premium"); pulsante magnetico rimosso dalla CTA finale (disallineava
+il bordo animato); scroll della navbar con easing personalizzato; nuovo header condiviso per
+`/accedi` e `/registrati`; copy del riquadro verde di ImpattoEconomico riscritto una seconda
+volta per nominare sia i messaggi senza risposta sia gli appuntamenti dimenticati; Reveal esteso
+a `Footer.tsx` e alla didascalia di `PrimaDopo.tsx`, le uniche porzioni di testo rimaste ferme).
+Aggiornamento precedente, 12/09/2026 terzo giro (Gabriel ha scaricato e usato lui stesso il sito
 pubblicato dal secondo giro, con screenshot alla mano, e segnalato 10 problemi puntuali --
 3 dei quali decisioni di prodotto vere (scope multi-canale AI, trial ristretto a Growth,
 contenuto/Lampada di PercheNoi), non solo estetiche: vedi DECISIONS.md, voce omonima, e la
@@ -315,6 +329,74 @@ noti aperti" e "Cosa è mock, incompleto o non ancora iniziato" -- entrambe le s
 aggiornate correttamente ai giri precedenti). Un solo aggiornamento necessario: la sezione
 "Prossimo passo pianificato" in fondo a questo file era rimasta ferma a "il codice non è ancora
 committato", ma il secondo giro è già stato committato (`2ff7ea5`) -- corretta più sotto.
+
+## Quarto giro di rifinitura landing, dopo l'uso reale del sito pubblicato dal terzo giro (12/09/2026)
+
+Gabriel ha usato il sito del terzo giro e mandato 13 punti via screenshot + testo, chiudendo con
+un'istruzione esplicita: fare domande a risposta multipla prima di agire sui punti ambigui.
+Rispettata alla lettera -- vedi sotto quali punti sono stati chiariti prima di scrivere codice.
+
+**Bug reali, diagnosticati e non solo ritoccati a occhio**:
+- `Funzionalita.tsx`, "nella foto che vedi, manca ordine": non un giudizio estetico generico.
+  Causa reale trovata rileggendo l'algoritmo: il totale di 20 unità di griglia (impostato nel
+  giro precedente apposta per essere multiplo di 4 e di 2) NON è multiplo di 3 -- e la griglia
+  passa proprio per 3 colonne nella fascia intermedia (`sm:grid-cols-3`, tablet/finestre strette).
+  A 3 colonne un riquadro doppio lascia lì un buco che `grid-auto-flow: dense` richiude facendo
+  "saltare avanti" nell'ordine visivo la prima card piccola successiva che ci sta -- l'ordine
+  VISTO smette di corrispondere all'elenco. Chiarito con Gabriel prima di toccare il layout
+  (`AskUserQuestion`, ha confermato questa diagnosi e scelto "riordino l'elenco"). Fix in due
+  parti: (1) l'elenco è riordinato "2 riquadri normali + 1 doppio" ripetuto 5 volte invece di
+  raggruppare i pilastri vicini -- un riquadro doppio cade sempre su un confine di riga pari, non
+  lo attraversa mai, zero buchi/riordini a 2 e 4 colonne; (2) la fascia intermedia a 3 colonne è
+  tolta del tutto (`sm:grid-cols-3` -> diretto a `lg:grid-cols-4`), l'unica larghezza in cui 20
+  non torna esatto. Verificato a 375px e 1440px: ordine visivo sempre identico all'elenco.
+- `Vetrina.tsx`, click su una scena "mi sposta sulla pagina a caso": bug reale, non percezione --
+  l'handler usava `target.offsetTop`, che è relativo al più vicino antenato POSIZIONATO (qualsiasi
+  `position` diverso da `static`), non alla cima del documento; con più antenati posizionati nella
+  gerarchia (motion/GSAP ne aggiungono facilmente) il valore non corrispondeva più alla posizione
+  reale nella pagina. Fix: `target.getBoundingClientRect().top + window.scrollY`, sempre assoluto
+  rispetto al documento. Stessa scena, primo mobile scene card tagliato: fix con un array di
+  altezze per-scena invece di un'altezza fissa uguale per tutte. Titolo sezione centrato.
+- CTAFinale, "il pulsante ha un hover orrendo": bug reale, non gusto -- `MagneticButton` sposta il
+  pulsante seguendo il cursore (`x`/`y` via motion values), ma `GlowBorder` sotto è un fratello
+  assoluto (`inset:0`) ancorato al contenitore FISSO, non alla posizione che il pulsante assume
+  mentre insegue il mouse: al hover il bordo restava fermo mentre il pulsante slittava sopra,
+  sfasandosi visibilmente. Chiarito con Gabriel (`AskUserQuestion`, tre opzioni) -- scelto "fix
+  mirato": tolto l'effetto magnetico da questo pulsante soltanto, `hover:scale` al suo posto,
+  bagliore/bordo animato invariati.
+
+**Decisioni chiarite con `AskUserQuestion` prima di scrivere codice** (dettaglio in
+DECISIONS.md): card featured di `PerChi.tsx` spostata su "chiunque lavori su appuntamento" invece
+che sui soli saloni/centri estetici; effetto `LiquidMetal` (lo shader della Hero) applicato in
+forma graduata a TUTTI e tre i piani a pagamento (Starter/Growth/Pro), non solo a Growth, con
+intensità crescente; conferma che la riga del promemoria di `ImpattoEconomico.tsx` era già
+corretta dal giro precedente (nuovo screenshot alla mano) -- probabile cache/build non aggiornata
+lato Gabriel, non un bug residuo; portata avanti l'estensione di `Reveal`/`RevealStagger` dove
+mancava (opzione "a rischio più basso" scelta da Gabriel rispetto a un redesign scroll-driven più
+ampio) invece di introdurre un sistema di reveal nuovo.
+
+**Altre rifiniture**: TiltCard aggiunto alle card DIFFERENZIATORI di `PercheNoi.tsx` (mancava
+rispetto a PerChi.tsx, estratto in un componente condiviso `CardDifferenziatore` per non duplicare
+il markup su due griglie); scroll della navbar con easing "accelera poi rallenta" personalizzato
+(`easeInOutCubic`, un listener unico a livello di documento) al posto dello smooth-scroll di
+default del browser; nuovo `AuthHeader.tsx` condiviso da `/accedi` e `/registrati` (barra fissa
+con logo/link alla home, sostituisce i 3 link di testo inline che c'erano prima); copy del
+riquadro verde di `ImpattoEconomico.tsx` riscritto una seconda volta -- il giro precedente lo
+aveva tolto dal citare il prezzo di Growth ma copriva solo i messaggi senza risposta, non gli
+appuntamenti dimenticati (seconda colonna di calcolo aggiunta nel frattempo); `Reveal` esteso a
+`Footer.tsx` e alla didascalia di `PrimaDopo.tsx`, le uniche porzioni di testo rimaste ferme in
+uno scroll completo della pagina.
+
+**Verifica finale**: 112/112 test passano, `eslint` pulito sui file toccati, build di produzione
+pulita, zero console/page error in un controllo Playwright mirato sui punti segnalati (desktop
+1440px e mobile 375px) inclusi un test funzionale del click-scroll di Vetrina (scroll di ~500px
+verso la scena cliccata, non un salto a un punto casuale) e un campionamento della curva di scroll
+della navbar (progressione lenta-veloce-lenta coerente con l'easing scelto). **Nota per Gabriel**:
+i pulsanti `LiquidMetal` dei piani a pagamento non sono verificabili al 100% dalla sandbox --
+l'ambiente Playwright qui non ha un contesto WebGL funzionante nemmeno per lo shader della Hero,
+già esistente e mai toccato in questo giro (stesso problema, non una regressione introdotta ora),
+quindi serve un tuo controllo visivo sul deploy reale (stesso avviso già presente per la Hero
+nella sezione "Prossimo passo pianificato" sotto).
 
 ## Stack reale (verificato in `package.json`)
 

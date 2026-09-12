@@ -5,11 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { creaClientBrowser } from "@/lib/supabase/client";
 import { Grana } from "@/components/landing/Grana";
+import { AuthHeader } from "@/components/landing/AuthHeader";
 
 /**
  * Ristilizzata insieme a /registrati (controllo approfondito pre-
  * pubblicazione, 12/09/2026) -- stessa identità dark/viola della landing
  * invece del form HTML nudo di prima. Logica di accesso invariata.
+ *
+ * Header sostituito (terzo giro, richiesta di Gabriel: "devo comunque avere
+ * il titolo del mio sito sopra, esteticamente bello, che se clicco mi fa
+ * tornare alla landing page") -- prima era solo un link di testo centrato
+ * sopra il form, facile da scambiare per una scritta decorativa. AuthHeader
+ * è condiviso con /registrati (stessa barra fissa in cima, stesso
+ * linguaggio della navbar della landing).
  */
 export default function PaginaAccesso() {
   const router = useRouter();
@@ -42,7 +50,8 @@ export default function PaginaAccesso() {
   const classeEtichetta = "text-sm font-medium text-white/70";
 
   return (
-    <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-6 py-16 sm:p-8">
+    <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-6 py-24 sm:p-8 sm:py-28">
+      <AuthHeader />
       <div
         className="pointer-events-none fixed inset-0"
         style={{ background: "radial-gradient(60% 50% at 50% 0%, rgba(124,58,237,0.16), transparent 70%)" }}
@@ -50,10 +59,6 @@ export default function PaginaAccesso() {
       <Grana opacita={0.04} />
 
       <div className="relative w-full max-w-sm">
-        <Link href="/" className="mb-6 block text-center text-sm font-semibold tracking-tight text-white/70 transition-colors hover:text-white">
-          Salone AI
-        </Link>
-
         <form onSubmit={accedi} className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl sm:p-8">
           <div className="mb-2 text-center">
             <h1 className="text-xl font-semibold text-white">Bentornato</h1>

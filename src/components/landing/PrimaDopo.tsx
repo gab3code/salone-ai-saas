@@ -52,8 +52,13 @@ export function PrimaDopo() {
 
       <Reveal className="mt-10">
         <CompareSlider sinistra={<PannelloPrima />} destra={<PannelloDopo />} className="aspect-[4/3] w-full sm:aspect-[16/9]" />
+        {/* Didascalia inclusa nello stesso Reveal dello slider sopra invece
+            che ferma (terzo giro, richiesta di Gabriel: "voglio che tutto
+            compare scendendo, anche il testo") -- comparire insieme, non con
+            un ritardo proprio, perché è una nota a piè di componente, non un
+            contenuto a sé. */}
+        <p className="mt-3 text-center text-xs text-white/40">Situazioni tipiche, non dati di un cliente reale.</p>
       </Reveal>
-      <p className="mt-3 text-center text-xs text-white/40">Situazioni tipiche, non dati di un cliente reale.</p>
     </section>
   );
 }

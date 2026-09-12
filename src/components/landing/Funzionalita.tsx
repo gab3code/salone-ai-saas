@@ -58,11 +58,46 @@ interface Voce {
  * nessuno dei due. "CRM clienti" è passato a riquadro doppio apposta per
  * arrivare a questo numero, non a caso: è comunque uno dei pilastri veri
  * del prodotto (vedi il sottotitolo della pagina), non un riempitivo.
+ *
+ * Aggiornamento 12/09/2026 (terzo giro, segnalazione di Gabriel dopo uno
+ * screenshot: "nella foto che vedi, manca ordine"). Causa reale, trovata
+ * rileggendo l'algoritmo invece che ad occhio: 20 unità è multiplo di 4 e
+ * di 2 (verificato sopra) ma NON di 3 -- e la griglia passa proprio da 3
+ * colonne nella fascia intermedia (`sm:grid-cols-3`, tablet/finestre
+ * strette, prima di arrivare a 4 su desktop pieno). A 3 colonne un riquadro
+ * doppio piazzato a 2 celle dall'inizio riga non ci sta, lascia un buco, e
+ * `dense` lo richiude facendo "saltare avanti" nell'ordine visivo la prima
+ * card piccola successiva che ci sta -- risultato: la sequenza che si VEDE
+ * non è più quella dell'elenco (una card "minore" compare prima di un
+ * pilastro), che è esattamente cosa vuol dire "manca ordine". Due fix
+ * assieme, decisi con Gabriel:
+ * 1) l'elenco è riordinato 2 normali + 1 riquadro doppio ripetuto 5 volte
+ *    (invece di raggruppare i pilastri vicini come prima) -- così un
+ *    riquadro doppio cade sempre su un confine di riga "pari" (posizione
+ *    0 o 2 di una riga da 4, oppure 0 di una riga da 2), non lo attraversa
+ *    mai e non lascia buchi da richiudere a 2 e 4 colonne.
+ * 2) la fascia intermedia a 3 colonne (l'unica in cui 20 non torna esatto)
+ *    è tolta: `sm:grid-cols-3` diventa `lg:grid-cols-4` diretto, quindi la
+ *    griglia resta a 2 colonne fino al breakpoint desktop invece di passare
+ *    per una larghezza dove il conto non quadra mai.
+ * Risultato: zero buchi e zero riordini a runtime su entrambe le larghezze
+ * rimaste (2 e 4 colonne) -- l'ordine visivo torna sempre uguale a quello
+ * dell'elenco qui sotto.
  */
+// Ordine: 2 riquadri normali + 1 doppio, ripetuto 5 volte (vedi commento
+// sopra) -- non è più "prima tutti i pilastri principali", ma è quello che
+// garantisce zero buchi/riordini nella griglia. I 5 pilastri (Calendario,
+// CRM, Assistente AI, Dashboard, Promemoria) restano nello stesso ordine
+// relativo di prima, solo distribuiti lungo l'elenco invece che ravvicinati.
 const FUNZIONI: Voce[] = [
-  { titolo: "Calendario intelligente", descrizione: "Disponibilità calcolata da orari, pause, ferie e durata reale del servizio.", icona: CalendarClock, grande: true },
   { titolo: "Pagina di prenotazione online", descrizione: "Link tuo, condivisibile ovunque, self-service 24/7.", icona: Globe2 },
+  { titolo: "Multi-operatore e servizi", descrizione: "Ogni operatore con i propri orari, servizi e prezzi.", icona: Scissors },
+  { titolo: "Calendario intelligente", descrizione: "Disponibilità calcolata da orari, pause, ferie e durata reale del servizio.", icona: CalendarClock, grande: true },
+  { titolo: "Registrazione zero-attrito", descrizione: "Ti registri e il tuo spazio è già pronto, nessun passaggio manuale.", icona: UserPlus },
+  { titolo: "Isolamento dati reale", descrizione: "Separazione a livello di database tra ogni attività, non solo applicativa.", icona: ShieldCheck },
   { titolo: "CRM clienti", descrizione: "Storico completo per ogni cliente, qualunque canale abbia usato per prenotare — mai due archivi da tenere allineati a mano.", icona: Users, grande: true },
+  { titolo: "Sync Google Calendar", descrizione: "Impegni personali dell'operatore bloccano lo slot in automatico.", icona: CalendarClock },
+  { titolo: "SMS", descrizione: "Promemoria e conferme anche senza WhatsApp o smartphone.", icona: MessageSquareMore },
   {
     titolo: "Assistente AI in chat e su WhatsApp",
     // Instagram e Telegram tolti dal copy attuale (richiesta di Gabriel,
@@ -73,17 +108,12 @@ const FUNZIONI: Voce[] = [
     icona: MessageSquareText,
     grande: true,
   },
-  { titolo: "Multi-operatore e servizi", descrizione: "Ogni operatore con i propri orari, servizi e prezzi.", icona: Scissors },
-  { titolo: "Dashboard con insight azionabili", descrizione: "Non solo numeri: un pulsante per contattare i clienti inattivi.", icona: LayoutDashboard, grande: true },
-  { titolo: "Registrazione zero-attrito", descrizione: "Ti registri e il tuo spazio è già pronto, nessun passaggio manuale.", icona: UserPlus },
-  { titolo: "Isolamento dati reale", descrizione: "Separazione a livello di database tra ogni attività, non solo applicativa.", icona: ShieldCheck },
-  { titolo: "Sync Google Calendar", descrizione: "Impegni personali dell'operatore bloccano lo slot in automatico.", icona: CalendarClock },
-  { titolo: "Promemoria automatici", descrizione: "Reminder prima dell'appuntamento e follow-up ai clienti inattivi, senza pensarci.", icona: BellRing, grande: true },
-  { titolo: "SMS", descrizione: "Promemoria e conferme anche senza WhatsApp o smartphone.", icona: MessageSquareMore },
   { titolo: "Pagamenti e upgrade self-service", descrizione: "Cambio piano dal pannello, senza scriverci.", icona: CreditCard },
   { titolo: "App installabile (PWA)", descrizione: "Dashboard a schermo intero, come un'app nativa.", icona: Smartphone },
+  { titolo: "Dashboard con insight azionabili", descrizione: "Non solo numeri: un pulsante per contattare i clienti inattivi.", icona: LayoutDashboard, grande: true },
   { titolo: "Tono dell'AI personalizzabile", descrizione: "Guida il modo in cui l'assistente risponde ai tuoi clienti.", icona: SlidersHorizontal },
   { titolo: "Analytics", descrizione: "Andamento prenotazioni e clienti nel tempo, non solo i numeri di oggi.", icona: BarChart3 },
+  { titolo: "Promemoria automatici", descrizione: "Reminder prima dell'appuntamento e follow-up ai clienti inattivi, senza pensarci.", icona: BellRing, grande: true },
 ];
 
 function Cella({ v }: { v: Voce }) {
@@ -133,7 +163,7 @@ export function Funzionalita() {
         <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Tutto quello che serve, in un unico posto.</p>
       </Reveal>
 
-      <RevealStagger className="mt-12 grid auto-rows-fr grid-cols-2 gap-3 [grid-auto-flow:dense] sm:grid-cols-3 sm:gap-4 lg:grid-cols-4" gapMs={0.04}>
+      <RevealStagger className="mt-12 grid auto-rows-fr grid-cols-2 gap-3 [grid-auto-flow:dense] sm:gap-4 lg:grid-cols-4" gapMs={0.04}>
         {FUNZIONI.map((v) => (
           <RevealItem key={v.titolo} className={v.grande ? "col-span-2" : "col-span-1"}>
             <Cella v={v} />

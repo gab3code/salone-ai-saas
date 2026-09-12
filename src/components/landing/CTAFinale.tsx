@@ -1,7 +1,6 @@
 import { Check } from "lucide-react";
 import { Reveal, RevealStagger, RevealItem } from "./Reveal";
 import { Grana } from "./Grana";
-import { MagneticButton } from "./MagneticButton";
 import { GlowBorder } from "./GlowBorder";
 
 const GARANZIE = ["Nessuna carta richiesta", "Attivo in 5 minuti", "Cancella quando vuoi"];
@@ -51,14 +50,27 @@ export function CTAFinale() {
             Il tuo salone online in 5 minuti,<br className="sm:hidden" /> senza toccare una riga di codice.
           </p>
 
+          {/* Bug reale trovato (terzo giro, segnalazione di Gabriel:
+              "il pulsante ha un hover orrendo"): MagneticButton sposta il
+              pulsante seguendo il cursore, ma GlowBorder qui sotto è un
+              fratello assoluto (`inset: 0`) ancorato al contenitore fisso --
+              non alla posizione che il pulsante assume mentre "insegue" il
+              mouse. Al hover il bordo luminoso restava fermo mentre il
+              pulsante bianco slittava sopra di esso, sfasandosi
+              visibilmente. Fix mirato (opzione scelta con Gabriel): tolto
+              solo l'effetto magnetico da QUESTO pulsante, tenuto tutto il
+              resto (bagliore ambientale, bordo animato) invariato -- un
+              semplice `hover:scale` sostituisce il movimento magnetico,
+              stesso feedback tattile, senza disallineamento possibile
+              perché non c'è più nulla che si sposta rispetto al bordo. */}
           <div className="relative mt-7 inline-block rounded-full p-px">
             <GlowBorder rounded={100} borderWidth={1.5} speed={10} hoverMultiplier={3} glowColor="#ffffff" tailColor="rgba(240,171,252,0.5)" baseColor="rgba(255,255,255,0.04)" />
-            <MagneticButton
+            <a
               href="/registrati"
-              className="relative block rounded-full bg-white px-7 py-3 text-sm font-medium text-zinc-900"
+              className="relative block rounded-full bg-white px-7 py-3 text-sm font-medium text-zinc-900 transition-transform duration-200 hover:scale-105"
             >
               Crea il tuo account
-            </MagneticButton>
+            </a>
           </div>
 
           <RevealStagger className="relative mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2" gapMs={0.05}>

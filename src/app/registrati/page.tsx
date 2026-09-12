@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { creaClientBrowser } from "@/lib/supabase/client";
 import { pianoEPagante, ETICHETTA_PIANO } from "@/lib/stripe/piani";
 import { Grana } from "@/components/landing/Grana";
+import { AuthHeader } from "@/components/landing/AuthHeader";
 
 /**
  * Registrazione self-service (punto 5/6 della spec): email + password +
@@ -30,6 +31,12 @@ import { Grana } from "@/components/landing/Grana";
  * al dettaglio. Qui sotto solo classi/markup: zero cambi alla logica
  * (`registrati()`, gestione piano/sessione/email di conferma restano
  * identici).
+ *
+ * Header sostituito (terzo giro, richiesta di Gabriel: "devo comunque avere
+ * il titolo del mio sito sopra, esteticamente bello, che se clicco mi fa
+ * tornare alla landing page") -- AuthHeader (barra fissa in cima, condivisa
+ * con /accedi) sostituisce i due link di testo che c'erano prima, uno per
+ * ciascuno dei due stati della pagina (form / "email inviata").
  */
 export default function PaginaRegistrazione() {
   return (
@@ -116,12 +123,10 @@ function FormRegistrazione() {
 
   if (inviata) {
     return (
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-8">
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-8 py-24 sm:py-28">
+        <AuthHeader />
         <SfondoAuth />
         <div className="relative max-w-sm text-center">
-          <Link href="/" className="mb-8 inline-block text-sm font-semibold tracking-tight text-white/70 transition-colors hover:text-white">
-            Salone AI
-          </Link>
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
             <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
               ✓
@@ -139,13 +144,10 @@ function FormRegistrazione() {
   }
 
   return (
-    <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-6 py-16 sm:p-8">
+    <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-6 py-24 sm:p-8 sm:py-28">
+      <AuthHeader />
       <SfondoAuth />
       <div className="relative w-full max-w-sm">
-        <Link href="/" className="mb-6 block text-center text-sm font-semibold tracking-tight text-white/70 transition-colors hover:text-white">
-          Salone AI
-        </Link>
-
         <form onSubmit={registrati} className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl sm:p-8">
           <div className="mb-2 text-center">
             <h1 className="text-xl font-semibold text-white">Crea il tuo salone</h1>

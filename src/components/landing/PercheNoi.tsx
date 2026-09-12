@@ -3,6 +3,7 @@
 import { ShieldCheck, Sparkles, Globe2, Layers, UserCheck } from "lucide-react";
 import { Reveal, RevealStagger, RevealItem } from "./Reveal";
 import { SpotlightCard } from "./SpotlightCard";
+import { TiltCard } from "./TiltCard";
 
 const DIFFERENZIATORI = [
   {
@@ -36,6 +37,26 @@ const DIFFERENZIATORI = [
       "Richieste ambigue, reclami, casi fuori dal normale: passati a te con tutto il contesto, non gestiti a forza da un modello che indovina.",
   },
 ];
+
+// TiltCard aggiunto (terzo giro, segnalazione di Gabriel: "le carte qui
+// funzionano bene, sopra manca l'effetto 3d quando ci passi sopra" --
+// riferito al confronto con PerChi.tsx, che già aveva l'inclinazione al
+// passaggio del mouse). Estratto in un componente unico perché le due
+// righe di card qui sotto (griglia normale + riga centrata) altrimenti
+// duplicherebbero lo stesso identico markup.
+function CardDifferenziatore({ d, className = "" }: { d: (typeof DIFFERENZIATORI)[number]; className?: string }) {
+  return (
+    <TiltCard className={`h-full ${className}`}>
+      <SpotlightCard className="h-full rounded-2xl border border-white/10 bg-white/5 p-5">
+        <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+          <d.icona className="size-4.5" />
+        </span>
+        <h3 className="mt-3 text-[15px] font-medium text-white">{d.titolo}</h3>
+        <p className="mt-1.5 text-sm leading-relaxed text-white/60">{d.testo}</p>
+      </SpotlightCard>
+    </TiltCard>
+  );
+}
 
 export function PercheNoi() {
   return (
@@ -79,26 +100,14 @@ export function PercheNoi() {
       <RevealStagger className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {DIFFERENZIATORI.slice(0, 3).map((d) => (
           <RevealItem key={d.titolo}>
-            <SpotlightCard className="h-full rounded-2xl border border-white/10 bg-white/5 p-5">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
-                <d.icona className="size-4.5" />
-              </span>
-              <h3 className="mt-3 text-[15px] font-medium text-white">{d.titolo}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/60">{d.testo}</p>
-            </SpotlightCard>
+            <CardDifferenziatore d={d} />
           </RevealItem>
         ))}
       </RevealStagger>
       <RevealStagger className="mt-4 flex flex-wrap justify-center gap-4">
         {DIFFERENZIATORI.slice(3).map((d) => (
           <RevealItem key={d.titolo} className="w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc((100%-2rem)/3)]">
-            <SpotlightCard className="h-full rounded-2xl border border-white/10 bg-white/5 p-5">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
-                <d.icona className="size-4.5" />
-              </span>
-              <h3 className="mt-3 text-[15px] font-medium text-white">{d.titolo}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/60">{d.testo}</p>
-            </SpotlightCard>
+            <CardDifferenziatore d={d} />
           </RevealItem>
         ))}
       </RevealStagger>

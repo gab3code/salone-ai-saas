@@ -57,6 +57,17 @@ import { GlowBorder } from "./GlowBorder";
  *    stesso identico `<p className="pl-14">` delle righe sorelle, non un
  *    figlio di un flex a parte -- stesso indentamento, testo che va a capo
  *    come qualunque paragrafo normale.
+ *
+ * Aggiornamento 12/09/2026 (terzo giro) -- il riquadro verde riscritto al
+ * punto 2 sopra ("è un salvadanaio...") copriva solo i messaggi senza
+ * risposta, ma nel frattempo è stata aggiunta la seconda colonna
+ * "Appuntamenti dimenticati" (vedi punto 1 dell'aggiornamento precedente) --
+ * il riquadro non la citava più, tornando a raccontare solo metà del
+ * calcolo mostrato sopra (segnalato da Gabriel: "fa riferimento solo ai
+ * messaggi e non ai promemoria degli appuntamenti dimenticati", oltre a non
+ * piacergli il tono di "salvadanaio"). Riscritto per nominare entrambe le
+ * cause di incasso perso mostrate a sinistra, senza ripetere la metafora
+ * del salvadanaio.
  */
 
 const IPOTESI = [
@@ -193,11 +204,14 @@ export function ImpattoEconomico() {
             {/* Riscritto senza citare il prezzo di Growth (punto 3 di
                 Gabriel: non ridurre l'abbonamento a "costa meno del
                 problema", ma spiegare che evita la perdita E fa aumentare
-                l'incasso). */}
+                l'incasso) -- e riscritto una seconda volta (terzo giro) per
+                nominare entrambe le colonne di calcolo qui a fianco, non
+                solo i messaggi. */}
             <div className="mt-2 w-full max-w-xs rounded-xl border border-emerald-400/20 bg-emerald-500/[0.06] px-4 py-3 text-left text-xs text-emerald-200/90">
-              Growth non è una spesa, è un salvadanaio che risponde al telefono per te:{" "}
-              <strong className="text-emerald-300">ogni messaggio letto in tempo è un incasso che resta tuo</strong>, non un
-              cliente che finisce da un&apos;altra parte.
+              Growth risponde ai messaggi che ti sfuggirebbero e manda da solo il promemoria che evita i clienti
+              dimenticati:{" "}
+              <strong className="text-emerald-300">le due voci qui a fianco, coperte insieme</strong>, senza doverci
+              pensare.
             </div>
           </div>
         </div>

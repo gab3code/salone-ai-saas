@@ -302,6 +302,16 @@ function VisualeScena({ indice }: { indice: number }) {
   );
 }
 
+/** Altezza del mock-schermo per ogni scena nella versione mobile impilata
+ * (`lg:hidden` più sotto). Bug reale segnalato da Gabriel ("il primo card è
+ * tagliato su telefono"): tutte le scene condividevano la stessa `h-64`, ma
+ * la scena 0 (illustrazione radiale "motore di prenotazione": 3 icone +
+ * linee animate + hub centrale + didascalia) ha più contenuto verticale
+ * delle altre scene -- superava i 256px disponibili e veniva tagliata in
+ * basso dall'`overflow-hidden` dello Schermo. Le altre scene (mock UI più
+ * semplici) restano su `h-64`, solo la 0 ha una cornice più alta. */
+const ALTEZZA_MOBILE_PER_SCENA = ["h-80", "h-64", "h-64", "h-64", "h-64", "h-64"];
+
 /** Un pannello "schermo" (barra con pallini + URL + contenuto) -- usato sia
  * dal palco fisso desktop sia da ogni card mobile, così le due versioni
  * condividono esattamente lo stesso linguaggio visivo. */
@@ -378,9 +388,11 @@ export function Vetrina() {
     <section className="relative overflow-hidden bg-noir py-4">
       <Grana opacita={0.035} />
       <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
-        <Reveal className="pt-16">
+        {/* Centrato (terzo giro, segnalazione di Gabriel: "il titolo della
+            sezione non è al centro") -- allineato con le altre sezioni. */}
+        <Reveal className="mx-auto max-w-xl pt-16 text-center">
           <h2 className="text-sm font-medium text-violet-400">Perché è diverso</h2>
-          <p className="mt-2 max-w-xl text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
             Non è un altro calendario online.
           </p>
         </Reveal>
@@ -400,7 +412,19 @@ export function Vetrina() {
                     setAttivo(i);
                     const target = contenitoreRef.current;
                     if (!target) return;
-                    const y = target.offsetTop + (target.offsetHeight * i) / SCENE.length + 20;
+                    // Bug reale segnalato da Gabriel ("mi sposta sulla pagina
+                    // a caso"): `offsetTop` è relativo al più vicino
+                    // antenato posizionato (qui la <section> stessa, che ha
+                    // `relative`), NON alla cima del documento -- un numero
+                    // piccolo (la distanza dal titolo della sezione), non la
+                    // vera posizione di scroll assoluta. `scrollTo({top})`
+                    // interpretava quel numero come posizione assoluta nella
+                    // pagina, atterrando molto più in alto di dove doveva.
+                    // Fix: `getBoundingClientRect().top + scrollY` dà la
+                    // posizione reale rispetto al documento, qualunque sia
+                    // la catena di antenati posizionati sopra.
+                    const cimaAssoluta = target.getBoundingClientRect().top + window.scrollY;
+                    const y = cimaAssoluta + (target.offsetHeight * i) / SCENE.length + 20;
                     window.scrollTo({ top: y, behavior: "smooth" });
                   }}
                   className={`rounded-2xl border p-5 text-left transition-colors duration-300 ${
@@ -470,7 +494,7 @@ export function Vetrina() {
                 <p className="mt-2 text-sm leading-relaxed text-white/60">{s.testo}</p>
 
                 <div className="mt-4">
-                  <Schermo indice={i} altezza="h-64" />
+                  <Schermo indice={i} altezza={ALTEZZA_MOBILE_PER_SCENA[i] ?? "h-64"} />
                 </div>
               </div>
             </Reveal>

@@ -3,8 +3,75 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
+/** Easing standard "accelera poi rallenta" -- lento in apertura e in
+ * chiusura, veloce nel mezzo. Stessa curva descritta da Gabriel ("fallo che
+ * accelera piano piano e poi rallenta"). */
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+const ALTEZZA_NAVBAR = 96; // stesso valore di `scroll-mt-24` (24 * 4px) usato sulle sezioni
+
+/** Scroll fluido con easing personalizzato per ogni link "#ancora" del sito
+ * (terzo giro, segnalazione di Gabriel: "lo scorrimento è un po' troppo
+ * veloce e poco fluido"). Prima il click su un link della navbar/hero
+ * navigava normalmente e lasciava fare tutto a `scroll-behavior: smooth` in
+ * globals.css -- comodo ma con l'easing di sistema del browser, non
+ * personalizzabile e via, spesso più lineare che "morbido". Un listener
+ * unico a livello di documento (montato qui perché Nav è già un componente
+ * client presente una sola volta in cima alla pagina) intercetta OGNI click
+ * su un link che punta a un'ancora della pagina, non solo quelli della
+ * navbar -- copre anche i due CTA della Hero senza dover toccare
+ * MagneticButton. Rispetta `prefers-reduced-motion` (salto istantaneo,
+ * nessuna animazione) come il resto del sito. */
+function useScrollFluido() {
+  useEffect(() => {
+    function alClick(e: MouseEvent) {
+      const el = e.target as HTMLElement;
+      const link = el.closest('a[href^="#"]') as HTMLAnchorElement | null;
+      if (!link) return;
+      const href = link.getAttribute("href");
+      if (!href || href.length < 2) return;
+      const destinazione = document.querySelector(href);
+      if (!destinazione) return;
+
+      e.preventDefault();
+
+      const riduciMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const partenza = window.scrollY;
+      const arrivo = destinazione.getBoundingClientRect().top + window.scrollY - ALTEZZA_NAVBAR;
+      const distanza = arrivo - partenza;
+
+      if (riduciMovimento || Math.abs(distanza) < 1) {
+        window.scrollTo({ top: arrivo, behavior: "instant" });
+        history.pushState(null, "", href);
+        return;
+      }
+
+      const durata = 700;
+      const inizio = performance.now();
+
+      function passo(ora: number) {
+        const t = Math.min(1, (ora - inizio) / durata);
+        // `behavior: "instant"` ad ogni frame: senza, `scroll-behavior:
+        // smooth` (globale, in globals.css) applicherebbe il SUO smoothing
+        // sopra ogni singolo scrollTo, sommandosi al nostro easing e
+        // producendo un movimento a scatti invece che una curva pulita.
+        window.scrollTo({ top: partenza + distanza * easeInOutCubic(t), behavior: "instant" });
+        if (t < 1) requestAnimationFrame(passo);
+        else history.pushState(null, "", href);
+      }
+      requestAnimationFrame(passo);
+    }
+
+    document.addEventListener("click", alClick);
+    return () => document.removeEventListener("click", alClick);
+  }, []);
+}
+
 export function Nav() {
   const [scrollato, setScrollato] = useState(false);
+  useScrollFluido();
 
   useEffect(() => {
     const onScroll = () => setScrollato(window.scrollY > 8);

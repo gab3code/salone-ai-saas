@@ -605,3 +605,59 @@ gradiente in fondo alla Hero per ammorbidire il taglio netto verso ProdottoScrol
 aggiunto alle card di Funzionalita.tsx per coerenza con PerChi.tsx.
 
 **Verifica**: vedi PROJECT_STATUS.md per l'esito di test/build/controllo visivo di questo giro.
+
+## 2026-09-12 — Quarto giro: card featured di PerChi, effetto metal graduato sui piani, estensione di Reveal
+
+Dopo aver usato il sito pubblicato dal terzo giro, Gabriel ha mandato 13 nuovi punti e ha chiuso
+il messaggio chiedendo esplicitamente domande a risposta multipla prima di agire sui punti
+ambigui. Quattro decisioni chiarite così (via `AskUserQuestion`) prima di scrivere codice:
+
+**1) PerChi.tsx: la card featured/grande non deve più essere su parrucchieri/centri estetici.**
+Gabriel: "è PER TUTTI quelli che usano appuntamenti, togli la card colorata e più grande per
+parrucchieri e centri estetici, usala ma diversamente" -- ambiguo su COSA mettere al suo posto,
+non se toglierla. Opzione scelta con Gabriel: la card featured diventa un "chiunque lavori su
+appuntamento" esplicito (nuovo testo, stesso trattamento grande/colorato), con le categorie
+esistenti (parrucchieri, barbieri, centri estetici, ecc.) presentate esplicitamente come "solo
+alcuni esempi, non un elenco chiuso" nel testo della card stessa -- il posizionamento (Salone AI
+funziona per QUALUNQUE attività su appuntamento, i saloni sono solo il caso d'uso più visibile)
+non cambia, cambia solo quale card lo dice più forte.
+
+**2) Effetto LiquidMetal (lo shader della Hero) sui pulsanti dei piani a pagamento.** Gabriel ha
+esplicitamente chiesto di essere consultato ("uso l'effetto metal su growth o su non lo so
+fammi delle domande e capiamo insieme"). Risposta: tutti i piani a pagamento (Starter, Growth,
+Pro), non solo Growth, con intensità crescente per piano ("più paghi più è bello e premium il
+metal") -- Free ed Enterprise restano con i pulsanti pieni/outline esistenti (Free non è un piano
+premium da vendere con uno shader, Enterprise è "richiedi info", non un acquisto diretto). Fatto
+con lo stesso componente `LiquidMetal` della Hero, un preset di props diverso per piano (palette
+più scura/neutra su Starter, più satura su Growth, ancora più intensa su Pro) invece di tre
+componenti diversi. Rischio noto e comunicato a Gabriel: 3 shader WebGL simultanei più quello
+della Hero potrebbero pesare su hardware/browser deboli -- non verificabile dalla sandbox (vedi
+PROJECT_STATUS.md), da controllare sul deploy reale.
+
+**3) CTAFinale: bug reale nel pulsante, non solo "hover orrendo".** Trovato leggendo il codice
+prima di rispondere (non ipotizzato): `MagneticButton` sposta il pulsante seguendo il cursore,
+`GlowBorder` sotto è un fratello assoluto ancorato al contenitore fisso -- al hover il bordo
+luminoso restava fermo mentre il pulsante slittava sopra, sfasandosi. Opzione scelta con Gabriel
+tra tre presentate: "fix mirato" (tolto solo l'effetto magnetico da questo pulsante, tenuto tutto
+il resto invariato) invece di un redesign completo della card o lasciare l'effetto magnetico e
+spostare il GlowBorder a inseguire il pulsante (più complesso, stesso risultato percepito).
+
+**4) Estensione di Reveal a tutto il sito, "anche il testo".** Gabriel ha chiesto che tutto compaia
+scendendo nel sito "come la card della dashboard" (ProdottoScroll.tsx, reveal scroll-driven via
+GSAP) "senza rovinare tutto quanto". Tre opzioni presentate: (a) lasciare l'effetto ProdottoScroll
+un'eccezione voluta per il prodotto, estendendo solo `Reveal`/`RevealStagger` (già usati quasi
+ovunque) alle porzioni di testo rimaste ferme; (b) sistema di reveal nuovo e più elaborato per
+tutta la pagina; (c) via di mezzo. Scelta (a), esplicitamente indicata come rischio più basso:
+rifare da zero il sistema di animazioni di una pagina già rifinita in tre giri precedenti avrebbe
+potuto introdurre regressioni proprio dove Gabriel aveva già approvato il risultato. Applicato a
+`Footer.tsx` e alla didascalia di `PrimaDopo.tsx`, le uniche porzioni di testo rimaste senza alcun
+reveal-on-scroll dopo un audit di tutti i componenti della landing.
+
+**Un punto chiarito senza bisogno di scegliere tra opzioni**: la riga del promemoria automatico
+in ImpattoEconomico.tsx, segnalata da Gabriel come "ancora" spostata a destra -- verificata di
+nuovo nel codice e con uno screenshot Playwright fresco, già corretta dal fix del terzo giro.
+Comunicato a Gabriel come probabile cache/build non aggiornata dal suo lato invece di modificare
+codice già corretto alla cieca.
+
+**Verifica**: vedi PROJECT_STATUS.md, sezione "Quarto giro", per l'esito di test/build/controllo
+visivo.
