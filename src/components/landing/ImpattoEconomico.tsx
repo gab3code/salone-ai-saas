@@ -33,6 +33,30 @@ import { GlowBorder } from "./GlowBorder";
  *    chiude con una riga di calcolo scritta per intero in testo semplice
  *    ("1 × 35€ × 52 = 1.820€/anno"), che si legge come una formula, non
  *    come un controllo dell'interfaccia.
+ *
+ * Aggiornamento 12/09/2026 (seconda revisione, uso reale del sito da parte
+ * di Gabriel) -- tre correzioni:
+ * 1) il "+" dopo il totale animato non aveva un vero motivo di esistere --
+ *    il calcolo NON è un minimo (non ci sono altre voci sommate oltre alle
+ *    due mostrate), quindi il "+" prometteva "c'è dell'altro" senza che
+ *    fosse vero (segnalato da Gabriel: "perché ha il più?"). Tolto.
+ * 2) il riquadro verde sotto il totale diceva il prezzo esatto del piano
+ *    Growth in chiaro -- utile come confronto ma freddo, e riduce tutto il
+ *    ragionamento a "il piano costa meno del problema" invece che a un
+ *    argomento di vendita vero. Riscritto senza cifre: l'idea (richiesta di
+ *    Gabriel) è che l'abbonamento non è solo una spesa che eviti una
+ *    perdita, è quello che trasforma un messaggio ignorato in un incasso.
+ * 3) la riga del promemoria (icona + frase) usava `pl-14` per allinearsi
+ *    alle righe della formula sopra E un'icona propria dentro un `flex` --
+ *    le due cose sommate spostavano il testo ~22px più a destra delle righe
+ *    formula sorelle (56px di pl-14 + 14px di icona + 8px di gap = 78px
+ *    invece di 56px), ed essendo `items-center` un testo che va a capo su
+ *    più righe restava centrato verticalmente sull'intero blocco invece che
+ *    allineato alla prima riga -- da qui "va a capo ed è spostata a destra"
+ *    (segnalato da Gabriel). Fix: l'icona torna un elemento inline dentro lo
+ *    stesso identico `<p className="pl-14">` delle righe sorelle, non un
+ *    figlio di un flex a parte -- stesso indentamento, testo che va a capo
+ *    come qualunque paragrafo normale.
  */
 
 const IPOTESI = [
@@ -63,7 +87,6 @@ const TOTALE_RISPOSTE_FMT = "1.820";
 const TOTALE_NOSHOW = 840; // 2 x 35 x 12 -- stesso calcolo dichiarato, non un numero a parte
 const TOTALE_NOSHOW_FMT = "840";
 const TOTALE_ANNUO = TOTALE_RISPOSTE + TOTALE_NOSHOW; // usato solo dal contatore animato, client-side
-const PREZZO_GROWTH_ANNUO_FMT = "478,8"; // 39,90€/mese x 12 -- DECISIONS.md, stesso valore usato in Prezzi.tsx
 
 function NumeroAnimato({ a, prefisso = "", suffisso = "" }: { a: number; prefisso?: string; suffisso?: string }) {
   const rif = useRef<HTMLSpanElement>(null);
@@ -139,8 +162,8 @@ export function ImpattoEconomico() {
               <p className="pl-14 text-xs text-white/40">
                 2 × 35€ × 12 = <span className="font-medium text-white/70">{TOTALE_NOSHOW_FMT}€/anno</span>
               </p>
-              <p className="flex items-center gap-2 pl-14 text-xs text-emerald-300/80">
-                <BellRing className="size-3.5 shrink-0" />
+              <p className="pl-14 text-xs text-emerald-300/80">
+                <BellRing className="mr-1.5 inline-block size-3.5 -translate-y-px" />
                 Il promemoria automatico prima dell&apos;appuntamento evita questa voce da solo.
               </p>
             </div>
@@ -163,14 +186,18 @@ export function ImpattoEconomico() {
             <div>
               <p className="bg-gradient-to-br from-white to-white/70 bg-clip-text text-5xl font-semibold tracking-tight text-transparent sm:text-6xl">
                 <NumeroAnimato a={TOTALE_ANNUO} prefisso="€" />
-                <span className="text-3xl sm:text-4xl">+</span>
               </p>
               <p className="mt-1 text-sm text-white/50">l&apos;anno tra chi non riceve risposta e chi si dimentica l&apos;appuntamento</p>
             </div>
 
+            {/* Riscritto senza citare il prezzo di Growth (punto 3 di
+                Gabriel: non ridurre l'abbonamento a "costa meno del
+                problema", ma spiegare che evita la perdita E fa aumentare
+                l'incasso). */}
             <div className="mt-2 w-full max-w-xs rounded-xl border border-emerald-400/20 bg-emerald-500/[0.06] px-4 py-3 text-left text-xs text-emerald-200/90">
-              Il piano Growth costa <strong className="text-emerald-300">€{PREZZO_GROWTH_ANNUO_FMT}/anno</strong> — meno
-              di un quarto di quello che rischi di perdere.
+              Growth non è una spesa, è un salvadanaio che risponde al telefono per te:{" "}
+              <strong className="text-emerald-300">ogni messaggio letto in tempo è un incasso che resta tuo</strong>, non un
+              cliente che finisce da un&apos;altra parte.
             </div>
           </div>
         </div>

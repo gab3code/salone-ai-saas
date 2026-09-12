@@ -1,45 +1,8 @@
 "use client";
 
 import { ShieldCheck, Sparkles, Globe2, Layers, UserCheck } from "lucide-react";
-import { RevealStagger, RevealItem } from "./Reveal";
-import { Lampada } from "./Lampada";
+import { Reveal, RevealStagger, RevealItem } from "./Reveal";
 import { SpotlightCard } from "./SpotlightCard";
-
-const NODI_FLUSSO = [
-  "Il cliente scrive dalla chat o dalla pagina pubblica.",
-  "Un unico motore decide la disponibilità in tempo reale.",
-  "Calendario, CRM e AI restano sempre allineati.",
-];
-
-/**
- * Riscritta (punto 4 di Gabriel: "i tre punti non hanno senso"). Prima erano
- * 3 cerchi su una riga orizzontale collegati da una linea sottile, con un
- * pallino che ci correva sopra avanti e indietro all'infinito -- un'
- * animazione carina di per sé, ma senza un vero motivo per esistere qui:
- * non stava raccontando un caricamento o un progresso reale, girava a vuoto
- * e distraeva da un contenuto che è comunque solo un flusso logico in 3
- * passaggi (vedi "How It Works Timeline"/OriginKit come riferimento).
- * Sostituita con una timeline verticale: numeri collegati da una linea
- * tratteggiata ferma, ogni passaggio compare quando entra in vista invece
- * di muoversi in loop -- comunica "sequenza", non "caricamento".
- */
-function FlussoAnimato() {
-  return (
-    <RevealStagger className="mx-auto mt-14 max-w-lg" gapMs={0.15}>
-      {NODI_FLUSSO.map((testo, i) => (
-        <RevealItem key={testo} className="relative flex gap-4 pb-8 last:pb-0">
-          {i < NODI_FLUSSO.length - 1 && (
-            <span className="absolute top-10 left-5 h-[calc(100%-2.5rem)] w-px border-l-2 border-dashed border-white/15" />
-          )}
-          <span className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-noir text-sm font-semibold text-violet-300">
-            {i + 1}
-          </span>
-          <p className="pt-2 text-sm leading-relaxed text-white/60 sm:text-base">{testo}</p>
-        </RevealItem>
-      ))}
-    </RevealStagger>
-  );
-}
 
 const DIFFERENZIATORI = [
   {
@@ -77,16 +40,34 @@ const DIFFERENZIATORI = [
 export function PercheNoi() {
   return (
     <section className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
-      <Lampada>
-        <div className="text-center">
-          <h2 className="text-sm font-medium text-violet-400">Perché questo, non un gestionale qualsiasi</h2>
-          <p className="mx-auto mt-2 max-w-xl text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Le differenze che contano quando lo usi ogni giorno.
-          </p>
-        </div>
-      </Lampada>
-
-      <FlussoAnimato />
+      {/* Bagliore viola (Lampada) e flusso numerato 1-2-3 tolti (controllo
+          approfondito pre-pubblicazione, 12/09/2026, doppia segnalazione di
+          Gabriel: "i punti da 1 a 3 non hanno alcun senso e il colore sopra
+          viola sfumato tanto meno" -- ancora dopo averne già cambiato una
+          volta la messa in scena, vedi commit precedente). Due problemi di
+          fondo, non solo estetici:
+          1) il contenuto del flusso ("un unico motore decide la
+             disponibilità", "calendario/CRM/AI sempre allineati") è lo
+             STESSO concetto già raccontato per intero, con un'animazione
+             sua propria, dalla scena 0 di Vetrina.tsx ("Un unico motore di
+             prenotazione") -- ripeterlo qui con dei numeri 1-2-3 leggeva
+             come un secondo "come funziona" fuori posto in una sezione che
+             parla di differenziatori, non di un flusso operativo, e per di
+             più duplicava il linguaggio a numeri già usato (con significato
+             diverso: passi di onboarding) da ComeFunziona.tsx.
+          2) Lampada esiste per dare peso a un titolo quando NON c'è
+             una griglia di card subito sotto (vedi il suo commento) -- qui
+             invece la sezione ha sempre avuto la griglia DIFFERENZIATORI
+             appena sotto, quindi il bagliore non stava coprendo il vuoto per
+             cui era stato pensato, si vedeva e basta.
+          Tolti entrambi: resta il titolo (Reveal semplice, come nelle altre
+          sezioni) seguito direttamente dalla griglia dei differenziatori. */}
+      <Reveal className="mx-auto max-w-xl text-center">
+        <h2 className="text-sm font-medium text-violet-400">Perché questo, non un gestionale qualsiasi</h2>
+        <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          Le differenze che contano quando lo usi ogni giorno.
+        </p>
+      </Reveal>
 
       {/* 5 elementi su una griglia a 3 colonne: l'ultima riga (2 elementi)
           lascerebbe un buco a destra (bug reale segnalato da Gabriel -- un

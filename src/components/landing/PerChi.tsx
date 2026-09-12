@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { Scissors, Sparkles, Users2, Dumbbell, Briefcase, CalendarCheck } from "lucide-react";
+import { Scissors, Sparkles, Users2, Dumbbell, Briefcase, CalendarCheck, Camera } from "lucide-react";
 import { Reveal, RevealItem, RevealStagger } from "./Reveal";
 import { TiltCard } from "./TiltCard";
 import { SpotlightCard } from "./SpotlightCard";
@@ -26,6 +26,16 @@ interface Persona {
  * appuntamenti") -- prima le 5 categorie elencate erano ampie ma implicite
  * nel non dire "e altri"; ora lo dice, senza dover elencare ogni singola
  * professione possibile.
+ *
+ * Aggiunta una settima voce (controllo approfondito pre-pubblicazione,
+ * 12/09/2026, bug reale segnalato da Gabriel: "buchi... nei potenziali
+ * clienti in basso a destra"). Causa: 1 riquadro doppio + 5 normali fa 7
+ * "unità" di griglia, che non è multiplo né di 4 (griglia desktop lg) né di
+ * 2 (griglia da sm in su, prima di lg) -- l'ultima riga resta sempre
+ * incompleta di una cella, quasi sempre proprio in basso a destra. Una
+ * settima voce porta il totale a 8 unità, multiplo di entrambi: nessun
+ * buco. Scelta una categoria vera e distinta dalle altre 6 (fotografi),
+ * non un riempitivo senza senso.
  */
 const PERSONE: Persona[] = [
   {
@@ -59,6 +69,11 @@ const PERSONE: Persona[] = [
     titolo: "Qualunque attività lavori su appuntamento",
     testo: "Studi medici, centri benessere, scuole, noleggi: se i tuoi clienti prenotano un orario, funziona anche per te.",
     icona: CalendarCheck,
+  },
+  {
+    titolo: "Fotografi e studi fotografici",
+    testo: "Servizi fotografici su prenotazione, pacchetti e slot gestiti come qualsiasi altro appuntamento.",
+    icona: Camera,
   },
 ];
 

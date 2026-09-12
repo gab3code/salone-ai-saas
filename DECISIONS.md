@@ -546,3 +546,62 @@ menzionato né mostrato in nessuno dei due posti per ora (Apple era già stato t
 reale l'11/09/2026 per il problema noto #14 -- CalDAV probabilmente bloccato dagli IP data
 center di Vercel; questa decisione allinea anche la landing, che fino ad oggi mostrava ancora
 un mockup con entrambi i provider).
+
+---
+
+## 2026-09-12 — Seconda revisione landing (uso reale del sito da parte di Gabriel): scope
+WhatsApp-only, trial ristretto a Growth, contenuto PercheNoi
+
+**Contesto**: dopo il giro precedente (bento grid, copy onesta, fix mouse/scroll/FAQ), Gabriel ha
+scaricato e usato lui stesso il sito pubblicato, con screenshot alla mano -- non più solo
+revisione a schermo di Claude. Tre delle segnalazioni sono decisioni di prodotto/business vere,
+non solo estetiche, e vanno quindi qui oltre che nel codice.
+
+**1) Multi-canale AI: WhatsApp ora, Instagram/Telegram restano un obiettivo, non una promessa
+attuale.** Il tile unito "Assistente AI in chat, WhatsApp, Instagram e Telegram" in
+Funzionalita.tsx e la voce Enterprise "Instagram e Telegram" in Prezzi.tsx promettevano oggi
+canali che non hanno alcuna integrazione reale né pianificata a breve (a differenza di WhatsApp,
+che dipende "solo" dall'approvazione business di Meta, già in corso). Decisione di Gabriel:
+tenere l'ambizione multi-canale come direzione futura del prodotto, ma toglierla dal copy
+pubblico finché non è concretamente in lavorazione -- "è inutile" promettere oggi qualcosa senza
+una data. Funzionalita.tsx ora dice solo "chat e WhatsApp"; la voce Enterprise è diventata
+"Multi-sede e ruoli avanzati" (coerente col target dichiarato "catene e gruppi", a differenza di
+Instagram/Telegram che non hanno alcun legame con quel target).
+
+**2) Prova gratuita di 10 giorni: solo su Growth, non più su Pro.** Fino a oggi `giorniDiProva`
+(src/lib/stripe/piani.ts) e Prezzi.tsx davano il trial sia a Growth che a Pro (voce dell'
+11/09/2026 qui sopra: "solo sui piani con l'AI vera, non un trial 'a copertura' su Starter").
+Richiesta esplicita di Gabriel: il trial resta SOLO su Growth. Motivazione non registrata nel
+dettaglio da Gabriel oltre alla richiesta diretta -- ipotesi ragionevole (non confermata): Growth
+è il piano d'ingresso con l'AI vera, quello con cui la maggioranza dei saloni entra nel prodotto,
+mentre Pro è un upgrade da chi è già cliente pagante e ha già validato il prodotto, quindi ha
+meno bisogno di un periodo di prova per convertire. Cambiato sia il valore mostrato in
+Prezzi.tsx sia la funzione `giorniDiProva` (comportamento reale di Stripe via
+`/api/stripe/checkout`, non solo il testo in pagina) e il test corrispondente in
+`piani.test.ts`.
+
+**3) PercheNoi.tsx: tolti il flusso numerato 1-2-3 e il bagliore viola (Lampada).** Il flusso a 3
+passaggi era già stato ridisegnato una volta nel giro precedente (da 3 cerchi in riga con un
+pallino animato in loop, a una timeline verticale numerata) su richiesta di Gabriel -- ma vedendo
+il risultato pubblicato dal vivo, Gabriel ha segnalato che il contenuto non ha senso in questa
+sezione a prescindere dalla messa in scena. Causa reale, non solo di stile: quel contenuto ("un
+unico motore decide la disponibilità", "calendario/CRM/AI sempre allineati") è lo stesso concetto
+già raccontato per intero dalla scena 0 di Vetrina.tsx, con un'animazione sua propria -- ripeterlo
+qui con dei numeri 1-2-3 duplicava sia il contenuto (Vetrina) sia il linguaggio visivo a numeri
+(ComeFunziona.tsx, che however conta passaggi di onboarding, non di funzionamento interno) in una
+sezione che parla di differenziatori, non di un processo. Rimosso interamente, non ridisegnato
+una terza volta. Il bagliore Lampada sopra il titolo è stato tolto per lo stesso principio con cui
+esiste (vedi Lampada.tsx): dà peso a un titolo quando non c'è una griglia di card subito sotto --
+qui la griglia DIFFERENZIATORI c'è sempre stata, quindi il bagliore non copriva mai il vuoto per
+cui è pensato.
+
+**Altre correzioni dello stesso giro, minori/puramente visive (non richiedono una voce qui)**: fix
+del buco strutturale nelle bento grid di Funzionalita.tsx e PerChi.tsx (unità di griglia non
+multiple del numero di colonne -- vedi i commenti nei due file), fix dell'allineamento della riga
+promemoria in ImpattoEconomico.tsx, copy del riquadro verde in ImpattoEconomico.tsx riscritto
+senza citare il prezzo di Growth, fix dell'ordine di comparsa dei messaggi nella scena chat di
+Vetrina.tsx (le risposte comparivano prima dell'indicatore "sta scrivendo", non dopo), fade in
+gradiente in fondo alla Hero per ammorbidire il taglio netto verso ProdottoScroll, TiltCard
+aggiunto alle card di Funzionalita.tsx per coerenza con PerChi.tsx.
+
+**Verifica**: vedi PROJECT_STATUS.md per l'esito di test/build/controllo visivo di questo giro.

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { RevealItem, RevealStagger, Reveal } from "./Reveal";
 import { SpotlightCard } from "./SpotlightCard";
+import { TiltCard } from "./TiltCard";
 
 interface Voce {
   titolo: string;
@@ -44,16 +45,34 @@ interface Voce {
  * una colonna sola di 17 blocchi uguali è esattamente lo scroll infinito
  * lamentato. Soluzione (scelta con Gabriel dopo aver visto le opzioni,
  * ispirata alle "bento grid" di OriginKit/21st): una griglia asimmetrica --
- * i 4 pilastri del prodotto (calendario, AI in chat, dashboard, promemoria)
- * occupano un riquadro doppio e si notano subito; le altre 13 funzioni
- * restano in riquadri normali. `grid-flow-dense` chiude i buchi da solo,
- * niente ordine a mano da mantenere quando si aggiunge una voce.
+ * i pilastri del prodotto (calendario, CRM, AI in chat, dashboard,
+ * promemoria) occupano un riquadro doppio e si notano subito; le altre
+ * funzioni restano in riquadri normali. `grid-flow-dense` chiude i buchi
+ * lasciati da un riquadro doppio fuori posto, ma non inventa contenuto: se
+ * il totale delle "unità" di griglia (1 per riquadro normale, 2 per doppio)
+ * non è multiplo del numero di colonne, l'ultima riga resta comunque
+ * incompleta -- ed è lì che finisce il buco, quasi sempre in basso a destra
+ * (bug reale segnalato da Gabriel dopo aver usato il sito). Con 5 riquadri
+ * doppi e 10 normali il totale è 20 unità: multiplo di 4 (griglia desktop
+ * lg) e di 2 (griglia telefono, prima del breakpoint sm) -- nessun buco su
+ * nessuno dei due. "CRM clienti" è passato a riquadro doppio apposta per
+ * arrivare a questo numero, non a caso: è comunque uno dei pilastri veri
+ * del prodotto (vedi il sottotitolo della pagina), non un riempitivo.
  */
 const FUNZIONI: Voce[] = [
   { titolo: "Calendario intelligente", descrizione: "Disponibilità calcolata da orari, pause, ferie e durata reale del servizio.", icona: CalendarClock, grande: true },
   { titolo: "Pagina di prenotazione online", descrizione: "Link tuo, condivisibile ovunque, self-service 24/7.", icona: Globe2 },
-  { titolo: "CRM clienti", descrizione: "Storico completo, qualunque canale abbia usato per prenotare.", icona: Users },
-  { titolo: "Assistente AI in chat, WhatsApp, Instagram e Telegram", descrizione: "Lo stesso assistente risponde e prenota da solo ovunque scrivano i clienti, e passa la mano a te quando serve una persona.", icona: MessageSquareText, grande: true },
+  { titolo: "CRM clienti", descrizione: "Storico completo per ogni cliente, qualunque canale abbia usato per prenotare — mai due archivi da tenere allineati a mano.", icona: Users, grande: true },
+  {
+    titolo: "Assistente AI in chat e su WhatsApp",
+    // Instagram e Telegram tolti dal copy attuale (richiesta di Gabriel,
+    // 12/09/2026: "come obiettivo ci sta ma solo whatsapp, è inutile" --
+    // restano un'ambizione futura per l'assistente multi-canale, non
+    // qualcosa da promettere già oggi in home).
+    descrizione: "Lo stesso assistente risponde e prenota da solo su chat web e WhatsApp, e passa la mano a te quando serve una persona.",
+    icona: MessageSquareText,
+    grande: true,
+  },
   { titolo: "Multi-operatore e servizi", descrizione: "Ogni operatore con i propri orari, servizi e prezzi.", icona: Scissors },
   { titolo: "Dashboard con insight azionabili", descrizione: "Non solo numeri: un pulsante per contattare i clienti inattivi.", icona: LayoutDashboard, grande: true },
   { titolo: "Registrazione zero-attrito", descrizione: "Ti registri e il tuo spazio è già pronto, nessun passaggio manuale.", icona: UserPlus },
@@ -69,35 +88,47 @@ const FUNZIONI: Voce[] = [
 
 function Cella({ v }: { v: Voce }) {
   return (
-    <SpotlightCard
-      className={`flex h-full flex-col rounded-2xl border p-4 transition-colors duration-300 sm:p-5 ${
-        v.grande
-          ? "border-violet-400/20 bg-gradient-to-br from-violet-500/[0.08] to-fuchsia-500/[0.04] hover:border-violet-400/40"
-          : "border-white/10 bg-white/5 hover:border-white/20"
-      }`}
-    >
-      <span
-        className={`relative flex size-9 items-center justify-center rounded-lg ${
-          v.grande ? "bg-violet-500/20 text-violet-200" : "bg-violet-500/15 text-violet-300"
+    // TiltCard aggiunto (punto 8 di Gabriel: "nella sezione sopra con i
+    // servizi no, sistema" -- riferito al confronto con PerChi.tsx qui
+    // sotto, che già aveva l'inclinazione 3D al passaggio del mouse).
+    // Stesso identico pattern di CardPersona in PerChi.tsx: TiltCard fuori,
+    // il contenuto (qui SpotlightCard) dentro, "h-full" su entrambi perché
+    // la card vive in una griglia auto-rows-fr.
+    <TiltCard className="h-full">
+      <SpotlightCard
+        className={`flex h-full flex-col rounded-2xl border p-4 transition-colors duration-300 sm:p-5 ${
+          v.grande
+            ? "border-violet-400/20 bg-gradient-to-br from-violet-500/[0.08] to-fuchsia-500/[0.04] hover:border-violet-400/40"
+            : "border-white/10 bg-white/5 hover:border-white/20"
         }`}
       >
-        <v.icona className="size-4" />
-      </span>
-      <h3 className={`relative mt-3 font-medium text-white sm:mt-4 ${v.grande ? "text-base" : "text-[15px]"}`}>{v.titolo}</h3>
-      {/* Descrizione nascosta su telefono per le card piccole (punto 3 di
-          Gabriel: "su telefono devo scorrere tantissimo") -- titolo e icona
-          bastano a far capire la funzione in uno sguardo su schermo
-          stretto; il dettaglio resta per chi ha spazio (tablet in su) e per
-          i 4 pilastri, che lo meritano su ogni schermo. */}
-      <p className={`relative mt-1.5 text-sm leading-relaxed text-white/60 ${v.grande ? "" : "hidden sm:block"}`}>{v.descrizione}</p>
-    </SpotlightCard>
+        <span
+          className={`relative flex size-9 items-center justify-center rounded-lg ${
+            v.grande ? "bg-violet-500/20 text-violet-200" : "bg-violet-500/15 text-violet-300"
+          }`}
+        >
+          <v.icona className="size-4" />
+        </span>
+        <h3 className={`relative mt-3 font-medium text-white sm:mt-4 ${v.grande ? "text-base" : "text-[15px]"}`}>{v.titolo}</h3>
+        {/* Descrizione nascosta su telefono per le card piccole (punto 3 di
+            Gabriel: "su telefono devo scorrere tantissimo") -- titolo e icona
+            bastano a far capire la funzione in uno sguardo su schermo
+            stretto; il dettaglio resta per chi ha spazio (tablet in su) e per
+            i pilastri, che lo meritano su ogni schermo. */}
+        <p className={`relative mt-1.5 text-sm leading-relaxed text-white/60 ${v.grande ? "" : "hidden sm:block"}`}>{v.descrizione}</p>
+      </SpotlightCard>
+    </TiltCard>
   );
 }
 
 export function Funzionalita() {
   return (
     <section id="funzionalita" className="scroll-mt-24 mx-auto max-w-6xl px-5 py-24 sm:px-8">
-      <Reveal className="max-w-lg">
+      {/* Centrato (punto 8 di Gabriel: "allinea i titoli al centro") --
+          allineato con PerChi/Prezzi/PercheNoi/ComeFunziona, che centrano il
+          proprio titolo di sezione; qui prima era rimasto allineato a
+          sinistra, l'unica eccezione senza un vero motivo. */}
+      <Reveal className="mx-auto max-w-lg text-center">
         <h2 className="text-sm font-medium text-violet-400">Tutto quello che include</h2>
         <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Tutto quello che serve, in un unico posto.</p>
       </Reveal>

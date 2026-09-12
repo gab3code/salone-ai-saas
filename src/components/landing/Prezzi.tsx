@@ -17,6 +17,17 @@ import { GlowBorder } from "./GlowBorder";
  * non è più onesto marcarle "in arrivo" su una pagina che descrive un
  * prodotto finito, ma resta un impegno concreto da rispettare, non
  * un'etichetta da poter dimenticare.
+ *
+ * Aggiornamento 12/09/2026 (seconda revisione) -- due correzioni, vedi
+ * DECISIONS.md per il dettaglio:
+ * 1) "Instagram e Telegram" tolto dalla voce Enterprise (richiesta di
+ *    Gabriel: restano un obiettivo multi-canale futuro, ma promuoverli già
+ *    oggi "è inutile" -- sostituito con una voce Enterprise vera, coerente
+ *    col target "catene e gruppi" (multi-sede).
+ * 2) la prova gratuita di 10 giorni resta SOLO su Growth, non più su Pro
+ *    (richiesta di Gabriel: "metti la prova gratuita solo sul piano
+ *    growth") -- coerente con `giorniDiProva` in src/lib/stripe/piani.ts,
+ *    aggiornato allo stesso modo.
  */
 const PIANI = [
   {
@@ -43,8 +54,11 @@ const PIANI = [
     voci: ["Tutto di Starter", "Assistente AI via chat web", "Analytics", "Promemoria automatici"],
     consigliato: true,
     // 10 giorni di prova prima del primo addebito (decisione con Gabriel
-    // dell'11/09/2026, vedi giorniDiProva in src/lib/stripe/piani.ts): solo
-    // sui piani con l'AI vera, non un trial "a copertura" su Starter.
+    // dell'11/09/2026, vedi giorniDiProva in src/lib/stripe/piani.ts).
+    // Ristretto al solo Growth il 12/09/2026 (richiesta di Gabriel: "metti
+    // la prova gratuita solo sul piano growth") -- prima copriva anche Pro,
+    // ora è l'unico piano con trial: quello con cui la maggior parte dei
+    // saloni entra nel prodotto, non un incentivo sparso su più piani.
     trial: true,
   },
   {
@@ -54,14 +68,13 @@ const PIANI = [
     descrizione: "Anche su WhatsApp.",
     voci: ["Tutto di Growth", "Assistente AI su WhatsApp", "SMS", "Tono dell'AI personalizzabile"],
     consigliato: false,
-    trial: true,
   },
   {
     nome: "Enterprise",
     prezzo: "Su misura",
     periodo: "",
     descrizione: "Per catene e gruppi.",
-    voci: ["Tutto di Pro", "Instagram e Telegram", "App installabile (PWA)", "Supporto dedicato"],
+    voci: ["Tutto di Pro", "Multi-sede e ruoli avanzati", "App installabile (PWA)", "Supporto dedicato"],
     consigliato: false,
   },
 ];

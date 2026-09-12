@@ -52,14 +52,17 @@ export function priceIdPerPiano(piano: PianoPagante): string {
   }
 }
 
-// Trial prima del primo addebito, SOLO sui piani con AI (decisione con
-// Gabriel dell'11/09/2026): far provare l'assistente vero prima di pagare,
-// non un trial "a copertura" su Starter che l'AI non ce l'ha comunque.
+// Trial prima del primo addebito, SOLO su Growth (decisione con Gabriel
+// dell'11/09/2026, ristretta il 12/09/2026 -- prima copriva anche Pro):
+// far provare l'assistente vero prima di pagare, non un trial "a copertura"
+// su Starter che l'AI non ce l'ha comunque, e non sparso su più piani a
+// pagamento -- Growth è il piano d'ingresso con l'AI, quello con cui la
+// maggior parte dei saloni entra nel prodotto.
 // Vedi DECISIONS.md per il calcolo costi che rende sostenibile il trial: il
 // costo AI reale nel caso peggiore (~10gg di uso intenso) è pochi euro,
 // briciole rispetto al prezzo del piano.
 export function giorniDiProva(piano: PianoPagante): number | undefined {
-  return piano === "growth" || piano === "pro" ? 10 : undefined;
+  return piano === "growth" ? 10 : undefined;
 }
 
 // Ricostruisce il piano interno a partire dal Price ID Stripe di un

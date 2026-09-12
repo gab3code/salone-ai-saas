@@ -1,6 +1,13 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026, secondo giro (Gabriel ha usato il sito pubblicato e segnalato
+Ultimo aggiornamento: 12/09/2026, terzo giro (Gabriel ha scaricato e usato lui stesso il sito
+pubblicato dal secondo giro, con screenshot alla mano, e segnalato 10 problemi puntuali --
+3 dei quali decisioni di prodotto vere (scope multi-canale AI, trial ristretto a Growth,
+contenuto/Lampada di PercheNoi), non solo estetiche: vedi DECISIONS.md, voce omonima, e la
+sezione dedicata più sotto per il dettaglio completo. Chiuso anche il controllo di coerenza
+generale richiesto esplicitamente da Gabriel -- PIANO.md/DECISIONS.md/PROJECT_STATUS.md contro
+il codice reale, vedi "Controllo di coerenza" più sotto). Aggiornamento precedente, 12/09/2026
+secondo giro (Gabriel ha usato il sito pubblicato e segnalato
 15 problemi puntuali dopo averlo provato di persona; lavorato con domande di chiarimento prima
 di agire e opzioni mostrate prima di ogni redesign visivo, come richiesto esplicitamente. Cambio
 di fondo: rimosse tutte le etichette "in arrivo"/"nel roadmap" dalla landing -- il sito ora
@@ -239,6 +246,75 @@ form/input/toggle finto trovato nel codice, i mockup sono tutti dichiarati come 
 non cliccabili nei commenti; sweep generale di spaziatura/allineamento (punto 14) fatto solo sul
 titolo di PerChi (esempio esplicito di Gabriel), non su tutta la pagina voce per voce. Prossimo
 passo: commit + bundle + consegna a Gabriel per il pull sul suo Mac.
+
+## Terzo giro di rifinitura landing, dopo che Gabriel ha usato lui stesso il sito (12/09/2026)
+
+A differenza dei due giri precedenti (revisione a schermo di Claude via Playwright), stavolta
+Gabriel ha scaricato il bundle del secondo giro, l'ha usato sul proprio Mac e ha mandato
+screenshot reali con 10 segnalazioni puntuali. Dettaglio completo delle 3 decisioni di prodotto
+vere in DECISIONS.md (voce "Seconda revisione landing"); qui il riepilogo tecnico.
+
+**Bug di layout reali, diagnosticati e non solo ritoccati a occhio**:
+- `Funzionalita.tsx` e `PerChi.tsx`: buco strutturale nell'angolo in basso a destra della bento
+  grid, confermato dal vivo con Playwright a più larghezze. Causa reale (non un problema di
+  `grid-auto-flow: dense`, che chiude solo i buchi lasciati da un riquadro doppio fuori posto):
+  il totale delle "unità" di griglia (1 per riquadro normale, 2 per doppio) non era multiplo del
+  numero di colonne ad alcuni breakpoint -- 19 unità su 4 colonne per Funzionalita, 7 unità su 4
+  colonne per PerChi -- quindi l'ultima riga restava sempre incompleta, qualunque fosse l'ordine
+  degli elementi. Fix: portato il totale a un multiplo pulito in entrambi i file (20 e 8 unità)
+  promuovendo "CRM clienti" a riquadro doppio in Funzionalita (è comunque uno dei pilastri veri
+  del prodotto) e aggiungendo una settima categoria vera ("Fotografi e studi fotografici") in
+  PerChi -- non un riquadro vuoto o un riempitivo senza senso. Verificato a 1440px, 800px, 390px:
+  nessun buco in nessuna delle due griglie a nessuna larghezza testata.
+- `ImpattoEconomico.tsx`, riga del promemoria automatico: `pl-14` (allineamento con le righe
+  formula sorelle) combinato con un'icona dentro un `flex` proprio spostava il testo ~22px più a
+  destra delle righe sorelle, e centrava verticalmente l'icona sull'intero blocco quando il testo
+  andava a capo su più righe -- da cui "va a capo ed è spostata a destra" di Gabriel. Fix:
+  l'icona è tornata un elemento inline dentro lo stesso identico `<p className="pl-14">` delle
+  righe sorelle, non un figlio di un flex separato -- stesso indentamento sempre, testo che va a
+  capo come un paragrafo normale. Verificato a 1440px e 375px.
+- Hero: nessun vero bug (il mockup del prodotto e la sezione ProdottoScroll sotto sono entrambi
+  corretti/intenzionali -- risposta diretta alla domanda di Gabriel "la dashboard è corretta?":
+  sì), ma un taglio visivo netto reale tra lo shader colorato `LiquidMetal` della Hero e il
+  `bg-noir` piatto di `ProdottoScroll` subito sotto, proprio all'altezza del mockup del prodotto.
+  Fix: fade in gradiente (`from-transparent to-noir`) negli ultimi ~8rem della Hero. Verificato
+  con uno screenshot a cavallo esatto del confine tra le due sezioni.
+- `Vetrina.tsx`, scena chat (indice 2): bug reale di sequenza, non di stile -- la domanda e le
+  due righe di risposta erano semplici `<div>` senza alcuna animazione (comparivano quindi tutte
+  al montaggio, istante 0), mentre solo l'indicatore "sta scrivendo" aveva un'animazione, in loop
+  infinito, sopra risposte già visibili da subito. Riscritta come sequenza vera con `delay`
+  crescenti (domanda -> indicatore -> risposte). Verificato con 3 screenshot temporizzati (t=0.2s,
+  t=1.1s, t=2.5s): l'ordine ora è esattamente quello richiesto.
+
+**Decisioni di prodotto/copy** (dettaglio completo in DECISIONS.md): scope AI multi-canale
+ristretto a "chat e WhatsApp" nel copy attuale (Instagram/Telegram restano un obiettivo futuro,
+tolti da Funzionalita.tsx e dalla voce Enterprise di Prezzi.tsx, sostituita con "Multi-sede e
+ruoli avanzati"); trial di 10 giorni ristretto al solo piano Growth (Prezzi.tsx **e**
+`giorniDiProva` in `src/lib/stripe/piani.ts` -- comportamento Stripe reale, non solo testo,
+test aggiornato in `piani.test.ts`); riquadro verde di ImpattoEconomico riscritto senza citare
+il prezzo di Growth, con un argomento di vendita (evita perdite + aumenta l'incasso) invece di
+un confronto freddo; tolto il "+" ingiustificato dopo il totale animato; rimossi il flusso
+numerato 1-2-3 e il bagliore viola (`Lampada`) da `PercheNoi.tsx` (contenuto duplicato con la
+scena 0 di Vetrina.tsx, bagliore pensato per titoli senza griglia sotto -- qui la griglia
+DIFFERENZIATORI c'è sempre stata). TiltCard aggiunto alle card di Funzionalita.tsx (mancava
+rispetto a PerChi.tsx) e titolo della sezione centrato.
+
+**Verifica finale**: 112/112 test passano (incluso l'aggiornamento dell'assert su
+`giorniDiProva("pro")`, ora `undefined`), `eslint` pulito sui file toccati, build di produzione
+pulita, zero console/page error in uno scroll reale completo (desktop 1440px e mobile 390px).
+Controllo visivo con Playwright mirato esattamente sui punti segnalati da Gabriel (angoli delle
+griglie, larghezze strette per il wrap del testo, screenshot temporizzati per l'animazione della
+chat) invece di uno scroll generico -- lezione esplicita di questo giro: un controllo "generico"
+di sezione può non bastare quando il problema è nell'angolo esatto di una griglia o nel timing
+esatto di un'animazione.
+
+**Controllo di coerenza generale** (richiesto esplicitamente da Gabriel oltre ai 10 punti):
+PIANO.md, DECISIONS.md e questo file sono stati confrontati con il codice reale. Nessuna
+discrepanza nuova trovata oltre a quelle già note e già segnalate in questo file (vedi "Problemi
+noti aperti" e "Cosa è mock, incompleto o non ancora iniziato" -- entrambe le sezioni erano già
+aggiornate correttamente ai giri precedenti). Un solo aggiornamento necessario: la sezione
+"Prossimo passo pianificato" in fondo a questo file era rimasta ferma a "il codice non è ancora
+committato", ma il secondo giro è già stato committato (`2ff7ea5`) -- corretta più sotto.
 
 ## Stack reale (verificato in `package.json`)
 
@@ -602,20 +678,40 @@ l'11/09/2026 via MCP diretto).
 
 ## Prossimo passo pianificato
 
-Fase 4 (pagina pubblica) ha il codice scritto e testato -- resta da: 1) fare il deploy e
-verificare dal vivo in un browser reale (Gabriel, vedi sopra il perché non può farlo Claude dal
-sandbox), 2) verificare dal vivo il checkout Stripe già collegato tecnicamente (task #21 --
-codice fatto l'11/09/2026 sera, vedi sopra: manca solo un pagamento di test reale nel browser +
-configurare il webhook lato Stripe Dashboard una volta che l'app ha un dominio pubblico), 3)
-valutare l'anti-abuso della prenotazione pubblica (problema noto #15) prima di pubblicare il
-link di un salone vero. Landing page (`/`, `/registrati`, `/accedi`):
-dopo la sessione di rifinitura del 12/09/2026 (vedi sopra) il codice è scritto, verificato
-dal vivo in-sandbox su desktop E mobile con scroll reale simulato, e non ancora committato --
-**il prossimo passo immediato è commit + build finale + consegna del bundle a Gabriel**, poi
-il deploy per una verifica dal vivo definitiva su hardware/browser reale (glow del mouse,
-showcase scroll-driven desktop, bottoni magnetici) resta comunque raccomandato prima di
-condividere il link pubblicamente, anche se la sessione di oggi ha già coperto la parte di
-verifica più a rischio (comportamento reale su mobile). Cleanup manuale non urgente da fare
-quando Gabriel ha un minuto sul Mac: rimuovere `src/components/primitives/` e
-`src/app/beautifui/` (codice morto, mai collegato a nessuna route, non cancellabile da questa
-sessione per il blocco del classificatore su operazioni distruttive).
+**Landing page (`/`, `/registrati`, `/accedi`): il ciclo "Claude rifinisce -> Gabriel prova dal
+vivo -> nuove correzioni puntuali" può considerarsi concluso con questo terzo giro** -- tre
+round di correzioni via screenshot reali, l'ultimo dei quali (questo) ha risolto gli ultimi bug
+di layout genuini (bento grid, allineamento testo, timing di un'animazione) invece di preferenze
+di stile ancora aperte. Resta comunque raccomandato un ultimo giro di Gabriel sul deploy reale
+(non lo stesso della sandbox) prima di condividere il link pubblicamente, perché alcuni effetti
+dipendono da hardware/browser reale e non sono mai stati (e non possono essere, dal sandbox)
+verificati lì: il glow del mouse sull'Hero (`LiquidMetal`), la showcase scroll-driven desktop di
+`Vetrina.tsx` (pin+scrub GSAP), i bottoni magnetici. Se quel giro non trova altro, la landing è
+pronta per il traffico reale.
+
+**Il vero prossimo passo del progetto, dopo la landing, è verificare dal vivo (fuori sandbox,
+serve Gabriel) tutto ciò che è già scritto e testato ma mai provato in un browser reale contro
+Supabase/Stripe/Google veri** -- in ordine di blocco:
+1. **Deploy su Vercel** (già collegato, deploy automatico ad ogni push su `main` -- vedi
+   "Problemi noti aperti" #2) del codice di questo giro, appena committato e consegnato.
+2. **Fase 4, pagina pubblica per-salone (`/s/[slug]`)**: codice scritto e testato l'11/09/2026,
+   **mai aperta in un browser reale** -- provare l'intero flusso (cercare slot, prenotare,
+   parlare con il widget chat AI) su un salone di test vero.
+3. **Checkout Stripe (Fase 5, task #21)**: codice collegato per intero l'11/09/2026 sera, **mai
+   verificato con un pagamento di test reale** -- serve anche configurare il webhook lato Stripe
+   Dashboard (endpoint pubblico + signing secret), possibile solo ora che l'app ha un dominio
+   pubblico. Include verificare dal vivo che il trial resti solo su Growth dopo il cambio di
+   questo giro (checkout su Pro senza alcun periodo di prova).
+4. **Anti-abuso della prenotazione pubblica** (problema noto #15): da valutare prima di
+   pubblicare il link di un salone vero, non prima -- nessun salone reale è ancora pubblico.
+5. Dopo questi 4 punti, i pezzi rimasti prima di un lancio commerciale vero sono quelli già
+   elencati in "Cosa è mock, incompleto o non ancora iniziato": WhatsApp (bloccato su business
+   verification Meta, non su di noi), pannello admin per Gabriel, PWA, analytics avanzate,
+   sincronizzazione calendari in direzione export -- nessuno di questi blocca l'apertura dei
+   pagamenti reali (il commitment di DECISIONS.md, voce "Il sito descrive il prodotto al
+   lancio", è costruirli PRIMA di aprire i pagamenti veri, non prima del deploy).
+
+Cleanup manuale non urgente da fare quando Gabriel ha un minuto sul Mac: rimuovere
+`src/components/primitives/` e `src/app/beautifui/` (codice morto, mai collegato a nessuna
+route, non cancellabile da questa sessione per il blocco del classificatore su operazioni
+distruttive).

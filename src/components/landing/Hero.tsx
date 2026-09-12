@@ -162,6 +162,17 @@ export function Hero() {
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       <Grana opacita={0.045} />
+      {/* Bug segnalato da Gabriel ("la home appena apro il sito è tagliata
+          sotto"): la Hero finisce di netto nel suo sfondo animato
+          (LiquidMetal, ricco di colore) e la sezione successiva
+          (ProdottoScroll) è un bg-noir piatto -- stesso colore di base, ma
+          nessuna transizione tra "shader vivo" e "sfondo piatto" produce uno
+          spigolo netto proprio all'altezza del mockup del prodotto. Un fade
+          in gradiente verso bg-noir negli ultimi ~8rem della Hero ammorbidisce
+          il passaggio, senza toccare nulla della sezione sotto (che resta lo
+          stesso mockup della dashboard, "tagliata" solo perché tornerà dritta
+          allo scroll -- vedi ProdottoScroll.tsx). */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-noir sm:h-48" />
 
       {/* Bug segnalato da Gabriel: "deve reagire al mouse ma così non
           reagisce". Causa reale, verificata puntando il mouse e leggendo

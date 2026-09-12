@@ -21,10 +21,10 @@ describe("pianoEPagante", () => {
 });
 
 describe("giorniDiProva", () => {
-  it("solo i piani con l'AI vera hanno un trial, non Starter (che l'AI non ce l'ha)", () => {
+  it("solo Growth ha un trial -- non Starter (che l'AI non ce l'ha) e non più Pro (ristretto il 12/09/2026)", () => {
     expect(giorniDiProva("starter")).toBeUndefined();
     expect(giorniDiProva("growth")).toBe(10);
-    expect(giorniDiProva("pro")).toBe(10);
+    expect(giorniDiProva("pro")).toBeUndefined();
   });
 });
 

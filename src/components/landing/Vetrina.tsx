@@ -195,28 +195,54 @@ function VisualeScena({ indice }: { indice: number }) {
 
   if (indice === 2) {
     return (
+      // Bug reale segnalato da Gabriel ("le due risposte compaiono prima di
+      // 'sta scrivendo', non dopo"): la domanda e le due righe di risposta
+      // erano semplici <div> senza alcuna animazione -- comparivano quindi
+      // TUTTE al montaggio del componente (istante 0), mentre l'indicatore
+      // "sta scrivendo" (l'unico ad avere un'animazione) si accendeva e
+      // spegneva in loop SOPRA risposte già visibili da subito: l'ordine
+      // logico (domanda -> sta scrivendo -> risposta) non esisteva davvero,
+      // era solo un'illusione data dal loop infinito che ripassava sopra
+      // contenuto già in vista. Riscritta come sequenza vera, una tantum,
+      // con `delay` crescenti: la domanda compare, poi l'indicatore, poi
+      // (solo quando l'indicatore è già sparito) le due righe di risposta.
       <div className="flex w-full max-w-sm flex-col gap-2">
-        <div className="self-end rounded-2xl rounded-br-sm bg-white/10 px-3 py-2 text-xs text-white/80">
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.2 }}
+          className="self-end rounded-2xl rounded-br-sm bg-white/10 px-3 py-2 text-xs text-white/80"
+        >
           Siete aperti domenica?
-        </div>
+        </motion.div>
         {/* L'orb non è decorazione: rende letteralmente visibile il momento in
             cui l'AI sta elaborando la risposta, prima che compaia -- stato
             "connecting" di thinking-orbs, pensato apposta per agenti AI. */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: [0, 1, 1, 0] }}
-          transition={{ duration: 1.4, times: [0, 0.15, 0.75, 1], repeat: Infinity, repeatDelay: 2.2 }}
+          transition={{ duration: 1.6, times: [0, 0.2, 0.75, 1], delay: 0.75, ease: "easeInOut" }}
           className="flex items-center gap-1.5 self-start pl-1"
         >
           <ThinkingOrb state="connecting" size={20} theme="dark" aria-label="L'assistente sta elaborando la risposta" />
           <span className="text-[10px] text-white/40">sta scrivendo…</span>
         </motion.div>
-        <div className="self-start rounded-2xl rounded-bl-sm bg-gradient-to-br from-violet-500/80 to-fuchsia-500/80 px-3 py-2 text-xs text-white">
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 2.35 }}
+          className="self-start rounded-2xl rounded-bl-sm bg-gradient-to-br from-violet-500/80 to-fuchsia-500/80 px-3 py-2 text-xs text-white"
+        >
           Siamo chiusi la domenica, ma sabato ho le 11:00 libere!
-        </div>
-        <div className="mt-1 flex items-center gap-1.5 self-start text-[11px] text-emerald-400">
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 2.65 }}
+          className="mt-1 flex items-center gap-1.5 self-start text-[11px] text-emerald-400"
+        >
           <Check className="size-3" /> Nessuno del salone ha dovuto rispondere
-        </div>
+        </motion.div>
       </div>
     );
   }
