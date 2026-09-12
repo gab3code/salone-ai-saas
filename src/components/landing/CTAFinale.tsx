@@ -1,4 +1,8 @@
+"use client";
+
+import { useEffect, type PointerEvent as ReactPointerEvent } from "react";
 import { Check } from "lucide-react";
+import { motion, useMotionValue, useSpring, useMotionTemplate, animate } from "framer-motion";
 import { Reveal, RevealStagger, RevealItem } from "./Reveal";
 import { Grana } from "./Grana";
 import { GlowBorder } from "./GlowBorder";
@@ -22,18 +26,70 @@ const GARANZIE = ["Nessuna carta richiesta", "Attivo in 5 minuti", "Cancella qua
  * non solo una riga di sottotitolo. Il bordo animato (GlowBorder, già usato
  * su Hero e sul piano consigliato) resta come unico richiamo dinamico:
  * un dettaglio, non il protagonista.
+ *
+ * Sfondo rifatto una seconda volta (quinto giro, feedback di Gabriel: "lo
+ * sfondo non mi piace per niente" -- stavolta chiesto esplicitamente di
+ * proporre alternative e farmi scegliere prima di riscrivere alla cieca una
+ * terza volta). Mostrate 4 direzioni via screenshot (aurora multicolore,
+ * griglia tecnica, spotlight scuro, piatto/minimale) -- scelta "Spotlight
+ * scuro": un solo bagliore viola morbido, non due ellissi fisse come prima.
+ * Reso interattivo (coerente con la preferenza di Gabriel per UI "fluide e
+ * dinamiche"): segue il puntatore quando il mouse è sopra la card (con uno
+ * smoothing a molla, stessa tecnica di MagneticButton/GlowBorder), e deriva
+ * lentamente da solo quando non c'è interazione -- su schermi touch, dove
+ * "seguire il mouse" non ha senso, si vede sempre la deriva lenta.
  */
+/**
+ * Restituisce sia il livello visivo (`sfondo`, da mettere dentro la card)
+ * sia il gestore da agganciare al CONTENITORE ESTERNO della card (non a un
+ * div interno): il puntatore deve muovere il bagliore anche quando è sopra
+ * il titolo o il pulsante, non solo sulle zone "vuote" della card -- un
+ * div interno sotto testo/pulsante non riceverebbe mai il pointermove lì
+ * sopra, perché gli elementi successivi nel markup (sopra nello z-order)
+ * lo intercettano prima.
+ */
+function useSpotlightScuro() {
+  const x = useMotionValue(50);
+  const y = useMotionValue(42);
+  const xMolla = useSpring(x, { stiffness: 55, damping: 18 });
+  const yMolla = useSpring(y, { stiffness: 55, damping: 18 });
+  const sfondo = useMotionTemplate`radial-gradient(34% 48% at ${xMolla}% ${yMolla}%, rgba(168,85,247,0.5), transparent 70%)`;
+
+  useEffect(() => {
+    const riduciMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (riduciMovimento) return;
+
+    const controlliX = animate(x, [50, 68, 32, 50], { duration: 10, repeat: Infinity, ease: "easeInOut" });
+    const controlliY = animate(y, [42, 28, 58, 42], { duration: 10, repeat: Infinity, ease: "easeInOut" });
+    return () => {
+      controlliX.stop();
+      controlliY.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function alMuovimento(e: ReactPointerEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    x.set(((e.clientX - rect.left) / rect.width) * 100);
+    y.set(((e.clientY - rect.top) / rect.height) * 100);
+  }
+
+  return { sfondo, alMuovimento };
+}
+
 export function CTAFinale() {
+  const { sfondo, alMuovimento } = useSpotlightScuro();
+
   return (
     <section className="mx-auto max-w-6xl px-5 pt-12 pb-24 sm:px-8 sm:pt-16">
       <Reveal>
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-noir px-8 py-20 text-center sm:py-24">
+        <div
+          className="relative overflow-hidden rounded-3xl border border-white/10 bg-noir px-8 py-20 text-center sm:py-24"
+          onPointerMove={alMuovimento}
+        >
           <GlowBorder rounded={24} borderWidth={1} speed={5} hoverMultiplier={2} tailLength={35} dualTails={false} glowColor="#c084fc" tailColor="rgba(168,85,247,0.35)" baseColor="rgba(255,255,255,0.03)" />
 
-          {/* Bagliore ambientale, non un vortice: due ellissi sfocate agli
-              angoli opposti, mai al centro sopra il testo. */}
-          <div className="pointer-events-none absolute -top-24 -left-16 size-72 rounded-full bg-violet-600/20 blur-3xl" />
-          <div className="pointer-events-none absolute -right-16 -bottom-24 size-72 rounded-full bg-fuchsia-600/15 blur-3xl" />
+          <motion.div className="pointer-events-none absolute inset-0" style={{ background: sfondo, filter: "blur(30px)" }} />
           <Grana opacita={0.05} />
 
           <h2 className="relative text-3xl font-semibold tracking-tight text-white sm:text-4xl">

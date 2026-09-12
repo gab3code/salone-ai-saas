@@ -123,7 +123,8 @@ function Cella({ v }: { v: Voce }) {
     // sotto, che già aveva l'inclinazione 3D al passaggio del mouse).
     // Stesso identico pattern di CardPersona in PerChi.tsx: TiltCard fuori,
     // il contenuto (qui SpotlightCard) dentro, "h-full" su entrambi perché
-    // la card vive in una griglia auto-rows-fr.
+    // la card vive in una griglia -- lo stretch di default allinea comunque
+    // in altezza le card della stessa riga (vedi commento sulla griglia).
     <TiltCard className="h-full">
       <SpotlightCard
         className={`flex h-full flex-col rounded-2xl border p-4 transition-colors duration-300 sm:p-5 ${
@@ -140,12 +141,16 @@ function Cella({ v }: { v: Voce }) {
           <v.icona className="size-4" />
         </span>
         <h3 className={`relative mt-3 font-medium text-white sm:mt-4 ${v.grande ? "text-base" : "text-[15px]"}`}>{v.titolo}</h3>
-        {/* Descrizione nascosta su telefono per le card piccole (punto 3 di
-            Gabriel: "su telefono devo scorrere tantissimo") -- titolo e icona
-            bastano a far capire la funzione in uno sguardo su schermo
-            stretto; il dettaglio resta per chi ha spazio (tablet in su) e per
-            i pilastri, che lo meritano su ogni schermo. */}
-        <p className={`relative mt-1.5 text-sm leading-relaxed text-white/60 ${v.grande ? "" : "hidden sm:block"}`}>{v.descrizione}</p>
+        {/* La descrizione era nascosta su telefono per le card piccole (punto
+            3 del terzo giro: "su telefono devo scorrere tantissimo") --
+            tornata visibile ovunque (quinto giro, segnalazione di Gabriel:
+            "su telefono le card piccole non hanno il testo, es. SMS").
+            Effetto collaterale positivo: era anche la causa reale delle card
+            "troppo grandi verticalmente, molto inutilmente" -- con la
+            griglia a `auto-rows-fr` (sotto) le card senza descrizione si
+            stiravano comunque per pareggiare l'altezza della card più alta
+            della stessa riga, lasciando vuoto invece di contenuto. */}
+        <p className="relative mt-1.5 text-sm leading-relaxed text-white/60">{v.descrizione}</p>
       </SpotlightCard>
     </TiltCard>
   );
@@ -163,7 +168,19 @@ export function Funzionalita() {
         <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Tutto quello che serve, in un unico posto.</p>
       </Reveal>
 
-      <RevealStagger className="mt-12 grid auto-rows-fr grid-cols-2 gap-3 [grid-auto-flow:dense] sm:gap-4 lg:grid-cols-4" gapMs={0.04}>
+      {/* `auto-rows-fr` tolto (quinto giro): su una griglia senza altezza
+          fissa, forzava ogni riga implicita a pareggiare l'altezza della
+          riga più alta di TUTTA la griglia (non solo delle card della
+          stessa riga) -- le card piccole senza molto contenuto si
+          stiravano per pareggiare righe lontane con card "grande" a
+          descrizione lunga, lasciando vuoto invece di restare compatte.
+          Senza, ogni riga implicita si dimensiona sul proprio contenuto;
+          `items-start` sulle singole card (dentro Cella, via SpotlightCard)
+          non serve perché lo stretch di default resta comunque utile PER
+          RIGA (due card fianco a fianco con titoli di lunghezza diversa
+          restano allineate in altezza tra loro), solo non più tra righe
+          diverse. */}
+      <RevealStagger className="mt-12 grid grid-cols-2 gap-3 [grid-auto-flow:dense] sm:gap-4 lg:grid-cols-4" gapMs={0.04}>
         {FUNZIONI.map((v) => (
           <RevealItem key={v.titolo} className={v.grande ? "col-span-2" : "col-span-1"}>
             <Cella v={v} />

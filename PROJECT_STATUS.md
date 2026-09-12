@@ -1,6 +1,22 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026, quarto giro (Gabriel ha usato il sito pubblicato dal terzo
+Ultimo aggiornamento: 12/09/2026, quinto giro (Gabriel ha usato il sito pubblicato dal quarto
+giro e segnalato altri 7 punti, arrivati anche a metà del lavoro di questo giro stesso -- lo
+sfondo della CTA finale rifatto una seconda volta è stato mostrato con 4 opzioni via screenshot
+PRIMA di scrivere codice, come richiesto esplicitamente. Bug reali risolti: FAQ e pagina di
+registrazione promettevano ancora 10 giorni di prova sul piano Pro, tolto dal terzo giro --
+corretti entrambi usando la stessa funzione `giorniDiProva` invece di un secondo elenco di piani
+scritto a mano; le card della griglia Funzionalita comparivano tutte insieme invece che una riga
+alla volta scendendo (causa reale: il reveal-on-scroll era orchestrato dal CONTENITORE, non dalle
+singole card -- riscritto Reveal.tsx perché ogni card si attivi da sola in base alla propria
+posizione di scroll, non più a un ritardo condiviso, effetto ora sentito su tutto il sito, non
+solo lì); le card piccole della stessa griglia erano senza testo e "inutilmente alte" su
+telefono -- causa reale la combinazione tra descrizione nascosta di proposito e `auto-rows-fr`
+che pareggiava l'altezza di righe non correlate. Pulsanti "metal" dei piani a pagamento
+ripensati come un sottile anello animato attorno a un pulsante scuro pieno, non più uno shader
+che riempie tutto il pulsante (ispirazione cercata sui connettori 21st.dev/OriginKit su
+richiesta di Gabriel). Vedi la sezione dedicata più sotto per il dettaglio completo. Aggiornamento
+precedente, 12/09/2026 quarto giro (Gabriel ha usato il sito pubblicato dal terzo
 giro e segnalato 13 nuovi punti via screenshot + testo; 4 erano scelte di design ambigue --
 chiarite con `AskUserQuestion` prima di agire, come richiesto esplicitamente da Gabriel in
 chiusura del suo messaggio -- le altre erano bug/rifiniture concrete. Vedi la sezione dedicata
@@ -329,6 +345,75 @@ noti aperti" e "Cosa è mock, incompleto o non ancora iniziato" -- entrambe le s
 aggiornate correttamente ai giri precedenti). Un solo aggiornamento necessario: la sezione
 "Prossimo passo pianificato" in fondo a questo file era rimasta ferma a "il codice non è ancora
 committato", ma il secondo giro è già stato committato (`2ff7ea5`) -- corretta più sotto.
+
+## Quinto giro di rifinitura landing, dopo l'uso reale del sito pubblicato dal quarto giro (12/09/2026)
+
+Gabriel ha mandato 7 punti, alcuni via messaggi separati mentre il lavoro di questo stesso giro
+era già in corso -- gestiti mano a mano, non ripartendo da capo.
+
+**Bug reali diagnosticati e non solo ritoccati a occhio**:
+- `Faq.tsx` e `registrati/page.tsx`: entrambi promettevano ancora "10 giorni di prova" sul piano
+  Pro, restrizione tolta nel terzo giro (`giorniDiProva` in `piani.ts` ora ritorna `undefined` per
+  Pro). La FAQ aveva semplicemente un testo statico non aggiornato; `registrati/page.tsx` era più
+  serio -- un controllo scritto a mano (`pianoValido === "growth" || pianoValido === "pro"`) invece
+  di usare `giorniDiProva`, la stessa funzione che il checkout Stripe reale rispetta -- avrebbe
+  promesso un trial che al momento di pagare non sarebbe mai arrivato. Corretti entrambi usando
+  `giorniDiProva` come unica fonte di verità.
+- `Reveal.tsx`: le card di una griglia comparivano "tutte insieme" scendendo, non una riga alla
+  volta (segnalazione di Gabriel). Causa reale: `RevealStagger` era l'UNICO trigger
+  (`whileInView` sul contenitore), e le card figlie si limitavano a ereditare le varianti con uno
+  sfalsamento (`staggerChildren`) misurato in TEMPO, non in scroll -- su una griglia alta più
+  schermate lo sfalsamento totale finiva (meno di un secondo) ben prima che l'utente scorresse
+  fino alle righe più basse, che quindi arrivavano già comparse. Riscritto perché ogni
+  `RevealItem` si attivi DA SOLO in base alla propria posizione di scroll (stesso `whileInView`
+  di `Reveal`) -- le card della stessa riga entrano in viewport quasi insieme e compaiono
+  insieme naturalmente, quelle sotto restano ferme finché non ci si scorre vicino davvero.
+  Cambio in un solo file, effetto su tutte le griglie del sito (Funzionalita, PerChi, PercheNoi,
+  Prezzi, Faq, ComeFunziona, CTAFinale), non solo su quella segnalata.
+- `Funzionalita.tsx`: le card piccole "non hanno il testo" su telefono, ed erano "troppo grandi
+  verticalmente, molto inutilmente" (due segnalazioni di Gabriel, stessa causa). La descrizione
+  era nascosta di proposito su telefono per le card non-pilastro (terzo giro, "su telefono devo
+  scorrere tantissimo") -- ma la griglia usava `auto-rows-fr`, che senza un'altezza esplicita sul
+  contenitore pareggia l'altezza di OGNI riga implicita su quella della riga più alta di TUTTA la
+  griglia, non solo delle card della stessa riga: le card piccole senza descrizione si
+  stiravano per pareggiare righe lontane con card "grande" a descrizione lunga, lasciando vuoto
+  invece di contenuto. Tolto `auto-rows-fr` (ogni riga si dimensiona sul proprio contenuto,
+  `align-items: stretch` di default resta comunque utile PER RIGA) e rimossa la descrizione
+  nascosta -- ora mostrata sempre, riempiendo lo spazio che prima restava vuoto.
+
+**Consultato prima di agire** (dettaglio in DECISIONS.md): sfondo di CTAFinale.tsx rifatto una
+seconda volta -- mostrate 4 direzioni via screenshot (aurora multicolore, griglia tecnica,
+spotlight scuro, piatto/minimale) prima di scrivere codice, scelto "Spotlight scuro" e reso
+interattivo (segue il puntatore con uno smoothing a molla, deriva lento quando non c'è
+interazione). Titolo della Hero ("mai più senza risposta"): tolto il bagliore colorato attorno al
+testo (leggeva come un'"evidenziazione" indesiderata) e sostituito con un colore pieno (ambra) --
+lontano su qualunque ruota cromatica dal viola/fucsia dello shader dietro, non si confonde più a
+nessuna fase dell'animazione. Pulsanti "metal" dei piani a pagamento: cercata ispirazione sui
+connettori (21st.dev, componente "metal-fx") su richiesta esplicita di Gabriel -- non installata
+la libreria di terze parti (licenza non verificata, budget vicino a zero), ricreata la stessa
+idea (un anello metallico animato attorno a un elemento, non uno shader a piena superficie) con
+`LiquidMetal`, già in uso e già verificato altrove nel sito.
+
+**Altre rifiniture**: riga del promemoria in `ImpattoEconomico.tsx` accorciata (tolto "prima
+dell'appuntamento", ridondante con il titolo della colonna due righe sopra) per stare su una riga
+sola a ogni larghezza testata.
+
+**Verifica finale**: 112/112 test, `tsc --noEmit` pulito, `eslint` pulito sui file toccati, build
+di produzione pulita, zero console/page error in un controllo Playwright mirato sui 7 punti
+segnalati (1440px e 375px), incluso una verifica diretta via `getComputedStyle` per il colore del
+titolo della Hero (lì lo screenshot da solo non basta, vedi nota sotto) e uno screenshot per
+piano (`?piano=pro` vs `?piano=growth`) per confermare che la pagina di registrazione mostri il
+trial solo dove esiste davvero.
+
+**Nota per Gabriel**: gli screenshot della Hero e dei pulsanti "metal" di Prezzi restano poco
+affidabili da questa sandbox per lo stesso motivo già segnalato nel giro precedente -- il
+contesto WebGL qui non è mai utilizzabile (verificato di nuovo: anche lo shader della Hero, mai
+toccato in questi due giri, risulta "context lost" appena caricato), quindi qualunque cosa
+disegnata da `LiquidMetal` (compreso il nuovo anello metallico sui pulsanti) non è visibile negli
+screenshot presi da qui. Confermato però che il codice è corretto dove verificabile
+diversamente (classe CSS del colore Hero via `getComputedStyle`, struttura DOM dei pulsanti,
+nessun errore console) -- il controllo visivo vero per questi due punti resta da fare sul sito
+reale.
 
 ## Quarto giro di rifinitura landing, dopo l'uso reale del sito pubblicato dal terzo giro (12/09/2026)
 

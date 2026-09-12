@@ -39,32 +39,56 @@ export function Reveal({
   );
 }
 
-/** Contenitore che sfalsa (stagger) il reveal dei figli diretti -- usare con <Reveal> o motion.div dentro. */
+/**
+ * Contenitore per una griglia/lista di RevealItem -- oggi solo un div di
+ * layout, non anima più nulla lui stesso.
+ *
+ * Riscritto (quinto giro, segnalazione di Gabriel: "le card salgono tutte
+ * insieme invece che una riga per volta quando scendo"). Causa reale: prima
+ * questo contenitore era l'UNICO trigger (`whileInView` su di sé), e ogni
+ * RevealItem figlio si limitava a ereditare le sue varianti con uno
+ * sfalsamento (`staggerChildren`) misurato in tempo, non in scroll. Su una
+ * griglia alta più schermate (es. le 15 card di Funzionalita.tsx), il
+ * contenitore entra in "vista" (margine -80px) quando solo la prima riga è
+ * davvero visibile -- ma lo sfalsamento totale per 15 elementi dura meno di
+ * un secondo, quindi finisce prima ancora che l'utente scorra fino alle
+ * righe più basse: quando ci arriva le trova già comparse, non "una riga
+ * alla volta mentre scende" come voluto. `gapMs` è rimasto nel tipo solo per
+ * non rompere le chiamate esistenti che lo passano ancora; non fa più nulla.
+ */
 export function RevealStagger({
   children,
   className,
-  gapMs = 0.08,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- accettato ma ignorato, vedi commento sopra
+  gapMs,
 }: {
   children: ReactNode;
   className?: string;
+  /** @deprecated non più usato -- ogni RevealItem si attiva da solo in base alla propria posizione di scroll, non a un ritardo condiviso. */
   gapMs?: number;
 }) {
+  return <div className={className}>{children}</div>;
+}
+
+/**
+ * Ogni card si attiva da sola quando ENTRA lei stessa nella viewport (stesso
+ * `whileInView`/margine di Reveal), non più in base a quando lo fa il
+ * contenitore. Le card della stessa riga entrano nella viewport quasi allo
+ * stesso momento (stessa posizione di scroll) e quindi compaiono insieme
+ * naturalmente -- le righe più in basso restano ferme finché non ci si
+ * scorre davvero vicino, che è esattamente l'effetto "una riga alla volta"
+ * richiesto.
+ */
+export function RevealItem({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <motion.div
       initial="nascosto"
       whileInView="visibile"
       viewport={{ once: true, margin: "-80px" }}
-      transition={{ staggerChildren: gapMs }}
+      variants={VARIANTI}
+      transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
       className={className}
     >
-      {children}
-    </motion.div>
-  );
-}
-
-export function RevealItem({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <motion.div variants={VARIANTI} transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }} className={className}>
       {children}
     </motion.div>
   );

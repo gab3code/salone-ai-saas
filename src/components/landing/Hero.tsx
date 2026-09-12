@@ -37,12 +37,19 @@ function Titolo() {
               dello shader il testo poteva finire quasi dello stesso colore
               dello sfondo dietro, leggendo come "sporco"/illeggibile invece
               che come un accento (segnalato da Gabriel, "colore orrendo").
-              Bianco pieno è sempre leggibile sopra il velo scuro qui sotto,
-              a qualunque fase sia lo shader; il colore resta comunque
-              presente come bagliore (text-shadow), non sparisce. */}
-          <span className="text-white" style={{ textShadow: "0 0 34px rgba(217,70,239,0.55), 0 0 64px rgba(124,58,237,0.35)" }}>
-            mai più senza risposta.
-          </span>
+              Passato poi a bianco pieno con un bagliore colorato attorno
+              (text-shadow viola/fucsia) -- ma quel bagliore leggeva come
+              un'"evidenziazione" indesiderata (un alone che imita
+              l'evidenziatore), non come un accento di colore sul testo
+              stesso (segnalato di nuovo da Gabriel: "togli
+              l'evidenziazione... dai un colore bello al testo che non si
+              confonda con lo sfondo"). Ora: nessun bagliore, un colore
+              pieno sul testo -- ambra, lontano su qualunque ruota cromatica
+              dal viola/fucsia dello shader dietro (mai un tono vicino con
+              cui confondersi, a qualunque fase sia lo shader), con solo
+              l'ombra scura neutra ereditata dall'h1 per la leggibilità (non
+              più un'ombra colorata propria). */}
+          <span className="text-amber-300">mai più senza risposta.</span>
         </motion.span>
       </span>
     </h1>

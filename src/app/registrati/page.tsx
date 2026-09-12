@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { creaClientBrowser } from "@/lib/supabase/client";
-import { pianoEPagante, ETICHETTA_PIANO } from "@/lib/stripe/piani";
+import { pianoEPagante, ETICHETTA_PIANO, giorniDiProva } from "@/lib/stripe/piani";
 import { Grana } from "@/components/landing/Grana";
 import { AuthHeader } from "@/components/landing/AuthHeader";
 
@@ -157,7 +157,18 @@ function FormRegistrazione() {
           {pianoValido && (
             <p className="rounded-lg border border-violet-400/20 bg-violet-500/10 px-3 py-2.5 text-sm text-violet-200">
               Stai per attivare il piano <strong className="text-white">{ETICHETTA_PIANO[pianoValido]}</strong>
-              {(pianoValido === "growth" || pianoValido === "pro") && " (10 giorni di prova prima del primo addebito)"}.
+              {/* Bug reale trovato nel controllo generale del quinto giro
+                  (segnalazione di Gabriel sulla FAQ non aggiornata, stesso
+                  problema qui): il trial era stato ristretto al solo Growth
+                  nel secondo giro (vedi giorniDiProva in piani.ts), ma questo
+                  controllo hardcoded "growth" || "pro" non era stato
+                  aggiornato -- prometteva 10 giorni di prova anche su Pro,
+                  che invece viene addebitato subito (vedi
+                  /api/stripe/checkout/route.ts, che usa correttamente
+                  giorniDiProva). Sostituito con la stessa funzione, unica
+                  fonte di verità, invece di un secondo elenco di piani da
+                  tenere allineato a mano. */}
+              {giorniDiProva(pianoValido) !== undefined && ` (${giorniDiProva(pianoValido)} giorni di prova prima del primo addebito)`}.
               Dopo la registrazione ti portiamo al pagamento sicuro su Stripe.
             </p>
           )}

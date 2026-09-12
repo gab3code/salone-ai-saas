@@ -91,16 +91,28 @@ const PIANI = [
  * pagina, non su un pulsante largo 150px, dove sarebbe solo un tremolio.
  * Free ed Enterprise restano fuori (Free non è un piano "premium" da
  * vendere, Enterprise è a preventivo via email, non un vero checkout).
- * Starter: palette smorzata, quasi monocromatica, più "frost" (opaco) --
- * il piano d'ingresso, metal ma sobrio. Growth: la stessa identità
- * viola/fucsia del sito, intensità media. Pro: palette piena della Hero
- * (PALETTE_DEFAULT, non sovrascritta), più veloce/lucida -- il piano più
- * caro ha il metal più vistoso.
+ * Starter: palette argento/grigio (sobrio ma visibile come anello sottile).
+ * Growth: la stessa identità viola/fucsia del sito, intensità media. Pro:
+ * palette piena della Hero (PALETTE_DEFAULT, non sovrascritta), più
+ * veloce/lucida -- il piano più caro ha il metal più vistoso.
+ *
+ * Renderizzato come ANELLO sottile, non più a riempire tutto il pulsante
+ * (quinto giro, feedback di Gabriel: "non sono male ma sono un po' strani").
+ * Cercato ispirazione sui connettori (21st.dev, componente "metal-fx" di
+ * larsen66): un bordo metallico animato attorno a un elemento qualunque, non
+ * uno shader che riempie tutta la superficie cliccabile -- lo stesso schema
+ * già usato in questo file per il bordo del piano "Consigliato" (GlowBorder
+ * dentro un contenitore con qualche px di padding, un elemento pieno sopra).
+ * Non installata la libreria esterna (`metal-fx`, dipendenza di terze parti
+ * con licenza non verificata, per un sito con budget vicino a zero non ha
+ * senso rischiare) -- stessa idea ricreata con `LiquidMetal`, che già
+ * conosciamo e abbiamo verificato: un pulsante scuro pieno e leggibile, con
+ * 2px di anello animato attorno invece che un vortice a piena card.
  */
 const METAL_PIANI: Record<string, Partial<ComponentProps<typeof LiquidMetal>>> = {
   Starter: {
-    colors: ["#0a0a0f", "#1c1c24", "#3a3a46", "#57576a"],
-    frost: 3,
+    colors: ["#3f3f46", "#71717a", "#a1a1aa", "#d4d4d8"],
+    frost: 2.2,
     sweep: 1.5,
     shimmer: 2,
     scale: 5,
@@ -110,8 +122,8 @@ const METAL_PIANI: Record<string, Partial<ComponentProps<typeof LiquidMetal>>> =
     relief: 6,
   },
   Growth: {
-    colors: ["#07040d", "#2e1065", "#7c3aed", "#c026d3"],
-    frost: 1.8,
+    colors: ["#2e1065", "#4c1d95", "#7c3aed", "#c026d3"],
+    frost: 1.6,
     sweep: 4,
     shimmer: 5,
     scale: 6,
@@ -121,7 +133,7 @@ const METAL_PIANI: Record<string, Partial<ComponentProps<typeof LiquidMetal>>> =
     relief: 8,
   },
   Pro: {
-    frost: 1.2,
+    frost: 1.1,
     sweep: 6,
     shimmer: 7,
     scale: 7,
@@ -235,14 +247,11 @@ export function Prezzi() {
                 const metal = METAL_PIANI[p.nome];
                 if (metal) {
                   return (
-                    <a
-                      href={hrefVoceCTA(p.nome)}
-                      className="relative mt-5 block overflow-hidden rounded-full px-4 py-2 text-center text-sm font-medium text-white transition-transform hover:scale-[1.03]"
-                      style={{ textShadow: "0 1px 5px rgba(0,0,0,0.6)" }}
-                    >
+                    <a href={hrefVoceCTA(p.nome)} className="relative mt-5 block rounded-full p-[2px] transition-transform hover:scale-[1.03]">
                       <LiquidMetal {...metal} parallasse={false} className="rounded-full" />
-                      <span className="absolute inset-0 rounded-full bg-black/20" />
-                      <span className="relative z-10">{etichetta}</span>
+                      <span className="relative z-10 flex items-center justify-center rounded-full bg-zinc-900 px-4 py-2 text-center text-sm font-medium text-white">
+                        {etichetta}
+                      </span>
                     </a>
                   );
                 }

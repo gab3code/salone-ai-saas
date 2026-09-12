@@ -661,3 +661,43 @@ codice già corretto alla cieca.
 
 **Verifica**: vedi PROJECT_STATUS.md, sezione "Quarto giro", per l'esito di test/build/controllo
 visivo.
+
+## 2026-09-12 — Quinto giro: sfondo CTA finale (seconda riscrittura) e pulsanti metal come anello
+
+**1) Sfondo di CTAFinale.tsx, seconda riscrittura.** Il quarto giro aveva già sostituito lo shader
+LiquidMetal con un bagliore ambientale a due ellissi statiche -- Gabriel ha segnalato che non gli
+piaceva "per niente" e ha chiesto esplicitamente di proporre alternative invece di riscrivere
+alla cieca una terza volta di fila sulla stessa sezione. Mostrate 4 direzioni via screenshot
+(non codice, solo mockup statici): (A) aurora multicolore animata, (B) griglia tecnica in stile
+"prodotto SaaS", (C) spotlight scuro -- un solo bagliore che si muove, (D) piatto/minimale senza
+bagliore. Scelta: C. Reso interattivo (segue il puntatore con smoothing a molla sul contenitore
+intero, non un div interno più piccolo, così reagisce anche quando il mouse è sopra testo/
+pulsante) con una deriva lenta automatica quando non c'è interazione -- coerente con la
+preferenza esplicita di Gabriel per interfacce "fluide, interattive e dinamiche" (vedi
+preferenze salvate).
+
+**2) Titolo della Hero, "mai più senza risposta".** Già cambiato una volta nel terzo giro (da
+gradient viola/fucsia con bg-clip-text, che spariva contro lo sfondo shader alla stessa fase
+cromatica, a bianco pieno con un bagliore text-shadow colorato). Gabriel ha segnalato che quel
+bagliore leggeva come un'"evidenziazione" indesiderata e ha chiesto un colore vero sul testo che
+non si confondesse con lo sfondo. Scelto ambra pieno (nessun text-shadow proprio, solo l'ombra
+neutra già ereditata dall'h1): lontano su qualunque ruota cromatica dal viola/fucsia/magenta
+dello shader dietro, quindi mai un tono vicino con cui confondersi a nessuna fase
+dell'animazione -- a differenza del tentativo precedente (bianco + bagliore COLORATO, che poteva
+comunque leggere come un alone indesiderato indipendentemente dalla fase).
+
+**3) Pulsanti "metal" dei piani a pagamento: anello invece di riempimento.** Gabriel ha detto che
+i pulsanti "non sono male ma sono un po' strani" e ha chiesto di continuare in quella direzione
+cercando ispirazione sui connettori (21st.dev/OriginKit). Trovato un componente pertinente
+("metal-fx" di larsen66 su 21st.dev): un bordo/anello metallico animato attorno a un elemento
+qualunque, non uno shader che riempie tutta la superficie -- probabilmente la causa reale dello
+"strano": un vortice colorato che riempie l'INTERA area cliccabile di un pulsante piccolo non
+legge come un pulsante normale. Deciso di NON installare la libreria di terze parti (dipendenza
+esterna con licenza non verificata, per un progetto a budget zero non vale il rischio per un
+dettaglio estetico) ma di ricreare la stessa idea con `LiquidMetal`, già nel codice e già
+verificato: pulsante scuro pieno e leggibile, con 2px di anello animato attorno (stessa tecnica
+già usata in questo file per il bordo del piano "Consigliato" -- un contenitore con qualche px di
+padding, l'effetto animato sotto, un elemento pieno sopra).
+
+**Verifica**: vedi PROJECT_STATUS.md, sezione "Quinto giro", per l'esito di test/build/controllo
+visivo e per la nota sui limiti di verifica visiva della sandbox riguardo a Hero/pulsanti metal.

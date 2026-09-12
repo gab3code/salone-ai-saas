@@ -22,8 +22,13 @@ const DOMANDE = [
   },
   {
     domanda: "Posso provarlo gratis prima di pagare?",
+    // Corretta (quinto giro, segnalazione di Gabriel: "la faq della prova
+    // gratuita non è aggiornata") -- diceva ancora "Growth o Pro con 10
+    // giorni di prova", ma il trial era già stato ristretto al solo Growth
+    // nel secondo giro (vedi giorniDiProva in piani.ts e Prezzi.tsx) senza
+    // aggiornare questa risposta, rimasta indietro.
     risposta:
-      "Sì, in due modi: il piano Free resta gratuito senza scadenza (fino a 60 prenotazioni al mese), oppure scegli Growth o Pro con 10 giorni di prova prima del primo addebito — richiediamo una carta all'attivazione, ma non viene addebitata nulla finché la prova non finisce.",
+      "Sì, in due modi: il piano Free resta gratuito senza scadenza (fino a 60 prenotazioni al mese), oppure scegli Growth con 10 giorni di prova prima del primo addebito — richiediamo una carta all'attivazione, ma non viene addebitata nulla finché la prova non finisce. Pro ed Enterprise partono da subito, senza periodo di prova.",
   },
   {
     domanda: "Posso cancellare quando voglio?",

@@ -173,9 +173,13 @@ export function ImpattoEconomico() {
               <p className="pl-14 text-xs text-white/40">
                 2 × 35€ × 12 = <span className="font-medium text-white/70">{TOTALE_NOSHOW_FMT}€/anno</span>
               </p>
+              {/* Accorciata (quinto giro, segnalazione di Gabriel: "accorciala
+                  cosi che non vada a capo") -- tolto "prima dell'appuntamento",
+                  ridondante: la colonna è già intitolata "Appuntamenti
+                  dimenticati" due righe sopra, non serve ripeterlo qui. */}
               <p className="pl-14 text-xs text-emerald-300/80">
                 <BellRing className="mr-1.5 inline-block size-3.5 -translate-y-px" />
-                Il promemoria automatico prima dell&apos;appuntamento evita questa voce da solo.
+                Il promemoria automatico evita questa voce da solo.
               </p>
             </div>
 
