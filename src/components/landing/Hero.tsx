@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Calendar, Check, MessageCircle, Sparkles } from "lucide-react";
-import { motion, useMotionValue, useSpring, animate, useMotionTemplate } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform, animate, useMotionTemplate } from "framer-motion";
 import { Grana } from "./Grana";
 import { MagneticButton } from "./MagneticButton";
 import { LiquidMetal } from "./LiquidMetal";
@@ -127,6 +127,20 @@ function Titolo() {
   const riflessoBackgroundPosition = useRiflessoMetallico();
   const { radiceRef, puntoX, puntoY, inclinazioneX, inclinazioneY, attivo } = useLuceInterattiva();
   const riflessoPuntuale = useMotionTemplate`radial-gradient(180px circle at ${puntoX}% ${puntoY}%, rgba(255,255,255,0.95), rgba(240,171,252,0.4) 45%, transparent 72%)`;
+  // Quinto giro, settima parte -- "prenditi tutto il tuo tempo per
+  // migliorarlo": il tilt aggiunto nella sesta parte muoveva tutto il
+  // titolo come un pannello rigido, ma le BANDE di metallo sotto restavano
+  // sempre nella stessa posizione relativa alle lettere -- un vero metallo
+  // spazzolato, inclinandolo, mostra bande diverse (la superficie riflette
+  // punti diversi dell'ambiente a seconda dell'angolo). Lego quindi la
+  // posizione verticale del gradiente a bande allo stesso valore di tilt
+  // (`inclinazioneX`, il componente "su/giù"): la spanna di gradiente è più
+  // alta del testo (`backgroundSize: "100% 160%"`) apposta, cosi scorrendo
+  // resta sempre dentro l'immagine (mai un bordo scoperto) e le due tinte
+  // scure agli estremi del gradiente (`#110722` in cima e in fondo)
+  // coprono comunque il caso limite senza cuciture visibili.
+  const spostamentoBandeY = useTransform(inclinazioneX, [-5, 5], [32, 68]);
+  const posizioneBande = useMotionTemplate`50% ${spostamentoBandeY}%`;
   return (
     <motion.h1
       ref={radiceRef}
@@ -273,19 +287,25 @@ function Titolo() {
                 spazzolato reale, che riflette la luce a bande, non con un
                 unico gradiente morbido da un capo all'altro) -- più bande di
                 passaggio chiaro/scuro = più "lucido" percepito, la stessa
-                tecnica usata per il testo "cromato" nel web design. */}
-            <span
+                tecnica usata per il testo "cromato" nel web design.
+                Settima parte -- la posizione verticale ora segue il tilt
+                (vedi `spostamentoBandeY` sopra): inclinando il titolo le
+                bande scorrono, come se riflettessero davvero l'ambiente
+                intorno invece di restare incollate alle lettere. */}
+            <motion.span
               style={{
                 gridArea: "1 / 1",
                 backgroundImage:
                   "linear-gradient(180deg, #110722 0%, #4c1d95 12%, #c026d3 24%, #7c3aed 36%, #2e1065 48%, #efc1f6 62%, #7c3aed 76%, #4c1d95 88%, #110722 100%)",
+                backgroundSize: "100% 160%",
+                backgroundPosition: posizioneBande,
                 WebkitBackgroundClip: "text",
                 backgroundClip: "text",
                 color: "transparent",
               }}
             >
               mai più senza risposta.
-            </span>
+            </motion.span>
             {/* Riflesso che attraversa il testo in loop (vedi
                 useRiflessoMetallico sopra): una fascia chiara, trasparente
                 altrove, che scorre sulle bande statiche qui sopra -- come lo
