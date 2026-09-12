@@ -1,6 +1,14 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026 sera -- ricerca di mercato richiesta da Gabriel (Fresha/
+Ultimo aggiornamento: 12/09/2026 sera, quinto giro SESTA PARTE -- Gabriel, richiesta aperta dopo
+i colori Growth: "vedi se il titolo può diventare più bello". Aggiunta una reazione vera al
+mouse (non solo il loop automatico già tarato): lieve tilt 3D dell'intero titolo + un secondo
+riflesso puntuale che segue il cursore, sulla falsariga di come LiquidMetal reagisce già allo
+sfondo. Un solo listener su `window` (il contenitore è `pointer-events-none` apposta, un
+listener sull'h1 stesso non riceverebbe mai l'evento). tsc/eslint/vitest(112/112)/build puliti,
+verificato anche il transform CSS calcolato in posizioni opposte del mouse (segni di rotazione
+invertiti correttamente) e il bagliore puntuale in 4 posizioni via Playwright. Screenshot/GIF
+mandati a Gabriel, in attesa di ok prima del push. Aggiornamento precedente, 12/09/2026 sera -- ricerca di mercato richiesta da Gabriel (Fresha/
 Treatwell/Booksy: prezzi, commissioni, design, e verifica dal vivo di quanti saloni a Grumello
 del Monte e dintorni li usano già). Aggiunto tutto a `docs/analisi-concorrenti-mercato.md`
 (sezioni "Marketplace generalisti" e "Mercato locale"), sintesi consegnata a Gabriel come
