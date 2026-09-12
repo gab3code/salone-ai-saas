@@ -1,6 +1,16 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026 sera, quinto giro SESTA PARTE -- Gabriel, richiesta aperta dopo
+Ultimo aggiornamento: 12/09/2026 sera, quinto giro SETTIMA PARTE -- Gabriel: "prenditi tutto il
+tuo tempo per migliorarlo". Approfondito l'effetto interattivo della sesta parte: ora anche le
+BANDE del metallo (non solo il riflesso puntuale) seguono il tilt, spostandosi verticalmente
+come farebbe una vera superficie di metallo spazzolato inclinata (riflette punti diversi
+dell'ambiente a seconda dell'angolo). Fatta anche una verifica più a fondo del solito prima di
+rimandare a Gabriel: prefers-reduced-motion confermato senza listener/transform/errori,
+spostamento delle bande confermato numericamente sopra/sotto il punto di attivazione, tablet
+(768px) e mobile (390px) controllati per escludere clipping o rotture di layout (l'effetto
+resta correttamente inerte senza mouse). tsc/eslint/vitest(112/112)/build puliti. GIF aggiornata
+mandata a Gabriel, in attesa di ok prima del push. Aggiornamento precedente, 12/09/2026 sera,
+quinto giro SESTA PARTE -- Gabriel, richiesta aperta dopo
 i colori Growth: "vedi se il titolo può diventare più bello". Aggiunta una reazione vera al
 mouse (non solo il loop automatico già tarato): lieve tilt 3D dell'intero titolo + un secondo
 riflesso puntuale che segue il cursore, sulla falsariga di come LiquidMetal reagisce già allo
