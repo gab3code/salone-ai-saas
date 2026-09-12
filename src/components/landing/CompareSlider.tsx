@@ -45,6 +45,35 @@ export function CompareSlider({
     setPercento(Math.min(100, Math.max(0, p)));
   }
 
+  /* Bug reale trovato durante un controllo generale dell'interfaccia
+   * (screenshot con scroll vero, non solo lettura del codice): il taglio
+   * netto di `clip-path` faceva leggere le due liste come UNA frase sola
+   * nel punto esatto del divisore, perché ogni riga di "sinistra" e
+   * "destra" occupa la STESSA posizione ma parla di cose diverse (non la
+   * stessa immagine ritoccata) -- a percento=50 (il riposo di default,
+   * dove il "wiggle" iniziale torna sempre) si leggeva letteralmente
+   * "Cliente in attesa da 40 minut[i]" incollato a "[4] ore su 24" come se
+   * fosse una frase sola, per ogni riga. Un compare-slider su due FOTO
+   * funziona perché il contenuto è lo stesso ai due lati del taglio; qui
+   * il contenuto è diverso, quindi un bordo netto crea un incontro di
+   * parole a caso.
+   *
+   * Primo tentativo (poi scartato): dissolvenza incrociata con mask-image
+   * su entrambi i pannelli. Verificato dal vivo che non basta -- una
+   * dissolvenza sfuma l'OPACITÀ, non la leggibilità: al centro della zona
+   * di sfumatura entrambi i testi sono ancora leggibili al 50%, quindi il
+   * problema (le due frasi si toccano) restava, solo più graduale invece
+   * che netto.
+   *
+   * Fix vero: non provare a fondere due testi diversi (non funziona mai
+   * bene, sono parole non pixel di una foto), separarli fisicamente. Una
+   * "fessura" opaca e sfocata (vedi il div con `backdrop-blur` sotto),
+   * larga quanto un paio di caratteri, coperta sopra ENTRAMBI i pannelli
+   * esattamente nel punto del taglio: l'ultimo pezzo di ciascuna frase
+   * finisce dietro il vetro smerigliato invece di toccare l'altra,
+   * qualunque sia la posizione del cursore -- non solo lontano dal 50%. */
+  const LARGHEZZA_FESSURA = 64; // px, non percento: deve restare costante qualunque sia la larghezza del riquadro. Stretta (22px, primo tentativo) copriva solo 1-2 caratteri: le code di parola restavano leggibili su entrambi i lati e si leggevano ancora come una frase sola, solo con un buco in mezzo. Serve coprire una PAROLA intera da ciascun lato, non un paio di lettere.
+
   useEffect(() => {
     const riduciMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (riduciMovimento) return;
@@ -92,6 +121,21 @@ export function CompareSlider({
         <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - percento}% 0 0)` }}>
           {sinistra}
         </div>
+
+        {/* La fessura vera e propria: vetro smerigliato (blur di quello che
+            c'è sotto, non un colore piatto -- resta "vivo", non un buco nero
+            nel mezzo del componente) centrata sul taglio, che copre l'ultimo
+            pezzo di testo di entrambi i lati. `pointer-events-none`: deve
+            restare visiva soltanto, il trascinamento continua a leggere la
+            posizione del mouse sul contenitore intero sotto di lei. */}
+        <div
+          className="pointer-events-none absolute inset-y-0 z-[5] backdrop-blur-sm"
+          style={{
+            left: `calc(${percento}% - ${LARGHEZZA_FESSURA / 2}px)`,
+            width: `${LARGHEZZA_FESSURA}px`,
+            background: "linear-gradient(to right, rgba(24,24,27,0.35), rgba(24,24,27,0.55), rgba(24,24,27,0.35))",
+          }}
+        />
 
         <div className="absolute inset-y-0 z-10 w-0.5 bg-gradient-to-b from-transparent via-white/70 to-transparent" style={{ left: `${percento}%` }}>
           <motion.div
