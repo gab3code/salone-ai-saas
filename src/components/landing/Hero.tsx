@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { Calendar, Check, MessageCircle, Sparkles } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, animate, useMotionTemplate } from "framer-motion";
 import { Grana } from "./Grana";
 import { MagneticButton } from "./MagneticButton";
 import { LiquidMetal } from "./LiquidMetal";
@@ -9,7 +10,40 @@ import { FlipWords } from "./FlipWords";
 
 const PROFESSIONI = ["salone", "studio", "centro", "spazio"];
 
+/** Riflesso che attraversa il testo del titolo in loop (quinto giro, terza
+ * parte -- Gabriel, guardando il sito vero: "più metallico come i bottoni è
+ * meglio"). I pulsanti "metal" di Prezzi.tsx hanno un vero shader WebGL
+ * (LiquidMetal) con parametri chiamati proprio `shimmer`/`sweep`; usare lo
+ * stesso shader come riempimento del testo (via un mask CSS che ritaglia il
+ * canvas sulla forma delle lettere) è fragile da verificare -- in questa
+ * sandbox il contesto WebGL non regge MAI (vedi note nei giri precedenti),
+ * quindi qualunque bug nel mask non lo scoprirei prima di Gabriel, e serve
+ * far combaciare a pixel i metrics del font in un SVG separato a ogni
+ * breakpoint. Stessa idea (`shimmer`/`sweep`, un riflesso che si muove)
+ * ricreata in puro CSS/Framer Motion invece che con WebGL -- un gradiente
+ * chiaro che attraversa il riempimento scuro in loop, verificabile qui
+ * (è solo `background-position` animato, nessun canvas). */
+function useRiflessoMetallico() {
+  const posizione = useMotionValue(200);
+  const backgroundPosition = useMotionTemplate`${posizione}% 0`;
+
+  useEffect(() => {
+    const riduciMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (riduciMovimento) return;
+    const controlli = animate(posizione, [200, -100], {
+      duration: 3.2,
+      repeat: Infinity,
+      repeatDelay: 1.4,
+      ease: "easeInOut",
+    });
+    return () => controlli.stop();
+  }, [posizione]);
+
+  return backgroundPosition;
+}
+
 function Titolo() {
+  const riflessoBackgroundPosition = useRiflessoMetallico();
   return (
     <h1
       className="max-w-3xl text-4xl leading-[1.08] font-semibold tracking-tight text-white sm:text-6xl"
@@ -44,33 +78,126 @@ function Titolo() {
               Passato poi ad ambra pieno -- ma l'ombra scura ereditata
               dall'h1 (28px di sfocatura, pensata per leggibilità su testo
               BIANCO sottile) dietro lettere ambra larghe e sature restava
-              visibile come lo stesso alone sfocato di prima ("ha ancora lo
-              sfumato evidenziato"), e il colore ambra in sé non piaceva
-              ("il colore fa schifo").
+              visibile come lo stesso alone sfocato di prima, e il colore
+              ambra non piaceva.
 
-              Ora: effetto "metallico" richiesto esplicitamente da Gabriel
-              ("un nero con ogni lettera con il contorno argentato") --
-              riempimento scuro + contorno argentato per lettera via
-              -webkit-text-stroke (nativo Safari/Chrome, gli unici browser
-              su cui il sito viene verificato). Nero puro sarebbe scomparso
-              contro lo sfondo scuro violaceo dello shader dietro (Gabriel
-              stesso lo prevedeva: "forse nero sta male") -- usato invece un
-              antracite molto scuro ma non nero puro, che lascia il
-              contorno argentato come unico elemento davvero leggibile
-              (l'effetto "solo contorno" cercato). Ombra propria sostituita
-              con una coppia di ombre NETTE (raggio di sfocatura minimo,
-              1-4px) invece della sfocatura da 28px ereditata dall'h1: una
-              chiara chiaro sopra (bevel/luce) e una scura sotto
-              (profondità) -- niente più alone sfocato, solo la sensazione
-              di rilievo/metallo. */}
+              Passato poi a un unico contorno argentato sottile (1.4px) su
+              riempimento scuro -- bocciato da Gabriel ("orrendo", "l'effetto
+              metallico è inesistente") con screenshot del sito vero alla
+              mano. Causa reale dell'errore: avevo verificato il colore solo
+              con un finto sfondo scuro uniforme (lo sfondo di CTAFinale),
+              ma lo sfondo VERO della Hero non è affatto scuro -- è un vortice
+              chiaro, saturo, a tratti quasi bianco (viola/fucsia/rosa
+              chiarissimo). Un contorno argentato chiaro sparisce proprio
+              dove serve di più (sopra le zone chiare dello shader), lasciando
+              solo un riempimento scuro con un contorno visibile a tratti: né
+              "metallico" né leggibile in modo consistente.
+
+              Ora: contorno a DUE TONI (tecnica standard per un bordo
+              multicolore su testo, impossibile con un solo
+              -webkit-text-stroke che accetta un colore solo) -- tre copie
+              identiche del testo impilate esattamente una sull'altra
+              (`display: grid`, stessa `gridArea` per tutte) invece di una
+              sola:
+                1) sotto: riempimento scuro + contorno NERO spesso (4px) --
+                   il bordo esterno, garantisce contrasto anche sulle zone
+                   più chiare/bianche dello shader;
+                2) in mezzo: stesso riempimento + contorno ARGENTO chiaro più
+                   sottile (2px), che copre la metà interna del contorno nero
+                   sottostante -- resta visibile solo un anello sottile
+                   d'argento appena dentro il bordo nero;
+                3) sopra: solo riempimento (nessun contorno), copre la parte
+                   di anello che cadrebbe dentro la lettera stessa.
+              Risultato per ogni lettera, dal centro verso l'esterno:
+              riempimento scuro pieno -> sottile anello argento -> sottile
+              bordo nero -> sfondo. Leggibile e "metallico" a qualunque fase
+              dello shader, chiara o scura che sia -- non più un solo
+              contorno che dipende dal colore dietro in quel momento.
+              Un'unica ombra portata (`filter: drop-shadow`, non
+              `text-shadow`: si applica una volta sola alla forma composta
+              invece di triplicarsi su ognuna delle quattro copie) per la
+              profondità, sfocatura minima.
+
+              Bug reale trovato DOPO aver mandato i primi screenshot a
+              Gabriel ("ha uno sfondo nero ed è troppo scuro e poco
+              metallico"): avevo scritto il commento sopra come se l'alone
+              da 28px ereditato dall'h1 non ci fosse più, ma non avevo mai
+              aggiunto `textShadow: "none"` da nessuna parte -- `text-shadow`
+              è una proprietà EREDITATA, quindi tutt'e quattro le copie
+              impilate qui sotto continuavano a ricevere lo stesso alone
+              scuro da 28px di sfocatura dell'h1 (due delle quattro copie
+              hanno un riempimento OPACO, quindi la loro ombra ereditata era
+              perfettamente visibile) -- un alone scuro enorme dietro tutta
+              la frase, che leggeva come uno "sfondo nero" e schiacciava
+              visivamente le bande di metallo sotto. Serviva l'override
+              esplicito qui sul contenitore (si eredita in giù su tutti i
+              figli), non bastava intenzione + il drop-shadow separato. */}
           <span
-            style={{
-              color: "#18161d",
-              WebkitTextStroke: "1.4px #d7dbe2",
-              textShadow: "0 1px 0 rgba(255,255,255,0.3), 0 2px 5px rgba(0,0,0,0.6)",
-            }}
+            className="relative inline-grid"
+            style={{ filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.55))", textShadow: "none" }}
           >
-            mai più senza risposta.
+            <span style={{ gridArea: "1 / 1", color: "#292235", WebkitTextStroke: "4px #110d17" }}>
+              mai più senza risposta.
+            </span>
+            <span style={{ gridArea: "1 / 1", color: "#292235", WebkitTextStroke: "2px #e8c8ef" }}>
+              mai più senza risposta.
+            </span>
+            {/* Riempimento "metallo spazzolato" -- tinta rivista una seconda
+                volta (quinto giro, terza parte -- Gabriel: "verifica che si
+                abbini allo sfondo e al colore di tutto il sito"). La prima
+                versione virava tutte le bande verso lo stesso viola freddo
+                (tonalità ~260-270°, calcolato con `colorsys` invece che a
+                occhio) -- coerente con l'estremo SCURO della palette del
+                sito (`PALETTE_DEFAULT` in LiquidMetal.tsx, il bordo
+                "Consigliato" di Prezzi.tsx, ecc. sono tutti in quella stessa
+                fascia), ma il sito non è mai monocromatico: ogni gradiente
+                reale (Hero, Growth, PALETTE_DEFAULT) scurisce verso il
+                viola freddo (~262°) e SCHIARISCE verso il fucsia/magenta
+                caldo (~289-293°, es. il bagliore "Consigliato" #f0abfc) --
+                mai un fucsia piatto uniforme dallo scuro al chiaro. Bande
+                ricalcolate con la stessa progressione: le tappe più scure
+                restano viola freddo, quelle più chiare virano verso lo
+                stesso magenta caldo già usato altrove nel sito, invece di un
+                singolo viola uniforme che overra solo metà dell'identità
+                cromatica reale. */}
+            <span
+              style={{
+                gridArea: "1 / 1",
+                backgroundImage:
+                  "linear-gradient(180deg, #58446a 0%, #bd93c8 14%, #69527a 30%, #362c44 46%, #8f67a2 62%, #cba6d3 76%, #4c3c5d 90%, #2c2537 100%)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                color: "transparent",
+              }}
+            >
+              mai più senza risposta.
+            </span>
+            {/* Riflesso che attraversa il testo in loop (vedi
+                useRiflessoMetallico sopra): una fascia stretta e chiara,
+                trasparente altrove, che scorre sulle bande statiche qui
+                sopra -- come lo `shimmer` dei pulsanti metal di Prezzi.tsx,
+                ma in puro CSS/Framer Motion invece che con lo stesso shader
+                WebGL (che qui in sandbox non regge mai, vedi giri precedenti
+                -- un eventuale bug nel mask non lo scoprirei prima di
+                Gabriel). Opacità abbassata insieme al resto ("non troppo
+                marcato"): un accenno di luce che passa, non un lampo bianco.
+                Tinta calda (non più bianco puro) per restare coerente con lo
+                stesso magenta usato nelle bande sopra. */}
+            <motion.span
+              style={{
+                gridArea: "1 / 1",
+                backgroundImage:
+                  "linear-gradient(100deg, transparent 0%, transparent 40%, rgba(236,219,240,0.55) 50%, transparent 60%, transparent 100%)",
+                backgroundSize: "260% 100%",
+                backgroundPosition: riflessoBackgroundPosition,
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                color: "transparent",
+                mixBlendMode: "overlay",
+              }}
+            >
+              mai più senza risposta.
+            </motion.span>
           </span>
         </motion.span>
       </span>

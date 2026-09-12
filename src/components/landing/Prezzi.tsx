@@ -111,13 +111,23 @@ const PIANI = [
  * 2px di anello animato attorno invece che un vortice a piena card.
  */
 const METAL_PIANI: Record<string, Partial<ComponentProps<typeof LiquidMetal>>> = {
+  // `flow` (in LiquidMetal.tsx, `phase += dt * p.flow * 0.12`) è il
+  // parametro che fa davvero avanzare il pattern nel tempo -- con `flow: 3`
+  // (il valore più basso dei tre piani) insieme a una palette di grigi
+  // tutti molto simili tra loro, il movimento c'era ma era troppo lento E
+  // troppo poco visibile (grigi vicini che si scambiano piano non si nota
+  // quasi) per leggersi come "vivo": segnalato da Gabriel come anello
+  // "fermo" sul sito vero. Alzato `flow` e `sweep` allo stesso livello di
+  // Growth -- il grigio/argento resta sobrio (la sobrietà è nella PALETTE,
+  // grigio invece di viola/oro, non nella velocità), ma ora si muove
+  // quanto gli altri due invece di sembrare statico.
   Starter: {
     colors: ["#3f3f46", "#71717a", "#a1a1aa", "#d4d4d8"],
     frost: 2.2,
-    sweep: 1.5,
-    shimmer: 2,
+    sweep: 4,
+    shimmer: 3.5,
     scale: 5,
-    flow: 3,
+    flow: 5,
     refraction: 0.8,
     twist: 1.6,
     relief: 6,
@@ -144,8 +154,16 @@ const METAL_PIANI: Record<string, Partial<ComponentProps<typeof LiquidMetal>>> =
   // anello sottile, non su tutta la pagina -- riconoscibile a colpo
   // d'occhio come "il piano più alto" senza reinterpretare l'identità del
   // brand.
+  // Palette scaldata una seconda volta (quinto giro, seconda parte --
+  // feedback di Gabriel dopo aver visto i pulsanti veri: "rendilo un po piu
+  // oro, meno giallo/verde"). La prima versione (#d4a017/#f2cf7a) aveva un
+  // divario R-G troppo piccolo per il canale verde -- letto come
+  // giallo/senape sotto lo shimmer animato invece che come oro caldo.
+  // Aumentato il distacco rosso-verde su ogni tappa (oro vero = molto rosso,
+  // poco verde, un tocco di blu per la "temperatura calda") invece di un
+  // giallo puro (rosso e verde vicini, blu quasi assente).
   Pro: {
-    colors: ["#3d2c0a", "#8a6116", "#d4a017", "#f2cf7a", "#fff3d6"],
+    colors: ["#2a1a05", "#6b3f0f", "#b8791f", "#e0a94a", "#fff0cc"],
     frost: 1.1,
     sweep: 6,
     shimmer: 7,

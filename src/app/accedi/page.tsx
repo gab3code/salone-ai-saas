@@ -31,7 +31,10 @@ import { useSpotlightScuro } from "@/components/landing/SpotlightScuro";
 export default function PaginaAccesso() {
   const router = useRouter();
   const supabase = creaClientBrowser();
-  const { sfondo, alMuovimento } = useSpotlightScuro();
+  // `false`: niente deriva automatica in loop -- su un form dove si resta
+  // fermi a lungo il movimento ripetuto infastidisce (feedback di Gabriel),
+  // resta solo l'effetto interattivo al passaggio del mouse.
+  const { sfondo, alMuovimento } = useSpotlightScuro(false);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

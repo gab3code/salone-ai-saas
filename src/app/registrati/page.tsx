@@ -74,7 +74,8 @@ function FormRegistrazione() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = creaClientBrowser();
-  const { sfondo, alMuovimento } = useSpotlightScuro();
+  // `false`: niente deriva automatica in loop, stesso motivo di /accedi.
+  const { sfondo, alMuovimento } = useSpotlightScuro(false);
   const pianoRichiesto = searchParams.get("piano");
   const pianoValido = pianoEPagante(pianoRichiesto) ? pianoRichiesto : null;
 

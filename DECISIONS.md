@@ -730,3 +730,36 @@ all'effetto (velocità, colore, intensità) si fa in un solo punto per tutto il 
 
 **Verifica**: vedi PROJECT_STATUS.md, sezione "Quinto giro, seconda parte", per l'esito di
 test/build/controllo visivo.
+
+## 2026-09-12 — Quinto giro, terza parte: colore del titolo Hero calcolato, non scelto a occhio
+
+Gabriel ha chiesto esplicitamente: "verifica che si abbini allo sfondo e al colore di tutto il
+sito e che non ci siano colori migliori" -- non una preferenza estetica generica, una richiesta di
+verifica. Invece di confrontare colori a occhio (fonte di due errori già in questo stesso giro:
+sfondo di test sbagliato la prima volta, ombra ereditata non rimossa la seconda), ho misurato la
+tonalità (hue, in gradi) dei colori REALI già usati nel sito con `colorsys` invece di stimarla:
+
+- `violet-600` (#7c3aed, bottoni/badge): ~262°
+- `PALETTE_DEFAULT` di LiquidMetal.tsx, estremo scuro (#1e0b3d): ~263°
+- Colore del bagliore "Consigliato" di Prezzi.tsx (#f0abfc): ~291°
+- `PALETTE_DEFAULT`, estremo chiaro (#fae8ff): ~287°
+- "Growth-mid" (#c026d3): ~293°
+
+Il pattern è chiaro e coerente su OGNI gradiente reale del sito: scuro = viola freddo (~262°),
+chiaro = magenta/fucsia caldo (~289-293°) -- mai un viola piatto e uniforme dal chiaro allo scuro.
+Il primo tentativo di tinta viola per il titolo (round precedente in questo stesso giro) aveva
+virato TUTTE le bande di metallo verso lo stesso viola freddo (~260-270° su ogni tappa),
+catturando solo la metà "scura" dell'identità cromatica del sito e ignorando il magenta caldo che
+è altrettanto centrale (badge, bottoni, bagliori). Ricalcolate le bande con la stessa
+progressione hue-per-luminosità degli altri gradienti (scuro ~262° -> chiaro ~289°), verificato
+con uno swatch affiancato ai colori reali del sito prima di consegnare (screenshot mandato a
+Gabriel, non solo asserito).
+
+**Perché non semplicemente riusare i colori del sito 1:1 come fill del testo**: sono troppo
+SATURI per leggere come metallo -- un fucsia vivido pieno (#c026d3) su del testo leggerebbe come
+"testo colorato", non come "metallo colorato" (i metalli sono per natura desaturati/opachi anche
+quando hanno una tinta). Le bande del titolo restano quindi alla stessa tonalità (hue) dei colori
+del sito ma con luminosità/saturazione ridotte, la differenza tra "un accento dello stesso colore
+del brand" e "una lega di metallo choc con lo stesso brand".
+
+**Verifica**: vedi PROJECT_STATUS.md, sezione "Quinto giro, terza parte".

@@ -1,18 +1,32 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026, quinto giro SECONDA PARTE (Gabriel ha mandato screenshot presi
-dal suo browser reale sul sito pubblicato -- prima conferma diretta che gli effetti `LiquidMetal`
-funzionano bene fuori da questa sandbox -- con 5 nuovi punti: "Crea il tuo account" andava a capo
-sui pulsanti Growth/Pro (causa reale misurata con Playwright: un margine di 0-2px, sotto la
-soglia del sub-pixel rendering, non un errore di layout grossolano); titolo Hero passato a un
-effetto "metallico" esplicitamente descritto da Gabriel (riempimento scuro + contorno argentato
-via `-webkit-text-stroke`) dopo che il primo tentativo ambra di questo giro non bastava (la vera
-causa dell'alone era l'ombra da 28px ereditata dall'h1, non solo il colore); colore dell'anello
-Pro cambiato da viola/fucsia (troppo simile a Growth) a oro/champagne; testi delle card di
-PerChi.tsx accorciati mantenendo tutte le card della stessa altezza; sfondo "Spotlight scuro" di
-CTAFinale.tsx esteso a `/accedi` e `/registrati` (scelta lasciata al mio giudizio). Vedi la
-sezione dedicata più sotto per il dettaglio completo. Aggiornamento precedente, 12/09/2026 quinto
-giro PRIMA PARTE (Gabriel ha usato il sito pubblicato dal quarto
+Ultimo aggiornamento: 12/09/2026, quinto giro TERZA PARTE (Gabriel ha guardato il sito vero via
+screenshot e chiesto di verificare ogni fix con uno screenshot PRIMA del prossimo push, non solo
+alla fine -- workflow seguito per tutto questo giro). Titolo Hero rifatto tre volte in un solo
+giro, con due bug reali trovati lungo il percorso (non solo gusto estetico): il colore era stato
+verificato contro uno sfondo scuro finto invece che contro quello vero, chiaro/saturo, della Hero
+(corretto usando lo screenshot REALE di Gabriel come sfondo di prova in Playwright); e
+`text-shadow`, proprietà EREDITATA, continuava a portare l'alone da 28px dell'h1 dietro il nuovo
+testo nonostante un commento nel codice dicesse il contrario -- il commento descriveva
+l'intenzione, non il codice reale. Colori finali ricalcolati con `colorsys` (non a occhio) per
+seguire la stessa progressione cromatica (freddo/viola nello scuro, caldo/magenta nel chiaro) già
+presente in tutti gli altri gradienti del sito, invece di un viola uniforme. Bug reale trovato sul
+piè di pagina: spariva su Safari per un margine di soli ~5px nel trigger del reveal-on-scroll
+dell'ULTIMO elemento della pagina (tolto il reveal, ora sempre visibile). Sfondo di
+`/accedi`/`/registrati`: tolta la deriva automatica ripetuta (restava solo l'interattività al
+mouse). Pulsante Starter "fermo": `flow`/`sweep` troppo bassi insieme a una palette di grigi
+simili tra loro, alzati allo stesso livello di Growth. Vedi la sezione dedicata più sotto per il
+dettaglio completo. Aggiornamento precedente, 12/09/2026 quinto giro SECONDA PARTE (Gabriel ha
+mandato screenshot presi dal suo browser reale sul sito pubblicato -- prima conferma diretta che
+gli effetti `LiquidMetal` funzionano bene fuori da questa sandbox -- con 5 nuovi punti: "Crea il
+tuo account" andava a capo sui pulsanti Growth/Pro (causa reale misurata con Playwright: un
+margine di 0-2px, sotto la soglia del sub-pixel rendering, non un errore di layout grossolano);
+titolo Hero passato a un primo tentativo di effetto "metallico" (poi superato dalla terza parte,
+sopra); colore dell'anello Pro cambiato da viola/fucsia (troppo simile a Growth) a oro/champagne;
+testi delle card di PerChi.tsx accorciati mantenendo tutte le card della stessa altezza; sfondo
+"Spotlight scuro" di CTAFinale.tsx esteso a `/accedi` e `/registrati` (scelta lasciata al mio
+giudizio). Aggiornamento precedente, 12/09/2026 quinto giro PRIMA PARTE (Gabriel ha usato il sito
+pubblicato dal quarto
 giro e segnalato altri 7 punti, arrivati anche a metà del lavoro di questo giro stesso -- lo
 sfondo della CTA finale rifatto una seconda volta è stato mostrato con 4 opzioni via screenshot
 PRIMA di scrivere codice, come richiesto esplicitamente. Bug reali risolti: FAQ e pagina di
@@ -488,6 +502,83 @@ in un file condiviso (`SpotlightScuro.tsx`) invece di duplicarlo in tre punti.
 di produzione pulita, zero console/page error, screenshot Playwright a 1440px e 375px per ogni
 punto (pulsanti Prezzi senza più testo a capo, card PerChi accorciate e uguali tra loro, sfondo
 interattivo su /accedi e /registrati che segue il mouse).
+
+## Quinto giro, terza parte -- Gabriel guarda il sito vero e chiede di non fare più push alla cieca (12/09/2026)
+
+Gabriel ha mandato 2 nuovi screenshot dal sito vero (Safari) e ha chiesto esplicitamente di
+mandargli screenshot PRIMA di ogni prossimo push invece di scoprire i problemi solo a
+pubblicazione avvenuta -- workflow cambiato di conseguenza per il resto di questo giro: ogni fix
+sotto è stato verificato con uno screenshot mirato e mandato a Gabriel prima di procedere oltre,
+non solo alla fine.
+
+**Titolo Hero -- tre iterazioni, due bug reali trovati (non solo gusto estetico)**:
+1. Primo tentativo di questo giro (contorno argentato sottile su riempimento scuro): bocciato con
+   screenshot del sito vero alla mano ("orrendo", "l'effetto metallico è inesistente"). Causa
+   reale dell'errore: avevo verificato il colore solo contro un finto sfondo scuro uniforme (lo
+   sfondo di CTAFinale) mai contro quello VERO della Hero, che è un vortice chiaro e saturo, non
+   scuro -- un contorno chiaro sparisce proprio dove serve di più. Corretto usando lo screenshot
+   REALE di Gabriel come sfondo di prova in Playwright (canvas nascosto, l'immagine caricata al
+   suo posto) invece di indovinare di nuovo un colore a occhio.
+2. Riscritto con un contorno a due toni (nero fuori/argento dentro, tre copie del testo impilate
+   via CSS grid) + bande di metallo vere nel riempimento (gradiente verticale chiaro/scuro,
+   `background-clip: text`) + un riflesso animato sopra (`background-position` in loop, stessa
+   idea di `shimmer`/`sweep` dei pulsanti ma in CSS puro -- usare lo stesso shader WebGL come
+   maschera del testo è stato scartato per fragilità: il contesto WebGL non regge mai in questa
+   sandbox, quindi un bug nel mask non lo scoprirei prima di Gabriel, e servirebbe far combaciare
+   a pixel i metrics del font in un SVG separato per ogni breakpoint). Mandati gli screenshot --
+   Gabriel: "ha uno sfondo nero ed è troppo scuro e poco metallico".
+   **Bug reale**: `text-shadow` è una proprietà EREDITATA. Il commento nel codice diceva già "non
+   più l'alone da 28px ereditato dall'h1", ma nessuna riga disattivava davvero quell'eredità --
+   tutte e quattro le copie del testo impilate continuavano a ricevere l'ombra scura da 28px di
+   sfocatura dell'h1 (pensata per un testo bianco sottile, non per queste lettere spesse e
+   scure), che due delle quattro copie (riempimento opaco) rendevano perfettamente visibile: un
+   alone nero enorme dietro tutta la frase che schiacciava le bande di metallo sotto. Bastava
+   scrivere l'intenzione nel commento, non era stata scritta nel codice -- fix: `textShadow:
+   "none"` esplicito sul contenitore (si eredita in giù su tutti i figli).
+3. Tolto l'alone, le bande erano leggibili ma "non troppo marcato... di un metallico premium
+   tendente al viola che si abbina allo sfondo": abbassato il contrasto delle bande (nessun
+   bianco/nero puro, fascia di luminanza più stretta) e virato tutta la tinta (bande, contorni,
+   riflesso) verso il viola.
+4. Ultima richiesta: "verifica che si abbini allo sfondo e al colore di tutto il sito e che non ci
+   siano colori migliori". Calcolato con `colorsys` (non a occhio) che i colori reali del sito
+   (`violet-600` #7c3aed, il bagliore del badge "Consigliato" #f0abfc, `PALETTE_DEFAULT` di
+   LiquidMetal.tsx) non sono mai un viola uniforme dal chiaro allo scuro: scuriscono verso un
+   viola freddo (~262° di tonalità) e SCHIARISCONO verso un magenta/fucsia caldo (~289-293°) --
+   il tentativo precedente aveva virato TUTTE le bande verso lo stesso viola freddo, catturando
+   solo metà dell'identità cromatica reale del sito. Ricalcolate le bande con la stessa
+   progressione (scuro freddo -> chiaro caldo, stessa direzione degli altri gradienti del sito),
+   verificato con uno swatch affiancato ai colori reali del sito (screenshot mandato a Gabriel).
+
+**Piè di pagina sparito -- bug reale**: il footer usava lo stesso "reveal on scroll"
+(`whileInView` + `margin: "-80px"`) delle altre sezioni. Essendo l'ULTIMO elemento della pagina,
+con altezza di ~85px, il margine di sicurezza per far scattare l'animazione era di soli ~5px --
+su Safari, dove l'altezza effettiva della finestra cambia durante lo scroll (la barra degli
+indirizzi si nasconde/mostra), quei 5px potevano sparire da un momento all'altro e l'observer non
+scattava mai: il footer restava nel DOM ma a `opacity: 0` per sempre (il bordo superiore
+`border-t` restava visibile, il contenuto no). Tolto il reveal dal footer -- un elemento di
+utilità (link + copyright) non vale il rischio di un'animazione mai partita per un effetto
+puramente estetico, ora sempre visibile senza dipendere da scroll/viewport.
+
+**Sfondo di /accedi e /registrati**: "potrebbe dare fastidio e fa sempre lo stesso movimento" --
+la deriva automatica in loop (pensata per CTAFinale, vista solo pochi secondi mentre si scorre)
+diventava notabile e ripetitiva su un form dove si resta fermi più a lungo. Aggiunto un parametro
+`derivaAutomatica` a `useSpotlightScuro` (default `true`, CTAFinale invariato) -- su
+`/accedi`/`/registrati` passato `false`: resta solo l'effetto interattivo al passaggio del mouse,
+nessuna animazione che si ripete da sola.
+
+**Pulsante Starter "fermo"**: `flow` (il parametro che fa avanzare il pattern nel tempo, vedi
+`LiquidMetal.tsx`) era il più basso dei tre piani (3, contro 5 di Growth e 7 di Pro) insieme a una
+palette di grigi tutti simili tra loro -- il movimento c'era ma troppo lento e troppo poco
+visibile (grigi vicini che si scambiano piano non si notano) per leggersi come "vivo". Alzati
+`flow` e `sweep` allo stesso livello di Growth: la sobrietà di Starter resta nella PALETTE
+(grigio/argento, non viola/oro), non nella velocità dell'animazione.
+
+**Nota per Gabriel**: come nei giri precedenti, il colore reale dell'anello Pro/Starter e
+l'animazione dello shader restano da verificare sul sito vero -- il contesto WebGL non regge mai
+in questa sandbox. Per il titolo Hero, invece, il metodo di verifica è cambiato: non più uno
+sfondo scuro indovinato a caso, ma il TUO screenshot reale usato come sfondo di prova in
+Playwright (canvas nascosto, la tua immagine al suo posto) -- molto più affidabile, anche se resta
+comunque un'immagine ferma, non lo shader animato vero.
 
 ## Quarto giro di rifinitura landing, dopo l'uso reale del sito pubblicato dal terzo giro (12/09/2026)
 

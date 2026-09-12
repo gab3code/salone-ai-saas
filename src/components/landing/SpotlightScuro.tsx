@@ -25,8 +25,20 @@ import { useMotionValue, useSpring, useMotionTemplate, animate } from "framer-mo
  * ESTERNO che riceve il puntatore -- non su un div interno, altrimenti gli
  * elementi sopra (testo, form, pulsanti) intercettano il movimento prima
  * che raggiunga lo sfondo.
+ *
+ * `derivaAutomatica` (quinto giro, seconda parte -- feedback di Gabriel su
+ * /accedi e /registrati: "potrebbe dare fastidio e fa sempre lo stesso
+ * movimento"): su CTAFinale il bagliore si vede per pochi secondi mentre si
+ * scorre la pagina, un loop di 10s lì non fa in tempo a notarsi come
+ * "sempre lo stesso". Su un form di login/registrazione l'utente ci resta
+ * fermo più a lungo (legge, digita) -- lo stesso loop ripetuto all'infinito
+ * in un angolo dell'occhio diventa notabile e fastidioso. Con
+ * `derivaAutomatica: false` il bagliore fa UN solo movimento di assestamento
+ * verso il centro e poi resta fermo finché non arriva il puntatore -- niente
+ * più animazione automatica che si ripete, l'interattività al passaggio del
+ * mouse resta identica.
  */
-export function useSpotlightScuro() {
+export function useSpotlightScuro(derivaAutomatica: boolean = true) {
   const x = useMotionValue(50);
   const y = useMotionValue(42);
   const xMolla = useSpring(x, { stiffness: 55, damping: 18 });
@@ -34,6 +46,7 @@ export function useSpotlightScuro() {
   const sfondo = useMotionTemplate`radial-gradient(34% 48% at ${xMolla}% ${yMolla}%, rgba(168,85,247,0.5), transparent 70%)`;
 
   useEffect(() => {
+    if (!derivaAutomatica) return;
     const riduciMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (riduciMovimento) return;
 
@@ -44,7 +57,7 @@ export function useSpotlightScuro() {
       controlliY.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [derivaAutomatica]);
 
   function alMuovimento(e: ReactPointerEvent<HTMLElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
