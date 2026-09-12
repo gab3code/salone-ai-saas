@@ -1,6 +1,12 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026, quinto giro QUINTA PARTE (due segnalazioni indipendenti di
+Ultimo aggiornamento: 12/09/2026 sera -- ricerca di mercato richiesta da Gabriel (Fresha/
+Treatwell/Booksy: prezzi, commissioni, design, e verifica dal vivo di quanti saloni a Grumello
+del Monte e dintorni li usano già). Aggiunto tutto a `docs/analisi-concorrenti-mercato.md`
+(sezioni "Marketplace generalisti" e "Mercato locale"), sintesi consegnata a Gabriel come
+report a parte. Nessuna modifica di prodotto in questo giro, solo ricerca/documentazione --
+lavoro svolto in autonomia mentre Gabriel non poteva seguire in diretta. Aggiornamento
+precedente, 12/09/2026, quinto giro QUINTA PARTE (due segnalazioni indipendenti di
 Gabriel, entrambe con bug reali dietro). Prima: il titolo Hero era "carino ma poco premium... poco
 lucido e troppo opaco", con una richiesta specifica -- "prendi spunto dal colore dei pulsanti,
 tipo il pulsante di growth, non riesci a dare il bordo ad ogni lettera come il bordo viola
