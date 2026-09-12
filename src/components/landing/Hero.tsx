@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Calendar, Check, MessageCircle, Sparkles } from "lucide-react";
-import { motion, useMotionValue, animate, useMotionTemplate } from "framer-motion";
+import { motion, useMotionValue, useSpring, animate, useMotionTemplate } from "framer-motion";
 import { Grana } from "./Grana";
 import { MagneticButton } from "./MagneticButton";
 import { LiquidMetal } from "./LiquidMetal";
@@ -45,12 +45,98 @@ function useRiflessoMetallico() {
   return backgroundPosition;
 }
 
+/** Quinto giro, sesta parte -- Gabriel: "vedi se il titolo può diventare più
+ * bello" (richiesta aperta, dopo aver già visto i colori Growth). Il riflesso
+ * automatico sopra (`useRiflessoMetallico`) è un loop fisso, sempre uguale,
+ * indipendente da cosa fa chi guarda -- corretto come "ambiente" ma da solo
+ * non rende il titolo "vivo" quanto il resto della Hero: LiquidMetal sotto
+ * reagisce già al mouse (tilt + alone, vedi LiquidMetal.tsx) mentre il testo
+ * sopra restava statico rispetto al cursore. Aggiunta qui una seconda
+ * reazione, indipendente dal riflesso automatico (mai sostituito, solo
+ * affiancato): un lieve tilt 3D del titolo intero + un riflesso puntuale che
+ * segue davvero il cursore, cosi la scritta sembra la stessa lastra
+ * metallica lucida dello sfondo sotto, non un'immagine piatta appoggiata
+ * sopra. Un solo listener su `window` (non sull'elemento): il contenitore
+ * della Hero è `pointer-events-none` apposta (vedi commento in Hero(), serve
+ * a lasciar passare il mouse a LiquidMetal) quindi un listener sull'h1 stesso
+ * non riceverebbe mai l'evento -- `window` funziona a prescindere da quale
+ * elemento sia il bersaglio dell'hit-test, stessa immunità di cui già
+ * beneficia LiquidMetal sul proprio contenitore. Rispetta
+ * `prefers-reduced-motion` come il resto del file: nessun listener aggiunto
+ * per chi lo richiede, il titolo resta semplicemente fermo. */
+function useLuceInterattiva() {
+  const radiceRef = useRef<HTMLHeadingElement>(null);
+  const puntoX = useMotionValue(50);
+  const puntoY = useMotionValue(50);
+  const inclinazioneXGrezza = useMotionValue(0);
+  const inclinazioneYGrezza = useMotionValue(0);
+  // Molla invece di un valore diretto: un tilt che scatta di netto ad ogni
+  // pixel di movimento del mouse legge come nervoso, non come "lastra
+  // pesante che si inclina" -- stessa idea dello smorzamento già usato per
+  // il riflesso automatico, qui con una molla vera perché il bersaglio
+  // cambia in continuazione (non un'animazione a due soli estremi).
+  const inclinazioneX = useSpring(inclinazioneXGrezza, { stiffness: 180, damping: 20, mass: 0.4 });
+  const inclinazioneY = useSpring(inclinazioneYGrezza, { stiffness: 180, damping: 20, mass: 0.4 });
+  const [attivo, setAttivo] = useState(false);
+
+  useEffect(() => {
+    const riduciMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (riduciMovimento) return;
+
+    function alMovimento(e: MouseEvent) {
+      const el = radiceRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const nx = (e.clientX - rect.left) / rect.width;
+      const ny = (e.clientY - rect.top) / rect.height;
+      // Un margine oltre i bordi veri del testo (non solo 0..1): il tilt e
+      // il riflesso restano attivi avvicinandosi al titolo, non solo
+      // passandoci esattamente sopra pixel per pixel -- più naturale su una
+      // scritta larga quanto mezza pagina.
+      const dentro = nx > -0.25 && nx < 1.25 && ny > -0.6 && ny < 1.6;
+      setAttivo(dentro);
+      if (!dentro) return;
+      puntoX.set(Math.min(1, Math.max(0, nx)) * 100);
+      puntoY.set(Math.min(1, Math.max(0, ny)) * 100);
+      // Gradi piccoli apposta (max ~5°): il titolo deve sembrare una lastra
+      // rigida che si inclina leggermente, non una carta che si piega -- lo
+      // stesso principio di misura del tilt di LiquidMetal (lì 9° su tutto
+      // lo sfondo, qui meno perché il testo è un elemento piccolo e già
+      // ricco di dettaglio, un tilt vistoso quanto quello dello sfondo
+      // sembrerebbe traballante).
+      inclinazioneXGrezza.set((0.5 - ny) * 5);
+      inclinazioneYGrezza.set((nx - 0.5) * 5);
+    }
+    function alReset() {
+      setAttivo(false);
+      inclinazioneXGrezza.set(0);
+      inclinazioneYGrezza.set(0);
+    }
+    window.addEventListener("mousemove", alMovimento);
+    window.addEventListener("mouseleave", alReset);
+    return () => {
+      window.removeEventListener("mousemove", alMovimento);
+      window.removeEventListener("mouseleave", alReset);
+    };
+  }, [puntoX, puntoY, inclinazioneXGrezza, inclinazioneYGrezza]);
+
+  return { radiceRef, puntoX, puntoY, inclinazioneX, inclinazioneY, attivo };
+}
+
 function Titolo() {
   const riflessoBackgroundPosition = useRiflessoMetallico();
+  const { radiceRef, puntoX, puntoY, inclinazioneX, inclinazioneY, attivo } = useLuceInterattiva();
+  const riflessoPuntuale = useMotionTemplate`radial-gradient(180px circle at ${puntoX}% ${puntoY}%, rgba(255,255,255,0.95), rgba(240,171,252,0.4) 45%, transparent 72%)`;
   return (
-    <h1
+    <motion.h1
+      ref={radiceRef}
       className="max-w-3xl text-4xl leading-[1.08] font-semibold tracking-tight text-white sm:text-6xl"
-      style={{ textShadow: "0 2px 28px rgba(0,0,0,0.75), 0 1px 3px rgba(0,0,0,0.6)" }}
+      style={{
+        textShadow: "0 2px 28px rgba(0,0,0,0.75), 0 1px 3px rgba(0,0,0,0.6)",
+        rotateX: inclinazioneX,
+        rotateY: inclinazioneY,
+        transformPerspective: 900,
+      }}
     >
       <span className="block overflow-hidden">
         <motion.span
@@ -231,10 +317,34 @@ function Titolo() {
             >
               mai più senza risposta.
             </motion.span>
+            {/* Riflesso puntuale che segue il mouse davvero (vedi
+                useLuceInterattiva sopra), affiancato al riflesso automatico
+                appena sopra -- non lo sostituisce: da fermi il titolo
+                mantiene lo stesso loop già tarato nella quinta parte, solo
+                muovendo il cursore si accende anche questo secondo bagliore,
+                più piccolo e concentrato (180px), che segue il punto esatto
+                sotto il cursore invece di scorrere in una sola direzione.
+                Opacità animata invece di uno scatto secco: cresce/scompare
+                in 300ms quando il cursore entra/esce dall'area del titolo,
+                mai un bagliore che appare/sparisce di colpo. */}
+            <motion.span
+              style={{
+                gridArea: "1 / 1",
+                backgroundImage: riflessoPuntuale,
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                color: "transparent",
+                mixBlendMode: "screen",
+              }}
+              animate={{ opacity: attivo ? 1 : 0 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              mai più senza risposta.
+            </motion.span>
           </span>
         </motion.span>
       </span>
-    </h1>
+    </motion.h1>
   );
 }
 
