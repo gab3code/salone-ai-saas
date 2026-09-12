@@ -834,3 +834,37 @@ del sito ma con luminosità/saturazione ridotte, la differenza tra "un accento d
 del brand" e "una lega di metallo choc con lo stesso brand".
 
 **Verifica**: vedi PROJECT_STATUS.md, sezione "Quinto giro, terza parte".
+
+## 2026-09-12 — Controlli generali UI: CompareSlider, fondere due frasi diverse non è come
+## fondere due foto uguali
+
+**Decisione**: nel confronto "prima/dopo" trascinabile (`CompareSlider.tsx`, usato da
+`PrimaDopo.tsx`), il taglio netto tra i due pannelli non usa una dissolvenza di opacità
+(`mask-image`) ma una "fessura" fisica opaca/sfocata (`backdrop-blur-sm`, 64px fissi) che copre
+per intero l'ultima parola leggibile di ciascun lato.
+
+**Bug reale trovato** (non segnalato da Gabriel, emerso da un controllo generale dell'interfaccia
+con screenshot a scroll vero): alla posizione di riposo (50%, dove il "wiggle" automatico di
+apertura torna sempre), il `clip-path` netto tagliava a metà due liste che raccontano cose
+DIVERSE riga per riga (non la stessa foto ritoccata) -- il risultato erano frasi lette come una
+sola, es. "Cliente in attesa da 40 minut[i]" incollato a "[2]4 ore su 24".
+
+**Alternativa tentata e scartata**: dissolvenza incrociata con `mask-image` su entrambi i
+pannelli (prima al 6%, poi al 16% di ampiezza). Verificato dal vivo che non risolve il problema
+alla radice -- una dissolvenza sfuma l'OPACITÀ, non la leggibilità: al centro della zona di
+sfumatura entrambi i testi restano leggibili al ~50%, quindi le due frasi si toccano ancora,
+solo in modo più graduale invece che netto. Un compare-slider su due FOTO funziona con una
+dissolvenza perché il contenuto è lo stesso ai due lati del taglio; qui il contenuto è diverso,
+quindi qualunque fusione (netta o sfumata) crea un incontro di parole a caso.
+
+**Motivazione della fix scelta**: non provare a fondere due testi diversi (non funziona mai,
+sono parole non pixel di una foto), separarli fisicamente. Una fessura larga 64px in pixel fissi
+(non percento, altrimenti varia con la larghezza del riquadro) copre un'intera parola da ciascun
+lato invece di un paio di lettere (un primo tentativo a 22px lasciva ancora leggibili le code
+delle parole). Verificato su desktop (1440px, posizioni 30/50/70%), tablet (768px) e mobile
+(390px): nessuna frase più letta come una sola, aspetto di "vetro smerigliato intenzionale" più
+che di un buco nel componente.
+
+**Verifica**: vedi PROJECT_STATUS.md, sezione "Controlli generali UI (12/09/2026)". Il resto del
+controllo generale (tutti i breakpoint, nav/scroll, FAQ accordion, hover CTA, `/registrati`,
+`/accedi`) non ha trovato altri bug reali -- solo questo.

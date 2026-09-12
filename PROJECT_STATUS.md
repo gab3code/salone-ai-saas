@@ -1,6 +1,30 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026 sera, quinto giro SETTIMA PARTE -- Gabriel: "prenditi tutto il
+Ultimo aggiornamento: 12/09/2026 notte -- controlli generali dell'interfaccia richiesti da
+Gabriel ("continua a fare controlli generali dell'ui"), non un giro su un punto specifico.
+Metodo: screenshot con SCROLL VERO (non un `fullPage` istantaneo, che non fa scattare le reveal
+`whileInView` e produce falsi "buchi neri" -- capitato e verificato come falso positivo in questo
+stesso giro) sui 3 breakpoint (mobile 390px, tablet 768px, desktop 1440px), poi test funzionali
+delle interazioni chiave. **Un bug reale trovato**: nel confronto trascinabile "prima/dopo"
+(`CompareSlider.tsx`), alla posizione di riposo le due frasi ai lati del taglio si leggevano come
+una frase sola (es. "Cliente in attesa da 40 minut[i]" + "[2]4 ore su 24") perché il taglio netto
+cade in mezzo a due liste che raccontano cose diverse riga per riga, non la stessa foto ritoccata
+ai due lati. Un primo tentativo di fix (dissolvenza `mask-image`) è stato provato e SCARTATO dopo
+verifica dal vivo -- sfuma l'opacità, non la leggibilità, quindi il problema restava solo più
+graduale. Fix vero: separare fisicamente le due frasi con una fessura opaca/sfocata larga 64px
+fissi (non percento) invece di provare a fonderle (dettaglio completo, incluso perché 22px non
+bastava, in DECISIONS.md). Verificato su desktop (30/50/70%), tablet e mobile. **Il resto del
+controllo non ha trovato altri bug**: tutti i 38 screenshot a scroll vero (17 desktop, 15 tablet,
+21 mobile) puliti, zero errori console/pageerror su tutti e 3 i breakpoint; smooth-scroll dei link
+di navbar verificato numericamente (atterra sotto l'header fisso su tutte e 3 le sezioni); FAQ
+accordion verificato in apertura/chiusura multipla (è "a fisarmonica singola" -- ne apri una,
+le altre si chiudono -- comportamento corretto, non un bug); hover dei bottoni CTA verificato
+numericamente (il `hover:scale-[1.03]` di Tailwind applica davvero, solo troppo sottile per
+vedersi a occhio in uno screenshot statico); `/registrati` e `/accedi` controllati su desktop e
+mobile, zero errori, nessuna regressione. tsc/eslint/vitest(112/112)/build puliti. Fix committato
+(`4454b72`), in attesa di ok di Gabriel prima del push insieme al resto già pronto di questo
+batch di sessioni (titolo interattivo, colori Growth, fix clipping Vetrina). Aggiornamento
+precedente, 12/09/2026 sera, quinto giro SETTIMA PARTE -- Gabriel: "prenditi tutto il
 tuo tempo per migliorarlo". Approfondito l'effetto interattivo della sesta parte: ora anche le
 BANDE del metallo (non solo il riflesso puntuale) seguono il tilt, spostandosi verticalmente
 come farebbe una vera superficie di metallo spazzolato inclinata (riflette punti diversi
