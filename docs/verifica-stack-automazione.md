@@ -14,14 +14,20 @@ per punto, con verdetto onesto -- non do per scontato che "si può fare" senza c
 | Scelta piano + pagamento | Stripe Checkout (pagina ospitata da Stripe, carta del cliente) | Sì, nessun intervento |
 | Attivazione abbonamento/piano | Webhook Stripe -> Edge Function Supabase -> aggiorna `tenants.piano`/`stato_abbonamento` | Sì, in tempo reale, automatico |
 | Limiti del piano applicati (feature gating) | Controllo lato server (route/API) sul campo `piano` del tenant + conteggi reali (clienti/appuntamenti) | Sì, tecnico non "a fiducia" |
-| Onboarding (orari, operatori, servizi, foto) | Form self-service, scrivono via RLS solo sul proprio tenant | Sì, nessun intervento |
+| Onboarding (orari, operatori, servizi, foto\*) | Form self-service, scrivono via RLS solo sul proprio tenant | Sì (foto: architettura sì, non ancora costruito) |
 | Pagina pubblica del salone | Route dinamica `/s/[slug]` letta dal DB -- stesso codice per tutti i saloni | Sì, nessun deploy/config manuale per salone |
 | Calendario/CRM/Dashboard/Analytics | Query sul DB filtrate per tenant | Sì, nessun intervento |
 | AI conversazionale (booking engine) | Un system prompt "template" riempito con i dati del tenant (servizi/orari/operatori) + tool-calling verso lo stesso booking engine di tutti | Sì, nessun prompt scritto a mano per salone |
-| PWA installabile | Manifest + service worker condivisi, dati per-tenant | Sì |
+| PWA installabile\* | Manifest + service worker condivisi, dati per-tenant | Sì (architettura sì, non ancora costruito) |
 
 Nessuno di questi passaggi richiede che io intervenga a mano per un cliente specifico --
 è tutto "un salone in più" = "righe in più nello stesso database", non codice o config nuovi.
+
+\* **Nota aggiunta 12/09/2026, per chiarezza**: questa tabella è una verifica ARCHITETTURALE
+("se lo costruiamo così, regge senza intervento manuale?"), non un log di cosa esiste già oggi
+-- foto/galleria e PWA sono ancora a zero codice (vedi PROJECT_STATUS.md, "Cosa è mock,
+incompleto o non ancora iniziato"). Il "Sì" qui sopra vale per l'architettura scelta quando
+verranno costruiti, non per lo stato attuale.
 
 ## L'unico punto che NON regge al 100% subito: numero WhatsApp per-salone
 

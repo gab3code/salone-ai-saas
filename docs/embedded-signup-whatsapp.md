@@ -72,8 +72,15 @@ piattaforma, poi ogni salone nuovo passa dal flusso automatico sotto.
   testare -- lo scriviamo quando arriviamo lì, ma tutta la parte server è
   già pronta ad aspettarlo.
 - Collegare la route al vero client Supabase (service_role) per salvare
-  token/stato -- oggi è solo un TODO commentato, aspetta il progetto
-  Supabase reale (in corso).
+  token/stato -- oggi è solo un TODO commentato nel codice
+  (`src/app/api/whatsapp/embedded-signup/callback/route.ts`). **Corretto
+  12/09/2026, questa riga era sbagliata**: il progetto Supabase reale non è
+  affatto "in corso" -- è collegato e in uso attivo da settimane (Fase 0
+  chiusa da tempo, ogni fase successiva legge/scrive sul database vero). Il
+  vero motivo per cui questo TODO resta commentato è che l'intera funzione
+  WhatsApp è bloccata a monte dalla business verification Meta + P.IVA (vedi
+  sotto), non da un problema di Supabase -- non ha senso completarlo prima
+  di avere un `CONFIGURATION_ID` vero con cui testarlo.
 - Test end-to-end del flusso con un numero WhatsApp vero, dopo l'App Review.
 
 ## Perché nel frattempo il prodotto non si blocca

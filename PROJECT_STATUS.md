@@ -1,6 +1,25 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026 notte -- "mega controllo" competitor richiesto da Gabriel
+Ultimo aggiornamento: 12/09/2026 notte, secondo giro -- Gabriel ha chiesto di continuare a
+controllare che tutti gli .md siano giusti e di aggiungere agli obiettivi altre funzioni
+mancanti. Due cose fatte: (1) **corretti altri due file rimasti indietro**, oltre ai due già
+sistemati nel giro precedente -- `docs/embedded-signup-whatsapp.md` dava la colpa a "il
+progetto Supabase non è ancora collegato (in corso)" per un TODO nel codice, quando Supabase è
+collegato e in uso da settimane (il vero motivo è il blocco Meta, non Supabase); e
+`docs/verifica-stack-automazione.md` mostrava foto/PWA come "Sì, automatico" in una tabella di
+fattibilità architetturale senza chiarire che non sono ancora costruite, annotato con una nota
+esplicita. (2) **Trovate altre funzioni mancanti**, questa volta non dal confronto competitor ma
+da un confronto diretto codice-vs-aspettativa di prodotto: zero notifiche email (né conferma al
+cliente né avviso al titolare -- verificato, nessun provider email nel progetto), il cliente non
+può gestire da solo la propria prenotazione dopo averla fatta, e un secondo caso del problema già
+trovato con "Tono AI" -- il piano Enterprise pubblicizza "Multi-sede e ruoli avanzati" ma non
+esiste NESSUN concetto di sede nello schema né un controllo reale sul ruolo owner/staff (la
+colonna esiste, non è mai controllata da nessuna parte del codice). Aggiunte anche idee a
+priorità più bassa (recensioni post-appuntamento, export CSV clienti, pacchetti prepagati/
+tessera fedeltà) e una NON aggiunta deliberatamente (registro cassa/fatturazione -- rischio di
+scope creep verso un gestionale contabile, vedi DECISIONS.md). Tutto il dettaglio in `PIANO.md`,
+sezione "Gruppo B-bis" (nuova). Nessuna modifica di codice in questo giro. Aggiornamento
+precedente, 12/09/2026 notte -- "mega controllo" competitor richiesto da Gabriel
 ("cosa dobbiamo fare per superare i competitor"). Risultato più importante, e più urgente di
 tutto il resto scritto in questo file: **Treatwell ha lanciato un'AI receptionist il 9/09/2026
 (3 giorni prima di questo controllo) e Fresha ha "AI Concierge" da maggio 2026** -- il nostro

@@ -920,3 +920,30 @@ parallelo, uno sui gestionali italiani non ancora verificati -- Sagomapp/WeGest/
 fetch diretto delle pagine "for business" di Fresha/Treatwell/Booksy e delle relative notizie
 2025/2026) e aggiornamento di `docs/analisi-concorrenti-mercato.md`, `PIANO.md`,
 `PROJECT_STATUS.md`.
+
+## 2026-09-12 — Deliberatamente NON aggiunta una "Cassa"/registro incassi, nonostante Estetia e
+## WeGest ce l'abbiano entrambi
+
+**Decisione**: non aggiungere a `PIANO.md` un modulo di cassa/registro incassi per i servizi
+erogati dal salone (diverso dal nostro billing Stripe, che è solo per l'abbonamento SaaS), pur
+avendolo trovato presente in due concorrenti diretti durante il secondo giro del mega-controllo
+richiesto da Gabriel ("altre funzioni che dobbiamo e possiamo mettere").
+
+**Alternativa considerata**: aggiungerlo come task Fase 6, sulla falsariga degli altri gap
+trovati nello stesso giro (deposito/caparra, lista d'attesa, notifiche email).
+
+**Motivazione dello scarto**: a differenza degli altri gap trovati (che restano dentro il
+perimetro booking+AI+CRM già definito per il progetto), un vero registro cassa tocca
+fatturazione/ricevute fiscali italiane -- un terreno normativo con regole proprie (scontrino
+elettronico, corrispettivi telematici) facile da sottovalutare in complessità e distante dal
+differenziale del prodotto (l'AI che risponde e prenota). Costruirlo "perché un concorrente ce
+l'ha" rischierebbe di trasformare il progetto in un gestionale contabile generico invece che in
+uno specializzato su booking/AI -- lo stesso errore concettuale opposto a quello descritto in
+`docs/analisi-estetia.md` sulla griglia prezzi di Estetia (fare tutto invece di fare bene una
+cosa). Regola stabilita per il futuro: un gap trovato per confronto competitivo diventa un task
+solo se resta dentro il perimetro del prodotto o se più di un cliente reale lo chiede
+esplicitamente -- non per il solo fatto che un concorrente lo ha.
+
+**Verifica**: nessun codice esiste per questo (verificato con grep su tutto `src/` e
+`supabase/migrations/`, zero risultati per cassa/fattura/ricevuta/scontrino). Dettaglio completo
+in `PIANO.md`, sezione "Gruppo B-bis", punto 8.

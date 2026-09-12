@@ -55,6 +55,62 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
 3. **Lista d'attesa automatica alla cancellazione** (Fase 6): vista su Calendix e CutApp, non
    grande lavoro sopra il booking engine che già esiste.
 
+### Gruppo B-bis -- Altre funzioni che mancano davvero, trovate in un secondo giro (12/09/2026)
+
+Continuando il controllo su richiesta di Gabriel ("altre funzioni che dobbiamo e possiamo
+mettere"): confronto punto-per-punto tra cosa il codice fa oggi e cosa un titolare si
+aspetterebbe da un prodotto di questa categoria (non solo dal confronto competitor). Ordinate
+per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
+
+**Dovute (mancano, e sono cose che qualunque prodotto di booking ha)**:
+1. **Nessuna notifica email, né per il titolare né per il cliente**: oggi, quando arriva una
+   prenotazione (da dashboard, da AI, o dalla pagina pubblica), zero email parte -- il titolare
+   se ne accorge solo aprendo la dashboard, e il cliente finale non riceve nessuna conferma
+   scritta della propria prenotazione. Prima che WhatsApp sia disponibile (bloccato da Meta),
+   l'email è l'UNICO canale di notifica passiva possibile -- senza, un titolare deve tenere la
+   dashboard aperta per accorgersi di una prenotazione nuova. Verificato: zero provider email
+   (Resend/Postmark/nodemailer) nel progetto. **Priorità alta, manca qualcosa che ogni
+   concorrente verificato ha.**
+2. **Il cliente finale non può gestire da solo la propria prenotazione** dopo averla fatta su
+   `/s/[slug]` (cancellarla, spostarla) -- deve richiamare o riscrivere al salone. Ogni
+   concorrente verificato (inclusa Estetia) offre questo. Si lega bene al punto sopra: il modo
+   più naturale di offrirlo è un link nell'email di conferma ("gestisci la tua prenotazione"),
+   non un login separato per il cliente.
+3. **"Multi-sede e ruoli avanzati" venduto sul piano Enterprise ma zero supporto reale**: stesso
+   tipo di problema già trovato con "Tono dell'AI personalizzabile" su Pro (vedi Gruppo B) --
+   nello schema non esiste nessun concetto di "sede" (un tenant è un unico luogo fisico), e la
+   colonna `profiles.ruolo` (owner/staff/admin_piattaforma) esiste ma non è controllata da
+   NESSUNA parte del codice: un operatore non può avere un proprio login con permessi limitati,
+   solo il titolare (owner) accede mai alla dashboard. Bloccante prima di vendere Enterprise a
+   un cliente vero, per lo stesso motivo del Tono AI.
+
+**Possibili, da valutare (non urgenti, ma rafforzano il prodotto se costruiti bene)**:
+4. **Multi-utente/team reale**: conseguenza diretta del punto 3 -- dare a ogni "operatore" un
+   proprio login (invito via email, permessi limitati alla propria agenda) invece di essere solo
+   un record gestito dal titolare. Rilevante per la persona di marketing "salone con team" che
+   già usiamo in `PerChi.tsx` -- oggi quella promessa non è ancora mantenuta tecnicamente.
+5. **Raccolta recensioni post-appuntamento**: nessun gestionale italiano verificato la fa
+   nativamente (Estetia mostra solo testimonianze statiche in home page, non vere recensioni
+   raccolte); i marketplace (Fresha/Treatwell/Booksy) invece fondano parte della fiducia proprio
+   sulle recensioni. Un messaggio automatico post-appuntamento che chiede una valutazione,
+   mostrata sulla pagina pubblica del salone, sarebbe un differenziale vero e non richiede
+   grande lavoro sopra quello che già esiste (stessa infrastruttura di reminder/automazioni
+   pianificata in Fase 6).
+6. **Export/import CSV dei clienti**: Estetia ce l'ha esplicitamente, utile per un titolare che
+   migra da un altro gestionale (abbassa l'attrito di switch) o vuole i propri dati per un
+   mailing esterno. Lavoro contenuto.
+7. **Pacchetti prepagati/tessera fedeltà digitale**: visto su CutApp, comune nel settore beauty
+   ("10 sedute prepagate", punti fedeltà). Non urgente, ma un vero differenziale per i saloni
+   che già usano questo modello di vendita oggi su carta.
+
+**Da NON fare senza pensarci due volte (rischio di scope creep)**:
+8. **"Cassa"/registro incassi reale dei servizi erogati** (diverso dal nostro billing Stripe, che
+   è per l'abbonamento SaaS): presente in Estetia ("Cassa" in sidebar) e WeGest ("cassa e
+   magazzino"). Utile in teoria, ma tocca fatturazione/ricevute fiscali italiane -- un terreno
+   normativo diverso dal nostro focus (booking + AI + CRM) e facile da sottovalutare in
+   complessità. Non aggiunto come task: da valutare SOLO se più di un cliente reale lo chiede
+   esplicitamente, non perché un concorrente ce l'ha.
+
 ### Gruppo C -- Completare le fasi già aperte (dettaglio nelle fasi sotto)
 1. Fase 1: collegare alle schermate/AI la gestione di servizi consecutivi e operatore non
    specificato (la logica pura c'è già); test sugli scenari di prenotazione del punto 30 contro
@@ -295,6 +351,14 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       caso -- poi cancellato per pulizia.
 - [ ] Analytics più complete: retention, no-show reale (nessun flusso ancora marca un
       appuntamento "no_show", solo "confermato"/"cancellato" esistono nei dati veri finora)
+- [ ] **Export/import CSV clienti** (nuovo task, secondo giro mega-controllo 12/09/2026): visto
+      su Estetia, utile per un titolare che migra da un altro gestionale (abbassa l'attrito di
+      switch) o vuole i propri dati per un mailing esterno. Lavoro contenuto.
+- [ ] **Raccolta recensioni post-appuntamento** (nuovo task, stesso giro): nessun gestionale
+      italiano verificato lo fa nativamente -- messaggio automatico dopo l'appuntamento che
+      chiede una valutazione, mostrata poi sulla pagina pubblica del salone (Fase 4). Si appoggia
+      alla stessa infrastruttura di reminder/automazioni pianificata in Fase 6, non un sistema
+      separato.
 
 ## Fase 4 -- Pagina pubblica, foto, PWA (punti 18, 19, 20)
 - [x] Pagina pubblica per-salone generata automaticamente, condivisibile -- **scritta
@@ -316,6 +380,16 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       competitor del 12/09/2026: gap reale, il progetto non ne ha nessuna, ogni concorrente
       verificato (Estetia/Calendix/Skedula/Fresha/Treatwell/Booksy) le ha. Non urgente prima del
       deploy di test, ma bloccante prima di pubblicare il link di un salone vero.
+- [ ] **Notifiche email (conferma al cliente + avviso al titolare)** -- nuovo task, priorità
+      alta, secondo giro mega-controllo 12/09/2026: oggi zero email parte quando arriva una
+      prenotazione (da dashboard, AI o pagina pubblica). Prima che WhatsApp sia disponibile,
+      l'email è l'unico canale di notifica passiva possibile -- senza, un titolare deve tenere
+      la dashboard aperta per accorgersi di una prenotazione nuova. Provider da scegliere
+      (Resend è la scelta più semplice con Next.js); zero codice/provider oggi.
+- [ ] **Gestione della prenotazione lato cliente** (cancella/sposta da solo): oggi il cliente
+      che prenota su `/s/[slug]` deve richiamare il salone per qualunque modifica. Si lega al
+      punto sopra -- il modo più naturale è un link "gestisci la tua prenotazione" nell'email di
+      conferma, non un login separato per il cliente finale.
 
 ## Fase 5 -- Billing self-service e admin panel (punti 6, 7, 23, 24)
 - [x] Piani Free -> Enterprise progettati (non copiati), prezzi e posizionamento AI decisi
@@ -346,6 +420,13 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       libero), UI in `/dashboard/impostazioni`, iniezione nel system prompt di `agente.ts`.
       Non bloccante finché Stripe non è verificato dal vivo (nessun cliente Pro reale ancora),
       ma va fatto PRIMA, non dopo il primo incasso su quel piano.
+- [ ] **BLOCCANTE prima di vendere Enterprise a un cliente vero** (stesso problema del Tono AI,
+      trovato nel secondo giro del mega-controllo, 12/09/2026): `Prezzi.tsx` pubblicizza
+      "Multi-sede e ruoli avanzati" su Enterprise, ma nello schema non esiste NESSUN concetto di
+      "sede" (un tenant è un unico luogo fisico) e la colonna `profiles.ruolo` (owner/staff/
+      admin_piattaforma) non è controllata da nessuna parte del codice -- ogni account che entra
+      in dashboard ha accesso pieno, non esiste un vero "staff" con permessi limitati. Vedi anche
+      il task "Multi-utente/team reale" in Fase 6 sotto, che è il prerequisito dei ruoli.
 
 ## Fase 6 -- Automazioni e sicurezza (punti 16, 29, 30)
 - [ ] Motore di automazioni configurabili (reminder, follow-up, inattività, compleanno)
@@ -364,6 +445,20 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       di lasciarlo semplicemente libero. Nessun lavoro architetturale enorme sopra il booking
       engine esistente -- una tabella `lista_attesa` (tenant/servizio/operatore/cliente/data
       preferita) + un trigger o controllo alla cancellazione che notifica il primo in coda.
+- [ ] **Multi-utente/team reale** (nuovo task, secondo giro mega-controllo 12/09/2026): dare a
+      ogni "operatore" un proprio login (invito via email, permessi limitati alla propria
+      agenda) invece di essere solo un record gestito dal titolare -- prerequisito tecnico dei
+      "ruoli avanzati" venduti su Enterprise (vedi Fase 5) e della persona di marketing "salone
+      con team" già usata in `PerChi.tsx`, che oggi non è ancora mantenuta tecnicamente.
+- [ ] **Pacchetti prepagati/tessera fedeltà digitale** (nuovo task, stesso giro): visto su
+      CutApp, comune nel settore beauty ("10 sedute prepagate", punti fedeltà). Non urgente, ma
+      differenziale vero per i saloni che già usano questo modello di vendita su carta.
+- **NON aggiunto come task, deliberatamente** (visto su Estetia/WeGest, "Cassa"/registro
+  incassi): tocca fatturazione/ricevute fiscali italiane, un terreno normativo diverso dal
+  nostro focus (booking + AI + CRM) e facile da sottovalutare in complessità. Da valutare SOLO
+  se più di un cliente reale lo chiede esplicitamente, non perché un concorrente ce l'ha --
+  vedi `docs/analisi-concorrenti-mercato.md`/PIANO.md "Gruppo B-bis" punto 8 per il ragionamento
+  completo.
 - [ ] Revisione sicurezza (RLS, permessi tool AI, rate limiting, input validation)
 - [ ] Test completo su tutti gli scenari del punto 30
 
