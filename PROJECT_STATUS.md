@@ -1,6 +1,40 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026, quinto giro TERZA PARTE (Gabriel ha guardato il sito vero via
+Ultimo aggiornamento: 12/09/2026, quinto giro QUARTA PARTE (Gabriel ha guardato ancora il titolo
+Hero e il pulsante Pro sul sito vero: "carino ma... troppo spento", "ce ancora lo sfondo sfumato
+scuro dietro la frase", "le p sono tagliate sotto", "rallenta l'animazione e migliorala", e "il
+pulsante di pro tende ancora al verde... fai solo oro"). Cinque correzioni, tre delle quali bug
+di layout/rendering reali e non solo gusto estetico -- vedi la sezione dedicata più sotto per il
+dettaglio completo:
+1. **Bug reale -- lettere "p" tagliate**: il contenitore `overflow-hidden` usato per l'animazione
+   di entrata (la riga scorre su dall'alto) si dimensionava esattamente sull'altezza della riga di
+   testo, calcolata dai metrics del font senza considerare che un `-webkit-text-stroke` da 4px
+   sporge ~2px oltre il bordo di ogni lettera, discendenti comprese -- su un `line-height` già
+   stretto (1.08, per un titolo compatto) quei 2px in più finivano tagliati dal contenitore.
+   Aggiunto padding in basso al contenitore (non toccato il line-height condiviso con la prima
+   riga del titolo, per non spostare nulla lì).
+2. **Bug reale -- alone scuro ancora visibile dietro la frase**: un secondo effetto, distinto dal
+   `text-shadow` già corretto nella terza parte, restava attivo -- `filter: drop-shadow(...)`,
+   aggiunto per dare profondità senza triplicarsi sulle quattro copie di testo impilate. Anche
+   modesto (5px di sfocatura), un'ombra scura sopra uno sfondo chiaro/saturo si legge comunque come
+   un alone. Tolto del tutto: il contorno a due toni basta da solo per leggibilità e profondità.
+3. Colori delle bande metalliche ricalcolati una quarta volta con `colorsys` (stessa progressione
+   di tonalità freddo->caldo di prima, MAI a occhio) ma con un range di luminosità/saturazione più
+   ampio -- il giro precedente aveva la tonalità giusta ma restava "spento", troppo compresso al
+   centro.
+4. Riflesso animato: rallentato ulteriormente (già chiesto e fatto una volta) e la FORMA della
+   fascia di luce cambiata da bordi netti a una curva morbida più larga, per un accendersi/spegnersi
+   graduale invece di un lampo.
+5. **Bug reale -- causa del pulsante Pro percepito ora oro ora verde**: diagnosticato leggendo lo
+   shader (`LiquidMetal.tsx`), non a occhio -- la tonalità dell'intera palette ruota nel tempo di
+   un'ampiezza proporzionale a `shimmer` (±20° con `shimmer: 7`), e la tonalità oro precedente
+   (~31-42°) con quella rotazione finiva a tratti nella zona giallo-verde. Ricalcolata la palette
+   con `colorsys` su tonalità molto più basse (~22-34°, più arancio-ruggine) perché anche il picco
+   della rotazione resti saldamente nell'oro, e ridotto leggermente `shimmer` (7 -> 6) per
+   restringere l'ampiezza stessa. Non verificabile in questa sandbox (il contesto WebGL non
+   rende mai in modo affidabile qui) -- da confermare sul sito vero.
+
+Aggiornamento precedente, 12/09/2026 quinto giro TERZA PARTE (Gabriel ha guardato il sito vero via
 screenshot e chiesto di verificare ogni fix con uno screenshot PRIMA del prossimo push, non solo
 alla fine -- workflow seguito per tutto questo giro). Titolo Hero rifatto tre volte in un solo
 giro, con due bug reali trovati lungo il percorso (non solo gusto estetico): il colore era stato
@@ -579,6 +613,86 @@ in questa sandbox. Per il titolo Hero, invece, il metodo di verifica è cambiato
 sfondo scuro indovinato a caso, ma il TUO screenshot reale usato come sfondo di prova in
 Playwright (canvas nascosto, la tua immagine al suo posto) -- molto più affidabile, anche se resta
 comunque un'immagine ferma, non lo shader animato vero.
+
+## Quinto giro, quarta parte -- ancora titolo Hero e pulsante Pro, sul sito vero (12/09/2026)
+
+Gabriel ha guardato di nuovo il titolo Hero e il pulsante Pro dopo la consegna della terza parte
+e ha segnalato 5 punti in un solo messaggio: "carino ma un po brutto da vedere, troppo spento...
+rallenta l'animazione e migliorala, poi ce ancora lo sfondo sfumato scuro dietro la frase, e le p
+sono tagliate sotto... il pulsante di pro tende ancora al verde, fa un po oro e un po verde, fai
+solo oro".
+
+**"Le p sono tagliate sotto" -- bug reale, non gusto estetico**: la seconda riga del titolo
+("mai più senza risposta.") entra in scena scorrendo su dal basso, tecnica standard --
+`<span className="overflow-hidden">` esterno che ritaglia, `<motion.span>` interno che trasla da
+`y: "110%"` a `y: "0%"`. Il contenitore esterno si dimensiona esattamente sull'altezza della riga
+di testo secondo il `line-height` ereditato dall'h1 (`leading-[1.08]`, volutamente stretto per un
+titolo compatto). Il layout del browser calcola quell'altezza dai metrics del FONT, ignorando
+completamente che `-webkit-text-stroke: 4px` (il contorno esterno più spesso delle due copie
+impilate) dipinge ~2px oltre il bordo naturale di ogni lettera in OGNI direzione, comprese le
+discendenti (p, g, q) che su un line-height già stretto avevano pochissimo margine sotto per
+cominciare. Il risultato: quei 2px in più di contorno finivano oltre il bordo del contenitore e
+venivano tagliati via dall'`overflow-hidden`, tranciando la codina delle "p" di "più" e
+"risposta". Fix: aggiunto `paddingBottom` al contenitore esterno di quella riga (non toccato il
+`line-height` condiviso con la prima riga del titolo "Il tuo salone,", per non spostarla) --
+padding sul contenitore che clippa dà lo spazio in più senza cambiare come il testo viene
+impaginato. Verificato con screenshot ravvicinati, desktop e mobile (dove la riga va a capo su
+due righe reali): "più" e "risposta." ora escono per intero.
+
+**"Ce ancora lo sfondo sfumato scuro dietro la frase" -- secondo bug reale, distinto da quello
+già corretto nella terza parte**: la terza parte aveva già trovato e corretto un `text-shadow`
+ereditato dall'h1 che restava attivo sulle copie di testo impilate (fix: `textShadow: "none"`).
+Restava però un SECONDO effetto separato, mai toccato perché sembrava innocuo: un
+`filter: drop-shadow(0 3px 5px rgba(0,0,0,0.55))` messo apposta sul contenitore per dare
+profondità alla scritta senza triplicarsi su ognuna delle quattro copie di testo impilate (a
+differenza di `text-shadow`, che si eredita su ciascuna). Anche con un raggio di sfocatura
+modesto (5px) e opacità non altissima, un'ombra scura sopra lo sfondo chiaro e saturo della Hero
+resta visibile come una vera e propria "sfumatura scura" intorno alla frase -- l'occhio la legge
+come un alone, non come profondità, esattamente come descritto da Gabriel. Tolto del tutto: le
+due copie di contorno (nero spesso fuori, argento chiaro dentro) danno già abbastanza contrasto
+e leggibilità su qualunque fase dello shader dietro, senza bisogno di un'ombra portata aggiuntiva.
+
+**"Troppo spento" -- colori ricalcolati una quarta volta**: la tonalità (freddo/viola nello
+scuro -> caldo/magenta nel chiaro, calcolata con `colorsys` sui colori reali del sito) era già
+corretta dalla terza parte, ma il range di luminosità/saturazione restava troppo compresso verso
+il centro -- leggibile ma piatto. Ricalcolato con la STESSA progressione di tonalità (nessun
+colore nuovo inventato a occhio) ma un range più ampio: gli stop scuri scendono più vicino al
+nero, quelli chiari salgono più vicino al bianco caldo, saturazione alzata su tutti gli stop --
+più contrasto interno alle bande senza diventare un viola acceso da neon.
+
+**"Rallenta l'animazione e migliorala"**: la velocità del riflesso che attraversa il testo era
+già stata rallentata (da 3.2s a 6s per passata, pausa da 1.4s a 2.2s) in un intervento precedente
+di questo stesso giro. Il "migliorala" riguardava la FORMA del riflesso: prima una fascia stretta
+a bordi netti (transparent -> pieno -> transparent in soli tre stop, un "lampo" che si accende e
+spegne di scatto), ora una curva a campana più larga e morbida (sei stop, un nucleo più stretto e
+una dissolvenza ai lati più graduale) -- si accende e si spegne con dolcezza, più vicino a un vero
+riflesso di luce su una superficie lucida.
+
+**"Il pulsante di pro tende ancora al verde, fa un po oro e un po verde, fai solo oro" -- bug
+reale, diagnosticato leggendo lo shader, non a occhio**: `LiquidMetal.tsx` ha una funzione
+`hueShift()` che ruota la tonalità dell'INTERA palette avanti e indietro nel tempo --
+`uHue = sin(shimmerPhase) * shimmer * 0.05` radianti, con `shimmerPhase` che avanza a velocità
+COSTANTE (il parametro `shimmer` controlla solo l'AMPIEZZA della rotazione, non la sua velocità).
+Con `shimmer: 7` (il valore di Pro) l'ampiezza è ±0.35 rad ≈ ±20°: la tonalità oro della versione
+precedente (~31-42°, calcolata con `colorsys` nella seconda parte) con una rotazione di +20°
+finiva a ~51-62°, già dentro la zona percepita come giallo-verde/senape (il confine tra "oro
+caldo" e "verde" cade molto prima dei 120° del verde puro) -- da qui l'oscillare tra oro e verde
+segnalato da Gabriel. Ricalcolata un'altra volta con `colorsys`, stavolta con tonalità molto più
+basse (~22-34° invece di ~31-42°, più vicine all'arancio-ruggine) in modo che anche il picco
+massimo della rotazione (fino a ~54°) resti saldamente nell'oro/ambra. Ridotto anche `shimmer` da
+7 a 6 per restringere un po' l'ampiezza stessa della rotazione, restando comunque sopra il 5 di
+Growth. **Non verificabile in questa sandbox** (il contesto WebGL non rende mai in modo affidabile
+qui, confermato anche in questo giro: le stesse identiche pagine mostrano uno sfondo Hero
+lavato/grigio invece del vortice viola/fucsia reale, e i pulsanti a pagamento un bordo bianco
+piatto invece dell'anello colorato) -- **da confermare sul sito vero da Gabriel**, come già
+segnalato nei giri precedenti per questo stesso pulsante.
+
+Verifica eseguita in questo giro: `tsc --noEmit`, `eslint` sui file toccati, `vitest run`
+(112/112) e `next build` tutti puliti; titolo Hero verificato visivamente con la stessa tecnica
+del giro precedente (sfondo di prova realistico via `page.route()` al posto del canvas, che in
+questa sandbox non rende i colori veri dello shader) su desktop e mobile, prima e dopo le
+correzioni -- confermato nessun alone scuro residuo e nessuna "p" tagliata in nessuno dei due
+casi.
 
 ## Quarto giro di rifinitura landing, dopo l'uso reale del sito pubblicato dal terzo giro (12/09/2026)
 

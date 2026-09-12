@@ -731,6 +731,37 @@ all'effetto (velocità, colore, intensità) si fa in un solo punto per tutto il 
 **Verifica**: vedi PROJECT_STATUS.md, sezione "Quinto giro, seconda parte", per l'esito di
 test/build/controllo visivo.
 
+## 2026-09-12 — Quinto giro, quarta parte: margine di sicurezza sulla tonalità invece di un colore fisso
+
+Gabriel ha segnalato di nuovo, per la stessa animazione dell'anello Pro, che il colore
+"tende ancora al verde, fa un po oro e un po verde" -- nonostante la seconda parte di questo
+giro avesse già ricalcolato la palette con `colorsys` dopo un reclamo simile ("rendilo un po piu
+oro, meno giallo/verde"). Il colore FISSO era corretto in isolamento (~31-42° di tonalità, un oro
+vero secondo `colorsys`); il problema mai considerato prima era che quel colore non resta MAI
+fisso a schermo -- lo shader (`LiquidMetal.tsx`, funzione `hueShift()`) ruota continuamente la
+tonalità dell'intera palette di un'ampiezza legata al parametro `shimmer` (±20° con `shimmer: 7`,
+il valore di Pro). Un colore verificato solo al suo valore di riposo può comunque finire, per una
+parte del ciclo di animazione, in una zona di tonalità diversa e sgradita -- qui, il picco della
+rotazione (+20°) spingeva l'oro (~31-42°) fino a ~51-62°, dentro la zona percepita come
+giallo-verde.
+
+**Decisione**: per un colore dietro un'animazione che ruota la tonalità nel tempo, verificare (e
+scegliere) non il valore di riposo isolato ma l'INTERO intervallo che il colore attraversa durante
+l'animazione, con margine. Ricalcolata la palette di Pro su tonalità molto più basse (~22-34°,
+così che anche il picco massimo della rotazione resti saldamente nell'oro/ambra) e ridotta
+leggermente anche l'ampiezza stessa (`shimmer` 7 -> 6) per un doppio margine di sicurezza, invece
+di limitarsi a spostare di nuovo il singolo valore fisso e sperare che basti. Stesso principio
+metodologico della voce precedente (misurare con `colorsys`, non a occhio), esteso a un colore che
+si muove nel tempo anziché uno statico.
+
+**Verifica**: non possibile in questa sandbox (il contesto WebGL non rende mai i colori veri dello
+shader qui, confermato di nuovo in questo giro) -- da confermare sul sito vero da Gabriel, come già
+per i round precedenti sullo stesso pulsante. Vedi PROJECT_STATUS.md, sezione "Quinto giro, quarta
+parte", anche per gli altri due bug reali risolti nello stesso giro (lettere "p" tagliate dal
+contorno del testo che sporgeva oltre un `overflow-hidden` troppo stretto; un secondo alone scuro,
+distinto dal `text-shadow` già corretto nella terza parte, dovuto a un `filter: drop-shadow`
+separato mai rimosso).
+
 ## 2026-09-12 — Quinto giro, terza parte: colore del titolo Hero calcolato, non scelto a occhio
 
 Gabriel ha chiesto esplicitamente: "verifica che si abbini allo sfondo e al colore di tutto il

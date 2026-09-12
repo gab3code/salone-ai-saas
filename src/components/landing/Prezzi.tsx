@@ -162,11 +162,33 @@ const METAL_PIANI: Record<string, Partial<ComponentProps<typeof LiquidMetal>>> =
   // Aumentato il distacco rosso-verde su ogni tappa (oro vero = molto rosso,
   // poco verde, un tocco di blu per la "temperatura calda") invece di un
   // giallo puro (rosso e verde vicini, blu quasi assente).
+  //
+  // Terzo aggiustamento (quinto giro, quarta parte -- Gabriel: "il pulsante
+  // di pro tende ancora al verde, fa un po oro e un po verde, fai solo
+  // oro"). Causa reale, trovata leggendo lo shader (LiquidMetal.tsx, non a
+  // occhio): la funzione `hueShift()` ruota la tonalità dell'intera palette
+  // avanti e indietro nel tempo -- `uHue = sin(shimmerPhase) * shimmer *
+  // 0.05` radianti, con `shimmerPhase` che avanza a velocità COSTANTE
+  // (`shimmer` controlla solo l'AMPIEZZA della rotazione, non la
+  // velocità). Con `shimmer: 7` l'ampiezza è ±0.35 rad ≈ ±20°: la tonalità
+  // oro della versione precedente (~31-42°, calcolato con `colorsys`) con
+  // una rotazione di +20° finisce a ~51-62°, già dentro la zona
+  // giallo-verde (il verde puro è a 120°, ma il confine percepito tra
+  // "oro caldo" e "verde/senape" cade molto prima, intorno ai 55-65°) --
+  // da qui l'oscillare percepito da Gabriel tra oro e verde. Ricalcolata
+  // un'altra volta con `colorsys`, stavolta con tonalità molto più basse
+  // (~22-34° invece di ~31-42°, tutte più vicine all'arancio-ruggine che al
+  // giallo) in modo che anche il picco massimo della rotazione (+20°, fino
+  // a ~54°) resti ancora saldamente nella zona oro/ambra e non sconfini mai
+  // nel giallo-verde. Ridotto anche `shimmer` da 7 a 6 per restringere un
+  // po' l'ampiezza stessa della rotazione (margine di sicurezza in più),
+  // restando comunque sopra il 5 di Growth -- il piano più caro mantiene il
+  // metal più vivace, solo con meno margine di rischio sul colore.
   Pro: {
-    colors: ["#2a1a05", "#6b3f0f", "#b8791f", "#e0a94a", "#fff0cc"],
+    colors: ["#2d1406", "#6a3410", "#b8631e", "#df9449", "#f8e4c9"],
     frost: 1.1,
     sweep: 6,
-    shimmer: 7,
+    shimmer: 6,
     scale: 7,
     flow: 7,
     refraction: 1.4,

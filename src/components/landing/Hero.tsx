@@ -30,10 +30,13 @@ function useRiflessoMetallico() {
   useEffect(() => {
     const riduciMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (riduciMovimento) return;
+    // Rallentato (quinto giro, quarta parte -- Gabriel: "rallenta
+    // l'animazione") -- da 3.2s a 6s per passata, pausa più lunga tra un
+    // passaggio e l'altro: un riflesso che si nota con calma, non un lampo.
     const controlli = animate(posizione, [200, -100], {
-      duration: 3.2,
+      duration: 6,
       repeat: Infinity,
-      repeatDelay: 1.4,
+      repeatDelay: 2.2,
       ease: "easeInOut",
     });
     return () => controlli.stop();
@@ -59,7 +62,7 @@ function Titolo() {
           Il tuo <FlipWords parole={PROFESSIONI} />,
         </motion.span>
       </span>
-      <span className="block overflow-hidden">
+      <span className="block overflow-hidden" style={{ paddingBottom: "0.14em" }}>
         <motion.span
           className="block"
           initial={{ y: "110%" }}
@@ -131,40 +134,54 @@ function Titolo() {
               la frase, che leggeva come uno "sfondo nero" e schiacciava
               visivamente le bande di metallo sotto. Serviva l'override
               esplicito qui sul contenitore (si eredita in giù su tutti i
-              figli), non bastava intenzione + il drop-shadow separato. */}
-          <span
-            className="relative inline-grid"
-            style={{ filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.55))", textShadow: "none" }}
-          >
-            <span style={{ gridArea: "1 / 1", color: "#292235", WebkitTextStroke: "4px #110d17" }}>
+              figli), non bastava intenzione + il drop-shadow separato.
+
+              Quinto giro, quarta parte -- Gabriel, guardando ancora il sito
+              vero: "ce ancora lo sfondo sfumato scuro dietro la frase".
+              Il `text-shadow` era già a "none" (bug precedente già corretto),
+              ma restava un secondo effetto separato -- un
+              `filter: drop-shadow(0 3px 5px rgba(0,0,0,0.55))` messo qui
+              apposta per dare profondità alla scritta senza triplicarsi su
+              ognuna delle quattro copie impilate (a differenza di
+              text-shadow, che si eredita per ognuna). Anche con un raggio di
+              sfocatura modesto (5px) e opacità non altissima (0.55), un
+              drop-shadow scuro sopra uno sfondo già chiaro/saturo (il vortice
+              della Hero) resta visibile proprio come una "sfumatura scura"
+              intorno alla frase -- l'occhio lo legge come un alone, non come
+              profondità. Tolto del tutto: le due copie di contorno (nera
+              spessa fuori, argento chiara dentro) danno già abbastanza
+              contrasto e leggibilità su qualunque fase dello shader, senza
+              bisogno di un'ombra portata aggiuntiva. Risultato più pulito,
+              più vicino a uno stile "Apple" (nessun bagliore/alone dietro il
+              testo, solo il metallo). */}
+          <span className="relative inline-grid" style={{ textShadow: "none" }}>
+            <span style={{ gridArea: "1 / 1", color: "#1a1224", WebkitTextStroke: "4px #0c0812" }}>
               mai più senza risposta.
             </span>
-            <span style={{ gridArea: "1 / 1", color: "#292235", WebkitTextStroke: "2px #e8c8ef" }}>
+            <span style={{ gridArea: "1 / 1", color: "#1a1224", WebkitTextStroke: "2px #ecd3f1" }}>
               mai più senza risposta.
             </span>
-            {/* Riempimento "metallo spazzolato" -- tinta rivista una seconda
-                volta (quinto giro, terza parte -- Gabriel: "verifica che si
-                abbini allo sfondo e al colore di tutto il sito"). La prima
-                versione virava tutte le bande verso lo stesso viola freddo
-                (tonalità ~260-270°, calcolato con `colorsys` invece che a
-                occhio) -- coerente con l'estremo SCURO della palette del
-                sito (`PALETTE_DEFAULT` in LiquidMetal.tsx, il bordo
-                "Consigliato" di Prezzi.tsx, ecc. sono tutti in quella stessa
-                fascia), ma il sito non è mai monocromatico: ogni gradiente
-                reale (Hero, Growth, PALETTE_DEFAULT) scurisce verso il
-                viola freddo (~262°) e SCHIARISCE verso il fucsia/magenta
-                caldo (~289-293°, es. il bagliore "Consigliato" #f0abfc) --
-                mai un fucsia piatto uniforme dallo scuro al chiaro. Bande
-                ricalcolate con la stessa progressione: le tappe più scure
-                restano viola freddo, quelle più chiare virano verso lo
-                stesso magenta caldo già usato altrove nel sito, invece di un
-                singolo viola uniforme che overra solo metà dell'identità
-                cromatica reale. */}
+            {/* Riempimento "metallo spazzolato" -- tinta rivista una TERZA
+                volta (quinto giro, quarta parte -- Gabriel: "carino ma...
+                troppo spento"). Il giro precedente aveva seguito la
+                progressione di tonalità corretta (freddo->caldo, ~262°->
+                ~290°, calcolata con `colorsys` sui colori reali del sito) ma
+                con una gamma di luminosità/saturazione troppo compressa
+                verso il centro -- il risultato restava leggibile ma
+                "piatto", poco vivo. Ricalcolato con la STESSA progressione
+                di tonalità (nessun colore inventato a occhio) ma un range
+                più ampio: gli stop scuri scendono più vicino al nero
+                (L~10%) e quelli chiari salgono più vicino al bianco caldo
+                (L~88%), con saturazione alzata su tutti gli stop (~34-50%
+                invece di ~20-42%) -- più contrasto interno alle bande, più
+                "vivo" senza diventare un viola acceso da neon (la luminosità
+                degli stop centrali resta media, non tutta la banda è
+                sparata in alto). */}
             <span
               style={{
                 gridArea: "1 / 1",
                 backgroundImage:
-                  "linear-gradient(180deg, #58446a 0%, #bd93c8 14%, #69527a 30%, #362c44 46%, #8f67a2 62%, #cba6d3 76%, #4c3c5d 90%, #2c2537 100%)",
+                  "linear-gradient(180deg, #4c2f6a 0%, #dfbbe7 14%, #644082 30%, #211532 46%, #9a5eba 62%, #ebd1f0 76%, #412a5a 90%, #170f24 100%)",
                 WebkitBackgroundClip: "text",
                 backgroundClip: "text",
                 color: "transparent",
@@ -173,21 +190,29 @@ function Titolo() {
               mai più senza risposta.
             </span>
             {/* Riflesso che attraversa il testo in loop (vedi
-                useRiflessoMetallico sopra): una fascia stretta e chiara,
-                trasparente altrove, che scorre sulle bande statiche qui
-                sopra -- come lo `shimmer` dei pulsanti metal di Prezzi.tsx,
-                ma in puro CSS/Framer Motion invece che con lo stesso shader
-                WebGL (che qui in sandbox non regge mai, vedi giri precedenti
-                -- un eventuale bug nel mask non lo scoprirei prima di
-                Gabriel). Opacità abbassata insieme al resto ("non troppo
-                marcato"): un accenno di luce che passa, non un lampo bianco.
-                Tinta calda (non più bianco puro) per restare coerente con lo
-                stesso magenta usato nelle bande sopra. */}
+                useRiflessoMetallico sopra): una fascia chiara, trasparente
+                altrove, che scorre sulle bande statiche qui sopra -- come lo
+                `shimmer` dei pulsanti metal di Prezzi.tsx, ma in puro
+                CSS/Framer Motion invece che con lo stesso shader WebGL (che
+                qui in sandbox non regge mai, vedi giri precedenti -- un
+                eventuale bug nel mask non lo scoprirei prima di Gabriel).
+                Quinto giro, quarta parte -- Gabriel: "rallenta l'animazione
+                e migliorala". La velocità è già rallentata in
+                useRiflessoMetallico sopra; qui il "migliorala" è sulla FORMA
+                del riflesso stesso -- prima era una fascia stretta a bordi
+                netti (transparent 40% -> pieno 50% -> transparent 60%, un
+                "lampo" che si accende e spegne di colpo), ora è una curva a
+                campana più morbida e più larga (sei stop invece di tre, con
+                un nucleo luminoso più stretto e una dissolvenza ai lati più
+                graduale) -- si accende e si spegne con dolcezza invece di
+                comparire/sparire di scatto, più vicino a un vero riflesso di
+                luce su una superficie lucida che a un evidenziatore che
+                scorre. */}
             <motion.span
               style={{
                 gridArea: "1 / 1",
                 backgroundImage:
-                  "linear-gradient(100deg, transparent 0%, transparent 40%, rgba(236,219,240,0.55) 50%, transparent 60%, transparent 100%)",
+                  "linear-gradient(100deg, transparent 0%, transparent 32%, rgba(236,219,240,0.16) 42%, rgba(255,244,255,0.7) 50%, rgba(236,219,240,0.16) 58%, transparent 68%, transparent 100%)",
                 backgroundSize: "260% 100%",
                 backgroundPosition: riflessoBackgroundPosition,
                 WebkitBackgroundClip: "text",
