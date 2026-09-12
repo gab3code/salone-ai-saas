@@ -45,44 +45,58 @@ interface Persona {
  * riepilogativa: nomina esplicitamente anche saloni/palestre invece di
  * lasciarli solo nelle card sotto, e chiarisce che quelle sotto sono
  * esempi, non un elenco chiuso.
+ *
+ * Testi accorciati (quinto giro, feedback di Gabriel su "Parrucchieri e
+ * centri estetici con team": "testo troppo lungo, accorcia il testo,
+ * accorcia questa card e tutte le altre per occupare meno spazio" --
+ * devono però restare uguali verticalmente tra loro). La griglia usa
+ * `auto-rows-fr`: ogni riga si stira all'altezza della card più alta di
+ * TUTTA la griglia, non solo della propria riga -- è la stessa proprietà
+ * che a Funzionalita.tsx causava card inutilmente alte (bug fixato
+ * rimuovendola lì), ma qui è l'effetto voluto (uniformità tra le card): il
+ * problema non era la proprietà in sé, ma un singolo testo (quello di
+ * "Parrucchieri...", quasi il doppio degli altri) che da solo dettava
+ * l'altezza di TUTTE le sette card. Accorciato quel testo e allineata la
+ * lunghezza delle altre sei (tutte tra ~75 e ~100 caratteri, contro i 161
+ * originali della più lunga) cala l'altezza massima e quindi quella di
+ * tutta la griglia, restando comunque tutte uguali tra loro.
  */
 const PERSONE: Persona[] = [
   {
     titolo: "Qualunque attività lavori su appuntamento",
     testo:
-      "Saloni, studi medici, centri benessere, palestre, scuole, noleggi: se i tuoi clienti prenotano un orario, è pensato per te. Le categorie qui sotto sono solo alcuni esempi, non un elenco chiuso.",
+      "Saloni, studi medici, centri benessere, palestre, scuole, noleggi: se i clienti prenotano un orario, è per te. Le categorie sotto sono solo esempi.",
     icona: CalendarCheck,
     grande: true,
   },
   {
     titolo: "Parrucchieri e centri estetici con team",
-    testo:
-      "Più operatori, servizi con durate diverse e pause tra un trattamento e l'altro gestiti in automatico — niente più agenda cartacea con gli incastri fatti a mano.",
+    testo: "Operatori, durate diverse e pause tra i trattamenti, gestiti in automatico — addio agenda cartacea.",
     icona: Scissors,
   },
   {
     titolo: "Barbieri",
-    testo: "Un link da mettere in bio: i clienti fissano da soli il taglio, tu resti concentrato sulla sedia, non sul telefono.",
+    testo: "Un link in bio: i clienti fissano da soli il taglio, tu resti concentrato sulla sedia.",
     icona: Users2,
   },
   {
     titolo: "Centri estetici premium",
-    testo: "Pacchetti di trattamenti, prenotazione online curata quanto il servizio che offri.",
+    testo: "Pacchetti di trattamenti, prenotazione online curata quanto il servizio.",
     icona: Sparkles,
   },
   {
     titolo: "Personal trainer e centri fitness",
-    testo: "Sessioni singole o ricorrenti, disponibilità sempre aggiornata anche su più sedi.",
+    testo: "Sessioni singole o ricorrenti, disponibilità aggiornata anche su più sedi.",
     icona: Dumbbell,
   },
   {
     titolo: "Consulenti e liberi professionisti",
-    testo: "Fisioterapisti, massaggiatori, tatuatori, consulenti: un'agenda seria anche senza uno studio con reception.",
+    testo: "Fisioterapisti, massaggiatori, tatuatori: un'agenda seria anche senza reception.",
     icona: Briefcase,
   },
   {
     titolo: "Fotografi e studi fotografici",
-    testo: "Servizi fotografici su prenotazione, pacchetti e slot gestiti come qualsiasi altro appuntamento.",
+    testo: "Pacchetti fotografici e slot prenotabili, gestiti come un appuntamento qualsiasi.",
     icona: Camera,
   },
 ];

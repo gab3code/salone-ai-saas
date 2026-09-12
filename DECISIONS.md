@@ -701,3 +701,32 @@ padding, l'effetto animato sotto, un elemento pieno sopra).
 
 **Verifica**: vedi PROJECT_STATUS.md, sezione "Quinto giro", per l'esito di test/build/controllo
 visivo e per la nota sui limiti di verifica visiva della sandbox riguardo a Hero/pulsanti metal.
+
+## 2026-09-12 — Quinto giro, seconda parte: colore anello Pro e sfondo delle pagine di autenticazione
+
+**1) Colore dell'anello metallico di Pro.** Gabriel ha visto l'effetto anello (punto 3 sopra) sul
+sito reale e ha confermato che gli piace, ma ha chiesto di cambiare il colore di Pro "per renderlo
+ancora più pro" -- prima usava la palette di default di `LiquidMetal` (la stessa della Hero:
+viola scuro -> viola -> fucsia -> rosa chiaro), la STESSA famiglia cromatica dell'anello di Growth
+appena sopra nella griglia dei piani. Le due leggevano come varianti di intensità dello stesso
+colore, non come due livelli chiaramente diversi. Scelto oro/champagne (`#3d2c0a` -> `#8a6116` ->
+`#d4a017` -> `#f2cf7a` -> `#fff3d6`): è il codice colore quasi universale per il livello "top" di
+un prodotto (carte Gold/Platinum, badge premium in molti SaaS) -- un'unica interruzione
+dall'identità viola/fucsia che identifica il resto del sito, contenuta in un solo anello sottile
+su un solo pulsante, non una reinterpretazione del brand.
+
+**2) Sfondo di `/accedi` e `/registrati`.** Richiesta esplicita ma con la scelta lasciata al mio
+giudizio ("card in fondo bellissima, rendi cosi anche lo sfondo di accedi e di registrati, se
+pensi possa migliorare, fallo"). Le due pagine avevano solo un alone viola fisso e statico, mai
+il risultato di una scelta di design discussa con Gabriel -- semplicemente quello che era stato
+messo lì nel controllo pre-pubblicazione del primo giro, prima ancora che esistesse lo "Spotlight
+scuro" di CTAFinale.tsx. Applicare lo stesso trattamento interattivo (segue il puntatore, deriva
+lenta quando non c'è interazione) dà continuità visiva reale al sito -- le pagine dove si
+converte davvero (login, registrazione) non devono sembrare un capitolo a parte rispetto alla
+landing -- ed è coerente con la preferenza già espressa da Gabriel per interfacce "fluide e
+dinamiche". Estratto l'hook `useSpotlightScuro` da CTAFinale.tsx in un file condiviso
+(`SpotlightScuro.tsx`) piuttosto che copiarlo tre volte, così un'eventuale modifica futura
+all'effetto (velocità, colore, intensità) si fa in un solo punto per tutto il sito.
+
+**Verifica**: vedi PROJECT_STATUS.md, sezione "Quinto giro, seconda parte", per l'esito di
+test/build/controllo visivo.

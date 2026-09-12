@@ -1,6 +1,18 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026, quinto giro (Gabriel ha usato il sito pubblicato dal quarto
+Ultimo aggiornamento: 12/09/2026, quinto giro SECONDA PARTE (Gabriel ha mandato screenshot presi
+dal suo browser reale sul sito pubblicato -- prima conferma diretta che gli effetti `LiquidMetal`
+funzionano bene fuori da questa sandbox -- con 5 nuovi punti: "Crea il tuo account" andava a capo
+sui pulsanti Growth/Pro (causa reale misurata con Playwright: un margine di 0-2px, sotto la
+soglia del sub-pixel rendering, non un errore di layout grossolano); titolo Hero passato a un
+effetto "metallico" esplicitamente descritto da Gabriel (riempimento scuro + contorno argentato
+via `-webkit-text-stroke`) dopo che il primo tentativo ambra di questo giro non bastava (la vera
+causa dell'alone era l'ombra da 28px ereditata dall'h1, non solo il colore); colore dell'anello
+Pro cambiato da viola/fucsia (troppo simile a Growth) a oro/champagne; testi delle card di
+PerChi.tsx accorciati mantenendo tutte le card della stessa altezza; sfondo "Spotlight scuro" di
+CTAFinale.tsx esteso a `/accedi` e `/registrati` (scelta lasciata al mio giudizio). Vedi la
+sezione dedicata più sotto per il dettaglio completo. Aggiornamento precedente, 12/09/2026 quinto
+giro PRIMA PARTE (Gabriel ha usato il sito pubblicato dal quarto
 giro e segnalato altri 7 punti, arrivati anche a metà del lavoro di questo giro stesso -- lo
 sfondo della CTA finale rifatto una seconda volta è stato mostrato con 4 opzioni via screenshot
 PRIMA di scrivere codice, come richiesto esplicitamente. Bug reali risolti: FAQ e pagina di
@@ -414,6 +426,68 @@ screenshot presi da qui. Confermato però che il codice è corretto dove verific
 diversamente (classe CSS del colore Hero via `getComputedStyle`, struttura DOM dei pulsanti,
 nessun errore console) -- il controllo visivo vero per questi due punti resta da fare sul sito
 reale.
+
+## Quinto giro, seconda parte -- Gabriel ha usato il sito vero pubblicato (screenshot da Safari, 12/09/2026)
+
+Gabriel ha mandato 4 screenshot presi dal SUO browser (Safari, sito pubblicato reale, non questa
+sandbox) sull'Hero e su Prezzi -- prima conferma diretta che gli effetti `LiquidMetal` (shader
+Hero, anello metallico dei pulsanti) funzionano correttamente in un browser vero: la teoria del
+"contesto WebGL rotto solo in questa sandbox" (nota sopra) è confermata corretta, nessuna
+regressione reale nel codice del giro precedente.
+
+**Bug reale diagnosticato e non solo ritoccato a occhio**: "Crea il tuo account" andava a capo su
+Growth e Pro (screenshot alla mano). Misurato con Playwright, non a occhio: il testo misura ~125px
+a `lg`, la colonna della griglia lasciava solo ~125-127px liberi dentro lo span dopo il padding
+(`px-4`, 16px per lato) -- un margine di 0-2px, sotto la soglia dell'arrotondamento sub-pixel (per
+questo in Safari reale andava a capo su 2 pulsanti su 3, non su tutti e tre: differenze di
+sub-pixel tra i tre span identici). Fix: padding orizzontale ridotto (`px-4` -> `px-3`, libera 8px
+per lato, margine reale ~8-10px) più `whitespace-nowrap` esplicito come rete di sicurezza.
+
+**Richiesta esplicita di Gabriel, non ambigua** (ha specificato lui stesso l'effetto voluto,
+invitando comunque a chiedere se qualcosa non fosse chiaro): titolo Hero "mai più senza risposta"
+passato da colore ambra pieno a un effetto "metallico" -- riempimento scuro (antracite, non nero
+puro: il nero sarebbe scomparso contro lo sfondo violaceo dello shader dietro, come lo stesso
+Gabriel prevedeva) + contorno argentato per lettera via `-webkit-text-stroke` (nativo
+Safari/Chrome). L'ombra propria dell'h1 (28px di sfocatura, ereditata da testo bianco sottile) è
+stata sostituita con una coppia di ombre NETTE (1-4px di sfocatura, bevel chiaro sopra + profondità
+scura sotto) invece di continuare a ereditare quella da 28px -- era quella la vera causa
+dell'"alone sfumato" ancora segnalato dopo il primo tentativo di questo giro (il colore non era
+l'unico problema: il blur del parent restava visibile dietro qualunque colore pieno). Verificato
+via `getComputedStyle` (colore, stroke e ombra applicati correttamente) e via screenshot con lo
+sfondo shader temporaneamente sostituito da un gradiente statico rappresentativo (solo per
+verifica in sandbox, non nel codice) -- il contorno resta perfettamente leggibile, il riempimento
+scuro si confonde volutamente con lo sfondo, ottenendo l'effetto "solo contorno" descritto da
+Gabriel.
+
+**Pulsanti Prezzi**: colore dell'anello Pro cambiato da oro/champagne (prima usava la stessa
+palette viola/fucsia della Hero, la stessa famiglia di colore dell'anello di Growth appena sopra
+-- le due leggevano come varianti dello stesso piano, non due livelli diversi). Oro è il codice
+colore universale del livello "top" (carte Gold/Platinum): un'unica interruzione cromatica
+dall'identità viola/fucsia del sito, usata in un solo anello sottile, riconoscibile a colpo
+d'occhio come il piano più alto.
+
+**PerChi.tsx**: testo della card "Parrucchieri e centri estetici con team" accorciato (era il più
+lungo delle sette, quasi il doppio degli altri) insieme a quello delle altre sei card, per
+occupare meno spazio verticale mantenendo tutte le card della stessa altezza. La griglia usa
+`auto-rows-fr` (ogni riga si stira sull'altezza della card più alta di TUTTA la griglia): non è lo
+stesso bug di `Funzionalita.tsx` di questo giro (lì `auto-rows-fr` causava un'altezza indesiderata
+su mobile e andava rimosso) -- qui è l'effetto VOLUTO da Gabriel ("devono però essere uguali
+verticalmente"), il problema era un solo testo troppo lungo che da solo dettava l'altezza di tutte
+le altre sei card. Verificato via Playwright: le 7 card misurano la stessa altezza (234px a
+1440px, 237px a 375px) sia prima che dopo, ma quell'altezza comune è ora molto più bassa.
+
+**Sfondo di /accedi e /registrati** (richiesta con giudizio lasciato a me: "card in fondo
+bellissima, rendi cosi anche lo sfondo di accedi e di registrati, se pensi possa migliorare,
+fallo"): applicato lo stesso "Spotlight scuro" interattivo di CTAFinale.tsx al posto del vecchio
+alone viola statico e fisso -- continuità visiva con il resto del sito invece di un pattern
+diverso solo per queste due pagine, coerente con la preferenza già espressa da Gabriel per
+un'interfaccia "fluida e dinamica". L'hook `useSpotlightScuro` è stato estratto da CTAFinale.tsx
+in un file condiviso (`SpotlightScuro.tsx`) invece di duplicarlo in tre punti.
+
+**Verifica finale**: 112/112 test, `tsc --noEmit` pulito, `eslint` pulito sui file toccati, build
+di produzione pulita, zero console/page error, screenshot Playwright a 1440px e 375px per ogni
+punto (pulsanti Prezzi senza più testo a capo, card PerChi accorciate e uguali tra loro, sfondo
+interattivo su /accedi e /registrati che segue il mouse).
 
 ## Quarto giro di rifinitura landing, dopo l'uso reale del sito pubblicato dal terzo giro (12/09/2026)
 

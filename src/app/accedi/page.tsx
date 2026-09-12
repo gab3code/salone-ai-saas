@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { creaClientBrowser } from "@/lib/supabase/client";
 import { Grana } from "@/components/landing/Grana";
 import { AuthHeader } from "@/components/landing/AuthHeader";
+import { useSpotlightScuro } from "@/components/landing/SpotlightScuro";
 
 /**
  * Ristilizzata insieme a /registrati (controllo approfondito pre-
@@ -18,10 +20,18 @@ import { AuthHeader } from "@/components/landing/AuthHeader";
  * sopra il form, facile da scambiare per una scritta decorativa. AuthHeader
  * è condiviso con /registrati (stessa barra fissa in cima, stesso
  * linguaggio della navbar della landing).
+ *
+ * Sfondo passato allo "Spotlight scuro" di CTAFinale.tsx (quinto giro,
+ * seconda parte -- richiesta di Gabriel: "card in fondo bellissima, rendi
+ * cosi anche lo sfondo di accedi e di registrati, se pensi possa
+ * migliorare, fallo"). Prima qui c'era solo un alone viola fisso: lo stesso
+ * bagliore interattivo del resto del sito dà continuità invece di un
+ * pattern diverso solo per queste due pagine.
  */
 export default function PaginaAccesso() {
   const router = useRouter();
   const supabase = creaClientBrowser();
+  const { sfondo, alMuovimento } = useSpotlightScuro();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,12 +60,12 @@ export default function PaginaAccesso() {
   const classeEtichetta = "text-sm font-medium text-white/70";
 
   return (
-    <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-6 py-24 sm:p-8 sm:py-28">
+    <div
+      className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-6 py-24 sm:p-8 sm:py-28"
+      onPointerMove={alMuovimento}
+    >
       <AuthHeader />
-      <div
-        className="pointer-events-none fixed inset-0"
-        style={{ background: "radial-gradient(60% 50% at 50% 0%, rgba(124,58,237,0.16), transparent 70%)" }}
-      />
+      <motion.div className="pointer-events-none fixed inset-0" style={{ background: sfondo, filter: "blur(30px)" }} />
       <Grana opacita={0.04} />
 
       <div className="relative w-full max-w-sm">

@@ -3,10 +3,12 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 import { creaClientBrowser } from "@/lib/supabase/client";
 import { pianoEPagante, ETICHETTA_PIANO, giorniDiProva } from "@/lib/stripe/piani";
 import { Grana } from "@/components/landing/Grana";
 import { AuthHeader } from "@/components/landing/AuthHeader";
+import { useSpotlightScuro } from "@/components/landing/SpotlightScuro";
 
 /**
  * Registrazione self-service (punto 5/6 della spec): email + password +
@@ -47,17 +49,22 @@ export default function PaginaRegistrazione() {
 }
 
 /** Sfondo/brand condiviso dalla pagina di registrazione e da quella di
- * accesso (stessa identità della landing: bg-noir, grana, alone viola) --
+ * accesso (stessa identità della landing: bg-noir, grana, bagliore) --
  * senza gli shader/le animazioni pesanti dell'Hero, che lì hanno senso come
  * "primo contatto" e qui distrarrebbero da un form che l'utente deve solo
- * poter compilare in fretta. */
-function SfondoAuth() {
+ * poter compilare in fretta.
+ *
+ * Bagliore passato allo "Spotlight scuro" di CTAFinale.tsx (quinto giro,
+ * seconda parte -- richiesta di Gabriel: "card in fondo bellissima, rendi
+ * cosi anche lo sfondo di accedi e di registrati, se pensi possa
+ * migliorare, fallo"). Prima era un alone viola fisso, senza interazione;
+ * `sfondo` arriva da `useSpotlightScuro()` chiamato nel componente
+ * chiamante (serve un solo hook per pagina, non uno per stato/ramo), il
+ * gestore `alMuovimento` va agganciato al contenitore esterno da lì. */
+function SfondoAuth({ sfondo }: { sfondo: ReturnType<typeof useSpotlightScuro>["sfondo"] }) {
   return (
     <>
-      <div
-        className="pointer-events-none fixed inset-0"
-        style={{ background: "radial-gradient(60% 50% at 50% 0%, rgba(124,58,237,0.16), transparent 70%)" }}
-      />
+      <motion.div className="pointer-events-none fixed inset-0" style={{ background: sfondo, filter: "blur(30px)" }} />
       <Grana opacita={0.04} />
     </>
   );
@@ -67,6 +74,7 @@ function FormRegistrazione() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = creaClientBrowser();
+  const { sfondo, alMuovimento } = useSpotlightScuro();
   const pianoRichiesto = searchParams.get("piano");
   const pianoValido = pianoEPagante(pianoRichiesto) ? pianoRichiesto : null;
 
@@ -123,9 +131,12 @@ function FormRegistrazione() {
 
   if (inviata) {
     return (
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-8 py-24 sm:py-28">
+      <div
+        className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-8 py-24 sm:py-28"
+        onPointerMove={alMuovimento}
+      >
         <AuthHeader />
-        <SfondoAuth />
+        <SfondoAuth sfondo={sfondo} />
         <div className="relative max-w-sm text-center">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
             <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
@@ -144,9 +155,12 @@ function FormRegistrazione() {
   }
 
   return (
-    <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-6 py-24 sm:p-8 sm:py-28">
+    <div
+      className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-6 py-24 sm:p-8 sm:py-28"
+      onPointerMove={alMuovimento}
+    >
       <AuthHeader />
-      <SfondoAuth />
+      <SfondoAuth sfondo={sfondo} />
       <div className="relative w-full max-w-sm">
         <form onSubmit={registrati} className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl sm:p-8">
           <div className="mb-2 text-center">

@@ -39,17 +39,39 @@ function Titolo() {
               che come un accento (segnalato da Gabriel, "colore orrendo").
               Passato poi a bianco pieno con un bagliore colorato attorno
               (text-shadow viola/fucsia) -- ma quel bagliore leggeva come
-              un'"evidenziazione" indesiderata (un alone che imita
-              l'evidenziatore), non come un accento di colore sul testo
-              stesso (segnalato di nuovo da Gabriel: "togli
-              l'evidenziazione... dai un colore bello al testo che non si
-              confonda con lo sfondo"). Ora: nessun bagliore, un colore
-              pieno sul testo -- ambra, lontano su qualunque ruota cromatica
-              dal viola/fucsia dello shader dietro (mai un tono vicino con
-              cui confondersi, a qualunque fase sia lo shader), con solo
-              l'ombra scura neutra ereditata dall'h1 per la leggibilità (non
-              più un'ombra colorata propria). */}
-          <span className="text-amber-300">mai più senza risposta.</span>
+              un'"evidenziazione" indesiderata (segnalato di nuovo:
+              "togli l'evidenziazione... dai un colore bello al testo").
+              Passato poi ad ambra pieno -- ma l'ombra scura ereditata
+              dall'h1 (28px di sfocatura, pensata per leggibilità su testo
+              BIANCO sottile) dietro lettere ambra larghe e sature restava
+              visibile come lo stesso alone sfocato di prima ("ha ancora lo
+              sfumato evidenziato"), e il colore ambra in sé non piaceva
+              ("il colore fa schifo").
+
+              Ora: effetto "metallico" richiesto esplicitamente da Gabriel
+              ("un nero con ogni lettera con il contorno argentato") --
+              riempimento scuro + contorno argentato per lettera via
+              -webkit-text-stroke (nativo Safari/Chrome, gli unici browser
+              su cui il sito viene verificato). Nero puro sarebbe scomparso
+              contro lo sfondo scuro violaceo dello shader dietro (Gabriel
+              stesso lo prevedeva: "forse nero sta male") -- usato invece un
+              antracite molto scuro ma non nero puro, che lascia il
+              contorno argentato come unico elemento davvero leggibile
+              (l'effetto "solo contorno" cercato). Ombra propria sostituita
+              con una coppia di ombre NETTE (raggio di sfocatura minimo,
+              1-4px) invece della sfocatura da 28px ereditata dall'h1: una
+              chiara chiaro sopra (bevel/luce) e una scura sotto
+              (profondità) -- niente più alone sfocato, solo la sensazione
+              di rilievo/metallo. */}
+          <span
+            style={{
+              color: "#18161d",
+              WebkitTextStroke: "1.4px #d7dbe2",
+              textShadow: "0 1px 0 rgba(255,255,255,0.3), 0 2px 5px rgba(0,0,0,0.6)",
+            }}
+          >
+            mai più senza risposta.
+          </span>
         </motion.span>
       </span>
     </h1>

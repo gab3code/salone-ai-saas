@@ -93,8 +93,9 @@ const PIANI = [
  * vendere, Enterprise è a preventivo via email, non un vero checkout).
  * Starter: palette argento/grigio (sobrio ma visibile come anello sottile).
  * Growth: la stessa identità viola/fucsia del sito, intensità media. Pro:
- * palette piena della Hero (PALETTE_DEFAULT, non sovrascritta), più
- * veloce/lucida -- il piano più caro ha il metal più vistoso.
+ * oro/champagne (vedi commento su METAL_PIANI.Pro più sotto), più
+ * veloce/lucida -- il piano più caro ha il metal più vistoso E il colore più
+ * distintivo, non solo un viola più intenso.
  *
  * Renderizzato come ANELLO sottile, non più a riempire tutto il pulsante
  * (quinto giro, feedback di Gabriel: "non sono male ma sono un po' strani").
@@ -132,7 +133,19 @@ const METAL_PIANI: Record<string, Partial<ComponentProps<typeof LiquidMetal>>> =
     twist: 2,
     relief: 8,
   },
+  // Pro (quinto giro, feedback di Gabriel: "cambia colore del pro per
+  // renderlo ancora piu pro"): prima usava la palette di default di
+  // LiquidMetal (viola scuro -> viola -> fucsia -> rosa chiaro), la STESSA
+  // famiglia di colore dell'anello di Growth appena sopra -- le due
+  // sembravano varianti dello stesso piano, non due livelli diversi.
+  // Oro/champagne è il codice colore universale del livello "top" (carte
+  // Gold/Platinum, badge premium): un'unica interruzione cromatica dal
+  // viola/fucsia che identifica il resto del sito, usata qui in un solo
+  // anello sottile, non su tutta la pagina -- riconoscibile a colpo
+  // d'occhio come "il piano più alto" senza reinterpretare l'identità del
+  // brand.
   Pro: {
+    colors: ["#3d2c0a", "#8a6116", "#d4a017", "#f2cf7a", "#fff3d6"],
     frost: 1.1,
     sweep: 6,
     shimmer: 7,
@@ -249,7 +262,20 @@ export function Prezzi() {
                   return (
                     <a href={hrefVoceCTA(p.nome)} className="relative mt-5 block rounded-full p-[2px] transition-transform hover:scale-[1.03]">
                       <LiquidMetal {...metal} parallasse={false} className="rounded-full" />
-                      <span className="relative z-10 flex items-center justify-center rounded-full bg-zinc-900 px-4 py-2 text-center text-sm font-medium text-white">
+                      {/* Bug segnalato da Gabriel: "crea il tuo account" andava a
+                          capo su Growth/Pro. Causa reale (misurata con Playwright,
+                          non a occhio): a lg il testo misura ~125px, la colonna
+                          della griglia lascia solo ~125-127px liberi dentro lo
+                          span dopo il padding px-4 (16px per lato) -- un margine
+                          di 0-2px, sotto la soglia di arrotondamento del
+                          sub-pixel rendering (per questo in Safari reale andava a
+                          capo su 2 piani su 3, non su tutti: differenze di
+                          sub-pixel tra i tre span). Fix: padding orizzontale
+                          ridotto (px-4 -> px-3, libera 8px per lato) per un
+                          margine reale, più whitespace-nowrap esplicito così non
+                          torna mai ad andare a capo anche se un font diverso
+                          misurasse qualche px in più. */}
+                      <span className="relative z-10 flex items-center justify-center rounded-full bg-zinc-900 px-3 py-2 text-center text-sm font-medium whitespace-nowrap text-white">
                         {etichetta}
                       </span>
                     </a>

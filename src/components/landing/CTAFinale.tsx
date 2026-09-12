@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, type PointerEvent as ReactPointerEvent } from "react";
 import { Check } from "lucide-react";
-import { motion, useMotionValue, useSpring, useMotionTemplate, animate } from "framer-motion";
+import { motion } from "framer-motion";
 import { Reveal, RevealStagger, RevealItem } from "./Reveal";
 import { Grana } from "./Grana";
 import { GlowBorder } from "./GlowBorder";
+import { useSpotlightScuro } from "./SpotlightScuro";
 
 const GARANZIE = ["Nessuna carta richiesta", "Attivo in 5 minuti", "Cancella quando vuoi"];
 
@@ -38,45 +38,15 @@ const GARANZIE = ["Nessuna carta richiesta", "Attivo in 5 minuti", "Cancella qua
  * smoothing a molla, stessa tecnica di MagneticButton/GlowBorder), e deriva
  * lentamente da solo quando non c'è interazione -- su schermi touch, dove
  * "seguire il mouse" non ha senso, si vede sempre la deriva lenta.
+ *
+ * L'hook `useSpotlightScuro` (livello visivo `sfondo` da mettere dentro la
+ * card + gestore `alMuovimento` da agganciare al CONTENITORE ESTERNO, non a
+ * un div interno, altrimenti gli elementi sopra nello z-order intercettano
+ * il pointermove prima che raggiunga lo sfondo) è stato spostato in
+ * SpotlightScuro.tsx (quinto giro, seconda parte): Gabriel ha chiesto lo
+ * stesso sfondo anche su /accedi e /registrati, quindi non poteva più
+ * restare privato a questo file.
  */
-/**
- * Restituisce sia il livello visivo (`sfondo`, da mettere dentro la card)
- * sia il gestore da agganciare al CONTENITORE ESTERNO della card (non a un
- * div interno): il puntatore deve muovere il bagliore anche quando è sopra
- * il titolo o il pulsante, non solo sulle zone "vuote" della card -- un
- * div interno sotto testo/pulsante non riceverebbe mai il pointermove lì
- * sopra, perché gli elementi successivi nel markup (sopra nello z-order)
- * lo intercettano prima.
- */
-function useSpotlightScuro() {
-  const x = useMotionValue(50);
-  const y = useMotionValue(42);
-  const xMolla = useSpring(x, { stiffness: 55, damping: 18 });
-  const yMolla = useSpring(y, { stiffness: 55, damping: 18 });
-  const sfondo = useMotionTemplate`radial-gradient(34% 48% at ${xMolla}% ${yMolla}%, rgba(168,85,247,0.5), transparent 70%)`;
-
-  useEffect(() => {
-    const riduciMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (riduciMovimento) return;
-
-    const controlliX = animate(x, [50, 68, 32, 50], { duration: 10, repeat: Infinity, ease: "easeInOut" });
-    const controlliY = animate(y, [42, 28, 58, 42], { duration: 10, repeat: Infinity, ease: "easeInOut" });
-    return () => {
-      controlliX.stop();
-      controlliY.stop();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function alMuovimento(e: ReactPointerEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    x.set(((e.clientX - rect.left) / rect.width) * 100);
-    y.set(((e.clientY - rect.top) / rect.height) * 100);
-  }
-
-  return { sfondo, alMuovimento };
-}
-
 export function CTAFinale() {
   const { sfondo, alMuovimento } = useSpotlightScuro();
 
