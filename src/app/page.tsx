@@ -3,12 +3,14 @@ import { Nav } from "@/components/landing/Nav";
 import { Hero } from "@/components/landing/Hero";
 import { ProdottoScroll } from "@/components/landing/ProdottoScroll";
 import { PrimaDopo } from "@/components/landing/PrimaDopo";
+import { ImpattoEconomico } from "@/components/landing/ImpattoEconomico";
 import { ComeFunziona } from "@/components/landing/ComeFunziona";
 import { Vetrina } from "@/components/landing/Vetrina";
 import { PercheNoi } from "@/components/landing/PercheNoi";
 import { Funzionalita } from "@/components/landing/Funzionalita";
 import { PerChi } from "@/components/landing/PerChi";
 import { Prezzi } from "@/components/landing/Prezzi";
+import { Faq } from "@/components/landing/Faq";
 import { CTAFinale } from "@/components/landing/CTAFinale";
 import { Footer } from "@/components/landing/Footer";
 
@@ -38,11 +40,13 @@ export default function Home() {
       <ProdottoScroll />
       <ComeFunziona />
       <PrimaDopo />
+      <ImpattoEconomico />
       <Vetrina />
       <PercheNoi />
       <Funzionalita />
       <PerChi />
       <Prezzi />
+      <Faq />
       <CTAFinale />
       <Footer />
     </div>

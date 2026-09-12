@@ -194,8 +194,15 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.6 }}
           className="mt-8 flex flex-wrap items-center justify-center gap-3"
         >
+          {/* Stessa scelta applicata a Nav.tsx (richiesta di Gabriel
+              dell'11/09/2026): anche il CTA principale della hero ora scende
+              ai piani invece di portare dritti a /registrati. Prima i due
+              bottoni "Inizia gratis" del sito (questo e quello in nav)
+              avevano comportamenti diversi -- incoerente, ed è proprio questo
+              il pulsante più in vista di tutti. Il testo resta vero: da
+              Prezzi in giù si arriva comunque al piano Free senza carta. */}
           <MagneticButton
-            href="/registrati"
+            href="#prezzi"
             className="block rounded-full bg-white px-6 py-3 text-sm font-medium text-zinc-900 shadow-lg shadow-white/10"
           >
             Inizia gratis — nessuna carta richiesta

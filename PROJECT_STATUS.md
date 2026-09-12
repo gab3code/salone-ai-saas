@@ -1,6 +1,17 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 11/09/2026 (fuso orario reale del tenant risolto e verificato dal vivo;
+Ultimo aggiornamento: 12/09/2026 (sessione di controllo visivo e rifinitura pre-pubblicazione
+della landing page, richiesta esplicita di Gabriel prima di andare a dormire, lavorata in piena
+autonomia: verificata dal vivo con Playwright -- desktop E mobile, scroll reale simulato passo
+per passo, non salti bruschi -- l'intera pagina dall'inizio alla fine; risolto un bug reale di
+scroll-jacking che rendeva 4 delle 6 scene della "Vetrina" **irraggiungibili su mobile**; rifatta
+da zero la sezione calcolo economico come vera sezione a due colonne con numero animato;
+aggiunta una FAQ pre-footer; portate `/registrati` e `/accedi` (le pagine dove si converte
+davvero) dallo stile HTML grezzo di default allo stesso linguaggio visivo premium del resto del
+sito; rimossa ogni traccia da "demo"/"in costruzione" ancora visibile pubblicamente -- vedi la
+nuova sezione dedicata più sotto per il dettaglio completo. Vedi anche l'aggiornamento
+precedente, sotto, per lo stato del backend/prodotto, che oggi non è stato toccato). Aggiornamento
+precedente, 11/09/2026 (fuso orario reale del tenant risolto e verificato dal vivo;
 Apple/iCloud CalDAV probabilmente inutilizzabile da Vercel per un blocco lato Apple sugli IP di
 data center -- vedi problema noto #14 -- Google Calendar resta il canale affidabile; Fase 4,
 pagina pubblica del salone, codice scritto e testato ma non ancora verificato dal vivo -- vedi
@@ -23,7 +34,8 @@ resta da fare solo WhatsApp/Telegram (bloccato su business verification Meta). F
 base e dashboard con metriche reali/insight **chiusi e verificati dal vivo**; analytics più
 avanzate non ancora iniziate. Fase 5: struttura piani (Free -> Enterprise) decisa con Gabriel e
 **applicata tecnicamente** (gate AI per piano, quota mensile, anti-burst, tetto prenotazioni
-Free) -- manca ancora Stripe/checkout reale (oggi il piano si cambia solo a mano nel database) e
+Free) -- **Stripe checkout/webhook/customer portal collegati anche tecnicamente** (11/09/2026
+sera, vedi sotto), non ancora verificati dal vivo con un pagamento di test reale; manca ancora
 il pannello admin. Fase 6bis (fuori dai 33 punti originali, aggiunta su richiesta di Gabriel):
 sincronizzazione calendario personale dell'operatore, direzione import/blocco, costruita per
 entrambi i provider ma **verificata dal vivo solo per Google** (funziona) -- **Apple/iCloud via
@@ -48,6 +60,97 @@ prezzi (dati reali da `DECISIONS.md`, piano consigliato con bordo animato), CTA 
 sfondo a particelle. Dettagli tecnici e libreria di pattern riusabili (Aceternity + Magic UI)
 in `docs/librerie-ui.md`. Tutto il resto (automazioni, PWA, Stripe/checkout) non ancora
 iniziato.
+
+## Sessione di rifinitura pre-pubblicazione della landing page (12/09/2026)
+
+Richiesta di Gabriel (in italiano, mentre andava a dormire): non una revisione del codice, ma
+un vero giro da utente reale su desktop e mobile, sezione per sezione, per portare la landing
+page (`/`, `/registrati`, `/accedi`) da "funziona" a "pubblicabile e vendibile". Lavorato in
+piena autonomia, senza fermarsi a chiedere conferma (istruzione esplicita di Gabriel). Metodo di
+verifica: Playwright headless, screenshot presi con **scroll simulato a piccoli passi (90px,
+35ms di pausa)** invece di salti bruschi di `scrollTo` -- i salti bruschi producevano falsi
+allarmi su componenti animati con Framer Motion/GSAP (pannelli che sembravano "sanguinare",
+scene che sembravano vuote) che sparivano completamente con uno scroll realistico. Lezione da
+tenere per le prossime sessioni di QA visivo su questa pagina.
+
+**Bug reale trovato e risolto -- Vetrina mobile (il problema più grave dei 12 punti di
+Gabriel)**: la showcase a 6 scene (`Vetrina.tsx`) usa GSAP `ScrollTrigger` con `pin: true` per
+l'effetto "fermo mentre scrollo" su desktop. Su mobile lo stesso pin restava attivo, ma lo stack
+di card sotto (più alto della viewport) diventava `position: fixed` per l'intera durata dello
+scroll-trigger -- di fatto **4 delle 6 scene non erano mai raggiungibili scrollando su
+telefono**, il contenuto sotto il fold restava tagliato fuori per sempre. Confermato dal vivo
+esattamente il sintomo descritto da Gabriel ("da telefono fa pena, poco equilibrata, non
+funziona bene durante lo scroll" -- lui parlava della sezione "Un unico motore...", che è
+scena 1 di questa stessa Vetrina). Fix: `gsap.matchMedia()` scopes il pin SOLO a `min-width:
+1024px` (stesso breakpoint `lg:` di Tailwind); su mobile la stessa Vetrina ora renderizza un
+layout completamente diverso, non semplicemente ridimensionato -- 6 card verticali (`Reveal`
+one-shot, nessun pin, nessuno scroll-jacking), ciascuna con titolo/testo/badge "in arrivo" e
+un mock-schermo dedicato (`h-64` invece di `h-full`), tutte e 6 ora effettivamente raggiungibili
+scrollando normalmente. Verificato dal vivo: tutte e 6 le scene visibili e leggibili su
+schermata 390px. La scena 1 (motore di prenotazione) aveva anche il problema visivo separato
+segnalato da Gabriel ("quel quadrato è brutto e poco utile") -- sostituita con una vera
+illustrazione ("engine hub": 3 nodi etichettati Calendario/Pagina pubblica/Assistente AI, punti
+animati sui connettori, cerchio centrale rotante) che riusa lo stesso linguaggio visivo del
+flusso animato già esistente in `PercheNoi.tsx`, invece di uno spazio vuoto.
+
+**Calcolo economico, da riga di testo a sezione vera**: era una singola riga (icona + frase +
+disclaimer) appesa in fondo a `PrimaDopo.tsx` -- vero nel contenuto ma con un peso visivo
+minuscolo per l'argomento di vendita più importante della pagina. Estratto in
+`ImpattoEconomico.tsx`, sezione propria a due colonne: a sinistra le 3 ipotesi dichiarate
+scomposte come i passaggi di un calcolo (1 messaggio/settimana × 35€ scontrino medio × 52
+settimane) con disclaimer esplicito invariato ("calcolo illustrativo... il prodotto non è
+ancora live"); a destra un numero che conta verso l'alto quando entra in vista (`animate()` +
+`useInView` di Framer Motion, non un valore statico) e un confronto ROI diretto col prezzo
+reale del piano Growth (`€478,8/anno`, preso da `DECISIONS.md`/`Prezzi.tsx`, non inventato).
+Nessun dato nuovo, nessuna cifra reinventata -- stesso calcolo onesto, mostrato con il peso
+che merita.
+
+**FAQ aggiunta** (`Faq.tsx`, suggerita esplicitamente da Gabriel come "se ritieni che serva"):
+7 domande pre-footer, accordion con una sola voce aperta alla volta, tutte risposte già vere
+altrove sul sito (nessun fatto nuovo) -- copre gli attriti tipici pre-conversione: serve sapere
+di tecnologia, si può provare gratis, si può disdire, l'AI sbaglia mai, funziona su WhatsApp
+(onestamente segnalato "in arrivo"), sicurezza dati (isolamento reale + hosting EU), migrazione
+da un gestionale esistente.
+
+**Rimosso ciò che tradiva "demo"/"in costruzione"**:
+- `/registrati` e `/accedi` erano rimasti HTML grezzo non stilizzato fin dalla Fase 0 -- le
+  uniche due pagine dove un visitatore mette davvero email/password, invisibili finché non ci
+  si arriva navigando, quindi mai notate durante le sessioni precedenti focalizzate sulla
+  landing. Restilizzate da zero (stesso sfondo `bg-noir` + `Grana`, stessa card con bordo/blur,
+  stesso pulsante a pillola bianco) **senza toccare la logica** (stessa chiamata Supabase, stessi
+  hook, stesso query param `piano`) -- verificato leggendo il file intero dopo ogni modifica.
+- 404 di default di Next.js (pagina bianca non brandizzata) sostituita con `not-found.tsx` sullo
+  stesso linguaggio visivo del resto del sito.
+- La route di test `/prova-chat/[slug]` (widget chat isolato, usata solo per sviluppo) era
+  ancora pubblicamente raggiungibile e senza alcuno stile -- non cancellabile per un blocco del
+  classificatore di sicurezza dell'ambiente su `rm -rf` (anche se il file era dentro la sandbox
+  effimera, non sul Mac di Gabriel); soluzione non distruttiva equivalente: il file ora chiama
+  solo `notFound()`, la route risponde 404 come se non esistesse, cronologia git intatta.
+
+**Altri fix minori trovati durante il giro**:
+- Bug reale di prima parola invisibile nell'header Hero (`FlipWords.tsx`): Chromium non
+  dipingeva il primissimo frame della parola che ruota (subito dopo il caricamento) quando è
+  sopra lo shader WebGL dell'Hero -- confermato con screenshot Playwright a 500ms dal load, e
+  poi confermato risolto interrogando via `page.evaluate()` gli stili computati del vero
+  `motion.span` (non lo spacer invisibile che riserva lo spazio, con cui il primo tentativo di
+  diagnosi si era confuso). Fix: `initial={false}` sull'`AnimatePresence` -- la primissima
+  parola non anima più il proprio ingresso (nasce già a `opacity:1`), eliminando la finestra in
+  cui Chromium poteva saltare il paint.
+- Il CTA primario dell'Hero puntava ancora a `/registrati`, mentre il CTA della Nav era già
+  stato allineato a fare scroll fino a `#prezzi` in una sessione precedente -- disallineamento
+  minore ma reale nel percorso di conversione, corretto.
+- Rivista tutta la pagina una seconda volta dopo tutti i fix sopra (desktop e mobile, scroll
+  reale) per il "controllo finale" richiesto esplicitamente da Gabriel: nessun altro problema
+  di layout/overflow/contrasto/spaziatura trovato, sezione per sezione, incluse le pagine
+  `/registrati`, `/accedi`, 404 mai verificate visivamente prima d'ora.
+
+**Non toccato in questa sessione (deliberatamente, fuori scopo)**: nessun cambiamento al
+backend/prodotto (dashboard, booking engine, AI, calendari) -- vedi la sezione precedente per
+quello stato, invariato. Rimane in repo, non cancellabile per lo stesso blocco del
+classificatore citato sopra, del codice morto e mai collegato a nessuna route:
+`src/components/primitives/*` e `src/app/beautifui/*` -- basso rischio (non raggiungibile da
+nessun link pubblico), ma andrebbe rimosso a mano da Gabriel con un `rm -rf` dal Terminal reale
+del Mac quando ha un minuto, per tenere il repo pulito.
 
 ## Stack reale (verificato in `package.json`)
 
@@ -106,6 +209,25 @@ l'11/09/2026 via MCP diretto).
   AI (client admin) chiameranno esattamente lo stesso codice, mai due implementazioni separate
   (CLAUDE.md punto 9). `dashboard/calendario/azioni.ts` è ora solo parsing form + chiamata.
   Verificato dal vivo l'intero ciclo (creazione/spostamento/cancellazione) dopo il refactor.
+- **Billing/Stripe (Fase 5, task #21)**: collegato per intero l'11/09/2026 sera (commit
+  `faafc55`) -- `/api/stripe/checkout` (crea/riusa un Customer Stripe per tenant, Checkout
+  Session in modalità subscription, trial di 10 giorni su Growth/Pro letto da
+  `src/lib/stripe/piani.ts`, `tenant_id` sempre letto dalla sessione autenticata lato server,
+  mai dal client), `/api/stripe/webhook` (verifica firma `stripe-signature` PRIMA di leggere il
+  corpo, gestisce `checkout.session.completed` + i tre eventi `customer.subscription.*` come
+  unica fonte di verità per `piano`/`stato_abbonamento` -- il client non è mai fidato per
+  "ho pagato"), `/api/stripe/portal` (Customer Portal self-service: cambio piano, carta,
+  cancellazione -- mantiene la promessa "Cancella quando vuoi" della CTA finale della landing).
+  Collegato lato UI da `Prezzi.tsx`, `registrati/page.tsx` (redirect a Stripe dopo la
+  registrazione se il piano scelto è a pagamento) e `dashboard/avvia-checkout-se-necessario.tsx`
+  + `impostazioni/pulsante-portale-abbonamento.tsx`. 14 test verdi
+  (`stripe/piani.test.ts`, `stripe/abbonamento.server.test.ts`), chiavi sandbox Stripe reali già
+  in `.env.local` (account test "Sandbox di Via gambarelli 31"). **Non ancora verificato dal
+  vivo con un pagamento di test reale nel browser** (stesso limite di sempre: il sandbox cloud
+  di Claude non ha accesso di rete al progetto Supabase/Stripe reale) -- il webhook inoltre va
+  ancora configurato lato Stripe Dashboard (endpoint pubblico + signing secret, impossibile
+  farlo da qui prima che l'app sia deployata con un dominio reale, vedi commento nel file del
+  webhook per i passi esatti).
 - **Sincronizzazione calendari personali, direzione import/blocco (Fase 6bis)**: entrambi i
   provider costruiti nello stesso pomeriggio. Apple/iCloud: client CalDAV puro
   (`src/lib/calendario-esterno/caldav.server.ts`, autodiscovery standard, segue il redirect di
@@ -162,9 +284,12 @@ l'11/09/2026 via MCP diretto).
 - **Automazioni**: tabella `automazioni` esiste nello schema, nessun motore che la legga o
   scriva.
 - **Analytics**: zero codice oltre ai dati grezzi già in tabella (appuntamenti/clienti).
-- **Billing/Stripe**: zero integrazione. Colonne `piano`/`stato_abbonamento`/
-  `stripe_customer_id`/`stripe_subscription_id` esistono sullo schema ma senza checkout,
-  webhook, o applicazione tecnica dei limiti di piano.
+- ~~Billing/Stripe: zero integrazione~~ **NON PIÙ VERO -- il codice esiste già, questo file
+  era rimasto indietro**: trovato durante il controllo di accuratezza della documentazione del
+  12/09/2026 che l'ultimo commit del repo (`faafc55`, 11/09/2026 23:59, mai riflesso qui) ha
+  già collegato Stripe per intero -- vedi la voce spostata sopra in "Cosa è REALMENTE
+  funzionante" per il dettaglio. Lezione: quando si finisce una sessione tardi, aggiornare
+  SUBITO questo file prima di chiudere, non rimandare al giorno dopo.
 - **Admin panel per Gabriel**: zero codice.
 - **PWA**: zero manifest/service worker. L'app è oggi un sito responsive Tailwind, non
   un'esperienza installabile.
@@ -204,6 +329,30 @@ l'11/09/2026 via MCP diretto).
    sono visti. **Non ancora confermato con certezza, ma per sicurezza: `npm install` va sempre
    lanciato nel Terminal reale del Mac di Gabriel, mai tramite i tool del bridge**, finché non
    si verifica altrimenti. iCloud resta una causa concorrente plausibile, non esclusa.
+
+   **Aggiornamento 12/09/2026 -- stesso sintomo confermato anche su git, non solo npm**: il repo
+   locale `~/Desktop/salone-ai-saas` (fuori da "Claude Project", trovato solo dopo che Gabriel ha
+   corretto la cartella) ha `.git/index.lock` attivo + `HEAD.lock.stale`/`index.lock.stale`
+   risalenti al 02/09 11:31-11:50 (mai puliti da un'operazione git interrotta), e leggere
+   `.git/refs/heads/master` da `device_bash` restituisce **"Resource deadlock avoided"** --
+   stesso errore di sistema del punto sopra, stavolta su un file di git invece che su
+   `node_modules`. Rafforza l'ipotesi del bridge (o iCloud, o entrambi in combinazione) come
+   causa reale, e la estende: **anche i comandi git vanno lanciati SOLO dal Terminal reale del
+   Mac, mai da `device_bash`** -- usarlo per ispezionare un repo (anche solo `git status`/`log`)
+   rischia di aggiungere altro lock contention su una cartella già fragile. Il repo resta
+   probabilmente recuperabile (branch `master`, nessun `remote "origin"` configurato in
+   `.git/config` -- non ha mai ricevuto un push diretto), ma **non ripararlo da qui**: il modo
+   più sicuro è che Gabriel cloni fresco l'ultimo bundle in una cartella FUORI da iCloud (es.
+   `~/dev/`, non `~/Desktop/`), imposti lì il remote (`git@github.com:gab3code/salone-ai-saas.git`
+   o la versione HTTPS) e pushi da lì, lasciando perdere la copia corrotta.
+4. **Connettore Vercel non interrogabile da questa sessione (12/09/2026)**: risulta "connected"
+   e abilitato in chat, ma `mcp__Vercel__list_teams` restituisce sempre una lista vuota (anche
+   dopo un refresh del connettore) e le altre chiamate (progetti, deployment) fanno tutte da
+   `teamId`, quindi falliscono senza un team da passare. Il progetto e il deploy live esistono
+   di sicuro (vedi punto 2 sopra, https://salone-ai-saas.vercel.app), quindi non è un problema
+   del progetto Vercel in sé -- sembra un'autorizzazione OAuth di questa sessione specifica
+   rotta o scaduta. Non risolto: se serve di nuovo operare su Vercel da qui, riprovare prima a
+   riconnettere il connettore dalle impostazioni di Claude.
 4. ~~Nessun test automatico per `booking-engine.server.ts`~~ **RISOLTO 11/09/2026**: 29 test
    nuovi in `booking-engine.server.test.ts`, con un client Supabase finto
    (`src/test/supabase-finto.ts`, riutilizzabile per testare altri file `*.server.ts` in
@@ -348,20 +497,33 @@ l'11/09/2026 via MCP diretto).
 - `src/app/page.tsx` + `src/components/landing/` — landing page di marketing: `Nav`, `Hero`
   (+ `AnteprimaProdotto`, parola che ruota, sfondo a fasci di luce), `ProdottoScroll` (dashboard
   vero stile "MacBook scroll"), `ComeFunziona`, `PrimaDopo` (confronto trascinabile), `Vetrina`
-  (showcase scroll-driven GSAP, 6 scene, tutto il set di funzionalità), `PercheNoi`
-  (differenziatori reali, senza nominare concorrenti), `Funzionalita` (griglia completa, 15 voci
-  con badge "in arrivo"), `PerChi` (5 persone), `Prezzi`, `CTAFinale` (sfondo a particelle),
-  `Footer`, più i primitivi riusabili `Reveal.tsx`, `MagneticButton.tsx`, `Grana.tsx`,
-  `RaggiSfondo.tsx`, `SpotlightCard.tsx`, `TiltCard.tsx`, `CompareSlider.tsx`, `FlipWords.tsx`,
-  `Lampada.tsx`, `VorticeSfondo.tsx`, `BorderBeam.tsx` (dettagli di ognuno in
-  `docs/librerie-ui.md`).
+  (showcase scroll-driven GSAP solo desktop via `gsap.matchMedia()`, 6 scene reveal-only su
+  mobile -- vedi sessione 12/09/2026 sopra), `ImpattoEconomico` (nuovo 12/09/2026: calcolo
+  economico a due colonne con numero animato), `PercheNoi` (differenziatori reali, senza
+  nominare concorrenti), `Funzionalita` (griglia completa, 15 voci con badge "in arrivo"),
+  `PerChi` (5 persone), `Prezzi`, `Faq` (nuovo 12/09/2026: 7 domande pre-footer), `CTAFinale`
+  (sfondo a particelle), `Footer`, più i primitivi riusabili `Reveal.tsx`, `MagneticButton.tsx`,
+  `Grana.tsx`, `RaggiSfondo.tsx`, `SpotlightCard.tsx`, `TiltCard.tsx`, `CompareSlider.tsx`,
+  `FlipWords.tsx`, `Lampada.tsx`, `VorticeSfondo.tsx`, `BorderBeam.tsx`, `GlowBorder.tsx`
+  (dettagli di ognuno in `docs/librerie-ui.md`).
+- `src/app/not-found.tsx` — 404 brandizzata (nuovo 12/09/2026).
 
 ## Prossimo passo pianificato
 
 Fase 4 (pagina pubblica) ha il codice scritto e testato -- resta da: 1) fare il deploy e
 verificare dal vivo in un browser reale (Gabriel, vedi sopra il perché non può farlo Claude dal
-sandbox), 2) task #21, Stripe Checkout + webhook (connettore Stripe già collegato l'11/09/2026
-in vista di questo), 3) valutare l'anti-abuso della prenotazione pubblica (problema noto #15)
-prima di pubblicare il link di un salone vero. Landing page (`/`): codice scritto e verificato
-in-sandbox -- resta solo il deploy per una verifica dal vivo definitiva (glow del mouse, showcase
-scroll-driven, bottoni magnetici su hardware/browser reale di Gabriel).
+sandbox), 2) verificare dal vivo il checkout Stripe già collegato tecnicamente (task #21 --
+codice fatto l'11/09/2026 sera, vedi sopra: manca solo un pagamento di test reale nel browser +
+configurare il webhook lato Stripe Dashboard una volta che l'app ha un dominio pubblico), 3)
+valutare l'anti-abuso della prenotazione pubblica (problema noto #15) prima di pubblicare il
+link di un salone vero. Landing page (`/`, `/registrati`, `/accedi`):
+dopo la sessione di rifinitura del 12/09/2026 (vedi sopra) il codice è scritto, verificato
+dal vivo in-sandbox su desktop E mobile con scroll reale simulato, e non ancora committato --
+**il prossimo passo immediato è commit + build finale + consegna del bundle a Gabriel**, poi
+il deploy per una verifica dal vivo definitiva su hardware/browser reale (glow del mouse,
+showcase scroll-driven desktop, bottoni magnetici) resta comunque raccomandato prima di
+condividere il link pubblicamente, anche se la sessione di oggi ha già coperto la parte di
+verifica più a rischio (comportamento reale su mobile). Cleanup manuale non urgente da fare
+quando Gabriel ha un minuto sul Mac: rimuovere `src/components/primitives/` e
+`src/app/beautifui/` (codice morto, mai collegato a nessuna route, non cancellabile da questa
+sessione per il blocco del classificatore su operazioni distruttive).

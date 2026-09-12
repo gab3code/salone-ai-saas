@@ -1,9 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { creaClientBrowser } from "@/lib/supabase/client";
+import { Grana } from "@/components/landing/Grana";
 
+/**
+ * Ristilizzata insieme a /registrati (controllo approfondito pre-
+ * pubblicazione, 12/09/2026) -- stessa identità dark/viola della landing
+ * invece del form HTML nudo di prima. Logica di accesso invariata.
+ */
 export default function PaginaAccesso() {
   const router = useRouter();
   const supabase = creaClientBrowser();
@@ -30,56 +37,75 @@ export default function PaginaAccesso() {
     router.refresh();
   }
 
+  const classeCampo =
+    "w-full rounded-lg border border-white/15 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none transition-colors focus:border-violet-400/60 focus:bg-white/[0.07]";
+  const classeEtichetta = "text-sm font-medium text-white/70";
+
   return (
-    <div className="flex flex-1 items-center justify-center p-8">
-      <form onSubmit={accedi} className="w-full max-w-sm space-y-4">
-        <h1 className="text-xl font-semibold">Accedi</h1>
+    <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-6 py-16 sm:p-8">
+      <div
+        className="pointer-events-none fixed inset-0"
+        style={{ background: "radial-gradient(60% 50% at 50% 0%, rgba(124,58,237,0.16), transparent 70%)" }}
+      />
+      <Grana opacita={0.04} />
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="email">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
+      <div className="relative w-full max-w-sm">
+        <Link href="/" className="mb-6 block text-center text-sm font-semibold tracking-tight text-white/70 transition-colors hover:text-white">
+          Salone AI
+        </Link>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="password">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
+        <form onSubmit={accedi} className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl sm:p-8">
+          <div className="mb-2 text-center">
+            <h1 className="text-xl font-semibold text-white">Bentornato</h1>
+            <p className="mt-1 text-sm text-white/50">Accedi al tuo pannello.</p>
+          </div>
 
-        {errore && <p className="text-sm text-red-600">{errore}</p>}
+          <div className="space-y-1.5">
+            <label className={classeEtichetta} htmlFor="email">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              className={classeCampo}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
-        <button
-          type="submit"
-          disabled={caricamento}
-          className="w-full rounded bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {caricamento ? "Accesso in corso..." : "Accedi"}
-        </button>
+          <div className="space-y-1.5">
+            <label className={classeEtichetta} htmlFor="password">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              className={classeCampo}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
 
-        <p className="text-center text-sm text-zinc-600">
-          Non hai un account?{" "}
-          <a className="underline" href="/registrati">
-            Registrati
-          </a>
-        </p>
-      </form>
+          {errore && <p className="text-sm text-red-400">{errore}</p>}
+
+          <button
+            type="submit"
+            disabled={caricamento}
+            className="w-full rounded-full bg-white px-3 py-2.5 text-sm font-medium text-zinc-900 transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
+          >
+            {caricamento ? "Accesso in corso..." : "Accedi"}
+          </button>
+
+          <p className="text-center text-sm text-white/50">
+            Non hai un account?{" "}
+            <Link className="text-white underline underline-offset-2" href="/registrati">
+              Registrati
+            </Link>
+          </p>
+        </form>
+      </div>
     </div>
   );
 }

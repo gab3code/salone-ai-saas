@@ -82,6 +82,14 @@ const PERCORSI = [
   "salone-ai-saas.vercel.app/dashboard/impostazioni/calendari",
 ];
 
+/** I 3 "surface" che il motore di prenotazione tiene sincronizzati -- usati
+ * dalla scena 0 (vedi VisualeScena, indice 0). */
+const SUPERFICI_MOTORE = [
+  { icona: Calendar, etichetta: "Calendario" },
+  { icona: Globe2, etichetta: "Pagina pubblica" },
+  { icona: MessageSquareText, etichetta: "Assistente AI" },
+];
+
 /**
  * Riscritte (Giro 4, feedback di Gabriel su uno screenshot: "riquadro dentro
  * un altro riquadro, e quello dentro è minuscolo"). Causa reale: ogni scena
@@ -92,8 +100,72 @@ const PERCORSI = [
  * barra da finestra (sotto, sempre presente, con l'URL che cambia in base
  * alla scena) e queste funzioni restituiscono solo il CONTENUTO -- niente
  * bordo/pallini propri, larghezza piena del palco.
+ *
+ * Scena 0 riscritta di nuovo (controllo approfondito pre-pubblicazione,
+ * 12/09/2026, segnalazione di Gabriel: "lo spazio con quel quadrato è
+ * visivamente brutto e poco utile"). Prima usava lo stesso fallback generico
+ * delle altre scene "di scorta" (griglia di 3 icone spente + una scritta) --
+ * risultato: la primissima scena che chiunque vede aprendo la Vetrina era
+ * anche la più vuota delle 6, con un pannello di 26rem quasi tutto nero.
+ * Ora ha una vera illustrazione dell'"unico motore": tre superfici
+ * (calendario, pagina pubblica, assistente AI) che convergono su un hub
+ * centrale animato -- lo stesso linguaggio visivo (puntino che viaggia su
+ * una linea) già usato in PercheNoi.tsx per il flusso a 3 nodi, qui piegato
+ * a un layout radiale invece che lineare, così la sezione "perché è
+ * diverso" resta visivamente coerente con "perché questo" invece di
+ * inventare un motivo nuovo.
  */
 function VisualeScena({ indice }: { indice: number }) {
+  if (indice === 0) {
+    return (
+      <div className="flex w-full max-w-xs flex-col items-center gap-5">
+        <div className="flex w-full items-start justify-between gap-2">
+          {SUPERFICI_MOTORE.map((n, i) => (
+            <motion.div
+              key={n.etichetta}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 + i * 0.1, ease: [0.23, 1, 0.32, 1] }}
+              className="flex flex-1 flex-col items-center gap-1.5"
+            >
+              <span className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-violet-300">
+                <n.icona className="size-4.5" />
+              </span>
+              <span className="text-center text-[10px] leading-tight text-white/50">{n.etichetta}</span>
+              <div className="relative h-7 w-px bg-gradient-to-b from-white/15 to-transparent">
+                <motion.span
+                  aria-hidden
+                  className="absolute left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-violet-400 shadow-[0_0_8px_2px_rgba(168,85,247,0.55)]"
+                  animate={{ top: ["0%", "100%"], opacity: [0, 1, 0] }}
+                  transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 0.4, delay: i * 0.35, ease: "easeInOut" }}
+                />
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        <motion.div
+          initial={{ scale: 0.75, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.45, ease: [0.23, 1, 0.32, 1] }}
+          className="flex size-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-950/40"
+        >
+          <motion.span
+            animate={{ rotate: 360 }}
+            transition={{ duration: 7, repeat: Infinity, ease: "linear" }}
+            className="flex"
+          >
+            <RefreshCw className="size-5" />
+          </motion.span>
+        </motion.div>
+
+        <p className="rounded-lg bg-white/5 px-3 py-2 text-center text-xs text-white/50">
+          Stesso appuntamento, ovunque tu lo guardi
+        </p>
+      </div>
+    );
+  }
+
   if (indice === 1) {
     return (
       <motion.div
@@ -190,36 +262,43 @@ function VisualeScena({ indice }: { indice: number }) {
     );
   }
 
-  if (indice === 5) {
-    return (
-      <div className="grid w-full max-w-sm grid-cols-2 gap-3">
-        {[
-          { nome: "Google", stato: "collegato" },
-          { nome: "Apple", stato: "in valutazione" },
-        ].map((p) => (
-          <div key={p.nome} className="flex flex-col items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 p-4">
-            <CalendarClock className="size-5 text-violet-300" />
-            <span className="text-xs text-white/70">{p.nome}</span>
-            <span className={`text-[10px] ${p.stato === "collegato" ? "text-emerald-400" : "text-white/40"}`}>{p.stato}</span>
-          </div>
-        ))}
-        <div className="col-span-2 mt-1 rounded-lg bg-white/5 px-3 py-2.5 text-center text-xs text-white/50">
-          impegni personali = slot bloccato
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="grid w-full max-w-sm grid-cols-3 gap-3">
-      {[Calendar, Globe2, MessageSquareText].map((Icona, i) => (
-        <div key={i} className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-4">
-          <Icona className="size-4.5 text-violet-300" />
-          <span className="h-1.5 w-full rounded bg-white/15" />
+    <div className="grid w-full max-w-sm grid-cols-2 gap-3">
+      {[
+        { nome: "Google", stato: "collegato" },
+        { nome: "Apple", stato: "in valutazione" },
+      ].map((p) => (
+        <div key={p.nome} className="flex flex-col items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 p-4">
+          <CalendarClock className="size-5 text-violet-300" />
+          <span className="text-xs text-white/70">{p.nome}</span>
+          <span className={`text-[10px] ${p.stato === "collegato" ? "text-emerald-400" : "text-white/40"}`}>{p.stato}</span>
         </div>
       ))}
-      <div className="col-span-3 mt-1 rounded-lg bg-white/5 px-3 py-2.5 text-center text-xs text-white/50">
-        stessi dati, ovunque
+      <div className="col-span-2 mt-1 rounded-lg bg-white/5 px-3 py-2.5 text-center text-xs text-white/50">
+        impegni personali = slot bloccato
+      </div>
+    </div>
+  );
+}
+
+/** Un pannello "schermo" (barra con pallini + URL + contenuto) -- usato sia
+ * dal palco fisso desktop sia da ogni card mobile, così le due versioni
+ * condividono esattamente lo stesso linguaggio visivo. */
+function Schermo({ indice, altezza }: { indice: number; altezza: string }) {
+  return (
+    <div className={`relative flex ${altezza} w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950`}>
+      <div className="flex items-center gap-1.5 border-b border-white/10 px-4 py-3">
+        <span className="size-2.5 rounded-full bg-red-400/70" />
+        <span className="size-2.5 rounded-full bg-amber-400/70" />
+        <span className="size-2.5 rounded-full bg-emerald-400/70" />
+        <span className="ml-3 truncate text-xs text-white/40">{PERCORSI[indice]}</span>
+      </div>
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-6 sm:px-10">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-60"
+          style={{ background: "radial-gradient(280px circle at 50% 20%, rgba(168,85,247,0.15), transparent 70%)" }}
+        />
+        <VisualeScena indice={indice} />
       </div>
     </div>
   );
@@ -232,22 +311,46 @@ export function Vetrina() {
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
-    if (!contenitoreRef.current || !pinRef.current) return;
 
-    const trigger = ScrollTrigger.create({
-      trigger: contenitoreRef.current,
-      start: "top top+=72",
-      end: "bottom bottom",
-      pin: pinRef.current,
-      pinSpacing: false,
-      scrub: true,
-      onUpdate: (self) => {
-        const indice = Math.min(SCENE.length - 1, Math.floor(self.progress * SCENE.length));
-        setAttivo(indice);
-      },
+    // Controllo approfondito pre-pubblicazione (12/09/2026, segnalazione di
+    // Gabriel: la sezione "vista da telefono fa pena"). Causa reale trovata
+    // con Playwright (scroll reale, non un salto istantaneo): il blocco
+    // pinnato (palco + lista di 6 pulsanti-scena) è più alto della viewport
+    // su schermo verticale -- circa 1500-1600px di contenuto dentro un
+    // pin che, essendo `position: fixed` per tutta la durata dei 600vh di
+    // scroll, mostra sempre e solo la sua PRIMA porzione. Risultato
+    // verificato: su mobile si vedevano sempre e solo le prime 2 scene
+    // dell'elenco testuale (le altre 4 semplicemente non diventavano mai
+    // raggiungibili), mentre il palco sopra cambiava contenuto normalmente
+    // -- un'esperienza rotta, non "poco elegante". Il pin ha senso SOLO
+    // quando il blocco pinnato entra per intero nella viewport (desktop,
+    // dove il layout è a 2 colonne e quindi molto meno alto): con
+    // `gsap.matchMedia()` la scrollytelling con pin+scrub esiste ora SOLO
+    // da `lg` in su; sotto `lg` la sezione usa un layout completamente
+    // diverso (vedi il blocco JSX `lg:hidden` più sotto), scritto apposta
+    // per lo scroll verticale invece di essere lo stesso desktop rimpicciolito.
+    const mm = gsap.matchMedia();
+
+    mm.add("(min-width: 1024px)", () => {
+      if (!contenitoreRef.current || !pinRef.current) return;
+
+      const trigger = ScrollTrigger.create({
+        trigger: contenitoreRef.current,
+        start: "top top+=72",
+        end: "bottom bottom",
+        pin: pinRef.current,
+        pinSpacing: false,
+        scrub: true,
+        onUpdate: (self) => {
+          const indice = Math.min(SCENE.length - 1, Math.floor(self.progress * SCENE.length));
+          setAttivo(indice);
+        },
+      });
+
+      return () => trigger.kill();
     });
 
-    return () => trigger.kill();
+    return () => mm.revert();
   }, []);
 
   return (
@@ -261,10 +364,11 @@ export function Vetrina() {
           </p>
         </Reveal>
 
-        {/* contenitore alto NxSchermo (una "schermata" di scroll per scena): GSAP
-            anima "attivo" mentre lo si attraversa scrollando, il pannello di
-            destra resta fisso (pin) */}
-        <div ref={contenitoreRef} className="relative mt-8" style={{ height: `${SCENE.length * 100}vh` }}>
+        {/* Desktop/tablet largo (lg+): scrollytelling con pin+scrub invariato --
+            contenitore alto NxSchermo (una "schermata" di scroll per scena),
+            GSAP anima "attivo" mentre lo si attraversa scrollando, il
+            pannello di destra resta fisso (pin). */}
+        <div ref={contenitoreRef} className="relative mt-8 hidden lg:block" style={{ height: `${SCENE.length * 100}vh` }}>
           <div ref={pinRef} className="grid gap-10 py-10 lg:grid-cols-2 lg:items-center">
             <div className="order-2 flex flex-col gap-3 lg:order-1">
               {SCENE.map((s, i) => (
@@ -311,41 +415,53 @@ export function Vetrina() {
                 grande (feedback di Gabriel su screenshot). L'URL nella
                 barra cambia con la scena, per dare comunque il senso di
                 "stiamo guardando parti diverse del prodotto". */}
-            <div className="relative order-1 flex h-80 flex-col overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 sm:h-[26rem] lg:order-2">
-              <div className="flex items-center gap-1.5 border-b border-white/10 px-4 py-3">
-                <span className="size-2.5 rounded-full bg-red-400/70" />
-                <span className="size-2.5 rounded-full bg-amber-400/70" />
-                <span className="size-2.5 rounded-full bg-emerald-400/70" />
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={attivo}
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 4 }}
-                    transition={{ duration: 0.25 }}
-                    className="ml-3 truncate text-xs text-white/40"
-                  >
-                    {PERCORSI[attivo]}
-                  </motion.span>
-                </AnimatePresence>
-              </div>
-              <div className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-6 sm:px-10">
-                <div className="pointer-events-none absolute inset-0 opacity-60" style={{ background: "radial-gradient(280px circle at 50% 20%, rgba(168,85,247,0.15), transparent 70%)" }} />
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={attivo}
-                    initial={{ opacity: 0, scale: 0.94 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.94 }}
-                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-                    className="relative flex items-center justify-center"
-                  >
-                    <VisualeScena indice={attivo} />
-                  </motion.div>
-                </AnimatePresence>
-              </div>
+            <div className="order-1 h-80 sm:h-[26rem] lg:order-2">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={attivo}
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                  className="h-full"
+                >
+                  <Schermo indice={attivo} altezza="h-full" />
+                </motion.div>
+              </AnimatePresence>
             </div>
           </div>
+        </div>
+
+        {/* Sotto `lg`: niente pin, niente scroll-jacking -- una scena per
+            volta, impilata verticalmente, ognuna con il proprio schermo
+            compatto e un reveal-on-scroll normale (stesso `Reveal` usato nel
+            resto del sito). Composizione pensata per lo schermo verticale,
+            non il desktop rimpicciolito: qui il visitatore scorre UNA volta
+            sola per vedere tutte e 6 le funzionalità, invece di dover
+            "sbloccare" 600vh di scroll per raggiungerle. */}
+        <div className="mt-10 flex flex-col gap-5 lg:hidden">
+          {SCENE.map((s, i) => (
+            <Reveal key={s.titolo}>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div className="flex items-center gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+                    <s.icona className="size-4.5" />
+                  </span>
+                  <h3 className="text-[15px] font-medium text-white">{s.titolo}</h3>
+                  {s.inArrivo && (
+                    <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium whitespace-nowrap text-amber-300">
+                      in arrivo
+                    </span>
+                  )}
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-white/60">{s.testo}</p>
+
+                <div className="mt-4">
+                  <Schermo indice={i} altezza="h-64" />
+                </div>
+              </div>
+            </Reveal>
+          ))}
         </div>
       </div>
     </section>

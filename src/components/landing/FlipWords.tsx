@@ -35,7 +35,18 @@ export function FlipWords({
       <span aria-hidden className="invisible whitespace-nowrap">
         {parole.reduce((a, b) => (b.length > a.length ? b : a))}
       </span>
-      <AnimatePresence mode="wait">
+      {/* `initial={false}` sull'AnimatePresence: la primissima parola non
+          anima mai il proprio ingresso (nasce già a opacity:1) -- bug reale
+          trovato con Playwright (screenshot a 500ms dal load: la parola era
+          completamente invisibile, restava solo la virgola). Causa probabile:
+          Chromium a volte non dipinge il primo frame di un motion.span in
+          transizione sopra lo shader WebGL dell'Hero, anche con l'isolate/
+          translateZ(0) già applicati qui sotto -- evitare la transizione
+          sulla primissima parola elimina la finestra in cui il bug può
+          manifestarsi, invece di provare a correggere il paint stesso. Le
+          parole successive continuano a ruotare con la stessa animazione di
+          prima. */}
+      <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={parole[indice]}
           initial={{ opacity: 0, y: 16 }}

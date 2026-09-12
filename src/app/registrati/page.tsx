@@ -1,9 +1,11 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { creaClientBrowser } from "@/lib/supabase/client";
 import { pianoEPagante, ETICHETTA_PIANO } from "@/lib/stripe/piani";
+import { Grana } from "@/components/landing/Grana";
 
 /**
  * Registrazione self-service (punto 5/6 della spec): email + password +
@@ -21,12 +23,36 @@ import { pianoEPagante, ETICHETTA_PIANO } from "@/lib/stripe/piani";
  * una pagina App Router, altrimenti il build fallisce ("should be wrapped
  * in a suspense boundary") -- il form vero e proprio vive in
  * FormRegistrazione qui sotto.
+ *
+ * Ristilizzata (controllo approfondito pre-pubblicazione, 12/09/2026): prima
+ * era un form HTML puro su sfondo bianco, senza un solo elemento di brand --
+ * la pagina dove nasce ogni cliente pagante, subito dopo una landing curata
+ * al dettaglio. Qui sotto solo classi/markup: zero cambi alla logica
+ * (`registrati()`, gestione piano/sessione/email di conferma restano
+ * identici).
  */
 export default function PaginaRegistrazione() {
   return (
     <Suspense fallback={null}>
       <FormRegistrazione />
     </Suspense>
+  );
+}
+
+/** Sfondo/brand condiviso dalla pagina di registrazione e da quella di
+ * accesso (stessa identità della landing: bg-noir, grana, alone viola) --
+ * senza gli shader/le animazioni pesanti dell'Hero, che lì hanno senso come
+ * "primo contatto" e qui distrarrebbero da un form che l'utente deve solo
+ * poter compilare in fretta. */
+function SfondoAuth() {
+  return (
+    <>
+      <div
+        className="pointer-events-none fixed inset-0"
+        style={{ background: "radial-gradient(60% 50% at 50% 0%, rgba(124,58,237,0.16), transparent 70%)" }}
+      />
+      <Grana opacita={0.04} />
+    </>
   );
 }
 
@@ -84,105 +110,124 @@ function FormRegistrazione() {
     }
   }
 
+  const classeCampo =
+    "w-full rounded-lg border border-white/15 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none transition-colors focus:border-violet-400/60 focus:bg-white/[0.07]";
+  const classeEtichetta = "text-sm font-medium text-white/70";
+
   if (inviata) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8">
-        <div className="max-w-sm text-center">
-          <h1 className="text-xl font-semibold">Controlla la tua email</h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Ti abbiamo mandato un link di conferma a <strong>{email}</strong>. Aprilo per attivare
-            l&apos;account e il tuo salone{pianoValido ? ` e completare l'attivazione del piano ${ETICHETTA_PIANO[pianoValido]}` : ""}.
-          </p>
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-8">
+        <SfondoAuth />
+        <div className="relative max-w-sm text-center">
+          <Link href="/" className="mb-8 inline-block text-sm font-semibold tracking-tight text-white/70 transition-colors hover:text-white">
+            Salone AI
+          </Link>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
+            <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+              ✓
+            </span>
+            <h1 className="mt-4 text-xl font-semibold text-white">Controlla la tua email</h1>
+            <p className="mt-2 text-sm leading-relaxed text-white/60">
+              Ti abbiamo mandato un link di conferma a <strong className="text-white">{email}</strong>. Aprilo per
+              attivare l&apos;account e il tuo salone
+              {pianoValido ? ` e completare l'attivazione del piano ${ETICHETTA_PIANO[pianoValido]}` : ""}.
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center p-8">
-      <form onSubmit={registrati} className="w-full max-w-sm space-y-4">
-        <h1 className="text-xl font-semibold">Crea il tuo salone</h1>
+    <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-noir p-6 py-16 sm:p-8">
+      <SfondoAuth />
+      <div className="relative w-full max-w-sm">
+        <Link href="/" className="mb-6 block text-center text-sm font-semibold tracking-tight text-white/70 transition-colors hover:text-white">
+          Salone AI
+        </Link>
 
-        {pianoValido && (
-          <p className="rounded bg-violet-50 px-3 py-2 text-sm text-violet-900">
-            Stai per attivare il piano <strong>{ETICHETTA_PIANO[pianoValido]}</strong>
-            {(pianoValido === "growth" || pianoValido === "pro") && " (10 giorni di prova prima del primo addebito)"}.
-            Dopo la registrazione ti portiamo al pagamento sicuro su Stripe.
+        <form onSubmit={registrati} className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl sm:p-8">
+          <div className="mb-2 text-center">
+            <h1 className="text-xl font-semibold text-white">Crea il tuo salone</h1>
+            <p className="mt-1 text-sm text-white/50">Pronto in 5 minuti, nessun tecnico necessario.</p>
+          </div>
+
+          {pianoValido && (
+            <p className="rounded-lg border border-violet-400/20 bg-violet-500/10 px-3 py-2.5 text-sm text-violet-200">
+              Stai per attivare il piano <strong className="text-white">{ETICHETTA_PIANO[pianoValido]}</strong>
+              {(pianoValido === "growth" || pianoValido === "pro") && " (10 giorni di prova prima del primo addebito)"}.
+              Dopo la registrazione ti portiamo al pagamento sicuro su Stripe.
+            </p>
+          )}
+
+          <div className="space-y-1.5">
+            <label className={classeEtichetta} htmlFor="nomeSalone">
+              Nome del salone
+            </label>
+            <input
+              id="nomeSalone"
+              className={classeCampo}
+              value={nomeSalone}
+              onChange={(e) => setNomeSalone(e.target.value)}
+              placeholder="Es. Estetica Da Marta"
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className={classeEtichetta} htmlFor="nomePersona">
+              Il tuo nome
+            </label>
+            <input id="nomePersona" className={classeCampo} value={nomePersona} onChange={(e) => setNomePersona(e.target.value)} />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className={classeEtichetta} htmlFor="email">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              className={classeCampo}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className={classeEtichetta} htmlFor="password">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              minLength={6}
+              className={classeCampo}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          {errore && <p className="text-sm text-red-400">{errore}</p>}
+
+          <button
+            type="submit"
+            disabled={caricamento}
+            className="w-full rounded-full bg-white px-3 py-2.5 text-sm font-medium text-zinc-900 transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
+          >
+            {caricamento ? "Creazione in corso..." : "Crea account"}
+          </button>
+
+          <p className="text-center text-sm text-white/50">
+            Hai già un account?{" "}
+            <Link className="text-white underline underline-offset-2" href="/accedi">
+              Accedi
+            </Link>
           </p>
-        )}
-
-        <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="nomeSalone">
-            Nome del salone
-          </label>
-          <input
-            id="nomeSalone"
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm"
-            value={nomeSalone}
-            onChange={(e) => setNomeSalone(e.target.value)}
-            placeholder="Es. Estetica Da Marta"
-            required
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="nomePersona">
-            Il tuo nome
-          </label>
-          <input
-            id="nomePersona"
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm"
-            value={nomePersona}
-            onChange={(e) => setNomePersona(e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="email">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="password">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            minLength={6}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
-
-        {errore && <p className="text-sm text-red-600">{errore}</p>}
-
-        <button
-          type="submit"
-          disabled={caricamento}
-          className="w-full rounded bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {caricamento ? "Creazione in corso..." : "Crea account"}
-        </button>
-
-        <p className="text-center text-sm text-zinc-600">
-          Hai già un account?{" "}
-          <a className="underline" href="/accedi">
-            Accedi
-          </a>
-        </p>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
