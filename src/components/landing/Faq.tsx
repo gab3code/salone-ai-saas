@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Reveal, RevealItem, RevealStagger } from "./Reveal";
 
 /**
@@ -37,7 +37,7 @@ const DOMANDE = [
   {
     domanda: "Funziona anche su WhatsApp?",
     risposta:
-      "Oggi l'assistente risponde sulla chat della tua pagina pubblica, disponibile da subito. Il canale WhatsApp è in arrivo — non ancora attivabile, non promesso come già pronto.",
+      "Sì. L'assistente risponde sulla chat della tua pagina pubblica su tutti i piani; su WhatsApp è incluso dal piano Pro in su.",
   },
   {
     domanda: "I dati dei miei clienti sono al sicuro?",
@@ -51,7 +51,32 @@ const DOMANDE = [
   },
 ] as const;
 
+/**
+ * Bug segnalato da Gabriel: le voci "sono laggose e si allargano" su
+ * desktop. Causa reale, non una sensazione: animare `height: "auto"` con
+ * Framer Motion (versione precedente) non è direttamente interpolabile,
+ * quindi la libreria deve ri-misurare il layout ad ogni frame -- da lì il
+ * lag. L'allargamento è un effetto collaterale: quando l'altezza della
+ * pagina supera l'altezza della finestra, compare la scrollbar verticale
+ * e la larghezza disponibile si restringe di colpo (visibile su
+ * desktop/mouse, dove macOS mostra sempre la scrollbar, non su telefono
+ * dove è overlay) -- il contenuto si "riflowa" e sembra allargarsi.
+ * Corretto in due punti: qui si misura l'altezza reale del contenuto una
+ * volta (via ref) e si anima quel valore in pixel invece di "auto" --
+ * niente più ri-misurazione ad ogni frame; `scrollbar-gutter: stable` in
+ * globals.css riserva sempre lo spazio della scrollbar, quindi aprirla o
+ * chiuderla non fa più spostare la larghezza della pagina.
+ */
 function Voce({ domanda, risposta, aperta, onToggle }: { domanda: string; risposta: string; aperta: boolean; onToggle: () => void }) {
+  const contenutoRef = useRef<HTMLParagraphElement>(null);
+  const [altezza, setAltezza] = useState(0);
+
+  useEffect(() => {
+    if (contenutoRef.current) {
+      setAltezza(contenutoRef.current.scrollHeight);
+    }
+  }, [risposta]);
+
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5">
       <button
@@ -63,19 +88,17 @@ function Voce({ domanda, risposta, aperta, onToggle }: { domanda: string; rispos
         <span className="text-[15px] font-medium text-white">{domanda}</span>
         <ChevronDown className={`size-4 shrink-0 text-white/40 transition-transform duration-300 ${aperta ? "rotate-180" : ""}`} />
       </button>
-      <AnimatePresence initial={false}>
-        {aperta && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-            className="overflow-hidden"
-          >
-            <p className="px-5 pb-4 text-sm leading-relaxed text-white/60">{risposta}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <motion.div
+        initial={false}
+        animate={{ height: aperta ? altezza : 0, opacity: aperta ? 1 : 0 }}
+        transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+        className="overflow-hidden"
+        aria-hidden={!aperta}
+      >
+        <p ref={contenutoRef} className="px-5 pb-4 text-sm leading-relaxed text-white/60">
+          {risposta}
+        </p>
+      </motion.div>
     </div>
   );
 }
@@ -84,7 +107,7 @@ export function Faq() {
   const [apertaIndice, setApertaIndice] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="mx-auto max-w-3xl px-5 py-24 sm:px-8">
+    <section id="faq" className="scroll-mt-24 mx-auto max-w-3xl px-5 py-24 sm:px-8">
       <Reveal className="text-center">
         <h2 className="text-sm font-medium text-violet-400">Domande frequenti</h2>
         <p className="mx-auto mt-2 max-w-lg text-3xl font-semibold tracking-tight text-white sm:text-4xl">

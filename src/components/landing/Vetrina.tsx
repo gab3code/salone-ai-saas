@@ -13,7 +13,6 @@ interface Scena {
   titolo: string;
   testo: string;
   icona: LucideIcon;
-  inArrivo?: boolean;
 }
 
 /**
@@ -23,10 +22,12 @@ interface Scena {
  * coprire TUTTO il set di funzionalità, attuali e pianificate, non solo 3):
  * un pannello resta fisso mentre si scorre, e cambia scena in base a quanto
  * si è scrollato -- pattern da vero "scrollytelling" (GSAP ScrollTrigger con
- * pin+scrub), non un fade-in a caso. Le scene con `inArrivo: true`
- * corrispondono a funzionalità pianificate in PIANO.md ma non ancora
- * disponibili -- badge onesto, mai spacciate per già pronte (CLAUDE.md
- * punto 7 esteso al marketing).
+ * pin+scrub), non un fade-in a caso.
+ *
+ * Aggiornamento 12/09/2026 -- rimossi i badge "in arrivo" (decisione di
+ * Gabriel, vedi DECISIONS.md "Il sito descrive il prodotto al lancio, non
+ * lo stato di oggi"): tutte le scene, WhatsApp e promemoria inclusi, sono
+ * ora descritte come già disponibili.
  */
 const SCENE: Scena[] = [
   {
@@ -42,7 +43,7 @@ const SCENE: Scena[] = [
   },
   {
     titolo: "L'assistente AI, sempre presente",
-    testo: "Risponde su chat web e (in arrivo) WhatsApp a domande su orari e prezzi e prenota da sola — e passa la mano a te quando serve davvero una persona.",
+    testo: "Risponde su chat web e WhatsApp a domande su orari e prezzi e prenota da sola — e passa la mano a te quando serve davvero una persona.",
     icona: MessageSquareText,
   },
   {
@@ -52,19 +53,18 @@ const SCENE: Scena[] = [
   },
   {
     titolo: "Promemoria e clienti da recontattare",
-    testo: "Un insight ti segnala chi non prenota da un po'; i promemoria automatici via messaggio sono in arrivo per chiudere il cerchio da soli.",
+    testo: "Un insight ti segnala chi non prenota da un po'; i promemoria automatici via messaggio chiudono il cerchio da soli.",
     icona: BellRing,
-    inArrivo: true,
   },
   {
     titolo: "Il tuo calendario personale, sempre sincronizzato",
-    // Prima diceva anche "Apple/iCloud tecnicamente pronto, in attesa di
-    // essere riaperto" -- verificato in PROJECT_STATUS.md (problema noto
-    // #14): non è "quasi pronto", è bloccato lato Apple sul traffico CalDAV
-    // che arriva da IP di data center/cloud, non risolvibile da qui senza
-    // instradare le chiamate da un IP non-cloud -- una promessa che rischiava
-    // di non poter essere mantenuta. Tolta dal marketing finché Gabriel non
-    // decide come posizionarla (vedi messaggio a parte).
+    // Solo Google (decisione di Gabriel, 12/09/2026): Apple/iCloud è
+    // tecnicamente corretto (client CalDAV verificato via test comparativo
+    // diretto) ma probabilmente inutilizzabile in produzione -- Apple sembra
+    // bloccare il traffico CalDAV che arriva da IP di data center/cloud come
+    // quelli di Vercel (PROJECT_STATUS.md, problema noto #14). Non solo il
+    // marketing: anche la UI vera in /dashboard/impostazioni/calendari va
+    // aggiornata per non offrire più il collegamento Apple (task separato).
     testo: "Google Calendar già collegabile: gli impegni personali bloccano lo slot in automatico, e viceversa.",
     icona: CalendarClock,
   },
@@ -253,9 +253,9 @@ function VisualeScena({ indice }: { indice: number }) {
       <div className="w-full max-w-sm">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-xs text-white/50">Promemoria automatico</span>
-          <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">in arrivo</span>
+          <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300">inviato</span>
         </div>
-        <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-3 text-sm text-white/50">
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
           &quot;Ciao Giulia, ti aspettiamo domani alle 16:30 da noi 👋&quot;
         </div>
       </div>
@@ -263,18 +263,13 @@ function VisualeScena({ indice }: { indice: number }) {
   }
 
   return (
-    <div className="grid w-full max-w-sm grid-cols-2 gap-3">
-      {[
-        { nome: "Google", stato: "collegato" },
-        { nome: "Apple", stato: "in valutazione" },
-      ].map((p) => (
-        <div key={p.nome} className="flex flex-col items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 p-4">
-          <CalendarClock className="size-5 text-violet-300" />
-          <span className="text-xs text-white/70">{p.nome}</span>
-          <span className={`text-[10px] ${p.stato === "collegato" ? "text-emerald-400" : "text-white/40"}`}>{p.stato}</span>
-        </div>
-      ))}
-      <div className="col-span-2 mt-1 rounded-lg bg-white/5 px-3 py-2.5 text-center text-xs text-white/50">
+    <div className="flex w-full max-w-sm flex-col items-center gap-3">
+      <div className="flex w-full max-w-[9.5rem] flex-col items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 p-4">
+        <CalendarClock className="size-5 text-violet-300" />
+        <span className="text-xs text-white/70">Google Calendar</span>
+        <span className="text-[10px] text-emerald-400">collegato</span>
+      </div>
+      <div className="w-full rounded-lg bg-white/5 px-3 py-2.5 text-center text-xs text-white/50">
         impegni personali = slot bloccato
       </div>
     </div>
@@ -397,9 +392,6 @@ export function Vetrina() {
                     <h3 className={`text-[15px] font-medium transition-colors duration-300 ${attivo === i ? "text-white" : "text-white/50"}`}>
                       {s.titolo}
                     </h3>
-                    {s.inArrivo && (
-                      <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">in arrivo</span>
-                    )}
                   </div>
                   <p className={`mt-2 text-sm leading-relaxed transition-colors duration-300 ${attivo === i ? "text-white/70" : "text-white/30"}`}>
                     {s.testo}
@@ -448,11 +440,6 @@ export function Vetrina() {
                     <s.icona className="size-4.5" />
                   </span>
                   <h3 className="text-[15px] font-medium text-white">{s.titolo}</h3>
-                  {s.inArrivo && (
-                    <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium whitespace-nowrap text-amber-300">
-                      in arrivo
-                    </span>
-                  )}
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-white/60">{s.testo}</p>
 

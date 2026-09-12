@@ -8,17 +8,15 @@ import { GlowBorder } from "./GlowBorder";
  * landing. L'AI è inclusa da Growth in su (non solo Pro): il costo reale per
  * conversazione è basso, vedi DECISIONS.md per il ragionamento completo.
  *
- * Ogni voce può essere un testo semplice o `{ testo, inArrivo: true }`.
- * Aggiunto dopo la richiesta di Gabriel di verificare che "tutto quello che
- * offriamo lo possiamo effettivamente realizzare": controllato ogni voce
- * contro PROJECT_STATUS.md e Funzionalita.tsx -- Analytics (zero codice
- * oltre ai dati grezzi), Promemoria automatici, Assistente AI su WhatsApp,
- * SMS (zero codice, nessuna integrazione), Tono dell'AI personalizzabile,
- * Instagram/Telegram e PWA sono tutte funzioni ancora da costruire, non
- * disponibili oggi -- venderle senza dirlo su un piano a pagamento sarebbe
- * una promessa che oggi non possiamo mantenere. Marcate "in arrivo" come
- * già fatto altrove sul sito, non tolte (restano vere decisioni di prezzo/
- * posizionamento, solo non ancora costruite).
+ * Aggiornamento 12/09/2026 -- rimossi i badge "in arrivo" che c'erano su
+ * Analytics/Promemoria/WhatsApp/SMS/tono AI/Instagram-Telegram/PWA: scelta
+ * esplicita di Gabriel, discussa a fondo (vedi DECISIONS.md "Il sito
+ * descrive il prodotto al lancio, non lo stato di oggi"). Il commitment è
+ * costruire davvero tutta questa lista, WhatsApp incluso nonostante dipenda
+ * dall'approvazione business di Meta, prima di aprire i pagamenti veri --
+ * non è più onesto marcarle "in arrivo" su una pagina che descrive un
+ * prodotto finito, ma resta un impegno concreto da rispettare, non
+ * un'etichetta da poter dimenticare.
  */
 const PIANI = [
   {
@@ -42,7 +40,7 @@ const PIANI = [
     prezzo: "€39,90",
     periodo: "/mese",
     descrizione: "Con l'assistente AI.",
-    voci: ["Tutto di Starter", "Assistente AI via chat web", { testo: "Analytics", inArrivo: true }, { testo: "Promemoria automatici", inArrivo: true }],
+    voci: ["Tutto di Starter", "Assistente AI via chat web", "Analytics", "Promemoria automatici"],
     consigliato: true,
     // 10 giorni di prova prima del primo addebito (decisione con Gabriel
     // dell'11/09/2026, vedi giorniDiProva in src/lib/stripe/piani.ts): solo
@@ -53,19 +51,8 @@ const PIANI = [
     nome: "Pro",
     prezzo: "€69,90",
     periodo: "/mese",
-    // Trovato durante il tour "da cliente" del 11/09/2026: la voce dentro
-    // `voci` sotto ("Assistente AI su WhatsApp") aveva già il badge onesto
-    // "in arrivo", ma questa tagline in cima alla card lo diceva senza
-    // avviso -- chi legge solo nome/prezzo/tagline (prima di scorrere la
-    // lista intera) capirebbe che il piano Pro include WhatsApp oggi.
-    // Stesso avviso anche qui per coerenza.
-    descrizione: "Anche su WhatsApp (in arrivo).",
-    voci: [
-      "Tutto di Growth",
-      { testo: "Assistente AI su WhatsApp", inArrivo: true },
-      { testo: "SMS", inArrivo: true },
-      { testo: "Tono dell'AI personalizzabile", inArrivo: true },
-    ],
+    descrizione: "Anche su WhatsApp.",
+    voci: ["Tutto di Growth", "Assistente AI su WhatsApp", "SMS", "Tono dell'AI personalizzabile"],
     consigliato: false,
     trial: true,
   },
@@ -74,17 +61,10 @@ const PIANI = [
     prezzo: "Su misura",
     periodo: "",
     descrizione: "Per catene e gruppi.",
-    voci: ["Tutto di Pro", { testo: "Instagram e Telegram", inArrivo: true }, { testo: "App installabile (PWA)", inArrivo: true }, "Supporto dedicato"],
+    voci: ["Tutto di Pro", "Instagram e Telegram", "App installabile (PWA)", "Supporto dedicato"],
     consigliato: false,
   },
 ];
-
-function testoVoce(v: string | { testo: string; inArrivo?: boolean }): string {
-  return typeof v === "string" ? v : v.testo;
-}
-function inArrivoVoce(v: string | { testo: string; inArrivo?: boolean }): boolean {
-  return typeof v === "string" ? false : Boolean(v.inArrivo);
-}
 
 // Collegato a Stripe l'11/09/2026: prima ogni card puntava a `/registrati`
 // (creava sempre e solo un account Free, a prescindere dal piano cliccato --
@@ -111,7 +91,7 @@ function hrefVoceCTA(nome: string): string {
 
 export function Prezzi() {
   return (
-    <section id="prezzi" className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
+    <section id="prezzi" className="scroll-mt-24 mx-auto max-w-6xl px-5 py-24 sm:px-8">
       <Reveal className="max-w-lg">
         <h2 className="text-sm font-medium text-violet-400">Prezzi</h2>
         <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
@@ -162,12 +142,9 @@ export function Prezzi() {
 
               <ul className="mt-4 flex flex-1 flex-col gap-2 text-sm">
                 {p.voci.map((v) => (
-                  <li key={testoVoce(v)} className={`flex items-start gap-2 ${p.consigliato ? "text-white/80" : "text-white/60"}`}>
+                  <li key={v} className={`flex items-start gap-2 ${p.consigliato ? "text-white/80" : "text-white/60"}`}>
                     <Check className="mt-0.5 size-3.5 shrink-0 text-violet-400" />
-                    <span>
-                      {testoVoce(v)}
-                      {inArrivoVoce(v) && <span className="ml-1.5 inline-block rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap text-amber-300">in arrivo</span>}
-                    </span>
+                    <span>{v}</span>
                   </li>
                 ))}
               </ul>

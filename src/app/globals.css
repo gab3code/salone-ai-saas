@@ -133,5 +133,21 @@
   }
   html {
     @apply font-sans;
+    /* Bug segnalato da Gabriel (12/09/2026): il clic sulla navbar "scende
+       direttamente" invece di scorrere in modo fluido -- i link erano
+       normali <a href="#sezione">, e il browser salta lì di scatto senza
+       animazione. `scroll-behavior: smooth` lo rende fluido per QUALUNQUE
+       link con ancora del sito (navbar, CTA della hero, ecc.) senza dover
+       gestire lo scroll a mano in JS per ognuno. Il compenso per l'altezza
+       della navbar fissa è su ogni sezione (scroll-mt-24), non qui. */
+    scroll-behavior: smooth;
+    /* Bug segnalato da Gabriel (12/09/2026): aprire una voce delle FAQ "allarga"
+       la pagina su desktop. Causa: quando il contenuto supera l'altezza della
+       finestra compare la scrollbar verticale, la larghezza disponibile si
+       restringe di colpo e tutto si riflowa -- visibile su desktop/mouse (dove
+       macOS mostra sempre la scrollbar), non su telefono (overlay, non riserva
+       spazio). Riservare sempre lo spazio della scrollbar elimina lo scatto,
+       che ci sia o no in un dato momento. */
+    scrollbar-gutter: stable;
   }
 }

@@ -508,3 +508,41 @@ strumenti MCP dedicati) -- nota per il futuro, stesso limite strutturale già do
 esteso ora anche alle chiamate dirette a Supabase. La verifica dal vivo vera resta da fare dopo
 il deploy, con lo stesso approccio già usato per Google Calendar (creare/spostare un
 appuntamento reale e controllare l'orario mostrato).
+
+---
+
+## 2026-09-12 — Il sito descrive il prodotto al lancio, non lo stato di oggi
+
+**Contesto**: fino a questo punto la landing seguiva alla lettera CLAUDE.md punto 7 ("l'AI non
+deve inventare dati") esteso al marketing -- ogni funzione non ancora costruita portava un
+badge "in arrivo" (Prezzi.tsx, Vetrina.tsx, Funzionalita.tsx). Gabriel, in una revisione
+approfondita della pagina pubblicata, ha segnalato che l'effetto complessivo era quello di un
+prodotto a metà, non di un servizio pronto -- e ha chiesto esplicitamente di togliere le
+etichette "in arrivo" ovunque, INCLUSA la pagina Prezzi (quella con le carte di pagamento vere).
+
+**Rischio segnalato prima di agire**: rimuovere "in arrivo" da Prezzi.tsx significa presentare
+come già incluse nei piani a pagamento funzioni che al momento non esistono nel prodotto reale:
+WhatsApp, SMS, Instagram/Telegram, Analytics, Promemoria automatici, tono AI personalizzabile,
+PWA. Alcune (WhatsApp) dipendono da un'approvazione esterna di Meta, non interamente nel
+controllo di Gabriel. Questo rischio è stato esposto esplicitamente prima di modificare
+Prezzi.tsx (non un'assunzione silenziosa).
+
+**Decisione di Gabriel** (confermata due volte): il sito deve descrivere il prodotto com'è al
+lancio commerciale vero, non lo stato di oggi -- "praticamente tutte le cose degli md" verranno
+costruite prima di aprire i pagamenti reali. Rimosse tutte le etichette "in arrivo"/"nel
+roadmap" dalla landing (Prezzi.tsx, Vetrina.tsx, Faq.tsx, Funzionalita.tsx, ImpattoEconomico.tsx).
+Il commitment è reale e va rispettato prima del lancio commerciale, non solo scritto qui: se una
+di queste funzioni finisce per non essere pronta, la pagina che la promette deve tornare a dirlo
+onestamente PRIMA di aprire i pagamenti, non dopo.
+
+**Scope escluso esplicitamente**: questa decisione riguarda SOLO il linguaggio di marketing
+verso il pubblico (cosa il sito promette). Non cambia in alcun modo CLAUDE.md punto 7 per il
+prodotto vero -- l'AI in chat continua a non poter inventare dati verso i clienti reali, e la
+dashboard non deve mai mostrare come "attivo" qualcosa che non lo è per il tenant che la guarda.
+
+**Decisione collegata, stesso giro**: il calendario esterno mostrato sulla landing (Vetrina.tsx)
+e nel prodotto vero (`/dashboard/impostazioni/calendari`) è solo Google -- Apple/iCloud non va
+menzionato né mostrato in nessuno dei due posti per ora (Apple era già stato tolto dalla UI
+reale l'11/09/2026 per il problema noto #14 -- CalDAV probabilmente bloccato dagli IP data
+center di Vercel; questa decisione allinea anche la landing, che fino ad oggi mostrava ancora
+un mockup con entrambi i provider).

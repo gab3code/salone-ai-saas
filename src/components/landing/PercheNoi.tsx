@@ -1,34 +1,43 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { ShieldCheck, Sparkles, Globe2, Layers, UserCheck } from "lucide-react";
-import { Reveal, RevealStagger, RevealItem } from "./Reveal";
+import { RevealStagger, RevealItem } from "./Reveal";
 import { Lampada } from "./Lampada";
 import { SpotlightCard } from "./SpotlightCard";
 
-const NODI_FLUSSO = ["Il cliente scrive\n(chat o pagina pubblica)", "Un unico motore\ndecide la disponibilità", "Calendario, CRM e AI\nsempre allineati"];
+const NODI_FLUSSO = [
+  "Il cliente scrive dalla chat o dalla pagina pubblica.",
+  "Un unico motore decide la disponibilità in tempo reale.",
+  "Calendario, CRM e AI restano sempre allineati.",
+];
 
+/**
+ * Riscritta (punto 4 di Gabriel: "i tre punti non hanno senso"). Prima erano
+ * 3 cerchi su una riga orizzontale collegati da una linea sottile, con un
+ * pallino che ci correva sopra avanti e indietro all'infinito -- un'
+ * animazione carina di per sé, ma senza un vero motivo per esistere qui:
+ * non stava raccontando un caricamento o un progresso reale, girava a vuoto
+ * e distraeva da un contenuto che è comunque solo un flusso logico in 3
+ * passaggi (vedi "How It Works Timeline"/OriginKit come riferimento).
+ * Sostituita con una timeline verticale: numeri collegati da una linea
+ * tratteggiata ferma, ogni passaggio compare quando entra in vista invece
+ * di muoversi in loop -- comunica "sequenza", non "caricamento".
+ */
 function FlussoAnimato() {
   return (
-    <div className="relative mx-auto mt-14 max-w-3xl px-6">
-      <div className="absolute top-5 right-[10%] left-[10%] h-px bg-white/10" />
-      <motion.div
-        aria-hidden
-        className="absolute top-5 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500 shadow-[0_0_14px_2px_rgba(168,85,247,0.55)]"
-        animate={{ left: ["10%", "90%"] }}
-        transition={{ duration: 2.8, repeat: Infinity, repeatType: "loop", ease: "easeInOut", repeatDelay: 0.6 }}
-      />
-      <div className="relative grid grid-cols-3 gap-3 text-center">
-        {NODI_FLUSSO.map((testo, i) => (
-          <div key={testo} className="flex flex-col items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold text-white/60 shadow-sm">
-              {i + 1}
-            </span>
-            <p className="text-xs leading-snug whitespace-pre-line text-white/50 sm:text-sm">{testo}</p>
-          </div>
-        ))}
-      </div>
-    </div>
+    <RevealStagger className="mx-auto mt-14 max-w-lg" gapMs={0.15}>
+      {NODI_FLUSSO.map((testo, i) => (
+        <RevealItem key={testo} className="relative flex gap-4 pb-8 last:pb-0">
+          {i < NODI_FLUSSO.length - 1 && (
+            <span className="absolute top-10 left-5 h-[calc(100%-2.5rem)] w-px border-l-2 border-dashed border-white/15" />
+          )}
+          <span className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-noir text-sm font-semibold text-violet-300">
+            {i + 1}
+          </span>
+          <p className="pt-2 text-sm leading-relaxed text-white/60 sm:text-base">{testo}</p>
+        </RevealItem>
+      ))}
+    </RevealStagger>
   );
 }
 
@@ -77,9 +86,7 @@ export function PercheNoi() {
         </div>
       </Lampada>
 
-      <Reveal>
-        <FlussoAnimato />
-      </Reveal>
+      <FlussoAnimato />
 
       {/* 5 elementi su una griglia a 3 colonne: l'ultima riga (2 elementi)
           lascerebbe un buco a destra (bug reale segnalato da Gabriel -- un

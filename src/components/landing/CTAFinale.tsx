@@ -40,8 +40,15 @@ export function CTAFinale() {
           <h2 className="relative text-3xl font-semibold tracking-tight text-white sm:text-4xl">
             Pronto a smettere di perdere prenotazioni?
           </h2>
-          <p className="relative mx-auto mt-3 max-w-md text-white/60">
-            Il tuo salone online in 5 minuti, senza toccare una riga di codice.
+          {/* Bug segnalato da Gabriel: la riga andava a capo in un punto
+              brutto (una singola parola isolata sull'ultima riga) --
+              max-w-md non bastava per stare su una riga sola a desktop, e
+              su telefono il wrap automatico del browser tagliava a caso.
+              Fix: a capo esplicito al confine naturale della frase (la
+              virgola), visibile solo su telefono; da sm in su il
+              contenitore è abbastanza largo da stare su un'unica riga. */}
+          <p className="relative mx-auto mt-3 max-w-xs text-white/60 sm:max-w-2xl">
+            Il tuo salone online in 5 minuti,<br className="sm:hidden" /> senza toccare una riga di codice.
           </p>
 
           <div className="relative mt-7 inline-block rounded-full p-px">

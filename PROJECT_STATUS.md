@@ -1,6 +1,18 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026 (sessione di controllo visivo e rifinitura pre-pubblicazione
+Ultimo aggiornamento: 12/09/2026, secondo giro (Gabriel ha usato il sito pubblicato e segnalato
+15 problemi puntuali dopo averlo provato di persona; lavorato con domande di chiarimento prima
+di agire e opzioni mostrate prima di ogni redesign visivo, come richiesto esplicitamente. Cambio
+di fondo: rimosse tutte le etichette "in arrivo"/"nel roadmap" dalla landing -- il sito ora
+descrive il prodotto al lancio commerciale, non lo stato di oggi (vedi DECISIONS.md). Bug reali
+diagnosticati e risolti con verifica strumentale (non a occhio): FAQ laggose/che si allargavano
+su desktop (due cause distinte, vedi sezione dedicata sotto), sfondo Hero che non reagiva al
+mouse su quasi tutto lo schermo, click navbar senza scroll fluido, un hydration mismatch
+introdotto e poi trovato/corretto nello stesso giro. Tre sezioni riscritte con una bento grid
+asimmetrica dopo aver mostrato le opzioni a Gabriel (Funzionalita, PerChi, e la timeline di
+PercheNoi). Vedi la sezione dedicata più sotto per il dettaglio completo -- 112/112 test, build
+pulita, zero console error in uno scroll reale completo, desktop e mobile). Aggiornamento
+precedente, 12/09/2026 primo giro (sessione di controllo visivo e rifinitura pre-pubblicazione
 della landing page, richiesta esplicita di Gabriel prima di andare a dormire, lavorata in piena
 autonomia: verificata dal vivo con Playwright -- desktop E mobile, scroll reale simulato passo
 per passo, non salti bruschi -- l'intera pagina dall'inizio alla fine; risolto un bug reale di
@@ -53,9 +65,10 @@ quindi verificabile qui con Playwright) -- sezioni Hero (parola che ruota tra sa
 centro/spazio, anteprima animata del prodotto, sfondo a fasci di luce), un "MacBook scroll"
 del dashboard vero, un confronto prima/dopo trascinabile, Come funziona, una "vetrina"
 scroll-driven (GSAP `ScrollTrigger` pin+scrub) estesa a 6 scene che copre TUTTO il set di
-funzionalità (attuali + pianificate, marcate oneste "in arrivo"), una sezione "perché questo"
-con i differenziatori reali (senza nominare concorrenti, deciso con Gabriel), una griglia
-completa di 15 funzionalità con badge disponibilità, per-chi (5 persone, non solo saloni),
+funzionalità (il sito descrive il prodotto al lancio commerciale, non lo stato di oggi -- vedi
+DECISIONS.md), una sezione "perché questo" con i differenziatori reali (senza nominare
+concorrenti, deciso con Gabriel) e una timeline verticale del flusso, una bento grid asimmetrica
+di tutte le funzionalità, per-chi (bento grid, 6 categorie incluso un "chiunque altro"),
 prezzi (dati reali da `DECISIONS.md`, piano consigliato con bordo animato), CTA finale con
 sfondo a particelle. Dettagli tecnici e libreria di pattern riusabili (Aceternity + Magic UI)
 in `docs/librerie-ui.md`. Tutto il resto (automazioni, PWA, Stripe/checkout) non ancora
@@ -151,6 +164,81 @@ classificatore citato sopra, del codice morto e mai collegato a nessuna route:
 `src/components/primitives/*` e `src/app/beautifui/*` -- basso rischio (non raggiungibile da
 nessun link pubblico), ma andrebbe rimosso a mano da Gabriel con un `rm -rf` dal Terminal reale
 del Mac quando ha un minuto, per tenere il repo pulito.
+
+## Secondo giro di rifinitura landing, dopo revisione dal vivo di Gabriel (12/09/2026)
+
+Gabriel ha usato il sito pubblicato e segnalato 15 problemi puntuali, più la richiesta di
+verificare tutto contro gli md prima di agire e di non lavorare di fretta. Prima di correggere
+qualunque cosa, sono state fatte domande di chiarimento esplicite (incluso un rischio reale
+segnalato PRIMA di agire, vedi DECISIONS.md "Il sito descrive il prodotto al lancio, non lo
+stato di oggi") e per 5 sezioni (redesign visivi) sono state mostrate le opzioni prima di
+implementare, come richiesto.
+
+**Decisione di fondo, cambia il linguaggio di tutta la landing**: rimosse tutte le etichette
+"in arrivo"/"nel roadmap" (Prezzi, Vetrina, Faq, Funzionalita, ImpattoEconomico) -- il sito ora
+descrive il prodotto al lancio commerciale, non lo stato di oggi. Dettagli, rischio esposto a
+Gabriel e sua decisione finale in DECISIONS.md, voce omonima. Stessa voce copre anche: calendario
+solo Google (landing E prodotto vero -- Apple era già stato tolto dalla UI reale l'11/09/2026,
+qui allineata anche la landing).
+
+**Bug reali diagnosticati con verifica strumentale, non a occhio** (tutti confermati con
+Playwright, non solo letti nel codice):
+- FAQ laggose e che si allargavano su desktop: due cause distinte. (1) Framer Motion che anima
+  `height: "auto"` deve ri-misurare il layout ad ogni frame -- sostituito con un'altezza in
+  pixel misurata via `ref` una volta sola. (2) l'apertura di una voce spingeva l'altezza pagina
+  oltre la viewport, facendo comparire la scrollbar verticale (macOS con mouse la mostra sempre)
+  e restringendo di colpo la larghezza disponibile -- risolto con `scrollbar-gutter: stable` in
+  `globals.css`, che riserva sempre lo spazio.
+- Sfondo Hero (`LiquidMetal.tsx`) che non reagiva al mouse: diagnosticato puntando il mouse via
+  script e leggendo `document.elementFromPoint` in più punti della hero -- il blocco di
+  testo/bottoni sopra lo sfondo, pur trasparente, aveva `pointer-events: auto` di default e
+  "rubava" il movimento del mouse su quasi tutta l'area (reagiva solo nei margini vuoti ai lati,
+  strettissimi o assenti su un laptop). Fix: quel contenitore è ora `pointer-events-none`, solo
+  la riga dei due bottoni riattiva `pointer-events-auto`. Corretta anche una lieve sfocatura del
+  canvas (il buffer di disegno era dimensionato su `host`, ma renderizzato alla dimensione più
+  grande di `wrap`, usata per il margine del tilt).
+- Click in navbar che scendeva di scatto invece di scorrere fluido: `scroll-behavior: smooth` in
+  `globals.css` + `scroll-mt-24` su ogni sezione con un id (compensa l'altezza della navbar
+  fissa). Verificato con un timeline di scroll reale: atterra esattamente al pixel giusto anche
+  attraversando le sezioni con pin GSAP di `Vetrina.tsx`.
+- Hydration mismatch reale introdotto durante questo stesso giro (trovato scorrendo l'intera
+  pagina con un controllo automatico dei console error, non a occhio): `.toLocaleString("it-IT")`
+  chiamato su un numero fisso direttamente nel render produce testo diverso tra server e browser
+  quando Node non ha i dati ICU completi ("1820" vs "1.820"). Fix: per i valori statici la
+  stringa formattata è scritta una volta come costante, non ricalcolata ad ogni render; il
+  contatore animato (che parte da 0 e cambia solo lato client dopo il mount) non ne risente ed è
+  stato lasciato invariato.
+
+**Redesign visivi, mostrate le opzioni prima di implementare (come richiesto)**:
+- `Funzionalita.tsx`: tolta la separazione "disponibili"/"in arrivo" (non più necessaria dopo
+  la decisione sopra) e la lunga lista a colonna singola su telefono ("devo scorrere tantissimo"
+  di Gabriel) sostituita da una bento grid asimmetrica -- 4 riquadri grandi per i pilastri del
+  prodotto (calendario, AI multicanale, dashboard, promemoria), gli altri compatti (solo
+  icona+titolo su telefono, descrizione completa da tablet in su). Altezza sezione su schermo da
+  390px scesa del 19% col solo secondo intervento (2490px, da 3071px del primo tentativo).
+- `PercheNoi.tsx`: il flusso "1-2-3" con un pallino che correva avanti e indietro all'infinito
+  senza un vero motivo per farlo ("i tre punti non hanno senso" di Gabriel) sostituito da una
+  timeline verticale ferma con linea tratteggiata, che comunica sequenza invece che
+  caricamento.
+- `PrimaDopo.tsx`: stessa interazione di trascinamento (voluta, non sostituita), vestito
+  rifinito -- bordo animato (`GlowBorder`, stesso linguaggio del piano Consigliato), maniglia con
+  icona di drag riconoscibile e ombra, piccolo "wiggle" automatico al primo caricamento per
+  segnalare che è trascinabile (rispetta `prefers-reduced-motion`).
+- `PerChi.tsx`: stessa logica bento di `Funzionalita.tsx` per coerenza visiva sitewide -- il
+  pubblico principale (saloni/parrucchieri con team) in un riquadro doppio, e una sesta voce
+  "Qualunque attività lavori su appuntamento" aggiunta su richiesta esplicita di Gabriel
+  ("basta che attiri tutte le persone che prendono appuntamenti"). Titolo riscritto senza "non
+  solo per i saloni" (suonava come una scusa, non un motivo per convincere).
+
+**Verifica finale**: 112/112 test passano, `tsc --noEmit` pulito, `eslint` pulito, build di
+produzione pulita, zero console/page error in uno scroll reale completo della pagina (desktop E
+mobile, non solo un controllo visivo) dopo tutte le modifiche insieme.
+
+**Non ancora fatto da questa sessione**: audit "false promesse" (punto 11) fatto -- nessun
+form/input/toggle finto trovato nel codice, i mockup sono tutti dichiarati come illustrazioni
+non cliccabili nei commenti; sweep generale di spaziatura/allineamento (punto 14) fatto solo sul
+titolo di PerChi (esempio esplicito di Gabriel), non su tutta la pagina voce per voce. Prossimo
+passo: commit + bundle + consegna a Gabriel per il pull sul suo Mac.
 
 ## Stack reale (verificato in `package.json`)
 
@@ -498,12 +586,16 @@ l'11/09/2026 via MCP diretto).
   (+ `AnteprimaProdotto`, parola che ruota, sfondo a fasci di luce), `ProdottoScroll` (dashboard
   vero stile "MacBook scroll"), `ComeFunziona`, `PrimaDopo` (confronto trascinabile), `Vetrina`
   (showcase scroll-driven GSAP solo desktop via `gsap.matchMedia()`, 6 scene reveal-only su
-  mobile -- vedi sessione 12/09/2026 sopra), `ImpattoEconomico` (nuovo 12/09/2026: calcolo
-  economico a due colonne con numero animato), `PercheNoi` (differenziatori reali, senza
-  nominare concorrenti), `Funzionalita` (griglia completa, 15 voci con badge "in arrivo"),
-  `PerChi` (5 persone), `Prezzi`, `Faq` (nuovo 12/09/2026: 7 domande pre-footer), `CTAFinale`
-  (sfondo a particelle), `Footer`, più i primitivi riusabili `Reveal.tsx`, `MagneticButton.tsx`,
-  `Grana.tsx`, `RaggiSfondo.tsx`, `SpotlightCard.tsx`, `TiltCard.tsx`, `CompareSlider.tsx`,
+  mobile -- vedi sessione 12/09/2026 sopra), `ImpattoEconomico` (calcolo economico a due colonne
+  con numero animato, due catene di ipotesi -- messaggi senza risposta e appuntamenti
+  dimenticati, aggiornato nel secondo giro del 12/09/2026), `PercheNoi` (differenziatori reali
+  senza nominare concorrenti + timeline verticale del flusso, riscritta nel secondo giro),
+  `Funzionalita` (bento grid asimmetrica, tutte le funzioni allo stesso livello -- niente più
+  badge "in arrivo", riscritta nel secondo giro), `PerChi` (bento grid, 6 categorie incluso un
+  "chiunque altro lavori su appuntamento", riscritta nel secondo giro), `Prezzi`, `Faq` (7
+  domande pre-footer), `CTAFinale` (sfondo a particelle), `Footer`, più i primitivi riusabili
+  `Reveal.tsx`, `MagneticButton.tsx`, `Grana.tsx`, `RaggiSfondo.tsx`, `SpotlightCard.tsx`,
+  `TiltCard.tsx`, `CompareSlider.tsx` (bordo animato + maniglia con icona drag, dal secondo giro),
   `FlipWords.tsx`, `Lampada.tsx`, `VorticeSfondo.tsx`, `BorderBeam.tsx`, `GlowBorder.tsx`
   (dettagli di ognuno in `docs/librerie-ui.md`).
 - `src/app/not-found.tsx` — 404 brandizzata (nuovo 12/09/2026).

@@ -163,7 +163,21 @@ export function Hero() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       <Grana opacita={0.045} />
 
-      <div className="relative mx-auto flex max-w-5xl flex-col items-center px-5 pt-28 pb-20 text-center sm:px-8 sm:pt-36">
+      {/* Bug segnalato da Gabriel: "deve reagire al mouse ma così non
+          reagisce". Causa reale, verificata puntando il mouse e leggendo
+          `document.elementFromPoint` in ogni punto della hero: questo div
+          (badge, titolo, paragrafo, bottoni, mockup) è trasparente ma resta
+          `pointer-events: auto` di default -- occupa quasi tutta l'altezza
+          della hero nella colonna centrale, quindi "ruba" il mouseover a
+          LiquidMetal ovunque tranne nei margini vuoti ai lati (che su un
+          laptop da 13-15" sono strettissimi o assenti). Lo sfondo reagiva
+          SOLO in quei margini, mai dove l'utente guarda davvero -- da qui la
+          sensazione "non reagisce". Fix: questo contenitore diventa
+          "trasparente anche al mouse" (pointer-events-none), così il
+          movimento passa sempre a LiquidMetal sotto; solo i due bottoni
+          (l'unica cosa qui dentro che deve restare cliccabile) riattivano
+          pointer-events sul proprio contenitore. */}
+      <div className="relative mx-auto flex max-w-5xl flex-col items-center px-5 pt-28 pb-20 text-center sm:px-8 sm:pt-36 pointer-events-none">
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -192,7 +206,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.6 }}
-          className="mt-8 flex flex-wrap items-center justify-center gap-3"
+          className="pointer-events-auto mt-8 flex flex-wrap items-center justify-center gap-3"
         >
           {/* Stessa scelta applicata a Nav.tsx (richiesta di Gabriel
               dell'11/09/2026): anche il CTA principale della hero ora scende

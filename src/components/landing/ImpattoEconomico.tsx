@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { animate, useInView } from "framer-motion";
-import { MessageCircleWarning, Euro, CalendarRange, TrendingDown } from "lucide-react";
+import { MessageCircleWarning, Euro, CalendarRange, CalendarX, TrendingDown, BellRing } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { GlowBorder } from "./GlowBorder";
 
@@ -18,14 +18,21 @@ import { GlowBorder } from "./GlowBorder";
  * disclaimer esplicito) -- cambia solo QUANTO e COME viene mostrato, mai
  * cosa viene affermato.
  *
- * Le 3 ipotesi (1 messaggio/settimana, scontrino medio 35€, 52 settimane)
- * sono le stesse di prima, ora scomposte visivamente come i passaggi di un
- * calcolo invece che nascoste dentro una frase. Il numero finale conta
- * verso l'alto quando entra in vista (percepito come "vivo", non un valore
- * statico) e il confronto col prezzo di Growth (dati reali da
- * Prezzi.tsx/DECISIONS.md, non inventati) trasforma il numero in un
- * argomento di ROI concreto: "quello che rischi di perdere" vs "quanto
- * costa risolverlo".
+ * Aggiornamento 12/09/2026 -- due correzioni segnalate da Gabriel:
+ * 1) il calcolo copriva solo i messaggi senza risposta, non i clienti che
+ *    si dimenticano l'appuntamento e non si presentano -- una seconda causa
+ *    di incasso perso, reale quanto la prima, e che il promemoria
+ *    automatico (una delle funzioni della pagina Prezzi) evita da solo.
+ *    Aggiunta una seconda catena di ipotesi in parallelo alla prima,
+ *    sommate nel totale a destra.
+ * 2) il separatore "×" tra le ipotesi era uno span isolato, allineato a
+ *    destra come farebbe una "x" per rimuovere un chip in una UI editabile
+ *    -- leggeva come "posso modificare questi valori" quando invece è
+ *    contenuto statico, illustrativo (segnalato da Gabriel: "non riesco ad
+ *    inserire alcun dato"). Tolto il simbolo isolato: ogni catena ora
+ *    chiude con una riga di calcolo scritta per intero in testo semplice
+ *    ("1 × 35€ × 52 = 1.820€/anno"), che si legge come una formula, non
+ *    come un controllo dell'interfaccia.
  */
 
 const IPOTESI = [
@@ -34,9 +41,29 @@ const IPOTESI = [
   { icona: CalendarRange, valore: "52", etichetta: "settimane in un anno" },
 ];
 
-const TOTALE_ANNUO = 1820; // 1 x 35 x 52 -- stesso calcolo dichiarato, non un numero a parte
-const PREZZO_GROWTH_MENSILE = 39.9; // DECISIONS.md, stesso valore usato in Prezzi.tsx
-const PREZZO_GROWTH_ANNUO = Math.round(PREZZO_GROWTH_MENSILE * 12 * 10) / 10;
+const IPOTESI_NOSHOW = [
+  { icona: CalendarX, valore: "2", etichetta: "clienti al mese dimenticano l'appuntamento" },
+  { icona: Euro, valore: "35€", etichetta: "scontrino medio a prenotazione" },
+  { icona: CalendarRange, valore: "12", etichetta: "mesi in un anno" },
+];
+
+// Bug reale trovato scorrendo tutta la pagina con un controllo automatico
+// (non a occhio): chiamare `.toLocaleString("it-IT")` su un numero fisso
+// direttamente nel render produce testo diverso tra server e browser
+// quando Node non ha i dati ICU completi per formattare i separatori delle
+// migliaia ("1820" sul server, "1.820" nel browser) -- React rileva
+// l'incoerenza e la segnala come errore di hydration. Il contatore
+// animato sotto (NumeroAnimato) non ne risente perché il suo valore parte
+// da 0 e cambia solo dopo il mount, interamente lato client. Per i numeri
+// statici la soluzione robusta è scrivere la stringa già formattata una
+// volta sola, invece di ricalcolarla ad ogni render sperando che l'ambiente
+// la formatti allo stesso modo.
+const TOTALE_RISPOSTE = 1820; // 1 x 35 x 52 -- stesso calcolo dichiarato, non un numero a parte
+const TOTALE_RISPOSTE_FMT = "1.820";
+const TOTALE_NOSHOW = 840; // 2 x 35 x 12 -- stesso calcolo dichiarato, non un numero a parte
+const TOTALE_NOSHOW_FMT = "840";
+const TOTALE_ANNUO = TOTALE_RISPOSTE + TOTALE_NOSHOW; // usato solo dal contatore animato, client-side
+const PREZZO_GROWTH_ANNUO_FMT = "478,8"; // 39,90€/mese x 12 -- DECISIONS.md, stesso valore usato in Prezzi.tsx
 
 function NumeroAnimato({ a, prefisso = "", suffisso = "" }: { a: number; prefisso?: string; suffisso?: string }) {
   const rif = useRef<HTMLSpanElement>(null);
@@ -68,18 +95,21 @@ export function ImpattoEconomico() {
       <Reveal className="mx-auto max-w-xl text-center">
         <h2 className="text-sm font-medium text-violet-400">Cosa costa non rispondere</h2>
         <p className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-          Un messaggio senza risposta oggi è un anno di prenotazioni perse.
+          Messaggi senza risposta e appuntamenti dimenticati: un anno di incasso perso.
         </p>
       </Reveal>
 
       <Reveal>
         <div className="relative mt-12 grid gap-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] lg:grid-cols-[1.1fr_1fr]">
-          {/* Colonna sinistra: le 3 ipotesi dichiarate, scomposte come i
-              passaggi di un calcolo invece che nascoste in una frase. */}
-          <div className="flex flex-col justify-center gap-5 p-7 sm:p-10">
-            <p className="text-xs font-medium tracking-wide text-white/40 uppercase">Il calcolo, passo per passo</p>
+          {/* Colonna sinistra: due catene di ipotesi dichiarate, scomposte
+              come i passaggi di un calcolo invece che nascoste in una
+              frase -- e chiuse da una riga di formula in testo semplice,
+              non da un'icona isolata che potrebbe leggersi come un
+              controllo dell'interfaccia. */}
+          <div className="flex flex-col justify-center gap-6 p-7 sm:p-10">
             <div className="flex flex-col gap-3">
-              {IPOTESI.map((ip, i) => (
+              <p className="text-xs font-medium tracking-wide text-white/40 uppercase">Messaggi senza risposta</p>
+              {IPOTESI.map((ip) => (
                 <div key={ip.etichetta} className="flex items-center gap-4">
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-violet-300">
                     <ip.icona className="size-4.5" />
@@ -87,13 +117,36 @@ export function ImpattoEconomico() {
                   <p className="text-sm text-white/70">
                     <span className="font-semibold text-white">{ip.valore}</span> {ip.etichetta}
                   </p>
-                  {i < IPOTESI.length - 1 && <span className="ml-auto pr-1 text-lg text-white/20">×</span>}
                 </div>
               ))}
+              <p className="pl-14 text-xs text-white/40">
+                1 × 35€ × 52 = <span className="font-medium text-white/70">{TOTALE_RISPOSTE_FMT}€/anno</span>
+              </p>
             </div>
-            <p className="mt-1 text-xs text-white/40">
-              Calcolo illustrativo per far capire la scala del problema, non una media misurata sui nostri clienti —
-              il prodotto non è ancora live.
+
+            <div className="flex flex-col gap-3 border-t border-white/10 pt-6">
+              <p className="text-xs font-medium tracking-wide text-white/40 uppercase">Appuntamenti dimenticati</p>
+              {IPOTESI_NOSHOW.map((ip) => (
+                <div key={ip.etichetta} className="flex items-center gap-4">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-violet-300">
+                    <ip.icona className="size-4.5" />
+                  </span>
+                  <p className="text-sm text-white/70">
+                    <span className="font-semibold text-white">{ip.valore}</span> {ip.etichetta}
+                  </p>
+                </div>
+              ))}
+              <p className="pl-14 text-xs text-white/40">
+                2 × 35€ × 12 = <span className="font-medium text-white/70">{TOTALE_NOSHOW_FMT}€/anno</span>
+              </p>
+              <p className="flex items-center gap-2 pl-14 text-xs text-emerald-300/80">
+                <BellRing className="size-3.5 shrink-0" />
+                Il promemoria automatico prima dell&apos;appuntamento evita questa voce da solo.
+              </p>
+            </div>
+
+            <p className="text-xs text-white/40">
+              Calcolo illustrativo per far capire la scala del problema, non una media misurata sui nostri clienti.
             </p>
           </div>
 
@@ -112,12 +165,12 @@ export function ImpattoEconomico() {
                 <NumeroAnimato a={TOTALE_ANNUO} prefisso="€" />
                 <span className="text-3xl sm:text-4xl">+</span>
               </p>
-              <p className="mt-1 text-sm text-white/50">l&apos;anno di prenotazioni che non arrivano nemmeno a diventare un &quot;no&quot;</p>
+              <p className="mt-1 text-sm text-white/50">l&apos;anno tra chi non riceve risposta e chi si dimentica l&apos;appuntamento</p>
             </div>
 
             <div className="mt-2 w-full max-w-xs rounded-xl border border-emerald-400/20 bg-emerald-500/[0.06] px-4 py-3 text-left text-xs text-emerald-200/90">
-              Il piano Growth costa <strong className="text-emerald-300">€{PREZZO_GROWTH_ANNUO.toLocaleString("it-IT")}/anno</strong> — meno
-              di un quarto di quello che rischi di lasciare senza risposta.
+              Il piano Growth costa <strong className="text-emerald-300">€{PREZZO_GROWTH_ANNUO_FMT}/anno</strong> — meno
+              di un quarto di quello che rischi di perdere.
             </div>
           </div>
         </div>

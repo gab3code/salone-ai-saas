@@ -371,8 +371,18 @@ export function LiquidMetal({
     function resize() {
       if (!gl) return;
       const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
-      const w = Math.max(1, Math.round(host!.clientWidth * dpr));
-      const h = Math.max(1, Math.round(host!.clientHeight * dpr));
+      // Bug reale trovato verificando con Playwright le dimensioni effettive
+      // (non solo leggendo il codice): il buffer di disegno veniva
+      // dimensionato su `host` (l'inset-0 a piena sezione), ma il <canvas>
+      // è renderizzato a schermo alla dimensione di `wrapRef` -- che è
+      // apposta più grande del 8% (inset-[-4%] su ogni lato) per avere
+      // margine durante il tilt al mouse. Risultato: si disegnava a una
+      // risoluzione, poi il browser la ningrandiva dell'8% via CSS --
+      // leggermente sfocato ovunque, più visibile su schermi grandi/ad alta
+      // densità. Usare la dimensione di `wrap` allinea buffer e resa 1:1.
+      const misura = wrapRef.current ?? host!;
+      const w = Math.max(1, Math.round(misura.clientWidth * dpr));
+      const h = Math.max(1, Math.round(misura.clientHeight * dpr));
       if (canvas!.width !== w || canvas!.height !== h) {
         canvas!.width = w;
         canvas!.height = h;
