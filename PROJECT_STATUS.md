@@ -924,7 +924,12 @@ nella sezione "Prossimo passo pianificato" sotto).
 
 Next.js 16.3.4 (App Router, Turbopack) + React 19.2.8 + TypeScript + Tailwind CSS v4 +
 Supabase (`@supabase/ssr` 0.12.5, `@supabase/supabase-js` 2.113.0) + Vitest per i test.
-Stripe e Anthropic Claude SDK non ancora integrati nel codice (pianificati Fase 2/5).
+**Correzione 12/09/2026 -- questa riga era rimasta indietro**: Stripe e `@anthropic-ai/sdk`
+SONO integrati nel codice da tempo (Fase 2 completata 02/09/2026, Fase 5/billing completata
+11/09/2026, entrambe verificate dal vivo dove possibile -- vedi le voci dedicate sotto in
+"Cosa è REALMENTE funzionante"). Lezione ripetuta la seconda volta in questo file (vedi anche
+la voce "Billing/Stripe" più sotto): quando si finisce una fase, aggiornare SUBITO questa
+sezione di riepilogo, non lasciarla indietro per settimane.
 Progetto Supabase reale collegato: `weeaggiqovnmtovdjzxy` (region `eu-west-1`, confermata EU
 l'11/09/2026 via MCP diretto).
 
@@ -996,6 +1001,25 @@ l'11/09/2026 via MCP diretto).
   ancora configurato lato Stripe Dashboard (endpoint pubblico + signing secret, impossibile
   farlo da qui prima che l'app sia deployata con un dominio reale, vedi commento nel file del
   webhook per i passi esatti).
+- **AI conversazionale (Fase 2)** -- corretto 12/09/2026, questa voce era finita per errore in
+  "Cosa è mock" sotto e non aggiornata da settimane: il loop AI esiste ed è verificato dal vivo,
+  non solo scritto. `src/lib/ai/tools.ts` (9 strumenti: elenca_servizi, elenca_operatori,
+  info_orari, verifica_disponibilita, cerca_prenotazioni_cliente, crea/modifica/cancella_
+  prenotazione, trasferisci_a_operatore, tutti wrappano il booking engine reale con client
+  admin) + `src/lib/ai/agente.ts` (loop tool-calling vero con `@anthropic-ai/sdk`, modello
+  `claude-haiku-4-5`, max 8 iterazioni) + `api/chat/[slug]/route.ts` (endpoint pubblico reale,
+  nessuna autenticazione Supabase, riconosce il visitatore da `identificatoreSessione`).
+  Migrazione `conversazioni.identificatore_sessione` (0006) **applicata e confermata
+  funzionante** (non più "da applicare" come scritto qui in una versione precedente di questo
+  file). **Verificato dal vivo il 02/09/2026, ciclo completo**: "quali servizi offrite" ->
+  risposta con prezzo reale; "vorrei prenotare un taglio domani alle 15" -> calcola la data da
+  solo, verifica disponibilità, crea la prenotazione vera, confermata nel calendario dashboard;
+  scenari ambigui/interrotti testati (richiesta vaga, ripensamento a metà frase, reclamo
+  trasferito a un operatore umano). Difeso da gate di piano + quota mensile + anti-burst
+  (`src/lib/ai/limiti.ts`, Fase 5). **Ancora aperto**: nessun canale WhatsApp/Telegram collegato
+  (bloccato dalla business verification Meta, non dallo stack -- il canale attivo oggi è solo la
+  chat web), e la colonna `conversazioni.slot_in_costruzione` esiste ma non è ancora usata (il
+  contesto funziona comunque rileggendo lo storico messaggi ad ogni turno).
 - **Sincronizzazione calendari personali, direzione import/blocco (Fase 6bis)**: entrambi i
   provider costruiti nello stesso pomeriggio. Apple/iCloud: client CalDAV puro
   (`src/lib/calendario-esterno/caldav.server.ts`, autodiscovery standard, segue il redirect di
@@ -1015,15 +1039,6 @@ l'11/09/2026 via MCP diretto).
 
 ## Cosa è mock, incompleto o non ancora iniziato
 
-- **AI conversazionale**: strumenti scritti (`src/lib/ai/tools.ts`, 9 strumenti, wrappano il
-  booking engine reale con client admin, 9 test di validazione verdi) ma **il loop vero e
-  proprio non esiste ancora**: nessun endpoint di chat, nessuna chiamata reale ad Anthropic
-  (`@anthropic-ai/sdk` non installato, `ANTHROPIC_API_KEY` non in `.env.local` -- da chiedere a
-  Gabriel), nessun motore di conversazione persistente. La migrazione per
-  `conversazioni.identificatore_sessione` (necessaria per riconoscere un visitatore anonimo
-  della chat web tra un messaggio e l'altro) è scritta
-  (`supabase/migrations/0006_conversazioni_sessione.sql`) ma **non ancora applicata al database
-  reale** -- vedi "Problemi noti aperti".
 - **WhatsApp**: predisposizione tecnica per l'Embedded Signup Meta scritta
   (`src/lib/whatsapp-embedded-signup.ts`, `src/app/api/whatsapp/embedded-signup/callback/
   route.ts`, migrazione 0003) ma **non attivabile**: bloccata dalla business verification

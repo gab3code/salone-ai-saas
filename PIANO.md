@@ -17,6 +17,76 @@ pensati da subito per parlare a qualunque professionista con agenda, non solo al
 estetico. Estetia resta il riferimento competitivo perché è lo stesso tipo di prodotto
 (booking + CRM + AI), anche se il loro mercato dichiarato è più stretto del nostro.
 
+## COSA DOBBIAMO FARE, DA OGGI IN POI, IN ORDINE (aggiornato 12/09/2026, richiesta esplicita di Gabriel)
+
+Lista unica e concreta, in ordine di priorità reale -- non un indice delle fasi sotto, ma cosa
+fare per davvero prima di cos'altro. Il dettaglio tecnico di ogni punto è nelle fasi più sotto o
+nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo fare".
+
+### Gruppo A -- Serve solo il tuo ok o un tuo test, zero nuovo codice (sblocca tutto il resto)
+1. **Dare l'ok al push di quanto già pronto e in attesa da questa sessione**: titolo Hero con i
+   colori Growth, fix del clipping desktop su Vetrina, titolo interattivo (tilt al mouse + bande
+   che seguono l'inclinazione), fix del CompareSlider ("Trascina per vedere la differenza").
+   Tutto committato in locale, non ancora pushato -- appena dici ok ti mando il bundle e le
+   istruzioni per `git pull`+`git push` dal tuo Mac.
+2. **Deploy Vercel** del codice sopra una volta pushato (automatico ad ogni push su `main`, già
+   collegato).
+3. **Provare dal vivo `/s/[slug]`** (pagina pubblica del salone) con un salone di test: cercare
+   slot, prenotare, parlare con il widget chat AI -- scritta e testata in automatico, mai aperta
+   in un browser reale.
+4. **Provare un pagamento di test reale su Stripe Checkout** + configurare il webhook lato
+   Stripe Dashboard (serve un dominio pubblico, quindi va fatto dopo il deploy) -- il codice è
+   scritto e testato, mai verificato con un pagamento vero.
+5. **Aggiungerti come "utente di test"** nella schermata di consenso OAuth Google (Google Cloud
+   Console), poi provare "Collega Google" dal vivo in `/dashboard/impostazioni/calendari`.
+6. **Decidere cosa fare di Apple/iCloud Calendar**: non risolvibile da un hosting cloud standard
+   come Vercel (blocco di Apple sul traffico da IP di data center, vedi PROJECT_STATUS.md
+   "Problemi noti aperti" #14) -- o lo dichiariamo non supportato, o si accetta il limite e si
+   documenta così nel materiale di vendita quando esisterà.
+
+### Gruppo B -- Nuovo codice a priorità alta, trovato nel mega-controllo competitor di oggi
+1. **Deposito/caparra anti-no-show** (Fase 6): gap reale in tutto il software italiano di
+   categoria, standard nei marketplace -- Stripe già integrato, da estendere. Il singolo task
+   con il miglior rapporto impatto/lavoro trovato oggi: ci mette avanti a TUTTI i concorrenti
+   italiani diretti, non solo ai marketplace.
+2. **Tono dell'AI personalizzabile** (Fase 5): bloccante prima di aprire pagamenti veri sul
+   piano Pro -- oggi pubblicizzato ma inesistente nel codice (nessuna colonna/UI/collegamento al
+   prompt). Non urgentissimo solo perché nessun cliente Pro reale esiste ancora.
+3. **Lista d'attesa automatica alla cancellazione** (Fase 6): vista su Calendix e CutApp, non
+   grande lavoro sopra il booking engine che già esiste.
+
+### Gruppo C -- Completare le fasi già aperte (dettaglio nelle fasi sotto)
+1. Fase 1: collegare alle schermate/AI la gestione di servizi consecutivi e operatore non
+   specificato (la logica pura c'è già); test sugli scenari di prenotazione del punto 30 contro
+   il DB vero.
+2. Fase 2: collegare WhatsApp/Telegram non appena la business verification Meta si sblocca
+   (fuori dal nostro controllo); valutare se serve davvero strutturare
+   `conversazioni.slot_in_costruzione` invece di rileggere sempre lo storico.
+3. Fase 3: analytics più complete -- retention, no-show REALE (oggi nessun flusso marca un
+   appuntamento come no-show; si lega bene al lavoro sul deposito/caparra del Gruppo B).
+4. Fase 4: galleria/upload foto (Supabase Storage), PWA installabile.
+5. Fase 5: pannello admin per te (saloni, abbonamenti, utilizzo, interventi manuali).
+6. Fase 6bis: direzione export dei calendari esterni (mostrare gli appuntamenti del salone sul
+   calendario personale, non solo leggerne gli impegni); valutare il cifraggio a riposo delle
+   credenziali/token salvati in chiaro.
+7. Fase 6: motore di automazioni generico (reminder/follow-up/inattività/compleanno), revisione
+   di sicurezza completa (RLS, permessi tool AI, rate limiting, input validation).
+8. Fase 7: passata di design/responsive finale su tutte le schermate di lavoro (dashboard,
+   calendario, CRM -- non solo la landing, già fatta), PWA rifinita, performance percepita.
+
+### Gruppo D -- Prima di pubblicare il link di un salone vero, non prima
+1. **Anti-abuso sulla prenotazione pubblica** (`/s/[slug]`): oggi solo il tetto mensile del piano
+   Free protegge da un uso abusivo -- serve almeno un rate-limit per IP o una conferma
+   SMS/WhatsApp del numero prima di bloccare uno slot.
+2. **Pagine legali** (privacy/termini/cookie): gap reale, mai tracciato come task da nessuna
+   parte prima di oggi (solo menzionato in `docs/analisi-estetia.md`) -- il progetto non ne ha
+   nessuna. Ogni concorrente verificato le ha.
+3. **Completare la generalizzazione del copy** oltre "salone" (deciso il 02/09/2026, mai
+   finito): `/registrati` e la dashboard usano ancora "Crea il tuo salone" e testi
+   settore-specifici in alcuni punti.
+
+---
+
 ## Sintesi strategica: come superare i competitor (aggiornata 12/09/2026, mega-controllo)
 
 Ricerca dal vivo completa in `docs/analisi-concorrenti-mercato.md` (leggerla per il dettaglio
@@ -128,9 +198,12 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
 - [ ] Gestione servizi consecutivi, operatore non specificato, cliente nuovo/esistente --
       la logica pura li gestisce già (test verdi), manca collegarli alle schermate/AI
 - [ ] Test su tutti gli scenari del punto 30 rilevanti alla prenotazione, contro il DB vero
-- [ ] Semplificazione consapevole da risolvere prima della Fase 7: fuso orario del salone
-      trattato come UTC per ora (vedi commento in `booking-engine.server.ts`) -- va aggiunto un
-      campo fuso_orario su "tenants" prima di considerare la prenotazione "finita davvero"
+- [x] ~~Semplificazione consapevole: fuso orario trattato come UTC~~ **FATTO 11/09/2026**
+      (corretto qui il 12/09/2026, questa riga era rimasta indietro): colonna
+      `tenants.fuso_orario` (migrazione 0010, default `Europe/Rome`, applicata al DB reale),
+      modulo `src/lib/fuso-orario.ts` con conversione ai due confini che contano (colonna
+      `timestamptz` di `appuntamenti`, API Google/CalDAV). Dettaglio in PROJECT_STATUS.md,
+      "Problemi noti aperti" #1.
 
 ## Fase 2 -- AI conversazionale (punti 9, 10, 11, 17)
 Canale di default: **chat web** integrata nella pagina pubblica del salone (nessuna
@@ -224,14 +297,25 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       appuntamento "no_show", solo "confermato"/"cancellato" esistono nei dati veri finora)
 
 ## Fase 4 -- Pagina pubblica, foto, PWA (punti 18, 19, 20)
-- [ ] Pagina pubblica per-salone generata automaticamente, condivisibile
-- [ ] Widget chat AI mostrato SOLO se `tenant.piano` la include (vedi `src/lib/ai/limiti.ts`,
+- [x] Pagina pubblica per-salone generata automaticamente, condivisibile -- **scritta
+      11/09/2026** (corretto qui il 12/09/2026, era rimasta indietro): `/s/[slug]`, loader in
+      `src/lib/pagina-pubblica.server.ts`, flusso di prenotazione self-service completo
+      (`FlussoPrenotazione.tsx`). Test automatici puliti (98/98), **non ancora verificata dal
+      vivo in un browser reale contro un salone vero** -- va fatto da Gabriel dopo il deploy
+      (stesso limite di rete della sandbox già noto per altri strumenti).
+- [x] Widget chat AI mostrato SOLO se `tenant.piano` la include (vedi `src/lib/ai/limiti.ts`,
       `pianoHaAccessoAIChatWeb`) -- un salone Free/Starter non deve vedere nemmeno il box della
       chat, non un box che dice "non disponibile" (deciso con Gabriel il 02/09/2026). Il blocco
       lato server in `api/chat/[slug]/route.ts` resta comunque, indipendentemente da questo --
-      qui è solo UX, non l'unica difesa
-- [ ] Galleria/upload immagini (Supabase Storage)
-- [ ] PWA installabile, notifiche push dove supportato
+      qui è solo UX, non l'unica difesa. **Scritto 11/09/2026** (`ChatWidgetPubblico.tsx`),
+      stesso limite di verifica dal vivo del punto sopra.
+- [ ] Galleria/upload immagini (Supabase Storage) -- zero codice, colonne `logo_url`/`cover_url`
+      esistono nello schema ma senza upload configurato.
+- [ ] PWA installabile, notifiche push dove supportato -- zero manifest/service worker.
+- [ ] **Pagine legali (privacy/termini/cookie)** -- nuovo task, trovato nel mega-controllo
+      competitor del 12/09/2026: gap reale, il progetto non ne ha nessuna, ogni concorrente
+      verificato (Estetia/Calendix/Skedula/Fresha/Treatwell/Booksy) le ha. Non urgente prima del
+      deploy di test, ma bloccante prima di pubblicare il link di un salone vero.
 
 ## Fase 5 -- Billing self-service e admin panel (punti 6, 7, 23, 24)
 - [x] Piani Free -> Enterprise progettati (non copiati), prezzi e posizionamento AI decisi
@@ -243,9 +327,16 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       automaticamente sia da dashboard che da AI (punto 9, stessa funzione per entrambe). Da
       verificare dal vivo con un vero tenant Free quando possibile (oggi verificato solo con
       `npx vitest run` + `npm run build` puliti, non ancora con un giro nel browser reale)
-- [ ] Checkout Stripe, webhook, gestione stato abbonamento reale (oggi `tenants.piano` si
-      cambia solo a mano nel database, nessun flusso di pagamento/upgrade self-service)
-- [ ] Pannello admin per te: saloni, abbonamenti, utilizzo, interventi manuali quando serve
+- [x] Checkout Stripe, webhook, gestione stato abbonamento reale -- **scritto per intero
+      11/09/2026 sera** (corretto qui il 12/09/2026, era rimasto indietro, vedi commit
+      `faafc55`): `/api/stripe/checkout` (Checkout Session, trial 10 giorni su Growth/Pro),
+      `/api/stripe/webhook` (firma verificata, unica fonte di verità per `piano`/
+      `stato_abbonamento`), `/api/stripe/portal` (Customer Portal self-service). 14 test verdi,
+      chiavi sandbox reali già configurate. **Non ancora verificato dal vivo con un pagamento di
+      test reale nel browser** -- il webhook va anche configurato lato Stripe Dashboard (serve
+      un dominio pubblico, quindi dopo il deploy). Vedi PROJECT_STATUS.md per il dettaglio.
+- [ ] Pannello admin per te: saloni, abbonamenti, utilizzo, interventi manuali quando serve --
+      zero codice.
 - [ ] **BLOCCANTE prima di aprire pagamenti veri sul piano Pro** (trovato nel mega-controllo del
       12/09/2026, vedi `docs/analisi-concorrenti-mercato.md`): `Prezzi.tsx` pubblicizza "Tono
       dell'AI personalizzabile" su Pro, ma non esiste nessuna colonna/UI/collegamento reale al
