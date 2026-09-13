@@ -56,6 +56,17 @@ export interface Metriche {
   percentualeOccupazioneOggi: number | null;
   /** Clienti con almeno una prenotazione confermata passata, ma nessuna negli ultimi 60 giorni. */
   clientiInattiviDa60Giorni: number;
+  /**
+   * "Incassi previsti" (Gruppo B-bis punto 4 di PIANO.md, richiesto da Gabriel il 13/09/2026):
+   * proiezione, NON un incasso reale registrato -- somma del prezzo dei servizi degli
+   * appuntamenti già CONFERMATI nei prossimi 7/30 giorni da adesso in poi. Zero pagamenti, zero
+   * fiscalità: stessa natura di `valorePrenotazioniOggiCentesimi` sopra, solo che guarda avanti
+   * invece che a oggi. Un appuntamento cancellato dopo il calcolo non viene sottratto qui --
+   * questi due numeri fotografano la situazione al momento in cui la dashboard viene caricata,
+   * non una previsione che si aggiorna da sola in tempo reale.
+   */
+  incassiPrevistiCentesimi7Giorni: number;
+  incassiPrevistiCentesimi30Giorni: number;
 }
 
 function inizioGiornoUTC(data: Date): Date {
@@ -68,6 +79,9 @@ function fineGiornoUTC(data: Date): Date {
 }
 function giorniFa(adesso: Date, giorni: number): Date {
   return new Date(adesso.getTime() - giorni * 24 * 60 * 60 * 1000);
+}
+function giorniAvanti(adesso: Date, giorni: number): Date {
+  return new Date(adesso.getTime() + giorni * 24 * 60 * 60 * 1000);
 }
 function minutiOraTesto(valore: string): number {
   const [h, m] = valore.split(":").map(Number);
@@ -148,6 +162,22 @@ export function calcolaMetriche(p: ParametriMetriche): Metriche {
 
   const clientiInattiviDa60Giorni = elencaClientiInattivi(p.appuntamenti, p.adesso, 60).size;
 
+  // Incassi previsti: guarda AVANTI da "adesso" (incluso il resto della
+  // giornata odierna), non solo dal giorno successivo -- un appuntamento tra
+  // un'ora conta comunque nella finestra dei prossimi 7 giorni.
+  const dataPiu7Giorni = giorniAvanti(p.adesso, 7);
+  const dataPiu30Giorni = giorniAvanti(p.adesso, 30);
+  function sommaIncassiPrevisti(finoA: Date): number {
+    return p.appuntamenti
+      .filter((a) => a.stato === "confermato" && a.inizio >= p.adesso && a.inizio < finoA)
+      .reduce((somma, a) => {
+        const prezzo = a.servizioId ? p.prezzoCentesimiPerServizio.get(a.servizioId) : undefined;
+        return somma + (prezzo ?? 0);
+      }, 0);
+  }
+  const incassiPrevistiCentesimi7Giorni = sommaIncassiPrevisti(dataPiu7Giorni);
+  const incassiPrevistiCentesimi30Giorni = sommaIncassiPrevisti(dataPiu30Giorni);
+
   return {
     appuntamentiOggi: appuntamentiOggiConfermati.length,
     valorePrenotazioniOggiCentesimi,
@@ -159,5 +189,7 @@ export function calcolaMetriche(p: ParametriMetriche): Metriche {
     minutiOccupatiOggi,
     percentualeOccupazioneOggi,
     clientiInattiviDa60Giorni,
+    incassiPrevistiCentesimi7Giorni,
+    incassiPrevistiCentesimi30Giorni,
   };
 }

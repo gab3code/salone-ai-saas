@@ -136,6 +136,22 @@ export default async function PaginaDashboard({
                 />
               </div>
 
+              {/* Incassi previsti (Gruppo B-bis #4 di PIANO.md): proiezione sugli appuntamenti
+                  già confermati nei prossimi 7/30 giorni, non un incasso reale registrato --
+                  riga separata dalle metriche di "oggi" sopra per non confonderle a colpo
+                  d'occhio con un dato già incassato. */}
+              <h2 className="mt-6 text-sm font-medium text-zinc-500">Incassi previsti</h2>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-md">
+                <CardMetrica
+                  etichetta="Prossimi 7 giorni"
+                  valore={formatoEuro(metriche.incassiPrevistiCentesimi7Giorni)}
+                />
+                <CardMetrica
+                  etichetta="Prossimi 30 giorni"
+                  valore={formatoEuro(metriche.incassiPrevistiCentesimi30Giorni)}
+                />
+              </div>
+
               {metriche.clientiInattiviDa60Giorni > 0 && (
                 <div className="mt-4 flex items-center justify-between rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
                   <span>

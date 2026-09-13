@@ -94,6 +94,27 @@ describe("calcolaMetriche", () => {
     expect(m.clientiInattiviDa60Giorni).toBe(1);
   });
 
+  it("incassi previsti: somma solo i confermati futuri nella finestra, esclude passato/cancellati/oltre finestra", () => {
+    const m = calcolaMetriche({
+      adesso: OGGI, // 2026-09-02 10:00 UTC
+      appuntamenti: [
+        appuntamento({ inizio: new Date(Date.UTC(2026, 7, 2, 9, 0, 0)) }), // passato -> escluso da entrambe
+        appuntamento({ inizio: new Date(Date.UTC(2026, 8, 2, 15, 0, 0)) }), // oggi pomeriggio -> dentro 7 e 30gg
+        appuntamento({ inizio: new Date(Date.UTC(2026, 8, 5, 9, 0, 0)) }), // fra 3 giorni -> dentro 7 e 30gg
+        appuntamento({ inizio: new Date(Date.UTC(2026, 8, 20, 9, 0, 0)) }), // fra 18 giorni -> solo 30gg
+        appuntamento({ inizio: new Date(Date.UTC(2026, 9, 15, 9, 0, 0)) }), // fra oltre 30gg -> escluso da entrambe
+        appuntamento({ inizio: new Date(Date.UTC(2026, 8, 5, 9, 0, 0)), stato: "cancellato" }), // futuro ma cancellato -> escluso
+      ],
+      clienti: [],
+      prezzoCentesimiPerServizio: prezzi,
+      orarioOggi: orarioApertoOggi,
+    });
+    // 7 giorni: solo i due appuntamenti "oggi pomeriggio" + "fra 3 giorni" -> 2 * 2500.
+    expect(m.incassiPrevistiCentesimi7Giorni).toBe(5000);
+    // 30 giorni: i tre entro 30gg (oggi pomeriggio + fra 3gg + fra 18gg) -> 3 * 2500.
+    expect(m.incassiPrevistiCentesimi30Giorni).toBe(7500);
+  });
+
   it("conta i nuovi clienti solo se creati negli ultimi 30 giorni", () => {
     const m = calcolaMetriche({
       adesso: OGGI,

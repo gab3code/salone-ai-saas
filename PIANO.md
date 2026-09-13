@@ -124,14 +124,15 @@ per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
    NESSUNA parte del codice: un operatore non può avere un proprio login con permessi limitati,
    solo il titolare (owner) accede mai alla dashboard. Bloccante prima di vendere Enterprise a
    un cliente vero, per lo stesso motivo del Tono AI.
-4. **Incassi previsti** (chiesto esplicitamente da Gabriel il 13/09/2026, dopo aver visto
-   l'esclusione della "Cassa" sotto -- domanda giusta, sono due cose diverse): una proiezione
-   dei guadagni futuri (prezzo servizi × appuntamenti confermati nei prossimi 7/30 giorni),
-   non un incasso reale registrato. Zero pagamenti, zero fiscalità -- puro calcolo su dati già
-   in database, stessa natura degli altri numeri di `metriche.ts` (punto 21). **Non ha nulla del
-   rischio della Cassa esclusa sotto**: quella è un registro di pagamenti REALI incassati, con
-   tutti gli obblighi fiscali che ne conseguono; questa è solo un numero previsionale, come
-   "quanto ti aspetti di incassare questa settimana in base a chi ha già prenotato".
+4. ~~**Incassi previsti**~~ **CODICE FATTO 13/09/2026** (chiesto esplicitamente da Gabriel il
+   13/09/2026, dopo aver visto l'esclusione della "Cassa" sotto -- domanda giusta, sono due cose
+   diverse): una proiezione dei guadagni futuri (prezzo servizi × appuntamenti confermati nei
+   prossimi 7/30 giorni), non un incasso reale registrato. Zero pagamenti, zero fiscalità -- puro
+   calcolo su dati già in database, stessa natura degli altri numeri di `metriche.ts` (punto 21).
+   **Non ha nulla del rischio della Cassa esclusa sotto**: quella è un registro di pagamenti REALI
+   incassati, con tutti gli obblighi fiscali che ne conseguono; questa è solo un numero
+   previsionale, come "quanto ti aspetti di incassare questa settimana in base a chi ha già
+   prenotato". Vedi Fase 3 per il dettaglio implementativo.
 
 **Possibili, da valutare (non urgenti, ma rafforzano il prodotto se costruiti bene)**:
 5. **Multi-utente/team reale**: conseguenza diretta del punto 3 -- dare a ogni "operatore" un
@@ -464,15 +465,17 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       almeno un grafico andamento prenotazioni/clienti nel tempo. Stesso principio di
       "Il sito descrive il prodotto al lancio" (DECISIONS.md 12/09/2026): non urgente finché non
       ci sono clienti Growth paganti reali, ma va fatto prima di incassare su quel piano.
-- [ ] **Incassi previsti** (nuovo task, chiesto esplicitamente da Gabriel il 13/09/2026, DA NON
-      confondere con la "Cassa"/registro incassi reale esclusa deliberatamente in DECISIONS.md):
-      `src/lib/metriche.ts` oggi calcola solo `valorePrenotazioniOggiCentesimi` (guarda indietro/
-      oggi, appuntamenti confermati di oggi) -- manca una proiezione in AVANTI (somma prezzo dei
-      servizi × appuntamenti confermati nei prossimi 7/30 giorni). Zero pagamenti reali, zero
-      fiscalità: è puro calcolo su dati che il database ha già, stessa natura degli altri numeri
-      in dashboard (punto 21) -- non ha nulla del rischio normativo della cassa esclusa in
-      DECISIONS.md, quindi resta dentro il perimetro del prodotto. Aggiunto qui, non in Fase 6bis
-      con la cassa.
+- [x] ~~**Incassi previsti**~~ **CODICE FATTO 13/09/2026** (nuovo task, chiesto esplicitamente da
+      Gabriel il 13/09/2026, DA NON confondere con la "Cassa"/registro incassi reale esclusa
+      deliberatamente in DECISIONS.md): `src/lib/metriche.ts` oggi calcola solo
+      `valorePrenotazioniOggiCentesimi` (guarda indietro/oggi, appuntamenti confermati di oggi) --
+      manca una proiezione in AVANTI (somma prezzo dei servizi × appuntamenti confermati nei
+      prossimi 7/30 giorni). Zero pagamenti reali, zero fiscalità: è puro calcolo su dati che il
+      database ha già, stessa natura degli altri numeri in dashboard (punto 21) -- non ha nulla
+      del rischio normativo della cassa esclusa in DECISIONS.md, quindi resta dentro il perimetro
+      del prodotto. Aggiunto qui, non in Fase 6bis con la cassa. Implementato in
+      `calcolaMetriche()` (due nuovi campi `incassiPrevistiCentesimi7Giorni`/`30Giorni`) + due
+      nuove card in dashboard, test dedicato in `metriche.test.ts` (150/150 verdi).
 - [ ] **Export/import CSV clienti** (nuovo task, secondo giro mega-controllo 12/09/2026): visto
       su Estetia, utile per un titolare che migra da un altro gestionale (abbassa l'attrito di
       switch) o vuole i propri dati per un mailing esterno. Lavoro contenuto.

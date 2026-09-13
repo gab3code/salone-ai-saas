@@ -1,6 +1,35 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, quattordicesimo giro -- bug reale corretto: "la navbar su
+Ultimo aggiornamento: 13/09/2026, quindicesimo giro -- Gabriel non può fare push (è da telefono),
+quindi ho continuato con le funzionalità come richiesto ("rileggiti gli md e continua"). Due parti:
+
+1) **Domanda di Gabriel su registrazioni vere/anti-abuso**: verificato che `src/app/registrati/
+page.tsx` è **già pronto** per la conferma email di Supabase Auth -- il codice distingue già i due
+casi (`data.session` presente = conferma disattivata, redirect diretto; assente = conferma attiva,
+schermata "Controlla la tua email" con `emailRedirectTo` che preserva il piano scelto). **Non serve
+nessun codice**: è solo un interruttore da attivare su Supabase Dashboard -> Authentication -> Sign
+In / Providers -> Email -> "Confirm email" (nessun tool MCP di questa sessione espone quel
+parametro, va fatto da Gabriel a mano). Per il resto ("altre cose di sicurezza per non intasare i
+server"), consigliato il CAPTCHA nativo di Supabase (Cloudflare Turnstile, gratuito) perché protegge
+davvero l'endpoint -- un form-only check si aggira chiamando direttamente l'API REST di Supabase con
+la chiave anon pubblica. Serve una site key + secret key di Turnstile da Gabriel (integrazione
+esterna, punto CLAUDE.md): resto in attesa, non blocca il resto del lavoro.
+
+2) **Nuova funzionalità implementata: "Incassi previsti"** (Gruppo B-bis #4 di PIANO.md, richiesta
+esplicita di Gabriel in un giro precedente). Proiezione pura -- somma del prezzo dei servizi degli
+appuntamenti già `confermato` nei prossimi 7 e 30 giorni da adesso -- **non** un incasso reale
+incassato, zero pagamenti/fiscalità coinvolti (distinzione netta dalla "Cassa" esclusa
+deliberatamente altrove in DECISIONS.md/PIANO.md). Nessuna nuova query: `appuntamenti` e
+`prezzoCentesimiPerServizio` erano già caricati in `metriche.server.ts` per le altre metriche, quindi
+tutto il lavoro è dentro la funzione pura `calcolaMetriche()` in `metriche.ts` (nuovo helper
+`giorniAvanti()`, due nuovi campi nell'interfaccia `Metriche`) + due nuove card nella dashboard sotto
+un'intestazione "Incassi previsti" separata dalle metriche di oggi. Test dedicato aggiunto in
+`metriche.test.ts` che verifica l'esclusione corretta di passato/cancellati/fuori-finestra.
+Verificato: `tsc --noEmit` pulito, `eslint` pulito sui 3 file toccati, `npx vitest run` **150/150**
+(era 149), `next build` pulito con tutte le rotte compilate. Modifiche pronte in un bundle git per
+Gabriel, da tirare/pushare quando torna al computer (impossibile da telefono).
+
+Aggiornamento precedente, 13/09/2026, quattordicesimo giro -- bug reale corretto: "la navbar su
 telefono e la sezione accedi è inaccessibile" (segnalazione di Gabriel). Causa in
 `src/components/landing/Nav.tsx`: i tre link di sezione (Funzionalità/Per chi è/Prezzi) e il link
 "Accedi" erano semplicemente `hidden` sotto il breakpoint `sm` (640px) -- **non esisteva nessun
