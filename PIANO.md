@@ -158,6 +158,58 @@ per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
    finito): `/registrati` e la dashboard usano ancora "Crea il tuo salone" e testi
    settore-specifici in alcuni punti.
 
+### Gruppo E -- Ogni promessa del sito, verificata una per una
+
+Richiesta esplicita di Gabriel, 13/09/2026: "aggiungi negli obiettivi tutte le promesse che ci
+sono nel sito se non le hai messe". Contesto: il 12/09/2026 è stata presa la decisione esplicita (vedi DECISIONS.md, "Il sito
+descrive il prodotto al lancio, non lo stato di oggi") di togliere le etichette "in arrivo" da
+`Prezzi.tsx`/`Vetrina.tsx`/`Funzionalita.tsx`/`Faq.tsx`/`ImpattoEconomico.tsx` e presentare il
+prodotto come sarà al lancio commerciale, con l'impegno esplicito di costruire davvero tutto
+prima di aprire i pagamenti veri. Questa sezione è l'elenco di verifica completo, promessa per
+promessa (letto l'intero copy della landing riga per riga il 13/09/2026), così nessuna resta
+implicita/dimenticata. Le promesse VERE (già costruite e verificate) non sono ripetute qui --
+sono nella loro Fase con `[x]`.
+
+**Promesse NON ancora mantenute nel codice, con il task che le copre**:
+1. Tono dell'AI personalizzabile (Pro) -- task in Fase 5 (bloccante prima di vendere Pro).
+2. Assistente AI su WhatsApp (Pro) -- bloccato dall'App Review Meta, task in
+   `docs/embedded-signup-whatsapp.md` + Fase 2 (bloccante prima di vendere Pro, ma dipendenza
+   esterna non nel nostro controllo).
+3. SMS (Pro) -- nuovo task in Fase 6 aggiunto oggi (bloccante prima di vendere Pro), **zero
+   codice/provider prima d'oggi, non tracciato da nessuna parte finché non l'ho trovato in
+   questo giro**.
+4. Analytics / "andamento nel tempo" (Growth) -- task in Fase 3, aggiornato oggi per collegarlo
+   esplicitamente a questa promessa (bloccante prima di vendere Growth).
+5. Promemoria automatici (Growth, e usati nel calcolo ROI di `ImpattoEconomico.tsx`) -- task in
+   Fase 6, aggiornato oggi per collegarlo esplicitamente a questa promessa e al fatto che è usato
+   come argomento di vendita diretto (bloccante prima di vendere Growth).
+6. Multi-sede e ruoli avanzati (Enterprise) -- task in Fase 5 (bloccante prima di vendere
+   Enterprise).
+7. App installabile/PWA (elencata sia come funzione generale in `Funzionalita.tsx` sia come voce
+   specifica Enterprise in `Prezzi.tsx`) -- task già in Fase 4/7, **non era ancora collegato
+   esplicitamente al fatto che è anche una voce di prezzo Enterprise**: stesso livello di urgenza
+   degli altri bloccanti sopra, non solo un "nice to have" generico.
+8. "1 operatore" sul piano Free -- nuovo task in Fase 5 aggiunto oggi: pubblicizzato come limite
+   ma non applicato tecnicamente (diverso dagli altri punti: qui il prodotto fa PIÙ di quanto
+   promesso, non meno -- rischio di prodotto/revenue, non di reputazione verso il cliente).
+
+**Promesse verificate e già vere oggi** (nessuna azione, elencate solo per completezza
+dell'audit): pagina di prenotazione pubblica self-service 24/7 anche su Free; calendario unico
+senza doppie prenotazioni; CRM con storico unificato dashboard/AI/pubblico; isolamento dati
+reale a livello database; sync Google Calendar (import/blocco); assistente AI su chat web
+incluso da Growth, con escalation a un operatore umano sui casi ambigui; pagamenti/upgrade
+self-service dal pannello (Stripe Customer Portal); cancellazione abbonamento senza vincoli;
+registrazione self-service senza intervento manuale; infrastruttura dati in Europa
+(`eu-west-1`); Free senza scadenza fino a 60 prenotazioni/mese; trial 10 giorni su Growth con
+carta richiesta ma non addebitata prima della fine prova.
+
+**Non un problema, solo una nota per onestà nella FAQ**: `Faq.tsx` risponde "Sì" alla domanda
+"Funziona anche su WhatsApp?" specificando "incluso dal piano Pro in su" -- risposta corretta
+COME PROMESSA (coerente con la decisione del 12/09/2026), ma da ricontrollare prima di aprire i
+pagamenti veri su Pro insieme al punto 2 sopra: se al momento di vendere Pro sul serio WhatsApp
+non fosse ancora sbloccato da Meta, questa riga della FAQ andrebbe temporaneamente ammorbidita,
+non lasciata a prometterlo mentre non è vero per il cliente che sta pagando.
+
 ---
 
 ## Sintesi strategica: come superare i competitor (aggiornata 12/09/2026, mega-controllo)
@@ -366,8 +418,18 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       un appuntamento reale da 25€/30min e verificato che appuntamenti=1, valore=25,00€,
       occupazione=5% (30min su 600min di apertura) -- tutti numeri esatti, non arrotondati a
       caso -- poi cancellato per pulizia.
-- [ ] Analytics più complete: retention, no-show reale (nessun flusso ancora marca un
-      appuntamento "no_show", solo "confermato"/"cancellato" esistono nei dati veri finora)
+- [ ] **Analytics -- BLOCCANTE prima di aprire pagamenti veri sul piano Growth** (trovato nel
+      controllo promesse del sito 13/09/2026, richiesto da Gabriel: "aggiungi tutte le promesse
+      del sito"): `Prezzi.tsx`/`Funzionalita.tsx` pubblicizzano "Analytics" con "Andamento
+      prenotazioni e clienti nel tempo, non solo i numeri di oggi" come voce inclusa da Growth in
+      su, ma la dashboard oggi mostra SOLO metriche di oggi/finestre fisse (30gg nuovi clienti,
+      60gg inattivi) -- zero vista storica/andamento nel tempo, zero grafico, nessuna pagina
+      dedicata (verificato: nessuna rotta oltre `/dashboard/{page,calendario,clienti,configura,
+      impostazioni}`). Da costruire: retention, no-show reale (nessun flusso ancora marca un
+      appuntamento "no_show", solo "confermato"/"cancellato" esistono nei dati veri finora), e
+      almeno un grafico andamento prenotazioni/clienti nel tempo. Stesso principio di
+      "Il sito descrive il prodotto al lancio" (DECISIONS.md 12/09/2026): non urgente finché non
+      ci sono clienti Growth paganti reali, ma va fatto prima di incassare su quel piano.
 - [ ] **Incassi previsti** (nuovo task, chiesto esplicitamente da Gabriel il 13/09/2026, DA NON
       confondere con la "Cassa"/registro incassi reale esclusa deliberatamente in DECISIONS.md):
       `src/lib/metriche.ts` oggi calcola solo `valorePrenotazioniOggiCentesimi` (guarda indietro/
@@ -437,6 +499,14 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       un dominio pubblico, quindi dopo il deploy). Vedi PROJECT_STATUS.md per il dettaglio.
 - [ ] Pannello admin per te: saloni, abbonamenti, utilizzo, interventi manuali quando serve --
       zero codice.
+- [ ] **"1 operatore" sul piano Free pubblicizzato ma non applicato tecnicamente** (trovato nel
+      controllo promesse del sito 13/09/2026): `Prezzi.tsx` elenca "1 operatore" tra i limiti del
+      piano Free, ma `src/lib/piani.ts` applica SOLO il tetto di 60 prenotazioni/mese -- nessun
+      controllo impedisce a un tenant Free di creare più di un operatore oggi (verificato: nessun
+      `limiteOperatori` o simile in tutto `src/`). Rischio basso (leva di prodotto/upsell mancata,
+      non un dato mostrato falsamente a un cliente), ma va allineato: o si applica il limite come
+      per le prenotazioni, o si toglie la voce da `Prezzi.tsx` se si decide di non farlo rispettare
+      davvero -- non lasciarlo un numero scritto e mai controllato.
 - [ ] **BLOCCANTE prima di aprire pagamenti veri sul piano Pro** (trovato nel mega-controllo del
       12/09/2026, vedi `docs/analisi-concorrenti-mercato.md`): `Prezzi.tsx` pubblicizza "Tono
       dell'AI personalizzabile" su Pro, ma non esiste nessuna colonna/UI/collegamento reale al
@@ -455,7 +525,28 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       il task "Multi-utente/team reale" in Fase 6 sotto, che è il prerequisito dei ruoli.
 
 ## Fase 6 -- Automazioni e sicurezza (punti 16, 29, 30)
-- [ ] Motore di automazioni configurabili (reminder, follow-up, inattività, compleanno)
+- [ ] **Promemoria automatici -- BLOCCANTE prima di aprire pagamenti veri sul piano Growth**
+      (trovato nel controllo promesse del sito 13/09/2026, richiesto da Gabriel: "aggiungi tutte
+      le promesse del sito"): pubblicizzati come voce inclusa da Growth in su (`Prezzi.tsx`,
+      `Funzionalita.tsx`) e usati esplicitamente nel calcolo ROI della landing
+      (`ImpattoEconomico.tsx`: "Il promemoria automatico evita questa voce da solo", riferito ai
+      clienti dimenticati) -- **zero codice esiste**: nessun provider email (`grep` su tutto
+      `src/` per resend/nodemailer/sendgrid, zero risultati) né motore di invio automatico di
+      alcun tipo. Va costruito per intero: motore di automazioni configurabili (reminder prima
+      dell'appuntamento, follow-up clienti inattivi, promemoria compleanno), con almeno un canale
+      di invio reale (email è il più veloce da attivare, non dipende da Meta/costi SMS -- vedi
+      task email qui sotto). Stesso principio di "Il sito descrive il prodotto al lancio"
+      (DECISIONS.md 12/09/2026): non urgente finché non ci sono clienti Growth paganti reali, ma
+      è tra i più concreti da rispettare -- viene usato come argomento di vendita diretto
+      nel calcolo di risparmio mostrato a ogni visitatore, non solo elencato tra le funzioni.
+- [ ] **SMS -- BLOCCANTE prima di aprire pagamenti veri sul piano Pro** (trovato stesso giro,
+      13/09/2026): `Prezzi.tsx` elenca "SMS" come voce inclusa da Pro in su, e `Funzionalita.tsx`
+      la descrive esplicitamente ("Promemoria e conferme anche senza WhatsApp o smartphone") --
+      **zero codice, zero provider collegato** (nessun Twilio o equivalente in nessuna parte del
+      progetto). Nessun cliente Pro reale ancora, ma va costruito prima di incassare su quel
+      piano: serve un provider SMS (es. Twilio, costo a consumo -- valutare margine sul prezzo
+      Pro prima di sceglierlo) collegato allo stesso motore di automazioni/promemoria del punto
+      sopra, non un sistema di invio separato.
 - [x] **Deposito/caparra anti-no-show** (nuovo task, mega-controllo competitor 12/09/2026,
       CODICE FATTO 13/09/2026): gap reale verificato in TUTTO il software italiano di categoria
       (Estetia, Calendix, Skedula, WeGest, CutApp -- nessuno lo offre), standard invece nei

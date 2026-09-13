@@ -1,6 +1,27 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026 -- Gabriel ha detto "quando hai finito di controllare inizia
+Ultimo aggiornamento: 13/09/2026, secondo giro -- Gabriel ha chiesto di controllare che ogni
+promessa fatta sul sito ("aggiungi negli obiettivi tutte le promesse che ci sono nel sito se non
+le hai messe") sia davvero tracciata come obiettivo. Letto riga per riga tutto il copy della
+landing (Nav, Hero, ProdottoScroll, ComeFunziona, PrimaDopo, ImpattoEconomico, Vetrina,
+PercheNoi, Funzionalita, PerChi, Prezzi, Faq, CTAFinale, Footer) ed estratta ogni promessa
+concreta, verificata una per una contro il codice reale. Oltre alle due già note (Tono AI su
+Pro, Multi-sede su Enterprise), **trovate 4 promesse non ancora tracciate come task esplicito**:
+SMS (Pro, zero codice/provider, mai menzionato prima in nessun documento), Analytics/"andamento
+nel tempo" (Growth, task Analytics esisteva già ma non collegato a questa promessa specifica),
+Promemoria automatici (Growth, usati anche nel calcolo ROI di `ImpattoEconomico.tsx` come
+argomento di vendita diretto -- zero codice, nessun provider email/SMS/WhatsApp per invii
+automatici), PWA/app installabile (task già esisteva ma non collegato al fatto che è anche voce
+di prezzo Enterprise). Trovato anche un piccolo caso opposto: il piano Free pubblicizza "1
+operatore" ma nessun controllo tecnico lo applica (il prodotto fa più di quanto promesso, non
+meno -- rischio di revenue, non di reputazione). Tutto aggiunto in `PIANO.md`, nuova sezione
+"Gruppo E" con l'elenco completo verifica-per-verifica. Nessuna modifica di codice in questo
+giro, solo ricerca e documentazione. Nessuna di queste è urgente per il codice: sono tutte
+coperte dalla decisione già presa con Gabriel il 12/09/2026 ("il sito descrive il prodotto al
+lancio, non lo stato di oggi" -- vedi DECISIONS.md), cioè vanno costruite prima di aprire i
+pagamenti veri su quel piano, non prima di oggi.
+
+Aggiornamento precedente, 13/09/2026 -- Gabriel ha detto "quando hai finito di controllare inizia
 il lavoro seguendo gli md": fine della fase di sola documentazione, iniziata l'implementazione
 vera seguendo l'ordine di priorità di `PIANO.md` (Gruppo B, punto 1). **Costruito il Deposito/
 caparra anti-no-show** (Fase 6): configurabile per tenant (`/dashboard/impostazioni/caparra`,
