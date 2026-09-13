@@ -25,6 +25,9 @@ export default async function PaginaImpostazioni() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-8">
+      <a href="/dashboard" className="text-sm underline">
+        ← Dashboard
+      </a>
       <h1 className="text-xl font-semibold">Impostazioni</h1>
 
       <section className="max-w-md rounded border border-zinc-200 p-5">

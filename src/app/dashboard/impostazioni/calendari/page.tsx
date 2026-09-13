@@ -29,8 +29,8 @@ export default async function PaginaCalendariEsterni({
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard" className="text-sm underline">
-          ← Dashboard
+        <a href="/dashboard/impostazioni" className="text-sm underline">
+          ← Impostazioni
         </a>
         <h1 className="mt-2 text-xl font-semibold">Calendari personali</h1>
         <p className="mt-1 text-sm text-zinc-600">

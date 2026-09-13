@@ -1182,3 +1182,36 @@ valore più immediato; e le gradazioni di colore in particolare avrebbero senso 
 reali sulla densità di prenotazione, che oggi non esistono. Aggiunto come voce esplicita in
 Fase 7 (`PIANO.md`) invece di lasciarlo solo in questa conversazione, così non si perde quando
 si arriverà lì.
+
+---
+
+## 2026-09-13 — Bug di navigazione: `/dashboard/impostazioni` era un vicolo cieco
+
+**Cosa è successo**: Gabriel ha segnalato ("prima mancava un pulsante per tornare alle
+impostazioni da calendario, tono ai") un problema di navigazione notato in precedenza.
+Verificato pagina per pagina: `/dashboard/impostazioni` (l'indice delle impostazioni) non aveva
+NESSUN link per tornare alla Dashboard -- a differenza di ogni altra pagina della dashboard
+(`calendario`, `configura`, `lista-attesa`, `clienti`, e le sotto-pagine di impostazioni stesse
+come `tono-ai`/`caparra`, che hanno tutte un "← Dashboard" o "← Impostazioni"). Chi ci arrivava
+doveva usare il pulsante "indietro" del browser o modificare l'URL a mano. Trovata anche
+un'inconsistenza minore correlata: `/dashboard/impostazioni/calendari` linkava "← Dashboard"
+saltando il proprio genitore diretto ("Impostazioni"), diverso da `tono-ai`/`caparra` che invece
+tornano correttamente a "← Impostazioni".
+
+**Fix**: aggiunto "← Dashboard" a `/dashboard/impostazioni` (stesso pattern di
+`lista-attesa`/`calendario`/`configura`); corretto `/dashboard/impostazioni/calendari` da
+"← Dashboard" a "← Impostazioni", per coerenza con le altre due sotto-pagine di Impostazioni.
+Nessuna pagina della dashboard resta ora un vicolo cieco di navigazione.
+
+**Non fatto in questo giro** (segnalato a Gabriel, non deciso ancora): una barra di navigazione
+persistente su tutte le pagine `/dashboard/*` (come quella già presente solo sulla pagina
+Dashboard principale: Calendario | Clienti | Lista d'attesa | Configura | Impostazioni),
+invece dei singoli link "← indietro" pagina per pagina -- eviterebbe di dover sempre passare
+dalla Dashboard per spostarsi tra sezioni sorelle (es. da Calendario a Impostazioni in un solo
+click). Non l'ho fatto subito perché è un cambio strutturale più ampio (serve un
+`layout.tsx` condiviso sotto `/dashboard`, con una query del tenant ripetuta ad ogni
+navigazione) -- stesso tipo di scelta già discussa e rimandata alla Fase 7 per il calendario
+colorato: da confermare con Gabriel se vale la pena farlo ora o in quel giro dedicato.
+
+**Verifica**: `tsc --noEmit`, `eslint`, `next build` puliti (nessun test automatico dedicato,
+sono link statici in JSX senza logica da testare).
