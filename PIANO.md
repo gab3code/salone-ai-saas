@@ -64,10 +64,13 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
    il modulo resta silenziosamente disattivato (fail-open by design -- nessuna prenotazione si
    rompe, semplicemente non parte nessuna email). A differenza di Resend, Mailjet richiede anche
    un mittente validato PRIMA di poter inviare qualunque email (un click di conferma via email
-   dal pannello Mailjet, Account -> Sender addresses & domains -- vedi `.env.example`). Applicare
-   anche la migrazione `0015_email_cliente_caparra.sql` (aggiunge solo una colonna, stesso
-   rischio nullo delle altre migrazioni additive già applicate). Dettaglio completo in
-   `.env.example` e Gruppo B-bis punto 1 sotto.
+   dal pannello Mailjet, Account -> Sender addresses & domains -- vedi `.env.example`). Deciso di
+   usare per ora la tua Gmail personale come mittente di test (sapendo che rischia lo spam per
+   mancato allineamento SPF/DKIM col dominio gmail.com, non adatta a clienti reali -- da rivedere
+   con un dominio tuo quando ce l'avrai). ~~Applicare la migrazione
+   `0015_email_cliente_caparra.sql`~~ **FATTO 13/09/2026** (applicata da me al database reale su
+   tuo ok esplicito, verificata in `supabase_migrations.schema_migrations`). Dettaglio completo
+   in `.env.example` e Gruppo B-bis punto 1 sotto.
 
 ### Gruppo B -- Nuovo codice a priorità alta, trovato nel mega-controllo competitor di oggi
 1. ~~**Deposito/caparra anti-no-show** (Fase 6)~~ **CODICE FATTO 13/09/2026** (vedi Fase 6 e
@@ -103,12 +106,12 @@ per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
    alternative considerate e limitazioni oneste in DECISIONS.md.
    **Resta da fare, tocca a te (Gruppo A)**: validare un mittente sul pannello Mailjet (Account ->
    Sender addresses & domains, un click di conferma via email -- obbligatorio, Mailjet non ha un
-   mittente di test universale come Resend) e impostare `MJ_APIKEY_PUBLIC`/`MJ_APIKEY_PRIVATE`/
-   `MAILJET_FROM_EMAIL` (locale in `.env.local` + su Vercel), altrimenti il modulo resta
-   silenziosamente disattivato (nessuna email parte, ma nessuna prenotazione si rompe); applicare
-   la migrazione `0015_email_cliente_caparra.sql` al database reale (aggiunge solo una colonna,
-   stesso rischio nullo delle altre migrazioni additive già applicate) -- vedi `.env.example` per
-   i dettagli.
+   mittente di test universale come Resend; per ora userai la tua Gmail solo per il test, sapendo
+   che rischia lo spam per mancato allineamento SPF/DKIM, vedi PROJECT_STATUS.md) e impostare
+   `MJ_APIKEY_PUBLIC`/`MJ_APIKEY_PRIVATE`/`MAILJET_FROM_EMAIL` su Vercel (spunta "Sensitive"
+   consigliata per entrambe le chiavi). ~~Applicare la migrazione
+   `0015_email_cliente_caparra.sql` al database reale~~ **FATTO 13/09/2026** (applicata
+   direttamente da Claude su ok esplicito di Gabriel).
 2. **Il cliente finale non può gestire da solo la propria prenotazione** dopo averla fatta su
    `/s/[slug]` (cancellarla, spostarla) -- deve richiamare o riscrivere al salone. Ogni
    concorrente verificato (inclusa Estetia) offre questo. Si lega bene al punto sopra: il modo
@@ -760,6 +763,15 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
       testo a tre stati (`'manuale'|'ai'|'pubblico'`, stessa terna già usata altrove) su una
       tabella con dati reali già dentro -- non un cambio a rischio zero come gli altri fix di
       oggi, per questo rimandato invece di farlo subito.
+- [ ] **Nome mittente delle email fisso a "Salone AI" per tutti i tenant** (trovato 13/09/2026,
+      domanda diretta di Gabriel su cosa vede chi riceve l'email): `src/lib/email/mailjet.server.ts`
+      scrive sempre `Name: "Salone AI"` nel campo Da, uguale per ogni salone/professionista sulla
+      piattaforma -- un cliente che riceve la conferma non vede il nome del salone specifico. Non
+      bloccante per il test con un mittente Gmail personale (rimandato apposta a quando Gabriel
+      avrà un dominio proprio verificato su Mailjet, altrimenti il nome mittente conterebbe meno
+      del problema di deliverability già segnalato in DECISIONS.md), ma da correggere prima di
+      email a clienti reali: passare il nome del tenant (`tenants.nome`, già caricato in
+      `notifiche.server.ts`) invece della stringa fissa.
 
 ---
 

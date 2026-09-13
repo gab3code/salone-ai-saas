@@ -1350,3 +1350,33 @@ declaration del pacchetto, non per supposizione.
 **Verifica**: `tsc --noEmit`, `eslint`, `npx vitest run` (149/149, invariato: stesso numero di
 test, stesso comportamento esterno), `next build` tutti puliti. Non ancora verificato con un
 invio reale (serve il mittente validato sul pannello Mailjet, non ancora fatto).
+
+---
+
+## 2026-09-13 — Migrazione `0015_email_cliente_caparra.sql` applicata; Gmail come mittente di
+test provvisorio
+
+**Migrazione**: applicata da Claude direttamente al database reale (progetto Supabase
+`salone-ai-saas`, id `weeaggiqovnmtovdjzxy`) su richiesta esplicita di Gabriel ("fai tu la
+migraizone"), tramite gli strumenti MCP di Supabase collegati a questa sessione -- non più solo
+scritta e in attesa come le precedenti. Verificata in coda in
+`supabase_migrations.schema_migrations` (versione `20260913114832`, nome
+`email_cliente_caparra`) subito dopo l'applicazione.
+
+**Mittente Gmail come scelta temporanea**: Gabriel ha chiesto se poteva usare la propria email
+Gmail personale come mittente su Mailjet. Risposta onesta data prima di procedere: Google stesso
+lo sconsiglia esplicitamente nelle sue linee guida per mittenti (support.google.com/mail/answer/
+81126) -- un indirizzo `@gmail.com` inviato tramite un server terzo (Mailjet, non i server di
+Google) fallisce l'allineamento SPF/DKIM richiesto da DMARC, perché il record SPF di gmail.com
+autorizza solo l'infrastruttura di invio di Google. Il rischio è spam/scarto anche per email
+mandate a se stessi, indipendentemente dal fatto che l'indirizzo sia posseduto legittimamente.
+Messo a confronto con l'alternativa (comprare/collegare subito un dominio), Gabriel ha scelto
+esplicitamente la via Gmail-solo-per-test: verificare che il meccanismo funzioni end-to-end
+prima di investire in un dominio, accettando il limite di affidabilità per ora. Segnato in
+PIANO.md (Gruppo A punto 9) come scelta temporanea, da rivedere quando avrà un dominio proprio.
+
+**Limite aggiuntivo segnalato, non ancora corretto**: il nome mittente mostrato ai destinatari è
+fisso a "Salone AI" per qualunque tenant (`mailjet.server.ts`, campo `Name`) -- non il nome del
+salone/professionista specifico. Non bloccante per il test attuale, ma da correggere prima di
+email a clienti reali (usare `tenants.nome`, già caricato in `notifiche.server.ts`, invece della
+stringa fissa). Aggiunto come voce esplicita in `PIANO.md` Fase 7.
