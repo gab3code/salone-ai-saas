@@ -3,7 +3,13 @@
 import { useMemo, useState } from "react";
 import type { ServizioPubblico, OperatorePubblico } from "@/lib/pagina-pubblica.server";
 import { calcolaImportoCaparraCentesimi, type ConfigCaparra } from "@/lib/stripe/caparra";
-import { cercaSlotPubblici, prenotaPubblico, avviaPagamentoCaparra, type SlotPubblico } from "./azioni";
+import {
+  cercaSlotPubblici,
+  prenotaPubblico,
+  avviaPagamentoCaparra,
+  iscrivitiListaAttesaPubblico,
+  type SlotPubblico,
+} from "./azioni";
 
 /**
  * Flusso di prenotazione lato cliente (Fase 4, punto 15): servizio -> data ->
@@ -65,6 +71,11 @@ export default function FlussoPrenotazione({
   const [telefono, setTelefono] = useState("");
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  // Lista d'attesa (Fase 6): si attiva solo quando cercaSlotPubblici non trova
+  // niente per il giorno scelto -- prima di questa aggiunta il cliente che non
+  // passava dalla chat AI vedeva solo "prova un altro giorno" e usciva dal
+  // sito senza lasciare traccia (domanda diretta di Gabriel il 13/09/2026).
+  const [inCodaListaAttesa, setInCodaListaAttesa] = useState(false);
 
   const servizioScelto = useMemo(() => servizi.find((s) => s.id === servizioId) ?? null, [servizi, servizioId]);
   const nomeOperatore = (operatoreId: string) => operatori.find((o) => o.id === operatoreId)?.nome ?? "Operatore";
@@ -81,6 +92,7 @@ export default function FlussoPrenotazione({
   async function cercaDisponibilita() {
     setErrore(null);
     setInCorso(true);
+    setInCodaListaAttesa(false);
     try {
       const risultato = await cercaSlotPubblici(slug, servizioId, dataYMD);
       if (!risultato.ok) {
@@ -91,6 +103,43 @@ export default function FlussoPrenotazione({
       setPasso("slot");
     } catch {
       setErrore("Impossibile cercare la disponibilità, riprova.");
+    } finally {
+      setInCorso(false);
+    }
+  }
+
+  /**
+   * Iscrizione diretta alla lista d'attesa dal flusso di prenotazione (senza
+   * passare dalla chat AI) -- stessa unica funzione di scrittura di sempre
+   * (`aggiungiListaAttesaTenant`, punto 9 di CLAUDE.md) tramite
+   * `iscrivitiListaAttesaPubblico`. Nessun operatore specifico richiesto qui
+   * (il cliente ha scelto un giorno, non ancora un operatore -- non è mai
+   * arrivato allo step "slot" per poterne scegliere uno): va bene qualunque,
+   * più coerente con "voglio questo servizio quel giorno" che con l'aver già
+   * un preferito.
+   */
+  async function iscrivitiListaAttesa() {
+    if (!servizioScelto) return;
+    if (!nome.trim() || !telefono.trim()) {
+      setErrore("Inserisci nome e telefono per iscriverti alla lista d'attesa.");
+      return;
+    }
+    setErrore(null);
+    setInCorso(true);
+    try {
+      const risultato = await iscrivitiListaAttesaPubblico(slug, {
+        servizioId: servizioScelto.id,
+        dataPreferitaYMD: dataYMD,
+        clienteNome: nome,
+        clienteTelefono: telefono,
+      });
+      if (!risultato.ok) {
+        setErrore(risultato.errore);
+        return;
+      }
+      setInCodaListaAttesa(true);
+    } catch {
+      setErrore("Impossibile iscriverti alla lista d'attesa, riprova.");
     } finally {
       setInCorso(false);
     }
@@ -222,7 +271,42 @@ export default function FlussoPrenotazione({
             Orari disponibili -- {new Date(`${dataYMD}T00:00:00Z`).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}
           </h3>
           {slot.length === 0 ? (
-            <p className="text-sm text-zinc-600">Nessuna disponibilità in questo giorno, prova un altro giorno.</p>
+            inCodaListaAttesa ? (
+              <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+                Fatto -- se si libera un posto per {servizioScelto.nome} in questo giorno ti contattiamo noi.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-zinc-600">Nessuna disponibilità in questo giorno, prova un altro giorno.</p>
+                <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                  <p className="text-sm text-zinc-700">
+                    Oppure iscriviti alla lista d&apos;attesa: se qualcuno cancella, ti contattiamo noi.
+                  </p>
+                  <input
+                    type="text"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                    placeholder="Nome e cognome"
+                    className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="tel"
+                    value={telefono}
+                    onChange={(e) => setTelefono(e.target.value)}
+                    placeholder="Telefono"
+                    className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    disabled={inCorso}
+                    onClick={iscrivitiListaAttesa}
+                    className="self-start rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {inCorso ? "Iscrivo..." : "Iscrivimi alla lista d'attesa"}
+                  </button>
+                </div>
+              </div>
+            )
           ) : (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {slot.map((s) => (

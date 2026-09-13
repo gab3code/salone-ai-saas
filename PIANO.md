@@ -581,17 +581,22 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       questa prima versione notifica il TITOLARE -- banner immediato in
       `/dashboard/calendario` appena dopo la cancellazione + vista completa in
       `/dashboard/lista-attesa` (aggiungi/segna risolto/rimuovi a mano), da lì il contatto resta
-      manuale (telefonata/messaggio). Due punti di ingresso, stessa unica funzione di scrittura
+      manuale (telefonata/messaggio). Tre punti di ingresso, stessa unica funzione di scrittura
       (punto 9 CLAUDE.md): form manuale in dashboard (un cliente chiama e chiede di essere messo
-      in lista) e nuovo strumento AI `aggiungi_lista_attesa` (se `verifica_disponibilita` non
+      in lista), nuovo strumento AI `aggiungi_lista_attesa` (se `verifica_disponibilita` non
       trova nulla, l'AI offre di iscrivere il cliente invece di dire solo "non c'è
-      disponibilità" -- regola 8 del system prompt in agente.ts). Il match alla cancellazione
+      disponibilità" -- regola 8 del system prompt in agente.ts), e -- aggiunto lo stesso giorno
+      dopo la domanda diretta di Gabriel -- iscrizione diretta dal flusso di prenotazione
+      passo-passo (`iscrivitiListaAttesaPubblico` in `src/app/s/[slug]/azioni.ts`, quando
+      `cercaSlotPubblici` non trova slot per il giorno scelto: prima si vedeva solo "prova un
+      altro giorno" e si usciva dal sito senza lasciare traccia). Il match alla cancellazione
       resta silenzioso lato AI: se un cliente in chat cancella un appuntamento e scatta un
       match, il titolare lo vede in dashboard, ma l'AI non rivela mai dati di un altro cliente
       alla persona con cui sta chattando. `tsc`/`eslint`/`vitest` (136/136)/`build` puliti.
       Migrazione `0013_lista_attesa.sql` **applicata al database reale il 13/09/2026** (stesso
-      via libera già dato per 0011/0012). **Non ancora verificato dal vivo**: nessuna
-      cancellazione reale con un match ancora provata in un browser vero.
+      via libera già dato per 0011/0012); `0014_lista_attesa_pubblico.sql` (allarga
+      `creato_da` a `'pubblico'`) scritta, non ancora applicata. **Non ancora verificato dal
+      vivo**: nessuna cancellazione reale con un match ancora provata in un browser vero.
 - [ ] **Multi-utente/team reale** (nuovo task, secondo giro mega-controllo 12/09/2026): dare a
       ogni "operatore" un proprio login (invito via email, permessi limitati alla propria
       agenda) invece di essere solo un record gestito dal titolare -- prerequisito tecnico dei

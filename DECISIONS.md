@@ -1071,11 +1071,18 @@ notifica in tempo reale da cui dipendere) -- il titolare vede sempre il primo de
 compatibile con operatore/giorno richiesti (o chi non ne ha chiesti di specifici). (2) Se un
 cliente in chat con l'AI cancella un proprio appuntamento e scatta un match, l'AI non lo rivela
 MAI nella conversazione (sarebbe un dato personale di un altro cliente) -- il titolare lo scopre
-solo in dashboard, mai il cliente al telefono con l'AI. (3) Due punti di ingresso alla lista,
+solo in dashboard, mai il cliente al telefono con l'AI. (3) Tre punti di ingresso alla lista,
 stessa unica funzione di scrittura (`aggiungiListaAttesaTenant`, punto 9 di CLAUDE.md): un form
-manuale per lo staff (un cliente chiama per essere messo in lista) e un nuovo strumento AI
-(`aggiungi_lista_attesa`, usato quando `verifica_disponibilita` non trova nulla) -- mai due
-logiche di inserimento separate.
+manuale per lo staff, un nuovo strumento AI (`aggiungi_lista_attesa`, usato quando
+`verifica_disponibilita` non trova nulla), e -- aggiunto il 13/09/2026 dopo la domanda diretta
+di Gabriel ("ma il cliente può mettersi in lista d'attesa con l'AI o con la prenotazione online?
+senza che debba farlo lo staff?") -- un'iscrizione diretta dal flusso di prenotazione passo-passo
+(`iscrivitiListaAttesaPubblico` in `src/app/s/[slug]/azioni.ts`, mostrata quando
+`cercaSlotPubblici` non trova nessuno slot per il giorno scelto). Prima di questa aggiunta un
+cliente che non usava la chat AI vedeva solo "prova un altro giorno" e uscivo dal sito senza
+lasciare traccia -- gap reale, chiuso lo stesso giorno. `lista_attesa.creato_da` allargato da
+`'manuale'|'ai'` a `'manuale'|'ai'|'pubblico'` (migrazione `0014_lista_attesa_pubblico.sql`),
+stessa terna già usata da `appuntamenti.creato_da` per distinguere lo stesso terzo canale.
 
 **Verifica**: `tsc --noEmit`, `eslint`, `npx vitest run` (136/136, inclusi 11 test nuovi su
 `booking-engine.server.test.ts` -- match con/senza operatore/giorno richiesti, fail-open su

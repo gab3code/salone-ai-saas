@@ -8,6 +8,7 @@ import {
   creaAppuntamentoTenant,
   verificaConflittoTenant,
   parsaOrarioLocale,
+  aggiungiListaAttesaTenant,
 } from "@/lib/booking-engine.server";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
@@ -304,4 +305,55 @@ export async function avviaPagamentoCaparra(
   }
 
   return { ok: true, checkoutUrl: session.url };
+}
+
+export interface DatiListaAttesaPubblica {
+  servizioId: string;
+  operatoreId?: string; // assente = va bene qualunque operatore
+  dataPreferitaYMD?: string; // il giorno cercato in cercaSlotPubblici, per cui non c'era niente
+  clienteNome: string;
+  clienteTelefono: string;
+}
+
+/**
+ * Il cliente si iscrive DA SOLO alla lista d'attesa (Fase 6) quando
+ * `cercaSlotPubblici` non trova nessuno slot per il giorno scelto -- stesso
+ * bisogno del cliente in chat con l'AI (`aggiungi_lista_attesa` in
+ * src/lib/ai/tools.ts), stessa unica funzione di scrittura
+ * (`aggiungiListaAttesaTenant`, punto 9 di CLAUDE.md), solo un canale diverso
+ * per raggiungerla. Prima di questa server action l'unico modo per un
+ * cliente reale di finire in lista era chiederlo in chat o telefonare al
+ * salone -- chi prenotava dal flusso passo-passo senza usare la chat AI
+ * vedeva solo "nessuna disponibilità, prova un altro giorno" e uscivo dal
+ * sito senza lasciare traccia.
+ */
+export async function iscrivitiListaAttesaPubblico(
+  slug: string,
+  dati: DatiListaAttesaPubblica
+): Promise<RisultatoAzionePubblica> {
+  const clienteNome = dati.clienteNome.trim().slice(0, 200);
+  const clienteTelefono = dati.clienteTelefono.trim();
+
+  if (!dati.servizioId) return { ok: false, errore: "Servizio non specificato." };
+  if (!FORMATO_TELEFONO.test(clienteTelefono)) {
+    return { ok: false, errore: "Inserisci un numero di telefono valido." };
+  }
+  if (dati.dataPreferitaYMD && !FORMATO_DATA_YMD.test(dati.dataPreferitaYMD)) {
+    return { ok: false, errore: "Richiesta non valida." };
+  }
+
+  const supabase = creaClientAdmin();
+  const tenantId = await risolviTenantIdDaSlug(supabase, slug);
+  if (!tenantId) return { ok: false, errore: "Attività non trovata." };
+
+  const risultato = await aggiungiListaAttesaTenant(supabase, tenantId, {
+    servizioId: dati.servizioId,
+    operatoreId: dati.operatoreId,
+    dataPreferitaYMD: dati.dataPreferitaYMD,
+    clienteNome: clienteNome || undefined,
+    clienteTelefono,
+    creatoDa: "pubblico",
+  });
+  if (!risultato.ok) return { ok: false, errore: risultato.errore };
+  return { ok: true };
 }

@@ -676,7 +676,7 @@ export interface AggiungiListaAttesaParams {
   clienteTelefono: string;
   dataPreferitaYMD?: string; // "YYYY-MM-DD", assente = va bene qualunque giorno
   note?: string;
-  creatoDa: "manuale" | "ai";
+  creatoDa: "manuale" | "ai" | "pubblico";
 }
 
 /** Iscrive un cliente alla lista d'attesa per un servizio (Fase 6). */

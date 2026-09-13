@@ -1,6 +1,19 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, quinto giro -- Gabriel ha provato la lista d'attesa dal vivo
+Ultimo aggiornamento: 13/09/2026, sesto giro -- Gabriel ha chiesto se il cliente può iscriversi
+alla lista d'attesa da solo con l'AI o con la prenotazione online, senza lo staff. Risposta
+onesta: con l'AI sì (già costruito), dal flusso di prenotazione passo-passo no -- chi non usava
+la chat vedeva solo "nessuna disponibilità, prova un altro giorno" e uscivo dal sito senza
+lasciare traccia. Gap vero, chiuso lo stesso giorno: nuova server action pubblica
+`iscrivitiListaAttesaPubblico` (`src/app/s/[slug]/azioni.ts`) + un piccolo form inline (nome,
+telefono) mostrato in `FlussoPrenotazione.tsx` quando `cercaSlotPubblici` non trova slot --
+stessa unica funzione di scrittura di sempre (`aggiungiListaAttesaTenant`). `lista_attesa.creato_da`
+allargato da `'manuale'|'ai'` a `'manuale'|'ai'|'pubblico'` (migrazione
+`0014_lista_attesa_pubblico.sql`, stessa terna già usata da `appuntamenti.creato_da`).
+`tsc`/`eslint`/`vitest` (136/136)/`build` puliti. Migrazione scritta ma non ancora applicata al
+database reale, in attesa dell'ok di Gabriel.
+
+Aggiornamento precedente, 13/09/2026, quinto giro -- Gabriel ha provato la lista d'attesa dal vivo
 (aggiunti due clienti veri, Federico e Daniele) e non vedeva niente né in
 `/dashboard/lista-attesa` né sul calendario. Verificato subito via query diretta: le righe
 c'erano davvero nel database, tenant e servizio corretti -- quindi non un problema di
