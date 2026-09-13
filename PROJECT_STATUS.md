@@ -1,6 +1,30 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, undicesimo giro -- verificato via log Vercel che il fix del giro
+Ultimo aggiornamento: 13/09/2026, dodicesimo giro -- Gabriel ha confermato "ancora niente" dopo il
+giro precedente: nessuna delle due email del test è arrivata, nonostante i log Vercel non
+mostrassero errori. Trovata la causa reale controllando direttamente la dashboard Mailjet (accesso
+autorizzato da Gabriel, "usa anche mailjet se vuoi"): **Stats -> 0 email totali negli ultimi 7
+giorni sul sub-account giusto** ("salone-ai-saas", verificato incrociando il prefisso della API Key
+con quello citato nella notifica Mailjet ricevuta in precedenza) -- Mailjet non ha mai processato
+nessun invio per questo progetto. La causa: in **Account -> Domains and senders**, il mittente
+`gabrielmazzucchelli3@gmail.com` risulta ancora **Status: Pending**, non validato, nonostante
+Gabriel avesse detto in precedenza "comunque l'ho autenticata". Quindi il fix del giro precedente
+(l'enum rotto dal bundling) resta corretto e necessario, ma non è mai stato l'unico problema: senza
+un mittente validato, Mailjet accetta comunque la richiesta HTTP con `Status: "success"` (per questo
+il nostro codice non logga nessun errore -- fail-open che qui nasconde un problema reale, vedi nota
+sotto) ma probabilmente mette l'invio in una coda di attesa e non lo consegna mai, e infatti non
+compare da nessuna parte nelle statistiche Mailjet (nessun Queued/Delivered/Blocked). **Serve che
+Gabriel completi davvero la validazione**: dalla pagina "Domains and senders" di Mailjet, cliccare
+l'icona a ingranaggio sulla riga del mittente -> "Validate" -> "Send the confirmation email again",
+poi controllare la casella (anche spam) e cliccare sul link ricevuto. Una volta che lo Status passa
+da "Pending" a validato, rifare un ultimo test dal vivo dal flusso pubblico per la conferma finale.
+Nota per il futuro: il nostro `inviaEmail()` tratta `Status: "success"` come "ok, consegnato", ma
+evidentemente l'API di Mailjet può rispondere "success" anche per un invio poi bloccato a valle per
+mittente non validato -- il fail-open, corretto come principio (non deve mai far fallire una
+prenotazione), qui ha reso più lento diagnosticare il problema reale, perché sembrava tutto a posto
+lato nostro codice quando non lo era lato Mailjet.
+
+Aggiornamento precedente, 13/09/2026, undicesimo giro -- verificato via log Vercel che il fix del giro
 precedente (enum Mailjet rotto dal bundling Turbopack) è davvero in produzione e ha funzionato.
 Dopo il deploy del fix, Gabriel ha rifatto un test dal vivo sul **flusso pubblico** (non dashboard:
 il tenant di prova "Salone Test Claude" ha come titolare un indirizzo finto
