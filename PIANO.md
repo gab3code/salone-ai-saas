@@ -183,9 +183,19 @@ per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
    calendario, CRM -- non solo la landing, già fatta), PWA rifinita, performance percepita.
 
 ### Gruppo D -- Prima di pubblicare il link di un salone vero, non prima
-1. **Anti-abuso sulla prenotazione pubblica** (`/s/[slug]`): oggi solo il tetto mensile del piano
+1. ~~**Anti-abuso sulla prenotazione pubblica** (`/s/[slug]`): oggi solo il tetto mensile del piano
    Free protegge da un uso abusivo -- serve almeno un rate-limit per IP o una conferma
-   SMS/WhatsApp del numero prima di bloccare uno slot.
+   SMS/WhatsApp del numero prima di bloccare uno slot.~~ **CODICE FATTO 13/09/2026** (chiesto
+   esplicitamente da Gabriel: "altre cose per evitare abusi?"). Aggiunti due controlli in
+   `booking-engine.server.ts`, gate su `creatoDa === "pubblico"` (dashboard e AI non ne hanno
+   bisogno, hanno già le loro difese): 1) anti-burst -- stesso telefono non può ricreare un
+   appuntamento pubblico per lo stesso tenant a meno di 20 secondi dal precedente; 2) tetto di
+   volume -- non più di 8 scritture pubbliche (appuntamenti O lista d'attesa) per tenant ogni 10
+   minuti, a prescindere dal telefono usato (blocca uno script che ruota numeri finti). Zero nuove
+   tabelle/migrazioni: legge `created_at`/`creato_da`, colonne già esistenti. Fail-open come tutto
+   il resto del booking engine. Resta valido il punto più specifico -- una vera conferma SMS/
+   WhatsApp del numero -- ma richiederebbe un provider SMS a pagamento (nessuno integrato oggi),
+   quindi non incluso qui.
 2. **Pagine legali** (privacy/termini/cookie): gap reale, mai tracciato come task da nessuna
    parte prima di oggi (solo menzionato in `docs/analisi-estetia.md`) -- il progetto non ne ha
    nessuna. Ogni concorrente verificato le ha.

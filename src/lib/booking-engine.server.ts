@@ -445,6 +445,101 @@ async function superatoTettoPrenotazioniMensile(
   return (count ?? 0) >= limite;
 }
 
+// ---------------------------------------------------------------------
+// Anti-abuso sul canale pubblico (Gruppo D punto 1 di PIANO.md, chiesto
+// esplicitamente da Gabriel il 13/09/2026: "come evitiamo che il canale
+// pubblico, senza nessun login, venga usato per riempire il calendario di un
+// salone con prenotazioni finte?"). Prima di questo, l'unica difesa era il
+// tetto mensile del piano Free (superatoTettoPrenotazioniMensile sopra) --
+// che non protegge affatto un tenant a pagamento, e comunque non impedisce
+// una raffica concentrata in pochi minuti.
+//
+// Stesso principio già applicato alla chat AI in ai/limiti.ts: anti-burst
+// (lo stesso cliente non prenota due volte a raffica) + un tetto di volume
+// sul canale pubblico in una finestra breve (uno script che ruota numeri di
+// telefono diversi non aggira questo secondo controllo, a differenza del
+// primo). Si applica SOLO a creatoDa === "pubblico": il canale "manuale"
+// (dashboard, sempre dietro login) non ne ha bisogno, "ai" ha già i suoi
+// propri limiti dedicati. Zero nuove tabelle/migrazioni: entrambi i
+// controlli leggono `created_at`/`creato_da`, colonne che esistono già su
+// "appuntamenti" e "lista_attesa" fin dalla migrazione 0001/0013.
+//
+// Fail-open ovunque (stesso principio di superatoTettoPrenotazioniMensile):
+// un errore nel CONTROLLO anti-abuso non deve mai far sembrare fallita una
+// prenotazione vera.
+// ---------------------------------------------------------------------
+
+// Un vero cliente non prenota due volte a distanza di pochi secondi dalla
+// stessa pagina -- una cadenza più fitta è quasi certamente un doppio invio
+// accidentale o uno script, non una persona che sceglie di nuovo servizio e
+// orario a mano.
+const INTERVALLO_MINIMO_MS_STESSO_TELEFONO_PUBBLICO = 20_000;
+// Numeri di partenza, deliberatamente prudenti e facili da cambiare (stessa
+// nota onesta di ai/limiti.ts): un salone reale non riceve normalmente più
+// di una manciata di prenotazioni dirette in 10 minuti.
+const FINESTRA_MS_VOLUME_PUBBLICO = 10 * 60_000;
+const LIMITE_VOLUME_PUBBLICO_PER_FINESTRA = 8;
+
+async function contaRecentiCanalePubblico(
+  supabase: SupabaseClient,
+  tabella: "appuntamenti" | "lista_attesa",
+  tenantId: string,
+  daData: Date
+): Promise<number> {
+  const { count, error } = await supabase
+    .from(tabella)
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .eq("creato_da", "pubblico")
+    .gte("created_at", daData.toISOString());
+  if (error) return 0; // fail-open: un errore qui non deve mai bloccare una prenotazione vera
+  return count ?? 0;
+}
+
+async function volumePubblicoTroppoAlto(
+  supabase: SupabaseClient,
+  tabella: "appuntamenti" | "lista_attesa",
+  tenantId: string
+): Promise<boolean> {
+  const daData = new Date(Date.now() - FINESTRA_MS_VOLUME_PUBBLICO);
+  const conteggio = await contaRecentiCanalePubblico(supabase, tabella, tenantId, daData);
+  return conteggio >= LIMITE_VOLUME_PUBBLICO_PER_FINESTRA;
+}
+
+/**
+ * true se questo stesso numero di telefono ha già un appuntamento pubblico
+ * troppo recente per QUESTO tenant. Query in due passi (cliente poi
+ * appuntamento) invece di un join: `trovaOCreaCliente` non è ancora stato
+ * chiamato a questo punto (di proposito -- se il controllo blocca, meglio
+ * non aver già scritto un cliente nuovo per niente), quindi qui si legge
+ * solo, senza mai creare nulla.
+ */
+async function stessoTelefonoTroppoRecentePubblico(
+  supabase: SupabaseClient,
+  tenantId: string,
+  telefono: string
+): Promise<boolean> {
+  const { data: cliente } = await supabase
+    .from("clienti")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("telefono", telefono)
+    .maybeSingle();
+  if (!cliente) return false; // primo appuntamento di questo cliente: non può essere "troppo recente"
+
+  const { data: ultimo } = await supabase
+    .from("appuntamenti")
+    .select("created_at")
+    .eq("tenant_id", tenantId)
+    .eq("cliente_id", cliente.id)
+    .eq("creato_da", "pubblico")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!ultimo) return false;
+  return Date.now() - new Date(ultimo.created_at).getTime() < INTERVALLO_MINIMO_MS_STESSO_TELEFONO_PUBBLICO;
+}
+
 /**
  * Crea un appuntamento con la doppia difesa anti-conflitto: controllo
  * applicativo qui (messaggio chiaro), vincolo `niente_sovrapposizioni` a
@@ -461,6 +556,21 @@ export async function creaAppuntamentoTenant(
       errore:
         "Limite di prenotazioni del piano Free raggiunto per questo mese. Passa a un piano superiore per prenotazioni illimitate.",
     };
+  }
+
+  if (params.creatoDa === "pubblico") {
+    if (await volumePubblicoTroppoAlto(supabase, "appuntamenti", tenantId)) {
+      return {
+        ok: false,
+        errore: "Troppe prenotazioni in poco tempo per questa attività. Riprova tra qualche minuto o contattala direttamente.",
+      };
+    }
+    if (params.clienteTelefono && (await stessoTelefonoTroppoRecentePubblico(supabase, tenantId, params.clienteTelefono))) {
+      return {
+        ok: false,
+        errore: "Hai appena effettuato una prenotazione. Attendi qualche istante prima di riprovare.",
+      };
+    }
   }
 
   const { data: servizio } = await supabase
@@ -728,6 +838,17 @@ export async function aggiungiListaAttesaTenant(
   tenantId: string,
   params: AggiungiListaAttesaParams
 ): Promise<RisultatoScrittura<{ listaAttesaId: string }>> {
+  // Stesso tetto di volume del canale pubblico usato per gli appuntamenti
+  // sopra (vedi commento lì): niente anti-burst per telefono qui, una lista
+  // d'attesa finta è meno dannosa di un appuntamento finto (non occupa uno
+  // slot reale), ma vale comunque proteggerla da uno script che la riempie.
+  if (params.creatoDa === "pubblico" && (await volumePubblicoTroppoAlto(supabase, "lista_attesa", tenantId))) {
+    return {
+      ok: false,
+      errore: "Troppe richieste in poco tempo per questa attività. Riprova tra qualche minuto o contattala direttamente.",
+    };
+  }
+
   const { data: servizio } = await supabase
     .from("servizi")
     .select("id")

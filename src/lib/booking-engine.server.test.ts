@@ -450,6 +450,100 @@ describe("creaAppuntamentoTenant", () => {
     });
   });
 
+  // Anti-abuso sul canale pubblico (Gruppo D punto 1 di PIANO.md, chiesto
+  // esplicitamente da Gabriel il 13/09/2026): questi controlli si applicano
+  // SOLO a creatoDa === "pubblico" -- nessuno dei test sopra (tutti "manuale"
+  // o "ai") li attraversa, quindi restano invariati.
+  it("blocca il canale pubblico se il volume di prenotazioni pubbliche recenti per il tenant è troppo alto", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [rispostaTenantPiano("growth")] },
+      appuntamenti: { select: [{ data: null, error: null, count: 8 }] },
+    });
+    const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
+      operatoreId: OPERATORE_ID,
+      servizioId: SERVIZIO_ID,
+      inizio: INIZIO_PSEUDO,
+      creatoDa: "pubblico",
+    });
+    expect(risultato.ok).toBe(false);
+    if (!risultato.ok) expect(risultato.errore).toMatch(/Troppe prenotazioni/);
+  });
+
+  it("blocca il canale pubblico se lo stesso telefono ha appena prenotato (anti-burst)", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [rispostaTenantPiano("growth")] },
+      appuntamenti: {
+        select: [
+          { data: null, error: null, count: 0 }, // volume sotto soglia
+          { data: { created_at: new Date().toISOString() }, error: null }, // stesso cliente, appena prenotato
+        ],
+      },
+      clienti: { select: [{ data: { id: "cliente-esistente" }, error: null }] },
+    });
+    const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
+      operatoreId: OPERATORE_ID,
+      servizioId: SERVIZIO_ID,
+      inizio: INIZIO_PSEUDO,
+      clienteTelefono: "3331234567",
+      creatoDa: "pubblico",
+    });
+    expect(risultato.ok).toBe(false);
+    if (!risultato.ok) expect(risultato.errore).toMatch(/Attendi qualche istante/);
+  });
+
+  it("non blocca il canale pubblico se un cliente nuovo (mai visto) prenota, anche senza volume pregresso", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
+      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      appuntamenti: {
+        select: [
+          { data: null, error: null, count: 0 }, // volume sotto soglia
+          { data: [], error: null }, // verificaConflittoTenant: nessun conflitto
+        ],
+        insert: [{ data: { id: "nuovo-appuntamento" }, error: null }],
+      },
+      clienti: {
+        // Interrogata due volte: prima da stessoTelefonoTroppoRecentePubblico
+        // (nessun cliente esistente -> mai "troppo recente"), poi da
+        // trovaOCreaCliente (stesso esito, quindi ne crea uno nuovo sotto).
+        select: [
+          { data: null, error: null },
+          { data: null, error: null },
+        ],
+        insert: [{ data: { id: "cliente-nuovo" }, error: null }],
+      },
+    });
+    const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
+      operatoreId: OPERATORE_ID,
+      servizioId: SERVIZIO_ID,
+      inizio: INIZIO_PSEUDO,
+      clienteTelefono: "3339999999",
+      creatoDa: "pubblico",
+    });
+    expect(risultato.ok).toBe(true);
+  });
+
+  it("il canale pubblico procede normalmente se sotto entrambe le soglie anti-abuso", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
+      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      appuntamenti: {
+        select: [
+          { data: null, error: null, count: 0 }, // volume sotto soglia
+          { data: [], error: null }, // verificaConflittoTenant: nessun conflitto
+        ],
+        insert: [{ data: { id: "nuovo-appuntamento" }, error: null }],
+      },
+    });
+    const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
+      operatoreId: OPERATORE_ID,
+      servizioId: SERVIZIO_ID,
+      inizio: INIZIO_PSEUDO,
+      creatoDa: "pubblico", // senza clienteTelefono: salta del tutto il controllo anti-burst per telefono
+    });
+    expect(risultato.ok).toBe(true);
+  });
+
   it("traduce il vincolo Postgres 23P01 (race condition sfuggita al controllo applicativo) in un messaggio chiaro", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
@@ -729,5 +823,48 @@ describe("aggiungiListaAttesaTenant", () => {
       creatoDa: "manuale",
     });
     expect(risultato).toEqual({ ok: false, errore: "Errore aggiungendo alla lista d'attesa: timeout" });
+  });
+
+  // Anti-abuso sul canale pubblico (stesso principio di creaAppuntamentoTenant sopra).
+  it("blocca l'iscrizione pubblica se il volume recente di richieste per il tenant è troppo alto", async () => {
+    const supabase = creaSupabaseFinto({
+      lista_attesa: { select: [{ data: null, error: null, count: 8 }] },
+    });
+    const risultato = await aggiungiListaAttesaTenant(supabase, TENANT_ID, {
+      servizioId: SERVIZIO_ID,
+      clienteTelefono: "3331112222",
+      creatoDa: "pubblico",
+    });
+    expect(risultato.ok).toBe(false);
+    if (!risultato.ok) expect(risultato.errore).toMatch(/Troppe richieste/);
+  });
+
+  it("non blocca il canale 'manuale'/'ai' anche con volume alto in lista_attesa (il controllo è solo per 'pubblico')", async () => {
+    const supabase = creaSupabaseFinto({
+      servizi: { select: [{ data: { id: SERVIZIO_ID }, error: null }] },
+      lista_attesa: { insert: [{ data: { id: "attesa-1" }, error: null }] },
+    });
+    const risultato = await aggiungiListaAttesaTenant(supabase, TENANT_ID, {
+      servizioId: SERVIZIO_ID,
+      clienteTelefono: "3331112222",
+      creatoDa: "ai",
+    });
+    expect(risultato).toEqual({ ok: true, listaAttesaId: "attesa-1" });
+  });
+
+  it("il canale pubblico procede normalmente se sotto la soglia anti-abuso", async () => {
+    const supabase = creaSupabaseFinto({
+      servizi: { select: [{ data: { id: SERVIZIO_ID }, error: null }] },
+      lista_attesa: {
+        select: [{ data: null, error: null, count: 0 }],
+        insert: [{ data: { id: "attesa-1" }, error: null }],
+      },
+    });
+    const risultato = await aggiungiListaAttesaTenant(supabase, TENANT_ID, {
+      servizioId: SERVIZIO_ID,
+      clienteTelefono: "3331112222",
+      creatoDa: "pubblico",
+    });
+    expect(risultato).toEqual({ ok: true, listaAttesaId: "attesa-1" });
   });
 });

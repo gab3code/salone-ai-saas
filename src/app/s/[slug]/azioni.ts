@@ -32,14 +32,14 @@ import { calcolaImportoCaparraCentesimi, type ConfigCaparra } from "@/lib/stripe
  *   Postgres) e il tetto di prenotazioni mensili Free si applicano quindi
  *   automaticamente anche qui, senza bisogno di duplicarli.
  *
- * NOTA onestamente segnalata: a differenza di `/api/chat/[slug]` (che ha
- * anti-burst + quota mensile perché ogni messaggio ha un costo Anthropic
- * reale), qui non c'è ancora nessun anti-abuso specifico oltre al tetto
- * mensile del piano Free -- una prenotazione costa quasi zero da salvare, ma
- * uno script potrebbe comunque riempire il calendario di un salone con
- * prenotazioni finte. Accettabile per il primo rilascio (nessun salone reale
- * ancora pubblico), ma da rivedere prima del lancio pubblico -- vedi
- * PROJECT_STATUS.md.
+ * ANTI-ABUSO (Gruppo D punto 1 di PIANO.md, aggiunto 13/09/2026): oltre al
+ * tetto mensile del piano Free, `creaAppuntamentoTenant`/
+ * `aggiungiListaAttesaTenant` applicano ora anche per il canale "pubblico"
+ * un anti-burst per telefono (stesso numero, stesso tenant, non due volte a
+ * meno di 20s) e un tetto di volume (max 8 scritture pubbliche per tenant
+ * ogni 10 minuti) -- vedi i commenti in booking-engine.server.ts per il
+ * dettaglio. Non ancora inclusa una vera conferma SMS/WhatsApp del numero
+ * (richiederebbe un provider SMS a pagamento, nessuno integrato oggi).
  */
 
 const FORMATO_DATA_YMD = /^\d{4}-\d{2}-\d{2}$/;

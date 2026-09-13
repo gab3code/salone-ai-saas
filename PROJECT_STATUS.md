@@ -1,6 +1,38 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, sedicesimo giro -- bug reale trovato rileggendo
+Ultimo aggiornamento: 13/09/2026, diciassettesimo giro -- risposta a una domanda esplicita di
+Gabriel ("volevo chiederti se metteremo qualcosa... altre cose di sicurezza per non intasare i
+server" + "ma altre cose per evitare abusi?"). Implementato il punto già segnalato onestamente nel
+codice stesso (`azioni.ts`, Gruppo D #1 di PIANO.md): il canale pubblico di prenotazione
+(`/s/[slug]`, nessun login) non aveva NESSUN anti-abuso oltre al tetto mensile del piano Free, che
+non protegge affatto i piani a pagamento e comunque non impedisce una raffica concentrata in pochi
+minuti. Aggiunti due controlli in `booking-engine.server.ts`, applicati SOLO a
+`creatoDa === "pubblico"` (stesso principio già usato per la chat AI in `ai/limiti.ts`):
+1. **Anti-burst per telefono**: lo stesso numero non può ricreare un appuntamento pubblico per lo
+   stesso salone a meno di 20 secondi dal precedente.
+2. **Tetto di volume per tenant**: non più di 8 scritture pubbliche (appuntamenti O lista d'attesa,
+   controllate separatamente) per salone ogni 10 minuti, a prescindere dal numero di telefono usato
+   -- blocca uno script che ruota numeri finti, cosa che il controllo 1 da solo non fermerebbe.
+
+Zero nuove tabelle o migrazioni: entrambi i controlli leggono `created_at`/`creato_da`, colonne già
+esistenti dalla migrazione 0001/0013. Fail-open ovunque, stesso principio del resto del booking
+engine (un errore nel controllo anti-abuso non deve mai bloccare una prenotazione vera). **Cosa
+resta fuori, onestamente**: una vera conferma SMS/WhatsApp del numero (il rate-limit più solido
+citato in PIANO.md) richiede un provider SMS a pagamento, nessuno integrato oggi -- non implementato
+qui. 6 nuovi test in `booking-engine.server.test.ts` (sia il blocco sia il passaggio sotto soglia,
+sia per gli appuntamenti sia per la lista d'attesa). Verificato: `tsc --noEmit` pulito, `eslint`
+pulito, `npx vitest run` **158/158** (era 151), `next build` pulito.
+
+Sulla domanda più ampia di Gabriel ("evitare persone a caso, lasciare il servizio solo ai
+business"): risposta data in chat, non ancora implementata in codice -- è una scelta che cambia
+l'onboarding (attrito sulla conversione), quindi lasciata a una sua decisione esplicita. Opzioni
+valutate: dominio email business-only (sconsigliato, il target reale usa spesso gmail personale),
+Partita IVA obbligatoria con validazione del check digit (zero costi/API esterne, coerente col
+target B2B), verifica vera via VIES (gratis, più solida, aggiunge una chiamata esterna),
+approvazione manuale di ogni nuovo tenant (uccide la self-serve, ha senso solo a traffico bassissimo
+come ora). Nessun codice scritto finché Gabriel non sceglie.
+
+Aggiornamento precedente, 13/09/2026, sedicesimo giro -- bug reale trovato rileggendo
 `notifiche.server.ts` per capire come funzionano le email (contesto: giro precedente). Le email di
 conferma prenotazione usano già `tenant.nome` nell'oggetto e nel corpo (es. "Prenotazione
 confermata - Estetica Bianchi"), ma il **mittente visualizzato** in `mailjet.server.ts` era
