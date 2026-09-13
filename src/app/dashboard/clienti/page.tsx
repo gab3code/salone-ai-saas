@@ -97,18 +97,28 @@ export default async function PaginaClienti({
         </p>
       )}
 
-      <form className="mt-4 flex gap-2" action="/dashboard/clienti">
-        <input
-          type="text"
-          name="q"
-          defaultValue={q ?? ""}
-          placeholder="Cerca per nome o telefono..."
-          className="w-72 rounded border border-zinc-300 px-3 py-1.5 text-sm"
-        />
-        <button type="submit" className="rounded border border-zinc-300 px-3 py-1.5 text-sm">
-          Cerca
-        </button>
-      </form>
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <form className="flex gap-2" action="/dashboard/clienti">
+          <input
+            type="text"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Cerca per nome o telefono..."
+            className="w-72 rounded border border-zinc-300 px-3 py-1.5 text-sm"
+          />
+          <button type="submit" className="rounded border border-zinc-300 px-3 py-1.5 text-sm">
+            Cerca
+          </button>
+        </form>
+        {/* Esporta esattamente quello che la pagina sta mostrando (stessi
+            q/filtro), vedi export/route.ts -- "esporta quello che vedi". */}
+        <a
+          href={`/dashboard/clienti/export${q || filtro ? `?${new URLSearchParams({ ...(q ? { q } : {}), ...(filtro ? { filtro } : {}) })}` : ""}`}
+          className="shrink-0 rounded border border-zinc-300 px-3 py-1.5 text-sm"
+        >
+          Esporta CSV
+        </a>
+      </div>
 
       {error && <p className="mt-4 text-sm text-red-600">Errore caricando i clienti: {error.message}</p>}
 

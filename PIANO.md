@@ -486,9 +486,14 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       del prodotto. Aggiunto qui, non in Fase 6bis con la cassa. Implementato in
       `calcolaMetriche()` (due nuovi campi `incassiPrevistiCentesimi7Giorni`/`30Giorni`) + due
       nuove card in dashboard, test dedicato in `metriche.test.ts` (150/150 verdi).
-- [ ] **Export/import CSV clienti** (nuovo task, secondo giro mega-controllo 12/09/2026): visto
-      su Estetia, utile per un titolare che migra da un altro gestionale (abbassa l'attrito di
-      switch) o vuole i propri dati per un mailing esterno. Lavoro contenuto.
+- [x] ~~**Export CSV clienti**~~ **CODICE FATTO 13/09/2026** (nuovo task, secondo giro
+      mega-controllo 12/09/2026): route `/dashboard/clienti/export` (GET, autenticata) genera un
+      CSV con BOM UTF-8 (Excel su Windows non rompe gli accenti), rispettando gli stessi filtri
+      `q`/`filtro=inattivi` già presenti in `/dashboard/clienti` -- "esporta quello che vedi".
+      Formattazione CSV in una funzione pura dedicata (`src/lib/csv.ts`, escaping RFC 4180), 8
+      test dedicati. **Import NON incluso**: leggere un CSV esterno richiede validazione, anteprima
+      e gestione dei duplicati (telefono già esistente, righe malformate) -- lavoro non "contenuto"
+      quanto l'export, resta da fare a parte.
 - [ ] **Raccolta recensioni post-appuntamento** (nuovo task, stesso giro): nessun gestionale
       italiano verificato lo fa nativamente -- messaggio automatico dopo l'appuntamento che
       chiede una valutazione, mostrata poi sulla pagina pubblica del salone (Fase 4). Si appoggia

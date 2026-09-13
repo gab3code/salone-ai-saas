@@ -1,6 +1,21 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, diciottesimo giro -- Gabriel ha detto "continua con le funzioni,
+Ultimo aggiornamento: 13/09/2026, diciannovesimo giro -- continuo da solo (Gabriel al momento
+lavora da telefono, non può testare dal vivo). Implementata la metà "export" di "Export/import CSV
+clienti" (PIANO.md, secondo giro mega-controllo 12/09/2026): route `/dashboard/clienti/export`
+(GET autenticata, `ottieniTenantCorrente` verifica l'utente) genera un CSV con BOM UTF-8 (Excel su
+Windows altrimenti rompe gli accenti dei nomi italiani), rispettando gli stessi filtri `q`/
+`filtro=inattivi` già supportati da `/dashboard/clienti` -- principio "esporta quello che vedi",
+nessun comportamento nuovo da spiegare a parte. Formattazione estratta in una funzione pura
+dedicata (`src/lib/csv.ts`, escaping RFC 4180 per virgole/virgolette/ritorni a capo nei campi), 8
+test dedicati che coprono anche i casi limite (campi null, tag multipli, caratteri da escapare).
+**Import deliberatamente non incluso**: leggere un CSV esterno richiede validazione, anteprima e
+gestione dei duplicati (stesso telefono già esistente, righe malformate) -- lavoro via via più
+grande e rischioso (può creare dati sbagliati in un database reale) dell'export, che invece legge
+soltanto. Verificato: `tsc --noEmit` pulito, `eslint` pulito, `npx vitest run` **169/169** (era
+161), `next build` pulito (nuova rotta `/dashboard/clienti/export` compilata correttamente).
+
+Aggiornamento precedente, 13/09/2026, diciottesimo giro -- Gabriel ha detto "continua con le funzioni,
 lavora per molto tempo", quindi ho proseguito da solo sul PIANO.md. Fatti due allineamenti minori
 trovati rileggendo il file per intero: 1) la promessa "1 operatore" del piano Free (elencata in
 `Prezzi.tsx`) non era mai stata applicata tecnicamente -- aggiunta `limiteOperatori()` in
