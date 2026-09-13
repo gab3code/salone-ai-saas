@@ -706,7 +706,16 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
       serve anche una nuova query che calcoli la disponibilità di più giorni in anticipo (oggi
       `cercaSlotPubblici` calcola un giorno alla volta, solo dopo che il cliente lo sceglie) --
       per questo rimandata qui invece di farla subito, come da decisione con Gabriel lo stesso
-      giorno (vedi DECISIONS.md).
+      giorno (vedi DECISIONS.md). **Alternativa da valutare quando si arriva qui** (proposta di
+      Claude, Gabriel ha chiesto un parere): prima di costruire un calendario a griglia intero,
+      considerare un "prossimo posto libero" come scorciatoia principale -- dopo aver scelto il
+      servizio, mostrare subito il primissimo slot libero trovato (scansionando in avanti finché
+      non se ne trova uno) come pulsante primario, più una manciata di date alternative vicine
+      come chip cliccabili, invece di un intero mese colorato. Costa molto meno (nessun
+      componente calendario da costruire da zero, nessuna query su un mese intero) e per un
+      servizio con pochi slot probabilmente serve a più clienti reali (la maggior parte vuole
+      "il prima possibile", non naviga un calendario colorato) -- il calendario a griglia resta
+      comunque un miglioramento valido in più, non un'alternativa esclusiva.
 
 ---
 
