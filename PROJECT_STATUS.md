@@ -1,6 +1,30 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, nono giro -- Gabriel ha completato la sua parte (validato
+Ultimo aggiornamento: 13/09/2026, decimo giro -- **trovata e corretta la vera causa per cui
+nessuna email di notifica è mai partita**, dopo diversi cicli di troubleshooting sul mittente
+Mailjet (tutti indizi reali ma non la causa di fondo: prima `MAILJET_FROM_EMAIL` mancante su
+Vercel, poi il mittente Gmail non validato -- entrambi corretti da Gabriel, ma le email
+continuavano a non arrivare e su Mailjet Statistics non compariva nulla). Il pannello Vercel
+del progetto è risultato già autenticato nel browser di Gabriel (stessa sessione usata per i test
+sul sito) -- da lì, lettura diretta dei **log runtime** (Settings non serviva, bastava
+"Logs" nel progetto): ogni invio falliva con `TypeError: Cannot read properties of undefined
+(reading 'ResponseStatus')`. Causa reale: `src/lib/email/mailjet.server.ts` confrontava l'esito
+di Mailjet con l'enum `SendEmailV3_1.ResponseStatus.Success` importato da `node-mailjet` -- quel
+namespace esiste regolarmente sotto `vitest` (risoluzione moduli standard di Node), ma **risulta
+`undefined` nel bundle di produzione Next.js/Turbopack usato da Vercel**, quindi ogni invio andava
+in eccezione prima di completarsi. Bug invisibile a tutti gli 11 test dedicati (che mockano
+`node-mailjet` fornendo loro stessi un `SendEmailV3_1.ResponseStatus` funzionante) e a
+`tsc`/`eslint`/`build` (tutti puliti, è un problema di risoluzione moduli a runtime, non di tipi).
+**Corretto** confrontando con la stringa letterale `"success"` (il valore JSON reale che l'API di
+Mailjet restituisce) invece dell'enum -- `SendEmailV3_1` resta importato solo per i tipi
+(`.Response`, `.Body`), che si cancellano a compile-time e non soffrono di questo problema.
+`tsc`/`eslint`/`vitest` (149/149)/`build` puliti dopo la correzione. **Non ancora verificato con
+un nuovo invio reale** -- serve il deploy di questa correzione, poi un altro test dal vivo.
+Lezione per il futuro: quando un modulo di terze parti espone sia tipi che valori runtime tramite
+un unico namespace TypeScript, verificare il comportamento del valore anche nel bundle di
+produzione reale (non solo sotto `vitest`), specialmente con Turbopack.
+
+Aggiornamento precedente, 13/09/2026, nono giro -- Gabriel ha completato la sua parte (validato
 l'indirizzo Gmail su Mailjet, impostato `MJ_APIKEY_PUBLIC`/`MJ_APIKEY_PRIVATE`/`MAILJET_FROM_EMAIL`
 su Vercel) e ha chiesto di fare un test dal vivo dell'invio email. Eseguiti due test reali sul
 tenant di prova "Salone Test Claude" (produzione, `salone-3ad8c9ad`):

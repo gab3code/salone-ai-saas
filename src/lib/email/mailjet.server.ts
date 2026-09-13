@@ -77,7 +77,20 @@ export async function inviaEmail({ a, oggetto, html }: ParametriEmail): Promise<
     } satisfies SendEmailV3_1.Body);
 
     const esito = body.Messages[0];
-    if (esito?.Status !== SendEmailV3_1.ResponseStatus.Success) {
+    // Confrontato con la stringa letterale "success" (il valore JSON reale
+    // che l'API di Mailjet restituisce), non con l'enum `SendEmailV3_1.
+    // ResponseStatus.Success`: in produzione (build Next.js/Turbopack su
+    // Vercel) quel namespace risultava `undefined` a runtime -- pur
+    // esistendo regolarmente sotto `vitest` in locale/CI, che risolve il
+    // modulo in modo diverso da come lo bundlizza Turbopack. Il risultato
+    // era un'eccezione ad ogni singolo invio ("Cannot read properties of
+    // undefined (reading 'ResponseStatus')"), scoperta il 13/09/2026 solo
+    // grazie ai log runtime di Vercel durante un test dal vivo -- nessuna
+    // email è mai partita finché questo confronto è rimasto sull'enum.
+    // `SendEmailV3_1` resta importato solo per i tipi (`.Response`,
+    // `.Body` sopra), che si cancellano a compile-time e non soffrono di
+    // questo problema.
+    if (esito?.Status !== "success") {
       console.error(`[email] Mailjet ha rifiutato l'invio a ${a}:`, JSON.stringify(esito?.Errors));
       return false;
     }

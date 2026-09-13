@@ -1380,3 +1380,54 @@ fisso a "Salone AI" per qualunque tenant (`mailjet.server.ts`, campo `Name`) -- 
 salone/professionista specifico. Non bloccante per il test attuale, ma da correggere prima di
 email a clienti reali (usare `tenants.nome`, già caricato in `notifiche.server.ts`, invece della
 stringa fissa). Aggiunto come voce esplicita in `PIANO.md` Fase 7.
+
+---
+
+## 2026-09-13 — Bug reale trovato: `SendEmailV3_1.ResponseStatus` è `undefined` nel bundle di
+produzione Turbopack, nessuna email è mai partita
+
+**Sintomo**: dopo che Gabriel ha corretto in sequenza due problemi reali ma non risolutivi
+(`MAILJET_FROM_EMAIL` mancante su Vercel, poi mittente Gmail non validato su Mailjet), le email
+continuavano a non arrivare e su Mailjet Statistics/Activity feed non compariva **nessun**
+tentativo di invio -- come se il nostro codice non contattasse mai l'API.
+
+**Diagnosi**: il tool MCP di Vercel per questa sessione è rimasto per tutto il giro non
+autenticato correttamente sull'account di Gabriel (`list_teams` torna sempre vuoto). Soluzione
+trovata: il pannello web di Vercel risultava già loggato nel browser di Gabriel (la stessa
+sessione Chrome usata per i test sul sito) -- navigando lì manualmente (Progetto ->
+Environment Variables per confermare le tre chiavi presenti e su Production, poi Progetto ->
+Logs) si leggono i log runtime reali, cosa che il tool MCP non permetteva. Nei log:
+`TypeError: Cannot read properties of undefined (reading 'ResponseStatus')` ad ogni invio.
+
+**Causa**: in `src/lib/email/mailjet.server.ts` l'esito veniva confrontato con l'enum
+`SendEmailV3_1.ResponseStatus.Success`, importato da `node-mailjet`. Quel namespace esiste
+regolarmente sotto `vitest` (risoluzione moduli standard di Node in ambiente di test), ma
+**risulta `undefined` nel bundle di produzione Next.js/Turbopack** usato realmente da Vercel --
+un problema di interop CJS/ESM specifico del bundler, non del pacchetto in sé (verificato ancora
+una volta col grep nel compilato che l'enum esiste davvero a runtime in Node puro). Risultato:
+ogni singolo invio andava in eccezione subito dopo la chiamata HTTP a Mailjet, prima ancora di
+valutare se fosse andata a buon fine -- da cui il "niente in Statistics" (l'eccezione può
+scoppiare per una property-read su `undefined` indipendentemente da cosa Mailjet abbia
+effettivamente risposto).
+
+**Perché nessuno dei controlli automatici l'ha preso**: gli 11 test dedicati mockano
+`node-mailjet` fornendo loro stessi un `SendEmailV3_1.ResponseStatus` funzionante (necessario per
+scrivere asserzioni sui casi successo/errore), quindi non potevano notare che il modulo reale si
+comporta diversamente sotto Turbopack. `tsc`/`eslint`/`next build` sono tutti puliti perché è un
+problema di risoluzione moduli a runtime, non di tipi: TypeScript vede `SendEmailV3_1` come
+namespace valido a compile-time, il bundler poi lo perde silenziosamente a runtime.
+
+**Corretto**: confronto sostituito con la stringa letterale `"success"` (il valore JSON reale che
+l'API di Mailjet restituisce in `Messages[].Status`), eliminando la dipendenza dall'enum a
+runtime. `SendEmailV3_1` resta importato solo per i tipi (`.Response`, `.Body` via `satisfies`),
+che si cancellano a compile-time e non soffrono di questo problema di bundling.
+
+**Lezione generale**: quando un pacchetto di terze parti espone sia tipi che valori runtime
+tramite un unico namespace TypeScript, non fidarsi che un valore usato solo nei test/in locale si
+comporti allo stesso modo nel bundle di produzione reale (specialmente con Turbopack) -- preferire
+sempre, quando possibile, il confronto con valori letterali primitivi (stringhe, numeri) invece di
+enum/namespace importati per i controlli di runtime critici.
+
+**Verifica**: `tsc --noEmit`, `eslint` (puliti sui file toccati), `npx vitest run` (149/149,
+invariato), `next build` tutti puliti. **Non ancora verificato con un nuovo invio reale** -- serve
+il deploy di Gabriel, poi un altro test dal vivo.
