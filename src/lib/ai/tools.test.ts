@@ -104,6 +104,30 @@ describe("eseguiStrumento -- validazione input prima di toccare il database", ()
     expect(risultato.errore).toBeDefined();
   });
 
+  it("aggiungi_lista_attesa senza cliente_telefono restituisce un errore esplicito", async () => {
+    const risultato = await eseguiStrumento("aggiungi_lista_attesa", { servizio_id: "s1" }, ctx);
+    expect(risultato.errore).toBeDefined();
+  });
+
+  it("aggiungi_lista_attesa con il NOME del servizio invece del suo id restituisce un errore esplicito, non un crash", async () => {
+    const risultato = await eseguiStrumento(
+      "aggiungi_lista_attesa",
+      { servizio_id: "taglio", cliente_telefono: "3331234567" },
+      ctx
+    );
+    expect(risultato.errore).toBeDefined();
+    expect(String(risultato.errore)).toMatch(/elenca_servizi/);
+  });
+
+  it("aggiungi_lista_attesa con una data_preferita non nel formato YYYY-MM-DD restituisce un errore esplicito", async () => {
+    const risultato = await eseguiStrumento(
+      "aggiungi_lista_attesa",
+      { servizio_id: "11111111-1111-1111-1111-111111111111", cliente_telefono: "3331234567", data_preferita: "domani" },
+      ctx
+    );
+    expect(risultato.errore).toBeDefined();
+  });
+
   it("trasferisci_a_operatore non tocca il database e restituisce sempre il segnale", async () => {
     const risultato = await eseguiStrumento("trasferisci_a_operatore", { motivo: "richiesta esplicita" }, ctx);
     expect(risultato).toEqual({ trasferito: true, motivo: "richiesta esplicita" });

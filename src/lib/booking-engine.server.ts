@@ -569,23 +569,145 @@ export async function modificaAppuntamentoTenant(
   return { ok: true };
 }
 
+export interface ListaAttesaAvvisata {
+  id: string;
+  clienteNome: string | null;
+  clienteTelefono: string;
+}
+
+/**
+ * Lista d'attesa automatica alla cancellazione (Fase 6, PIANO.md Gruppo B
+ * punto 3): dopo aver cancellato l'appuntamento, cerca il primo cliente in
+ * coda (FIFO su created_at) per lo STESSO servizio che accetta anche questo
+ * operatore ("operatore_id" null in lista_attesa = va bene qualunque) e
+ * questo giorno ("data_preferita" null = va bene qualunque giorno). Nessuna
+ * notifica diretta al cliente qui (zero provider email/SMS oggi, vedi
+ * PIANO.md "Gruppo B-bis" punto 1): la riga passa solo a stato "proposto",
+ * il titolare la vede in /dashboard/lista-attesa e contatta il cliente a
+ * mano. Fail-open per qualunque errore qui dentro: una lista d'attesa che
+ * non risponde non deve MAI far fallire la cancellazione vera, che è già
+ * andata a buon fine quando questa funzione viene chiamata.
+ */
+async function trovaEAvvisaListaAttesa(
+  supabase: SupabaseClient,
+  tenantId: string,
+  appuntamentoCancellato: {
+    servizio_id?: string | null;
+    operatore_id?: string | null;
+    inizio?: string | null;
+  }
+): Promise<ListaAttesaAvvisata | null> {
+  const { servizio_id: servizioId, operatore_id: operatoreId, inizio } = appuntamentoCancellato;
+  if (!servizioId || !operatoreId || !inizio) return null;
+
+  try {
+    const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
+    // "Giorno civile" dello slot liberato, nella stessa convenzione con cui
+    // viene salvata data_preferita (colonna "date", scelta dal cliente/AI
+    // guardando un calendario -- mai un istante reale).
+    const giornoLiberatoYMD = realeAPseudoUtc(new Date(inizio), fusoOrario).toISOString().slice(0, 10);
+
+    const { data: candidati, error } = await supabase
+      .from("lista_attesa")
+      .select("id, cliente_nome, cliente_telefono, operatore_id, data_preferita")
+      .eq("tenant_id", tenantId)
+      .eq("servizio_id", servizioId)
+      .eq("stato", "in_attesa")
+      .order("created_at", { ascending: true });
+    if (error || !candidati) return null;
+
+    // Filtro in JS, non nella query: l'OR "operatore_id è null OPPURE è
+    // questo" (idem per data_preferita) è più chiaro qui che con `.or(...)`
+    // di PostgREST, e la lista per un singolo tenant/servizio resta piccola.
+    const match = (
+      candidati as { id: string; cliente_nome: string | null; cliente_telefono: string; operatore_id: string | null; data_preferita: string | null }[]
+    ).find(
+      (c) =>
+        (c.operatore_id === null || c.operatore_id === operatoreId) &&
+        (c.data_preferita === null || c.data_preferita === giornoLiberatoYMD)
+    );
+    if (!match) return null;
+
+    const { error: erroreUpdate } = await supabase
+      .from("lista_attesa")
+      .update({
+        stato: "proposto",
+        slot_liberato_inizio: inizio,
+        slot_liberato_operatore_id: operatoreId,
+      })
+      .eq("id", match.id)
+      .eq("tenant_id", tenantId);
+    if (erroreUpdate) return null;
+
+    return { id: match.id, clienteNome: match.cliente_nome, clienteTelefono: match.cliente_telefono };
+  } catch {
+    return null;
+  }
+}
+
 export async function cancellaAppuntamentoTenant(
   supabase: SupabaseClient,
   tenantId: string,
   appuntamentoId: string
-): Promise<RisultatoScrittura> {
-  // .select("id") dopo .update() fa tornare le righe modificate -- se
-  // l'array è vuoto, l'id non esisteva (o non era di questo tenant): più
-  // affidabile di un conteggio HEAD, che qui su questa versione di
-  // postgrest-js è disponibile solo sul .select() iniziale, non dopo update.
+): Promise<RisultatoScrittura<{ listaAttesaAvvisata?: ListaAttesaAvvisata }>> {
+  // .select(...) dopo .update() fa tornare le righe modificate -- se l'array
+  // è vuoto, l'id non esisteva (o non era di questo tenant): più affidabile
+  // di un conteggio HEAD, che qui su questa versione di postgrest-js è
+  // disponibile solo sul .select() iniziale, non dopo update. servizio_id/
+  // operatore_id/inizio servono SOLO per il controllo lista d'attesa sotto.
   const { data, error } = await supabase
     .from("appuntamenti")
     .update({ stato: "cancellato" })
     .eq("id", appuntamentoId)
     .eq("tenant_id", tenantId)
-    .select("id");
+    .select("id, servizio_id, operatore_id, inizio");
 
   if (error) return { ok: false, errore: `Errore cancellando l'appuntamento: ${error.message}` };
   if (!data || data.length === 0) return { ok: false, errore: "Appuntamento non trovato." };
-  return { ok: true };
+
+  const listaAttesaAvvisata = await trovaEAvvisaListaAttesa(supabase, tenantId, data[0]);
+  return listaAttesaAvvisata ? { ok: true, listaAttesaAvvisata } : { ok: true };
+}
+
+export interface AggiungiListaAttesaParams {
+  servizioId: string;
+  operatoreId?: string; // assente = va bene qualunque operatore
+  clienteNome?: string;
+  clienteTelefono: string;
+  dataPreferitaYMD?: string; // "YYYY-MM-DD", assente = va bene qualunque giorno
+  note?: string;
+  creatoDa: "manuale" | "ai";
+}
+
+/** Iscrive un cliente alla lista d'attesa per un servizio (Fase 6). */
+export async function aggiungiListaAttesaTenant(
+  supabase: SupabaseClient,
+  tenantId: string,
+  params: AggiungiListaAttesaParams
+): Promise<RisultatoScrittura<{ listaAttesaId: string }>> {
+  const { data: servizio } = await supabase
+    .from("servizi")
+    .select("id")
+    .eq("id", params.servizioId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!servizio) return { ok: false, errore: "Servizio non trovato." };
+
+  const { data, error } = await supabase
+    .from("lista_attesa")
+    .insert({
+      tenant_id: tenantId,
+      servizio_id: params.servizioId,
+      operatore_id: params.operatoreId ?? null,
+      cliente_nome: params.clienteNome ?? null,
+      cliente_telefono: params.clienteTelefono,
+      data_preferita: params.dataPreferitaYMD ?? null,
+      note: params.note ?? null,
+      creato_da: params.creatoDa,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { ok: false, errore: `Errore aggiungendo alla lista d'attesa: ${error.message}` };
+  return { ok: true, listaAttesaId: data.id };
 }

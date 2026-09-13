@@ -7,6 +7,7 @@ import {
   creaAppuntamentoTenant,
   modificaAppuntamentoTenant,
   cancellaAppuntamentoTenant,
+  aggiungiListaAttesaTenant,
 } from "./booking-engine.server";
 import type { AppuntamentoEsistente } from "./booking-engine";
 
@@ -555,5 +556,153 @@ describe("cancellaAppuntamentoTenant", () => {
     });
     const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
     expect(risultato).toEqual({ ok: false, errore: "Errore cancellando l'appuntamento: timeout" });
+  });
+
+  // Lista d'attesa automatica (Fase 6, PIANO.md Gruppo B punto 3): la riga
+  // restituita da .update(...).select(...) ora porta anche servizio_id/
+  // operatore_id/inizio, usati SOLO per cercare un match in lista_attesa.
+  describe("lista d'attesa automatica alla cancellazione", () => {
+    const RIGA_CANCELLATA = {
+      id: "appuntamento-1",
+      servizio_id: SERVIZIO_ID,
+      operatore_id: OPERATORE_ID,
+      inizio: INIZIO_REALE_ISO, // 2026-07-15T14:00 reale = 2026-07-15T16:00 civile Roma (CEST)
+    };
+
+    it("trova il primo in coda (nessun operatore/giorno richiesto) e lo marca 'proposto'", async () => {
+      const supabase = creaSupabaseFinto({
+        appuntamenti: { update: [{ data: [RIGA_CANCELLATA], error: null }] },
+        tenants: { select: [rispostaTenantFuso()] },
+        lista_attesa: {
+          select: [
+            {
+              data: [{ id: "attesa-1", cliente_nome: "Maria", cliente_telefono: "3331112222", operatore_id: null, data_preferita: null }],
+              error: null,
+            },
+          ],
+          update: [{ data: null, error: null }],
+        },
+      });
+
+      const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
+      expect(risultato).toEqual({
+        ok: true,
+        listaAttesaAvvisata: { id: "attesa-1", clienteNome: "Maria", clienteTelefono: "3331112222" },
+      });
+      expect(supabase.registro.update[1]).toMatchObject({
+        tabella: "lista_attesa",
+        payload: { stato: "proposto", slot_liberato_operatore_id: OPERATORE_ID },
+      });
+    });
+
+    it("nessun candidato in coda per questo servizio: cancellazione ok, nessun avviso", async () => {
+      const supabase = creaSupabaseFinto({
+        appuntamenti: { update: [{ data: [RIGA_CANCELLATA], error: null }] },
+        tenants: { select: [rispostaTenantFuso()] },
+        lista_attesa: { select: [{ data: [], error: null }] },
+      });
+
+      const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
+      expect(risultato).toEqual({ ok: true });
+    });
+
+    it("scarta un candidato che vuole un altro operatore, tiene chi accetta qualunque operatore (FIFO)", async () => {
+      const supabase = creaSupabaseFinto({
+        appuntamenti: { update: [{ data: [RIGA_CANCELLATA], error: null }] },
+        tenants: { select: [rispostaTenantFuso()] },
+        lista_attesa: {
+          select: [
+            {
+              data: [
+                { id: "attesa-1", cliente_nome: "Luca", cliente_telefono: "1", operatore_id: "un-altro-operatore", data_preferita: null },
+                { id: "attesa-2", cliente_nome: "Sara", cliente_telefono: "2", operatore_id: null, data_preferita: null },
+              ],
+              error: null,
+            },
+          ],
+          update: [{ data: null, error: null }],
+        },
+      });
+
+      const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
+      expect(risultato).toEqual({
+        ok: true,
+        listaAttesaAvvisata: { id: "attesa-2", clienteNome: "Sara", clienteTelefono: "2" },
+      });
+    });
+
+    it("scarta un candidato che vuole un altro giorno rispetto allo slot liberato", async () => {
+      const supabase = creaSupabaseFinto({
+        appuntamenti: { update: [{ data: [RIGA_CANCELLATA], error: null }] },
+        tenants: { select: [rispostaTenantFuso()] },
+        lista_attesa: {
+          select: [
+            {
+              // Lo slot liberato è il 2026-07-15 (civile Roma) -- questo cliente vuole un altro giorno.
+              data: [{ id: "attesa-1", cliente_nome: "Luca", cliente_telefono: "1", operatore_id: null, data_preferita: "2026-08-01" }],
+              error: null,
+            },
+          ],
+        },
+      });
+
+      const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
+      expect(risultato).toEqual({ ok: true });
+    });
+
+    it("un errore nel controllo lista d'attesa non fa fallire la cancellazione (fail-open)", async () => {
+      const supabase = creaSupabaseFinto({
+        appuntamenti: { update: [{ data: [RIGA_CANCELLATA], error: null }] },
+        tenants: { select: [rispostaTenantFuso()] },
+        lista_attesa: { select: [{ data: null, error: { message: "timeout" } }] },
+      });
+
+      const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
+      expect(risultato).toEqual({ ok: true });
+    });
+  });
+});
+
+describe("aggiungiListaAttesaTenant", () => {
+  it("restituisce un errore esplicito se il servizio non esiste (o è di un altro tenant)", async () => {
+    const supabase = creaSupabaseFinto({
+      servizi: { select: [{ data: null, error: null }] },
+    });
+    const risultato = await aggiungiListaAttesaTenant(supabase, TENANT_ID, {
+      servizioId: SERVIZIO_ID,
+      clienteTelefono: "3331112222",
+      creatoDa: "manuale",
+    });
+    expect(risultato).toEqual({ ok: false, errore: "Servizio non trovato." });
+  });
+
+  it("inserisce la riga, con operatore/data preferita a null quando non specificati", async () => {
+    const supabase = creaSupabaseFinto({
+      servizi: { select: [{ data: { id: SERVIZIO_ID }, error: null }] },
+      lista_attesa: { insert: [{ data: { id: "attesa-1" }, error: null }] },
+    });
+    const risultato = await aggiungiListaAttesaTenant(supabase, TENANT_ID, {
+      servizioId: SERVIZIO_ID,
+      clienteTelefono: "3331112222",
+      creatoDa: "ai",
+    });
+    expect(risultato).toEqual({ ok: true, listaAttesaId: "attesa-1" });
+    expect(supabase.registro.insert[0]).toMatchObject({
+      tabella: "lista_attesa",
+      payload: { operatore_id: null, data_preferita: null, note: null, creato_da: "ai" },
+    });
+  });
+
+  it("propaga un errore di inserimento come messaggio leggibile", async () => {
+    const supabase = creaSupabaseFinto({
+      servizi: { select: [{ data: { id: SERVIZIO_ID }, error: null }] },
+      lista_attesa: { insert: [{ data: null, error: { message: "timeout" } }] },
+    });
+    const risultato = await aggiungiListaAttesaTenant(supabase, TENANT_ID, {
+      servizioId: SERVIZIO_ID,
+      clienteTelefono: "3331112222",
+      creatoDa: "manuale",
+    });
+    expect(risultato).toEqual({ ok: false, errore: "Errore aggiungendo alla lista d'attesa: timeout" });
   });
 });

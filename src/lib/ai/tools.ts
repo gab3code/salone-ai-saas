@@ -5,6 +5,7 @@ import {
   creaAppuntamentoTenant,
   modificaAppuntamentoTenant,
   cancellaAppuntamentoTenant,
+  aggiungiListaAttesaTenant,
   parsaOrarioLocale,
 } from "@/lib/booking-engine.server";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
@@ -151,6 +152,27 @@ export const STRUMENTI_AI = [
     },
   },
   {
+    name: "aggiungi_lista_attesa",
+    description:
+      "Iscrive il cliente alla lista d'attesa per un servizio, da usare SOLO dopo che verifica_disponibilita non ha trovato nessuno slot per quello che il cliente chiedeva. Se in seguito si libera un posto adatto (es. per una cancellazione), il salone lo contatta -- non è una prenotazione, non blocca nessuno slot.",
+    input_schema: {
+      type: "object",
+      properties: {
+        servizio_id: { type: "string" },
+        operatore_id: { type: "string", description: "Opzionale: solo se il cliente vuole proprio quell'operatore." },
+        data_preferita: {
+          type: "string",
+          description:
+            "Opzionale, formato YYYY-MM-DD: solo se il cliente ha in mente un giorno preciso. Se qualunque giorno va bene, ometti questo campo.",
+        },
+        cliente_nome: { type: "string" },
+        cliente_telefono: { type: "string" },
+        note: { type: "string" },
+      },
+      required: ["servizio_id", "cliente_telefono"],
+    },
+  },
+  {
     name: "trasferisci_a_operatore",
     description:
       "Passa la conversazione a un operatore umano -- usalo quando la richiesta è ambigua oltre quanto puoi risolvere, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare da solo.",
@@ -175,6 +197,8 @@ const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 function eUuidValido(valore: unknown): valore is string {
   return typeof valore === "string" && FORMATO_UUID.test(valore);
 }
+
+const FORMATO_DATA_YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Esegue lo strumento richiesto dal modello e restituisce SEMPRE un oggetto
@@ -398,6 +422,39 @@ async function eseguiStrumentoInterno(
       const risultato = await cancellaAppuntamentoTenant(supabase, tenantId, appuntamentoId);
       if (!risultato.ok) return { errore: risultato.errore };
       return { cancellato: true };
+    }
+
+    case "aggiungi_lista_attesa": {
+      const { servizio_id, operatore_id, data_preferita, cliente_nome, cliente_telefono, note } = input as Record<
+        string,
+        unknown
+      >;
+      if (typeof servizio_id !== "string" || typeof cliente_telefono !== "string" || !cliente_telefono.trim()) {
+        return { errore: "servizio_id e cliente_telefono sono obbligatori." };
+      }
+      if (!eUuidValido(servizio_id)) {
+        return {
+          errore: "servizio_id deve essere l'id esatto (uuid) restituito da elenca_servizi, non il suo nome.",
+        };
+      }
+      if (operatore_id !== undefined && !eUuidValido(operatore_id)) {
+        return { errore: "operatore_id deve essere l'id esatto (uuid) restituito da elenca_operatori." };
+      }
+      if (data_preferita !== undefined && (typeof data_preferita !== "string" || !FORMATO_DATA_YMD.test(data_preferita))) {
+        return { errore: "data_preferita deve essere nel formato YYYY-MM-DD." };
+      }
+
+      const risultato = await aggiungiListaAttesaTenant(supabase, tenantId, {
+        servizioId: servizio_id,
+        operatoreId: typeof operatore_id === "string" ? operatore_id : undefined,
+        dataPreferitaYMD: typeof data_preferita === "string" ? data_preferita : undefined,
+        clienteNome: typeof cliente_nome === "string" ? cliente_nome : undefined,
+        clienteTelefono: cliente_telefono,
+        note: typeof note === "string" ? note : undefined,
+        creatoDa: "ai",
+      });
+      if (!risultato.ok) return { errore: risultato.errore };
+      return { iscritto: true };
     }
 
     case "trasferisci_a_operatore": {

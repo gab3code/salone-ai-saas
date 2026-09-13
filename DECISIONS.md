@@ -1028,3 +1028,57 @@ livello.
 `agente.test.ts` che verificano sia il cambio di tono sia la sanitizzazione della nota -- a capo/
 tab rimossi, troncamento a 300 caratteri esatti), `next build` -- tutti puliti. Migrazione
 `0012_tono_ai.sql` applicata al database reale con lo stesso via libera di Gabriel.
+
+**Aggiornamento 13/09/2026**: verificato anche dal vivo, su richiesta esplicita di Gabriel
+("puoi provare tu a vedere se funziona usando il sito?"). Collegata l'estensione Chrome (dopo
+un riavvio lato Gabriel -- non risultava connessa all'inizio), elevato temporaneamente a Pro il
+tenant di test `salone-bc163ecf`, impostato "informale con emoji" + nota "Chiamaci sempre
+studio, mai negozio" e interagito con la chat pubblica vera su `/s/salone-bc163ecf`: la
+risposta di baseline (tono professionale, default) non aveva emoji; con lo stile cambiato è
+comparsa un'emoji, e alla domanda "come si chiama il vostro negozio?" l'assistente ha risposto
+correggendo attivamente "è uno **studio**, non un negozio" -- la nota del titolare applicata
+correttamente, senza che l'AI inventasse nessun prezzo/disponibilità in più. Tenant di test
+riportato subito dopo a "professionale"/nota vuota.
+
+---
+
+## 2026-09-13 — Lista d'attesa automatica alla cancellazione: notifica al TITOLARE, non al
+cliente
+
+**Decisione**: quando una cancellazione libera uno slot compatibile con un cliente in coda
+(Fase 6, PIANO.md Gruppo B punto 3), il sistema marca la sua riga "proposto" e la mostra al
+titolare (banner immediato in `/dashboard/calendario` + vista completa in
+`/dashboard/lista-attesa`) -- il contatto vero e proprio al cliente (telefonata/messaggio)
+resta manuale, nessun messaggio automatico parte da solo verso il cliente.
+
+**Alternativa considerata**: inviare subito un SMS/email automatico al cliente in lista
+("si è liberato un posto, vuoi confermarlo?").
+
+**Motivazione dello scarto**: non è una scelta di design, è un vincolo tecnico onesto -- oggi
+il progetto non ha NESSUN provider email/SMS collegato (zero Resend/Postmark/Twilio/nodemailer
+in tutto il codice, gap già tracciato in PIANO.md "Gruppo B-bis" punto 1, "Nessuna notifica
+email, né per il titolare né per il cliente"). Costruire quell'infrastruttura solo per questa
+funzione avrebbe reso "lista d'attesa" un lavoro molto più grande di quanto la sua priorità
+giustifichi oggi, e l'avrebbe duplicata invece di condividerla con il futuro motore di
+promemoria/notifiche (già previsto in Fase 6). Notificare il titolare invece del cliente resta
+comunque un miglioramento reale rispetto a "nessuna lista d'attesa": oggi, a una cancellazione,
+lo slot liberato spariva semplicemente senza che nessuno lo sapesse. Quando l'email/SMS
+esisterà, l'invio automatico al cliente si costruirà SOPRA questa stessa tabella (stesso stato
+"proposto" da usare come trigger), non la sostituirà.
+
+**Altre scelte di design**: (1) match FIFO su `created_at`, non per "primo che risponde" (niente
+notifica in tempo reale da cui dipendere) -- il titolare vede sempre il primo della coda che è
+compatibile con operatore/giorno richiesti (o chi non ne ha chiesti di specifici). (2) Se un
+cliente in chat con l'AI cancella un proprio appuntamento e scatta un match, l'AI non lo rivela
+MAI nella conversazione (sarebbe un dato personale di un altro cliente) -- il titolare lo scopre
+solo in dashboard, mai il cliente al telefono con l'AI. (3) Due punti di ingresso alla lista,
+stessa unica funzione di scrittura (`aggiungiListaAttesaTenant`, punto 9 di CLAUDE.md): un form
+manuale per lo staff (un cliente chiama per essere messo in lista) e un nuovo strumento AI
+(`aggiungi_lista_attesa`, usato quando `verifica_disponibilita` non trova nulla) -- mai due
+logiche di inserimento separate.
+
+**Verifica**: `tsc --noEmit`, `eslint`, `npx vitest run` (136/136, inclusi 11 test nuovi su
+`booking-engine.server.test.ts` -- match con/senza operatore/giorno richiesti, fail-open su
+errore del database -- e `tools.test.ts` per la validazione del nuovo strumento AI), `next
+build` -- tutti puliti. Migrazione `0013_lista_attesa.sql` scritta ma non ancora applicata al
+database reale, in attesa dell'ok di Gabriel (stesso schema già seguito per `0011`/`0012`).

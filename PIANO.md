@@ -50,6 +50,12 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
    condiviso, serve il tuo ok esplicito (dall'SQL Editor di Supabase, il file è pronto così
    com'è, o dimmi di applicarla e lo faccio). Dopo: attivare la caparra su un salone di test in
    `/dashboard/impostazioni/caparra` e completare un pagamento di test reale su `/s/[slug]`.
+8. **Applicare la migrazione `0013_lista_attesa.sql` e provare dal vivo la lista d'attesa**
+   (nuovo, 13/09/2026): stesso schema del punto 7 -- codice scritto e verificato, migrazione
+   bloccata dal classificatore in attesa del tuo ok esplicito. Dopo: aggiungere un cliente a
+   `/dashboard/lista-attesa` per un servizio/giorno, poi cancellare un appuntamento reale di
+   quello stesso servizio/giorno da `/dashboard/calendario` e verificare che compaia il banner
+   "🔔 contattalo" e la riga passi a "proposto".
 
 ### Gruppo B -- Nuovo codice a priorità alta, trovato nel mega-controllo competitor di oggi
 1. ~~**Deposito/caparra anti-no-show** (Fase 6)~~ **CODICE FATTO 13/09/2026** (vedi Fase 6 e
@@ -59,8 +65,9 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
 2. ~~**Tono dell'AI personalizzabile** (Fase 5)~~ **CODICE FATTO 13/09/2026** (vedi Fase 5 per
    il dettaglio) -- resta solo la verifica dal vivo con un salone di test reale, non urgente
    finché non ci sono clienti Pro paganti.
-3. **Lista d'attesa automatica alla cancellazione** (Fase 6): vista su Calendix e CutApp, non
-   grande lavoro sopra il booking engine che già esiste.
+3. ~~**Lista d'attesa automatica alla cancellazione** (Fase 6)~~ **CODICE FATTO 13/09/2026** (vedi
+   Fase 6 per il dettaglio) -- resta da fare solo la parte che tocca a Gabriel: applicare la
+   migrazione al database reale (Gruppo A).
 
 ### Gruppo B-bis -- Altre funzioni che mancano davvero, trovate in un secondo giro (12/09/2026)
 
@@ -564,11 +571,27 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       migrazione `0011_deposito_caparra.sql` non applicata al database reale (serve l'ok di
       Gabriel, vedi DECISIONS.md 13/09/2026) + nessun pagamento di test reale ancora fatto.
       Vedere `docs/analisi-concorrenti-mercato.md`, sezione "AGGIORNAMENTO CRITICO", punto 3.
-- [ ] **Lista d'attesa automatica alla cancellazione** (vista su Calendix e CutApp, non su
-      Estetia): a una cancellazione, proporre lo slot liberato al primo cliente in coda invece
-      di lasciarlo semplicemente libero. Nessun lavoro architetturale enorme sopra il booking
-      engine esistente -- una tabella `lista_attesa` (tenant/servizio/operatore/cliente/data
-      preferita) + un trigger o controllo alla cancellazione che notifica il primo in coda.
+- [x] **Lista d'attesa automatica alla cancellazione** (vista su Calendix e CutApp, non su
+      Estetia; CODICE FATTO 13/09/2026): tabella `lista_attesa`
+      (tenant/servizio/operatore opzionale/cliente/data preferita opzionale, migrazione
+      `0013_lista_attesa.sql`) + `trovaEAvvisaListaAttesa` dentro `cancellaAppuntamentoTenant`
+      (booking-engine.server.ts) -- a ogni cancellazione cerca il primo cliente in coda (FIFO su
+      `created_at`) per lo stesso servizio che accetta anche l'operatore e il giorno liberati (o
+      non ne ha chiesti di specifici), e marca la sua riga "proposto". **Notifica al CLIENTE non
+      automatica**: zero provider email/SMS nel progetto oggi (Gruppo B-bis punto 1), quindi
+      questa prima versione notifica il TITOLARE -- banner immediato in
+      `/dashboard/calendario` appena dopo la cancellazione + vista completa in
+      `/dashboard/lista-attesa` (aggiungi/segna risolto/rimuovi a mano), da lì il contatto resta
+      manuale (telefonata/messaggio). Due punti di ingresso, stessa unica funzione di scrittura
+      (punto 9 CLAUDE.md): form manuale in dashboard (un cliente chiama e chiede di essere messo
+      in lista) e nuovo strumento AI `aggiungi_lista_attesa` (se `verifica_disponibilita` non
+      trova nulla, l'AI offre di iscrivere il cliente invece di dire solo "non c'è
+      disponibilità" -- regola 8 del system prompt in agente.ts). Il match alla cancellazione
+      resta silenzioso lato AI: se un cliente in chat cancella un appuntamento e scatta un
+      match, il titolare lo vede in dashboard, ma l'AI non rivela mai dati di un altro cliente
+      alla persona con cui sta chattando. `tsc`/`eslint`/`vitest` (136/136)/`build` puliti.
+      **Non ancora verificato dal vivo**: migrazione `0013_lista_attesa.sql` non applicata al
+      database reale (serve l'ok di Gabriel, stesso schema già seguito per 0011/0012).
 - [ ] **Multi-utente/team reale** (nuovo task, secondo giro mega-controllo 12/09/2026): dare a
       ogni "operatore" un proprio login (invito via email, permessi limitati alla propria
       agenda) invece di essere solo un record gestito dal titolare -- prerequisito tecnico dei

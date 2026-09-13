@@ -52,6 +52,14 @@ export async function creaAppuntamento(formData: FormData) {
   return { ok: true };
 }
 
+/**
+ * Oltre alla cancellazione vera, `cancellaAppuntamentoTenant` controlla da
+ * sola la lista d'attesa (Fase 6) e -- se un cliente in coda per lo stesso
+ * servizio/operatore/giorno viene trovato -- marca la sua riga "proposto":
+ * `listaAttesaAvvisata` arriva qui già pronto per essere mostrato subito a
+ * chi ha appena cancellato, senza dover ricaricare /dashboard/lista-attesa
+ * per accorgersene.
+ */
 export async function cancellaAppuntamento(id: string) {
   const supabase = await creaClientServer();
   const tenantId = await ottieniTenantCorrente(supabase);
@@ -61,7 +69,7 @@ export async function cancellaAppuntamento(id: string) {
   if (!risultato.ok) return { errore: risultato.errore };
 
   revalidatePath("/dashboard/calendario");
-  return { ok: true };
+  return { ok: true, listaAttesaAvvisata: risultato.listaAttesaAvvisata ?? null };
 }
 
 /**

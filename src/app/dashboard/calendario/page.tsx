@@ -33,6 +33,7 @@ export default async function PaginaCalendario({
     servizio_id?: string;
     operatore_id?: string;
     modifica?: string;
+    lista_attesa_avviso?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -44,6 +45,22 @@ export default async function PaginaCalendario({
   const servizioId = sp.servizio_id ?? "";
   const operatoreId = sp.operatore_id ?? "";
   const modificaId = sp.modifica ?? "";
+
+  // Riga marcata "proposto" dalla cancellazione appena fatta (Fase 6, lista
+  // d'attesa): un id opaco in querystring, mai il nome/telefono del cliente
+  // direttamente -- letta qui sotto RLS, quindi solo se è davvero di questo
+  // tenant. Nessun dato sensibile in URL (solo un uuid), coerente con
+  // "modifica=<id>" già usato sopra.
+  const avvisoListaAttesa = sp.lista_attesa_avviso
+    ? (
+        await supabase
+          .from("lista_attesa")
+          .select("cliente_nome, cliente_telefono, servizi(nome)")
+          .eq("id", sp.lista_attesa_avviso)
+          .eq("tenant_id", tenantId)
+          .maybeSingle()
+      ).data
+    : null;
 
   const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
   // dataYMD è un giorno "civile" del salone (pseudo-UTC): i confini reali
@@ -108,6 +125,24 @@ export default async function PaginaCalendario({
         <h1 className="mt-2 text-xl font-semibold">Calendario</h1>
       </div>
 
+      {avvisoListaAttesa && (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          🔔 Lo slot appena liberato era atteso da{" "}
+          <strong>
+            {avvisoListaAttesa.cliente_nome || "un cliente"} · {avvisoListaAttesa.cliente_telefono}
+          </strong>{" "}
+          (
+          {Array.isArray(avvisoListaAttesa.servizi)
+            ? avvisoListaAttesa.servizi[0]?.nome
+            : (avvisoListaAttesa.servizi as { nome: string } | null)?.nome}
+          ) -- contattalo per riproporglielo. Vedi anche{" "}
+          <a href="/dashboard/lista-attesa" className="underline">
+            Lista d&apos;attesa
+          </a>
+          .
+        </p>
+      )}
+
       <div className="flex items-center gap-3 text-sm">
         <a
           href={`/dashboard/calendario?data=${giornoAdiacente(dataYMD, -1)}`}
@@ -164,7 +199,15 @@ export default async function PaginaCalendario({
                       <form
                         action={async () => {
                           "use server";
-                          await cancellaAppuntamento(a.id);
+                          const risultato = await cancellaAppuntamento(a.id);
+                          // Match in lista d'attesa (Fase 6): torna sulla stessa vista con
+                          // l'id della riga da segnalare, così il banner sopra compare subito
+                          // senza dover aprire /dashboard/lista-attesa per accorgersene.
+                          if ("listaAttesaAvvisata" in risultato && risultato.listaAttesaAvvisata) {
+                            const parametri = new URLSearchParams(parametriSenzaModifica);
+                            parametri.set("lista_attesa_avviso", risultato.listaAttesaAvvisata.id);
+                            redirect(`/dashboard/calendario?${parametri.toString()}`);
+                          }
                         }}
                       >
                         <button type="submit" className="text-red-600 underline">

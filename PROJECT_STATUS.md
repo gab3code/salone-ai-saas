@@ -1,6 +1,23 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, terzo giro -- "applicala e continua a lavorare": applicata al
+Ultimo aggiornamento: 13/09/2026, quarto giro -- Gabriel ha chiesto di verificare dal vivo il
+Tono AI ("puoi provare tu a vedere se funziona usando il sito?"). Prima difficoltà onestamente
+segnalata: l'estensione Chrome non risultava collegata in sessione, i tentativi di rete diretta
+dal sandbox verso il dominio Vercel erano bloccati da una policy dell'organizzazione, e
+`WebFetch` può solo leggere pagine (GET), non inviare messaggi in chat (serve una POST) --
+risolto facendo riavviare a Gabriel l'estensione Chrome sul suo Mac, dopo di che il collegamento
+ha funzionato. Test dal vivo riuscito (dettaglio sopra, sezione "Tono dell'AI personalizzabile")
+e confermato via `git ls-remote` che il push di Gabriel era già arrivato su `origin/main`. Poi
+costruito il terzo task ad alta priorità di `PIANO.md` (Gruppo B): **Lista d'attesa automatica
+alla cancellazione** (Fase 6) -- tabella `lista_attesa`, match automatico dentro
+`cancellaAppuntamentoTenant`, nuovo strumento AI `aggiungi_lista_attesa`, dashboard
+`/dashboard/lista-attesa` + banner in `/dashboard/calendario` (dettaglio sotto, sezione "Cosa è
+mock"). Notifica al cliente resta manuale (nessun provider email/SMS ancora, gap già tracciato).
+Verificato: `tsc --noEmit`, `eslint`, `npx vitest run` (136/136, +11 test nuovi), `next build`
+tutti puliti. Migrazione `0013_lista_attesa.sql` scritta ma non ancora applicata al database
+reale, in attesa dell'ok di Gabriel.
+
+Aggiornamento precedente, 13/09/2026, terzo giro -- "applicala e continua a lavorare": applicata al
 database reale la migrazione del deposito/caparra (`0011`, `weeaggiqovnmtovdjzxy`, nessun
 problema dai controlli di sicurezza Supabase), poi costruito il secondo task ad alta priorità
 di `PIANO.md`: **Tono dell'AI personalizzabile** (Fase 5, bloccante prima di vendere Pro).
@@ -1125,9 +1142,17 @@ l'11/09/2026 via MCP diretto).
   3 stili guidati (professionale/amichevole/informale con emoji) + nota libera opzionale
   sanitizzata, colonna `tenants.tono_ai`/`tono_ai_nota` (migrazione `0012`, applicata al
   database reale), UI in `/dashboard/impostazioni/tono-ai`, gate di piano Pro/Enterprise
-  applicato in tre punti indipendenti. 7 test nuovi, `tsc`/`eslint`/`build` puliti. **NON
-  ancora verificato dal vivo**: nessun cliente Pro reale ancora con cui provare l'effetto sul
-  tono delle risposte in una conversazione vera.
+  applicato in tre punti indipendenti. 7 test nuovi, `tsc`/`eslint`/`build` puliti.
+  **VERIFICATO DAL VIVO il 13/09/2026** (browser reale via l'estensione Chrome, sul salone di
+  test `salone-bc163ecf` elevato temporaneamente a Pro): tono di default (professionale, senza
+  emoji) confermato via chat pubblica; impostato "informale con emoji" + nota "Chiamaci sempre
+  studio, mai negozio" via SQL diretto (stesso identico effetto della UI in
+  `/dashboard/impostazioni/tono-ai`, non ancora testata click-per-click ma stessa server
+  action) -- la chat ha risposto con emoji e ha corretto attivamente un messaggio che diceva
+  "negozio" in "studio", rispettando la nota senza violare le regole assolute (nessun
+  prezzo/disponibilità inventata). Tenant di test riportato a "professionale"/nota vuota subito
+  dopo. Confermato anche via `git ls-remote` che il push di Gabriel del lavoro fermo da prima è
+  arrivato su `origin/main` e il sito pubblico serve contenuti aggiornati.
 - **Deposito/caparra anti-no-show (Fase 6, task 13/09/2026)**: CODICE SCRITTO per intero --
   migrazione `0011_deposito_caparra.sql` (colonne `tenants.caparra_*`, colonne
   `appuntamenti.caparra_*`, nuova tabella `richieste_caparra` con RLS), calcolo puro
@@ -1146,6 +1171,19 @@ l'11/09/2026 via MCP diretto).
   configurazione lato Stripe Dashboard (stesso endpoint, stesso signing secret). Vedi "Problemi
   noti aperti" per il limite di design onestamente segnalato (slot non bloccato durante il
   pagamento).
+- **Lista d'attesa automatica alla cancellazione (Fase 6, task 13/09/2026)**: CODICE SCRITTO
+  per intero -- tabella `lista_attesa` (migrazione `0013_lista_attesa.sql`:
+  tenant/servizio/operatore opzionale/cliente/data preferita opzionale/stato), match FIFO
+  dentro `cancellaAppuntamentoTenant` (`trovaEAvvisaListaAttesa` in booking-engine.server.ts,
+  fail-open su qualunque errore -- non blocca mai la cancellazione vera), due punti di
+  ingresso (form manuale in `/dashboard/lista-attesa` + nuovo strumento AI
+  `aggiungi_lista_attesa` quando `verifica_disponibilita` non trova nulla), banner immediato in
+  `/dashboard/calendario` dopo una cancellazione con match. **Notifica al cliente NON
+  automatica** (nessun provider email/SMS nel progetto oggi, vedi "Gruppo B-bis" punto 1 in
+  PIANO.md): il titolare vede la riga "proposto" e contatta a mano -- limite onestamente
+  segnalato, non un difetto nascosto. 11 test nuovi, `tsc`/`eslint`/`vitest`
+  (136/136)/`build` puliti. **NON ancora verificato dal vivo**: migrazione non applicata al
+  database reale, in attesa dell'ok di Gabriel (stesso schema già seguito per `0011`/`0012`).
 - **WhatsApp**: predisposizione tecnica per l'Embedded Signup Meta scritta
   (`src/lib/whatsapp-embedded-signup.ts`, `src/app/api/whatsapp/embedded-signup/callback/
   route.ts`, migrazione 0003) ma **non attivabile**: bloccata dalla business verification

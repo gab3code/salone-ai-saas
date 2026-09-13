@@ -74,6 +74,9 @@ export default async function PaginaDashboard({
           <Link href="/dashboard/clienti" className="rounded border border-zinc-300 px-3 py-1.5">
             Clienti
           </Link>
+          <Link href="/dashboard/lista-attesa" className="rounded border border-zinc-300 px-3 py-1.5">
+            Lista d&apos;attesa
+          </Link>
           <a href="/dashboard/configura" className="rounded border border-zinc-300 px-3 py-1.5">
             Configura il salone
           </a>
