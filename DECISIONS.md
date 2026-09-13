@@ -1080,5 +1080,10 @@ logiche di inserimento separate.
 **Verifica**: `tsc --noEmit`, `eslint`, `npx vitest run` (136/136, inclusi 11 test nuovi su
 `booking-engine.server.test.ts` -- match con/senza operatore/giorno richiesti, fail-open su
 errore del database -- e `tools.test.ts` per la validazione del nuovo strumento AI), `next
-build` -- tutti puliti. Migrazione `0013_lista_attesa.sql` scritta ma non ancora applicata al
-database reale, in attesa dell'ok di Gabriel (stesso schema già seguito per `0011`/`0012`).
+build` -- tutti puliti.
+
+**Aggiornamento 13/09/2026**: migrazione `0013_lista_attesa.sql` applicata al database reale
+con l'ok esplicito di Gabriel (stesso schema già seguito per `0011`/`0012`), tabella confermata
+esistente via query diretta, nessun nuovo problema dai controlli di sicurezza Supabase. Non
+ancora verificato dal vivo in un browser vero (serve un cliente in lista d'attesa + una
+cancellazione reale dello stesso servizio).

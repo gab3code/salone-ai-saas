@@ -1182,8 +1182,11 @@ l'11/09/2026 via MCP diretto).
   automatica** (nessun provider email/SMS nel progetto oggi, vedi "Gruppo B-bis" punto 1 in
   PIANO.md): il titolare vede la riga "proposto" e contatta a mano -- limite onestamente
   segnalato, non un difetto nascosto. 11 test nuovi, `tsc`/`eslint`/`vitest`
-  (136/136)/`build` puliti. **NON ancora verificato dal vivo**: migrazione non applicata al
-  database reale, in attesa dell'ok di Gabriel (stesso schema già seguito per `0011`/`0012`).
+  (136/136)/`build` puliti. Migrazione `0013_lista_attesa.sql` **applicata al database reale il
+  13/09/2026** (stesso via libera già dato per `0011`/`0012`, nessun nuovo problema dai
+  controlli di sicurezza Supabase). **NON ancora verificato dal vivo**: nessuna cancellazione
+  reale con un match ancora provata in un browser vero (serve almeno un cliente in lista +
+  un appuntamento dello stesso servizio da cancellare).
 - **WhatsApp**: predisposizione tecnica per l'Embedded Signup Meta scritta
   (`src/lib/whatsapp-embedded-signup.ts`, `src/app/api/whatsapp/embedded-signup/callback/
   route.ts`, migrazione 0003) ma **non attivabile**: bloccata dalla business verification

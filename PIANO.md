@@ -50,12 +50,11 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
    condiviso, serve il tuo ok esplicito (dall'SQL Editor di Supabase, il file è pronto così
    com'è, o dimmi di applicarla e lo faccio). Dopo: attivare la caparra su un salone di test in
    `/dashboard/impostazioni/caparra` e completare un pagamento di test reale su `/s/[slug]`.
-8. **Applicare la migrazione `0013_lista_attesa.sql` e provare dal vivo la lista d'attesa**
-   (nuovo, 13/09/2026): stesso schema del punto 7 -- codice scritto e verificato, migrazione
-   bloccata dal classificatore in attesa del tuo ok esplicito. Dopo: aggiungere un cliente a
-   `/dashboard/lista-attesa` per un servizio/giorno, poi cancellare un appuntamento reale di
-   quello stesso servizio/giorno da `/dashboard/calendario` e verificare che compaia il banner
-   "🔔 contattalo" e la riga passi a "proposto".
+8. ~~Applicare la migrazione `0013_lista_attesa.sql`~~ **FATTO 13/09/2026** (applicata al
+   database reale con il tuo ok). Resta da **provare dal vivo la lista d'attesa**: aggiungere
+   un cliente a `/dashboard/lista-attesa` per un servizio/giorno, poi cancellare un appuntamento
+   reale di quello stesso servizio/giorno da `/dashboard/calendario` e verificare che compaia il
+   banner "🔔 contattalo" e la riga passi a "proposto".
 
 ### Gruppo B -- Nuovo codice a priorità alta, trovato nel mega-controllo competitor di oggi
 1. ~~**Deposito/caparra anti-no-show** (Fase 6)~~ **CODICE FATTO 13/09/2026** (vedi Fase 6 e
@@ -590,8 +589,9 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       resta silenzioso lato AI: se un cliente in chat cancella un appuntamento e scatta un
       match, il titolare lo vede in dashboard, ma l'AI non rivela mai dati di un altro cliente
       alla persona con cui sta chattando. `tsc`/`eslint`/`vitest` (136/136)/`build` puliti.
-      **Non ancora verificato dal vivo**: migrazione `0013_lista_attesa.sql` non applicata al
-      database reale (serve l'ok di Gabriel, stesso schema già seguito per 0011/0012).
+      Migrazione `0013_lista_attesa.sql` **applicata al database reale il 13/09/2026** (stesso
+      via libera già dato per 0011/0012). **Non ancora verificato dal vivo**: nessuna
+      cancellazione reale con un match ancora provata in un browser vero.
 - [ ] **Multi-utente/team reale** (nuovo task, secondo giro mega-controllo 12/09/2026): dare a
       ogni "operatore" un proprio login (invito via email, permessi limitati alla propria
       agenda) invece di essere solo un record gestito dal titolare -- prerequisito tecnico dei
