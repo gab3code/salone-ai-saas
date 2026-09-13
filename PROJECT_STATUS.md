@@ -1,6 +1,19 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, dodicesimo giro -- Gabriel ha confermato "ancora niente" dopo il
+Ultimo aggiornamento: 13/09/2026, tredicesimo giro -- **email di notifica prenotazione confermate
+funzionanti end-to-end**, chiusura della saga aperta nei giri 8-12. Dopo che Gabriel ha completato
+la validazione del mittente su Mailjet (era rimasta "Pending" nonostante pensasse di averla già
+fatta, vedi giro precedente), rifatto un ultimo test dal flusso pubblico ("Test Sender Validato",
+20/09/2026 09:00, `gabrielmazzucchelli3@gmail.com`): "Prenotazione confermata!" a schermo, log
+Vercel puliti con i due `POST api.mailjet.com/v3.1/send` attesi, e Gabriel ha confermato "funziona"
+-- le email sono arrivate davvero in casella. In sintesi, la vicenda ha avuto **due cause distinte
+e indipendenti**, entrambe necessarie da correggere: 1) il bug di bundling Turbopack sull'enum
+`SendEmailV3_1.ResponseStatus` (fix di codice, giro 10), 2) il mittente Gmail mai validato del tutto
+su Mailjet nonostante un primo tentativo di Gabriel (azione lato Mailjet, non codice, giro 12). I
+due appuntamenti di test rimasti sul tenant "Salone Test Claude" sono cancellabili da Gabriel dalla
+dashboard se non servono più.
+
+Aggiornamento precedente, 13/09/2026, dodicesimo giro -- Gabriel ha confermato "ancora niente" dopo il
 giro precedente: nessuna delle due email del test è arrivata, nonostante i log Vercel non
 mostrassero errori. Trovata la causa reale controllando direttamente la dashboard Mailjet (accesso
 autorizzato da Gabriel, "usa anche mailjet se vuoi"): **Stats -> 0 email totali negli ultimi 7
