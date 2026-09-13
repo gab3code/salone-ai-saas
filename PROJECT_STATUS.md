@@ -10,8 +10,8 @@ telefono) mostrato in `FlussoPrenotazione.tsx` quando `cercaSlotPubblici` non tr
 stessa unica funzione di scrittura di sempre (`aggiungiListaAttesaTenant`). `lista_attesa.creato_da`
 allargato da `'manuale'|'ai'` a `'manuale'|'ai'|'pubblico'` (migrazione
 `0014_lista_attesa_pubblico.sql`, stessa terna già usata da `appuntamenti.creato_da`).
-`tsc`/`eslint`/`vitest` (136/136)/`build` puliti. Migrazione scritta ma non ancora applicata al
-database reale, in attesa dell'ok di Gabriel.
+`tsc`/`eslint`/`vitest` (136/136)/`build` puliti. Migrazione `0014_lista_attesa_pubblico.sql`
+**applicata al database reale il 13/09/2026** (constraint verificato via query diretta).
 
 Aggiornamento precedente, 13/09/2026, quinto giro -- Gabriel ha provato la lista d'attesa dal vivo
 (aggiunti due clienti veri, Federico e Daniele) e non vedeva niente né in

@@ -595,8 +595,9 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       alla persona con cui sta chattando. `tsc`/`eslint`/`vitest` (136/136)/`build` puliti.
       Migrazione `0013_lista_attesa.sql` **applicata al database reale il 13/09/2026** (stesso
       via libera già dato per 0011/0012); `0014_lista_attesa_pubblico.sql` (allarga
-      `creato_da` a `'pubblico'`) scritta, non ancora applicata. **Non ancora verificato dal
-      vivo**: nessuna cancellazione reale con un match ancora provata in un browser vero.
+      `creato_da` a `'pubblico'`) **applicata anche questa il 13/09/2026**. **Non ancora
+      verificato dal vivo**: nessuna cancellazione reale con un match ancora provata in un
+      browser vero.
 - [ ] **Multi-utente/team reale** (nuovo task, secondo giro mega-controllo 12/09/2026): dare a
       ogni "operatore" un proprio login (invito via email, permessi limitati alla propria
       agenda) invece di essere solo un record gestito dal titolare -- prerequisito tecnico dei
