@@ -23,9 +23,31 @@ ma un intero canale di prenotazione self-service era inutilizzabile senza che ne
 segnalasse come anomalia (sembra un errore di validazione, non un bug). **Corretto** allargando
 la regex condivisa di `parsaOrarioLocale` per ammettere i millisecondi opzionali (dettaglio in
 DECISIONS.md) + 2 test di regressione aggiunti. `tsc`/`eslint`/`vitest` (138/138)/`build` puliti.
-**Non ancora deployato/verificato dal vivo sul sito reale** -- serve il push di Gabriel e un
-nuovo giro di test sul tenant di prova per completare il test end-to-end della lista d'attesa
-che aveva motivato questo giro.
+**Non ancora deployato/verificato dal vivo sul sito reale** -- serve il push di Gabriel per
+verificare anche questo fix con una vera prenotazione diretta (finora verificato solo con
+`vitest`/`build`, non con un click reale sul sito, perché il fix non è ancora online).
+
+**Nel frattempo, completato comunque il test end-to-end della lista d'attesa che aveva motivato
+questo giro**, aggirando il bug (non ancora deployato) con l'unica altra strada che non lo
+attraversa -- creazione dell'appuntamento da testare da `/dashboard/calendario` (che usa un
+parsing diverso, non toccato dal bug) invece che dal flusso pubblico:
+1. "Cliente B Test" si iscrive alla lista d'attesa per "Taglio Test" oggi (13/09) **dal flusso di
+   prenotazione pubblico diretto** (`iscrivitiListaAttesaPubblico`, il canale aggiunto ieri) --
+   confermato "Fatto -- se si libera un posto... ti contattiamo noi.".
+2. "Cliente A Test" prenotato lo stesso slot (09:00, stesso servizio/operatore) da
+   `/dashboard/calendario`.
+3. Appuntamento di Cliente A cancellato dalla dashboard.
+4. **Match automatico scattato correttamente**: banner immediato "🔔 Lo slot appena liberato era
+   atteso da Cliente B Test · 3339998888 (Taglio Test) -- contattalo per riproporglielo.".
+5. `/dashboard/lista-attesa` mostrava la riga con lo stato giusto ("in coda (1 da contattare)",
+   nota "Si è liberato un posto compatibile il 2026-09-13 alle 09:00").
+6. Testato anche "Segna risolto": la riga sparisce correttamente dalla lista attivi.
+
+**Prima verifica dal vivo completa e positiva di tutta la catena della lista d'attesa** (fino ad
+oggi solo scritta/testata con vitest, mai vista funzionare in un browser reale). Non ancora
+testata l'iscrizione dalla chat AI in questa sessione (già verificata in una sessione precedente,
+non riverificata qui per limiti di tempo). Tenant di prova ("Salone Test Claude") ancora vivo sul
+database reale -- da valutare con Gabriel se ripulirlo o tenerlo per test futuri.
 
 Aggiornamento precedente, 13/09/2026, sesto giro -- Gabriel ha chiesto se il cliente può iscriversi
 alla lista d'attesa da solo con l'AI o con la prenotazione online, senza lo staff. Risposta
