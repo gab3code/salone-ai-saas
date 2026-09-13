@@ -514,7 +514,17 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       stesso limite di verifica dal vivo del punto sopra.
 - [ ] Galleria/upload immagini (Supabase Storage) -- zero codice, colonne `logo_url`/`cover_url`
       esistono nello schema ma senza upload configurato.
-- [ ] PWA installabile, notifiche push dove supportato -- zero manifest/service worker.
+- [x] ~~PWA installabile~~ **BASE FATTA 13/09/2026, rifinitura in Fase 7** (notifiche push
+      ancora NON incluse -- richiedono un provider push + permesso utente, lavoro a parte):
+      `src/app/manifest.ts` (file speciale dell'App Router, Next lo serve da solo su
+      `/manifest.webmanifest` e collega da solo il `<link rel="manifest">`), `public/sw.js`
+      (service worker minimo, SOLO per il criterio di installabilità di Chrome -- niente
+      strategia di cache di proposito, per non rischiare di servire contenuto vecchio durante lo
+      sviluppo attivo), icona placeholder generata nei colori del sito (noir + viola, non ancora
+      il logo vero -- vedi `public/icons/`). `start_url` punta a `/dashboard` (chi installa è il
+      titolare che lavora, non un cliente finale). Verificato dal vivo col server locale:
+      `/manifest.webmanifest`, `/sw.js` e le icone rispondono 200, il tag `<link rel="manifest">`
+      è presente nell'head. `tsc`/`eslint`/`vitest` (178/178, invariato)/`build` puliti.
 - [ ] **Pagine legali (privacy/termini/cookie)** -- nuovo task, trovato nel mega-controllo
       competitor del 12/09/2026: gap reale, il progetto non ne ha nessuna, ogni concorrente
       verificato (Estetia/Calendix/Skedula/Fresha/Treatwell/Booksy) le ha. Non urgente prima del

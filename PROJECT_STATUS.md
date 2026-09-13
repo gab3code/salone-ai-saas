@@ -1,6 +1,22 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, ventunesimo giro -- Gabriel ha deciso di rimandare il filtro
+Ultimo aggiornamento: 13/09/2026, ventiduesimo giro -- Gabriel ha chiesto se attivare il CAPTCHA
+ora avesse senso, temendo interferisse coi miei test via Chrome: risposta sì, rischio reale
+(Turnstile è pensato apposta per riconoscere un browser automatizzato), consigliato di rimandarlo
+allo stesso trigger del filtro "solo business" (prima di un annuncio pubblico/primo cliente vero),
+con le chiavi di test di Cloudflare pronte per allora. Intanto implementata la base della PWA
+installabile (Fase 4 di PIANO.md, "zero manifest/service worker" -> fatto): `src/app/manifest.ts`
+(servito automaticamente da Next su `/manifest.webmanifest`, link nell'head aggiunto da solo),
+`public/sw.js` (service worker minimo, deliberatamente SENZA nessuna strategia di cache -- durante
+lo sviluppo attivo un service worker aggressivo è un classico modo di vedersi servire contenuto
+vecchio senza capire perché), icona placeholder generata nei colori del sito (noir/viola,
+`public/icons/`) in attesa del logo vero. `start_url` punta a `/dashboard`. Notifiche push NON
+incluse (richiedono un provider a parte). Verificato dal vivo col server locale (non serve
+Supabase, quindi nessun limite di rete della sandbox stavolta): manifest/service worker/icone
+rispondono tutti 200, tag `<link rel="manifest">` presente. `tsc`/`eslint`/`npx vitest run`
+(178/178, invariato)/`next build` puliti.
+
+Aggiornamento precedente, 13/09/2026, ventunesimo giro -- Gabriel ha deciso di rimandare il filtro
 "solo business" (giusto: senza traffico vero il rischio di abusi umani è quasi zero, l'anti-abuso
 da script già fatto copre il rischio concreto) e ha chiesto di continuare mentre non può pushare.
 Implementata "Gestione della prenotazione lato cliente" (Fase 4 di PIANO.md, in coda da quando le

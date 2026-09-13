@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
+import { RegistraServiceWorker } from "./registra-service-worker";
 
 // Un solo font, deliberato, in tutta l'app (richiesta esplicita di Gabriel,
 // Giro 3: "scegli un font e mantienilo in tutta la pagina"). Prima si usava
@@ -16,12 +17,24 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Salone AI SaaS",
   description: "SaaS self-service per centri estetici, parrucchieri e barbieri",
+  // PWA installabile (Fase 4 di PIANO.md) -- manifest servito automaticamente
+  // da app/manifest.ts, qui solo l'icona per iOS ("Aggiungi a Home" non legge
+  // il manifest come Android/Chrome, vuole il proprio <link rel="apple-touch-icon">).
+  icons: { apple: "/icons/icon-192.png" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Salone AI" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#07040d",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="it" className="font-sans h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <RegistraServiceWorker />
+      </body>
     </html>
   );
 }
