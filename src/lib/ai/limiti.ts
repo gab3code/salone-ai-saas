@@ -22,6 +22,10 @@ export const PIANI_CON_AI_CHAT_WEB = new Set(["growth", "pro", "enterprise"]);
 // WhatsApp riservato al piano più costoso a prezzo fisso (Pro) -- Enterprise
 // lo include ovviamente, essendo superiore a Pro in tutto il resto.
 export const PIANI_CON_AI_WHATSAPP = new Set(["pro", "enterprise"]);
+// Tono dell'AI personalizzabile (Fase 5): stessa fascia di WhatsApp,
+// pubblicizzato su Pro in Prezzi.tsx -- Growth ha l'AI ma col tono di
+// default ("professionale"), non puo' cambiarlo.
+export const PIANI_CON_TONO_PERSONALIZZATO = new Set(["pro", "enterprise"]);
 
 export function pianoHaAccessoAIChatWeb(piano: string): boolean {
   return PIANI_CON_AI_CHAT_WEB.has(piano);
@@ -29,6 +33,10 @@ export function pianoHaAccessoAIChatWeb(piano: string): boolean {
 
 export function pianoHaAccessoAIWhatsapp(piano: string): boolean {
   return PIANI_CON_AI_WHATSAPP.has(piano);
+}
+
+export function pianoHaTonoPersonalizzato(piano: string): boolean {
+  return PIANI_CON_TONO_PERSONALIZZATO.has(piano);
 }
 
 // Numeri di partenza, deliberatamente prudenti e facili da cambiare (non una

@@ -3,7 +3,13 @@ import { creaClientAdmin } from "@/lib/supabase/admin";
 import { risolviTenantIdDaSlug } from "@/lib/ai/tools";
 import { rispondiConversazione } from "@/lib/ai/agente";
 import { ottieniOCreaConversazione, caricaMessaggi, salvaMessaggio, segnaPassataAOperatore } from "@/lib/ai/conversazione.server";
-import { pianoHaAccessoAIChatWeb, limiteMensileMessaggi, INTERVALLO_MINIMO_MS_TRA_MESSAGGI } from "@/lib/ai/limiti";
+import {
+  pianoHaAccessoAIChatWeb,
+  pianoHaTonoPersonalizzato,
+  limiteMensileMessaggi,
+  INTERVALLO_MINIMO_MS_TRA_MESSAGGI,
+} from "@/lib/ai/limiti";
+import type { StileTonoAI } from "@/lib/ai/agente";
 import { contaMessaggiClienteQuestoMese, ultimoMessaggioTroppoRecente } from "@/lib/ai/limiti.server";
 import { FUSO_ORARIO_PREDEFINITO, realeAPseudoUtc } from "@/lib/fuso-orario";
 
@@ -47,7 +53,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ errore: "Attività non trovata." }, { status: 404 });
   }
 
-  const { data: tenant } = await supabase.from("tenants").select("nome, piano, fuso_orario").eq("id", tenantId).single();
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("nome, piano, fuso_orario, tono_ai, tono_ai_nota")
+    .eq("id", tenantId)
+    .single();
 
   // Gate di piano (Free/Starter non hanno la chat AI affatto -- decisione
   // 02/09/2026, vedi DECISIONS.md): controllato PRIMA di creare/toccare
@@ -91,6 +101,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // getUTC* usati ovunque nel booking engine (vedi src/lib/fuso-orario.ts).
     const adessoPseudo = realeAPseudoUtc(new Date(), tenant?.fuso_orario || FUSO_ORARIO_PREDEFINITO);
 
+    // Tono personalizzato applicato SOLO se il piano lo include (Pro/
+    // Enterprise, vedi Prezzi.tsx) -- un tenant Growth ha comunque salvato
+    // in tenants.tono_ai il default "professionale" (colonna sempre
+    // valorizzata), ma se avesse un valore diverso per qualunque motivo
+    // (es. un downgrade da Pro a Growth) il gate qui lo ignora comunque:
+    // stesso principio già usato per pianoHaAccessoAIWhatsapp, mai fidarsi
+    // solo del dato salvato, ricontrollare il piano ad ogni richiesta.
+    const tonoAi = pianoHaTonoPersonalizzato(tenant?.piano ?? "") ? (tenant?.tono_ai as StileTonoAI) : undefined;
+    const tonoAiNota = pianoHaTonoPersonalizzato(tenant?.piano ?? "") ? tenant?.tono_ai_nota : undefined;
+
     const risultato = await rispondiConversazione(
       storico,
       messaggio,
@@ -98,6 +118,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         supabase,
         tenantId,
         nomeAttivita: tenant?.nome ?? "l'attività",
+        tonoAi,
+        tonoAiNota,
       },
       undefined, // client Anthropic di default (parametro 5° è "adesso", non va confuso)
       adessoPseudo

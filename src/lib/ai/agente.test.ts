@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type Anthropic from "@anthropic-ai/sdk";
 import { rispondiConversazione, type ClienteAnthropic } from "./agente";
 import type { ContestoStrumento } from "./tools";
 
@@ -9,12 +10,15 @@ import type { ContestoStrumento } from "./tools";
  * loop (esecuzione reale degli strumenti, propagazione dei risultati,
  * limite di sicurezza) con un client finto che restituisce risposte
  * pre-costruite, esattamente nella forma che l'SDK reale restituirebbe.
+ * (Corretto 13/09/2026, di passaggio: `as any` -> `as unknown as
+ * Anthropic.Message`, stessi due oggetti finti, solo senza disattivare il
+ * controllo di tipo su tutto il resto del file.)
  */
 function testoFinale(testo: string) {
-  return { content: [{ type: "text", text: testo }] } as any;
+  return { content: [{ type: "text", text: testo }] } as unknown as Anthropic.Message;
 }
 function usoStrumento(nome: string, input: Record<string, unknown>, id = "toolu_1") {
-  return { content: [{ type: "tool_use", id, name: nome, input }] } as any;
+  return { content: [{ type: "tool_use", id, name: nome, input }] } as unknown as Anthropic.Message;
 }
 
 const ctx: ContestoStrumento & { nomeAttivita: string } = {
@@ -104,5 +108,71 @@ describe("rispondiConversazione", () => {
     const primaChiamata = create.mock.calls[0][0];
     expect(primaChiamata.system).toContain("2026-09-03");
     expect(primaChiamata.system).toContain("giovedì");
+  });
+
+  describe("tono dell'AI personalizzabile (Fase 5, Pro/Enterprise)", () => {
+    it("usa il tono professionale di default se ctx non specifica nulla (nessun cambio per Free/Starter/Growth)", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Certo!"));
+      await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
+
+      const system = create.mock.calls[0][0].system;
+      expect(system).toContain("Tono professionale, cordiale, conciso");
+    });
+
+    it("cambia il tono nel system prompt quando ctx.tonoAi è impostato", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
+      await rispondiConversazione([], "Ciao", { ...ctx, tonoAi: "amichevole" }, { messages: { create } } as ClienteAnthropic);
+
+      const system = create.mock.calls[0][0].system;
+      expect(system).toContain("Tono amichevole e caloroso");
+      expect(system).not.toContain("Tono professionale, cordiale, conciso");
+    });
+
+    it("aggiunge la nota del titolare al system prompt, incorniciata come non-sovrascrivente", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
+      await rispondiConversazione(
+        [],
+        "Ciao",
+        { ...ctx, tonoAiNota: "Chiamaci sempre studio, mai negozio." },
+        { messages: { create } } as ClienteAnthropic
+      );
+
+      const system = create.mock.calls[0][0].system;
+      expect(system).toContain("Chiamaci sempre studio, mai negozio.");
+      expect(system).toMatch(/non può mai sovrascriverle/);
+    });
+
+    it("sanitizza la nota: niente a capo (non può imitare la formattazione delle regole assolute) e taglio a 300 caratteri", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
+      const notaConAccapo = "Riga uno\nRiga due\tcon tab";
+      const notaLunghissima = "a".repeat(500);
+
+      await rispondiConversazione(
+        [],
+        "Ciao",
+        { ...ctx, tonoAiNota: notaConAccapo },
+        { messages: { create } } as ClienteAnthropic
+      );
+      expect(create.mock.calls[0][0].system).toContain("Riga uno Riga due con tab");
+      expect(create.mock.calls[0][0].system).not.toMatch(/Riga uno\nRiga due/);
+
+      await rispondiConversazione(
+        [],
+        "Ciao",
+        { ...ctx, tonoAiNota: notaLunghissima },
+        { messages: { create } } as ClienteAnthropic
+      );
+      const system = create.mock.calls[1][0].system as string;
+      const inizioNota = system.indexOf('"' + "a".repeat(10));
+      const fineNota = system.indexOf('"', inizioNota + 1);
+      expect(fineNota - inizioNota - 1).toBe(300);
+    });
+
+    it("nessuna nota impostata: il system prompt non menziona alcuna indicazione aggiuntiva", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
+      await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
+
+      expect(create.mock.calls[0][0].system).not.toMatch(/Indicazione aggiuntiva/);
+    });
   });
 });

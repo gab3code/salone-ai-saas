@@ -56,9 +56,9 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
    DECISIONS.md 13/09/2026 per il dettaglio) -- resta da fare solo la parte che tocca a Gabriel:
    applicare la migrazione al database reale e verificare un pagamento di test dal vivo (Gruppo
    A).
-2. **Tono dell'AI personalizzabile** (Fase 5): bloccante prima di aprire pagamenti veri sul
-   piano Pro -- oggi pubblicizzato ma inesistente nel codice (nessuna colonna/UI/collegamento al
-   prompt). Non urgentissimo solo perché nessun cliente Pro reale esiste ancora.
+2. ~~**Tono dell'AI personalizzabile** (Fase 5)~~ **CODICE FATTO 13/09/2026** (vedi Fase 5 per
+   il dettaglio) -- resta solo la verifica dal vivo con un salone di test reale, non urgente
+   finché non ci sono clienti Pro paganti.
 3. **Lista d'attesa automatica alla cancellazione** (Fase 6): vista su Calendix e CutApp, non
    grande lavoro sopra il booking engine che già esiste.
 
@@ -171,7 +171,7 @@ implicita/dimenticata. Le promesse VERE (già costruite e verificate) non sono r
 sono nella loro Fase con `[x]`.
 
 **Promesse NON ancora mantenute nel codice, con il task che le copre**:
-1. Tono dell'AI personalizzabile (Pro) -- task in Fase 5 (bloccante prima di vendere Pro).
+1. ~~Tono dell'AI personalizzabile (Pro)~~ **CODICE FATTO 13/09/2026** -- vedi Fase 5.
 2. Assistente AI su WhatsApp (Pro) -- bloccato dall'App Review Meta, task in
    `docs/embedded-signup-whatsapp.md` + Fase 2 (bloccante prima di vendere Pro, ma dipendenza
    esterna non nel nostro controllo).
@@ -507,15 +507,20 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       non un dato mostrato falsamente a un cliente), ma va allineato: o si applica il limite come
       per le prenotazioni, o si toglie la voce da `Prezzi.tsx` se si decide di non farlo rispettare
       davvero -- non lasciarlo un numero scritto e mai controllato.
-- [ ] **BLOCCANTE prima di aprire pagamenti veri sul piano Pro** (trovato nel mega-controllo del
-      12/09/2026, vedi `docs/analisi-concorrenti-mercato.md`): `Prezzi.tsx` pubblicizza "Tono
-      dell'AI personalizzabile" su Pro, ma non esiste nessuna colonna/UI/collegamento reale al
-      prompt (`src/lib/ai/agente.ts` è hardcoded uguale per tutti i tenant). Da costruire:
-      colonna su `tenants` (es. `tono_ai`, testo libero o poche opzioni guidate -- vedi
-      `docs/analisi-estetia.md` punto 3: guidato a domande è più accessibile di un prompt
-      libero), UI in `/dashboard/impostazioni`, iniezione nel system prompt di `agente.ts`.
-      Non bloccante finché Stripe non è verificato dal vivo (nessun cliente Pro reale ancora),
-      ma va fatto PRIMA, non dopo il primo incasso su quel piano.
+- [x] **Tono dell'AI personalizzabile -- CODICE FATTO 13/09/2026** (trovato nel mega-controllo
+      del 12/09/2026, vedi `docs/analisi-concorrenti-mercato.md`): `Prezzi.tsx` pubblicizza
+      "Tono dell'AI personalizzabile" su Pro -- costruito guidato a 3 opzioni fisse
+      (professionale/amichevole/informale con emoji, `docs/analisi-estetia.md` punto 3: più
+      accessibile di un prompt libero) + una nota libera opzionale (max 300 caratteri,
+      sanitizzata e incorniciata nel system prompt come non-sovrascrivente delle regole
+      assolute). Migrazione `0012_tono_ai.sql` applicata al database reale, colonna su
+      `tenants` (`tono_ai`, `tono_ai_nota`), UI in `/dashboard/impostazioni/tono-ai` (gate di
+      piano Pro/Enterprise sia in UI sia nella server action), iniezione nel system prompt di
+      `agente.ts`, gate ricontrollato anche in `api/chat/[slug]/route.ts` prima di applicarlo
+      (mai fidarsi solo del valore salvato). `tsc`/`eslint`/`vitest` (125/125, +6 test su
+      `agente.test.ts` + 1 su `limiti.test.ts`)/`build` puliti. Non ancora verificato dal vivo
+      con un salone di test reale (nessun cliente Pro reale ancora, coerente con "non bloccante
+      finché Stripe non è verificato dal vivo").
 - [ ] **BLOCCANTE prima di vendere Enterprise a un cliente vero** (stesso problema del Tono AI,
       trovato nel secondo giro del mega-controllo, 12/09/2026): `Prezzi.tsx` pubblicizza
       "Multi-sede e ruoli avanzati" su Enterprise, ma nello schema non esiste NESSUN concetto di

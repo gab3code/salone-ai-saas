@@ -47,6 +47,9 @@ export default async function PaginaImpostazioni() {
       <a href="/dashboard/impostazioni/caparra" className="text-sm underline">
         Deposito/caparra anti-no-show
       </a>
+      <a href="/dashboard/impostazioni/tono-ai" className="text-sm underline">
+        Tono dell&apos;AI
+      </a>
     </div>
   );
 }

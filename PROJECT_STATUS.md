@@ -1,6 +1,24 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, secondo giro -- Gabriel ha chiesto di controllare che ogni
+Ultimo aggiornamento: 13/09/2026, terzo giro -- "applicala e continua a lavorare": applicata al
+database reale la migrazione del deposito/caparra (`0011`, `weeaggiqovnmtovdjzxy`, nessun
+problema dai controlli di sicurezza Supabase), poi costruito il secondo task ad alta priorità
+di `PIANO.md`: **Tono dell'AI personalizzabile** (Fase 5, bloccante prima di vendere Pro).
+Guidato a 3 opzioni fisse (professionale/amichevole/informale con emoji) + una nota libera
+opzionale (max 300 caratteri, sanitizzata -- niente a capo/tab, incorniciata nel system prompt
+come indicazione supplementare che non può mai sovrascrivere le regole assolute). UI in
+`/dashboard/impostazioni/tono-ai`, gate di piano Pro/Enterprise applicato in tre punti (UI,
+server action, endpoint chat) -- mai fidarsi solo del valore salvato sul tenant. Migrazione
+`0012_tono_ai.sql` **applicata anche questa al database reale** (stesso via libera di
+Gabriel). Verificato: `tsc --noEmit`, `eslint`, `npx vitest run` (125/125, +7 test nuovi),
+`next build` -- tutti puliti. Non ancora verificato dal vivo con un salone di test reale
+(nessun cliente Pro reale ancora). Consegnato anche il bundle con tutto il lavoro fermo da
+prima (Hero, Vetrina, tilt, CompareSlider, deposito/caparra, audit promesse) direttamente nella
+cartella `~/dev/salone-ai-saas` di Gabriel via il collegamento al suo Mac, in attesa che lui
+lanci `git pull`+`git push` dal proprio Terminal (il push diretto da questa sessione resta
+bloccato, nessuna credenziale per il repo in questa sandbox).
+
+Aggiornamento precedente, 13/09/2026, secondo giro -- Gabriel ha chiesto di controllare che ogni
 promessa fatta sul sito ("aggiungi negli obiettivi tutte le promesse che ci sono nel sito se non
 le hai messe") sia davvero tracciata come obiettivo. Letto riga per riga tutto il copy della
 landing (Nav, Hero, ProdottoScroll, ComeFunziona, PrimaDopo, ImpattoEconomico, Vetrina,
@@ -1103,6 +1121,13 @@ l'11/09/2026 via MCP diretto).
 
 ## Cosa è mock, incompleto o non ancora iniziato
 
+- **Tono dell'AI personalizzabile (Fase 5, task 13/09/2026)**: CODICE SCRITTO per intero --
+  3 stili guidati (professionale/amichevole/informale con emoji) + nota libera opzionale
+  sanitizzata, colonna `tenants.tono_ai`/`tono_ai_nota` (migrazione `0012`, applicata al
+  database reale), UI in `/dashboard/impostazioni/tono-ai`, gate di piano Pro/Enterprise
+  applicato in tre punti indipendenti. 7 test nuovi, `tsc`/`eslint`/`build` puliti. **NON
+  ancora verificato dal vivo**: nessun cliente Pro reale ancora con cui provare l'effetto sul
+  tono delle risposte in una conversazione vera.
 - **Deposito/caparra anti-no-show (Fase 6, task 13/09/2026)**: CODICE SCRITTO per intero --
   migrazione `0011_deposito_caparra.sql` (colonne `tenants.caparra_*`, colonne
   `appuntamenti.caparra_*`, nuova tabella `richieste_caparra` con RLS), calcolo puro

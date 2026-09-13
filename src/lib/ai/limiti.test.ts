@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   pianoHaAccessoAIChatWeb,
   pianoHaAccessoAIWhatsapp,
+  pianoHaTonoPersonalizzato,
   limiteMensileMessaggi,
   INTERVALLO_MINIMO_MS_TRA_MESSAGGI,
 } from "./limiti";
@@ -29,6 +30,14 @@ describe("limiti di piano per la chat AI", () => {
   it("un piano sconosciuto/malformato non ha mai accesso (fail-safe, non fail-open)", () => {
     expect(pianoHaAccessoAIChatWeb("qualcosa-di-strano")).toBe(false);
     expect(limiteMensileMessaggi("qualcosa-di-strano")).toBe(0);
+  });
+
+  it("il tono AI personalizzabile è riservato a Pro/Enterprise, come WhatsApp (Prezzi.tsx)", () => {
+    expect(pianoHaTonoPersonalizzato("free")).toBe(false);
+    expect(pianoHaTonoPersonalizzato("starter")).toBe(false);
+    expect(pianoHaTonoPersonalizzato("growth")).toBe(false);
+    expect(pianoHaTonoPersonalizzato("pro")).toBe(true);
+    expect(pianoHaTonoPersonalizzato("enterprise")).toBe(true);
   });
 
   it("la quota mensile cresce con il piano, enterprise è illimitato", () => {
