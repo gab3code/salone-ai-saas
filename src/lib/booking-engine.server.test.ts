@@ -73,6 +73,21 @@ describe("parsaOrarioLocale", () => {
     expect(d?.toISOString()).toBe("2026-09-05T13:00:00.000Z");
   });
 
+  // Regressione (13/09/2026): `cercaSlotPubblici` (src/app/s/[slug]/azioni.ts)
+  // genera gli `inizioIso` con `Date.toISOString()`, che include SEMPRE i
+  // millisecondi -- prima del fix la regex li rifiutava e OGNI prenotazione
+  // dal flusso pubblico diretto falliva con "Orario non valido". Scoperto
+  // testando dal vivo, non da un test: coperto qui perché non riaccada.
+  it("accetta i millisecondi espliciti con fuso 'Z' (formato di Date.toISOString())", () => {
+    const d = parsaOrarioLocale("2026-09-05T15:00:00.000Z");
+    expect(d?.toISOString()).toBe("2026-09-05T15:00:00.000Z");
+  });
+
+  it("accetta i millisecondi espliciti con un offset", () => {
+    const d = parsaOrarioLocale("2026-09-05T15:00:00.500+02:00");
+    expect(d?.toISOString()).toBe("2026-09-05T13:00:00.500Z");
+  });
+
   it("rifiuta una stringa che non è una data, mai un valore a caso", () => {
     expect(parsaOrarioLocale("non-una-data")).toBeNull();
   });

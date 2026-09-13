@@ -1,6 +1,33 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, sesto giro -- Gabriel ha chiesto se il cliente può iscriversi
+Ultimo aggiornamento: 13/09/2026, settimo giro -- Gabriel ha detto "d'ora in poi i test li fai tu
+su google" e poi "crea tu un nuovo account di test e fai tutto tu": creato un tenant di prova
+dedicato ("Salone Test Claude", slug `salone-3ad8c9ad`, via `/registrati` -- nessuna conferma
+email richiesta in questo progetto Supabase, sessione autenticata subito) per testare dal vivo
+senza toccare i dati reali di Gabriel né dover usare le sue credenziali (che comunque non
+inserirei mai al posto suo). Configurato orari/operatore/servizio di test, poi provata una vera
+prenotazione dal flusso pubblico diretto (`/s/[slug]`, senza AI) per arrivare a testare il ciclo
+completo della lista d'attesa (prenota -> qualcun altro si iscrive in coda -> cancella -> verifica
+il match).
+
+**Trovato un bug critico, non della lista d'attesa ma della prenotazione pubblica stessa**: ogni
+tentativo di completare una prenotazione diretta falliva con "Orario non valido, riprova la
+ricerca.", sempre, per qualunque slot. Causa: `cercaSlotPubblici` genera gli orari con
+`Date.toISOString()` (che include sempre i millisecondi, es. "2026-09-14T09:00:00.000Z"), ma la
+validazione rigida di `parsaOrarioLocale` non li ammetteva -- quindi la prenotazione falliva
+SEMPRE, per QUALUNQUE tenant, non solo quello di prova. Il flusso via chat AI e la dashboard non
+sono toccati (usano formati diversi, senza millisecondi). Non è possibile sapere da quando questo
+bug fosse live in produzione né quante prenotazioni reali dirette siano fallite nel frattempo --
+nessun dato perso (l'appuntamento semplicemente non si creava, il cliente vedeva solo l'errore),
+ma un intero canale di prenotazione self-service era inutilizzabile senza che nessun log lo
+segnalasse come anomalia (sembra un errore di validazione, non un bug). **Corretto** allargando
+la regex condivisa di `parsaOrarioLocale` per ammettere i millisecondi opzionali (dettaglio in
+DECISIONS.md) + 2 test di regressione aggiunti. `tsc`/`eslint`/`vitest` (138/138)/`build` puliti.
+**Non ancora deployato/verificato dal vivo sul sito reale** -- serve il push di Gabriel e un
+nuovo giro di test sul tenant di prova per completare il test end-to-end della lista d'attesa
+che aveva motivato questo giro.
+
+Aggiornamento precedente, 13/09/2026, sesto giro -- Gabriel ha chiesto se il cliente può iscriversi
 alla lista d'attesa da solo con l'AI o con la prenotazione online, senza lo staff. Risposta
 onesta: con l'AI sì (già costruito), dal flusso di prenotazione passo-passo no -- chi non usava
 la chat vedeva solo "nessuna disponibilità, prova un altro giorno" e uscivo dal sito senza

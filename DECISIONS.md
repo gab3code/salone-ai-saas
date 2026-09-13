@@ -1113,3 +1113,45 @@ riproducibile dal sandbox con una chiamata di rete diretta (stesso blocco di pol
 per Vercel), ma confermato con certezza via `pg_constraint` sul database reale (le due foreign
 key ci sono davvero) -- root cause nota, non un'ipotesi. `tsc`/`eslint`/`vitest`
 (136/136)/`build` puliti dopo il fix.
+
+---
+
+## 2026-09-13 — Bug critico: la prenotazione diretta pubblica era completamente rotta in
+produzione (`parsaOrarioLocale` rifiutava i millisecondi di `toISOString()`)
+
+**Cosa è successo**: seguendo l'istruzione di Gabriel di testare io stesso dal vivo su Chrome
+(creato un tenant di prova dedicato, "Salone Test Claude", per non toccare i suoi dati reali --
+vedi PROJECT_STATUS.md), ho provato a completare una prenotazione vera dal flusso pubblico
+passo-passo (`/s/[slug]`, senza passare dalla chat AI). Ogni tentativo falliva al passo finale
+con "Orario non valido, riprova la ricerca.", anche riselezionando lo slot da zero.
+
+**Causa**: `cercaSlotPubblici` (src/app/s/[slug]/azioni.ts) costruisce l'`inizioIso` di ogni
+slot con `Date.toISOString()`, che include SEMPRE i millisecondi (es.
+"2026-09-14T09:00:00.000Z"). Quel valore torna invariato al server in `prenotaPubblico`/
+`avviaPagamentoCaparra`, che lo passano a `parsaOrarioLocale` -- la cui regex di validazione
+rigida NON ammetteva i millisecondi. Risultato: `parsaOrarioLocale` restituiva sempre `null`,
+quindi QUALUNQUE prenotazione diretta (con o senza caparra) falliva sempre, per qualunque
+tenant, non solo quello di prova. Il flusso via chat AI non è toccato (l'AI genera orari tipo
+"2026-09-05T15:00", senza millisecondi); anche la dashboard e la modifica di un appuntamento
+non sono toccate (usano `datetime-local`, stesso formato senza millisecondi).
+
+**Impatto onestamente segnalato**: non ho modo di sapere da quando questo bug fosse presente
+in produzione (la regex rigida di `parsaOrarioLocale` esiste da prima di questa sessione) né
+quante prenotazioni dirette reali siano fallite nel frattempo -- nessun dato viene perso quando
+succede (il cliente vede solo l'errore e l'appuntamento semplicemente non si crea), ma è un
+canale di prenotazione self-service completamente bloccato senza che nessun log o alert lo
+segnalasse come anomalo (il messaggio sembra un errore di validazione utente, non un bug).
+Scoperto SOLO perché testato dal vivo end-to-end con un vero click "Conferma prenotazione", non
+da nessun test automatico -- i test esistenti di `parsaOrarioLocale` non includevano un input
+con millisecondi.
+
+**Fix**: allargata la regex (`FORMATO_ORARIO_SENZA_FUSO`/`FORMATO_ORARIO_CON_FUSO` in
+booking-engine.server.ts) per ammettere `.sss` opzionali prima del fuso o a fine stringa --
+scelto di correggere qui, il punto di validazione condiviso da tutti i chiamanti, invece di
+troncare i millisecondi solo in `cercaSlotPubblici`, così qualunque altro punto del codice che
+un domani generi un `inizioIso` con `toISOString()` resta coperto per lo stesso motivo.
+
+**Verifica**: aggiunti 2 test di regressione a `booking-engine.server.test.ts` (millisecondi con
+fuso "Z" e con offset esplicito) -- `tsc --noEmit`, `eslint`, `npx vitest run` (138/138), `next
+build` tutti puliti. Non ancora riverificato dal vivo sul sito reale dopo il deploy (in corso,
+prossimo passo del test end-to-end sul tenant di prova).

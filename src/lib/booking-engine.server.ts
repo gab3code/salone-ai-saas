@@ -39,17 +39,34 @@ function troncaOra(valore: string | null): string | undefined {
   return valore ? valore.slice(0, 5) : undefined;
 }
 
-// "YYYY-MM-DDTHH:MM"[":SS"], con o senza fuso esplicito -- usato per ogni
-// orario che arriva da fuori (input utente della dashboard, input
-// dell'AI): validazione RIGIDA del formato prima di toccare `new Date()`,
-// perché il parser lenient di V8 accetta ed "interpreta" stringhe non-ISO
-// senza senso invece di restituire NaN (es. `new Date("boh:00Z")` torna una
-// data valida del 2000). Un formato sbagliato deve fallire in modo
-// esplicito, mai produrre silenziosamente una data a caso. Nessun fuso
-// esplicito indicato -> trattato come UTC, stessa semplificazione
-// consapevole descritta sopra per tutto il resto del booking engine.
-const FORMATO_ORARIO_SENZA_FUSO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
-const FORMATO_ORARIO_CON_FUSO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})$/;
+// "YYYY-MM-DDTHH:MM"[":SS"][".sss"], con o senza fuso esplicito -- usato per
+// ogni orario che arriva da fuori (input utente della dashboard, input
+// dell'AI, e -- punto rotto trovato testando dal vivo il flusso di
+// prenotazione pubblico il 13/09/2026 -- gli `inizioIso` che
+// `cercaSlotPubblici` produce con `Date.toISOString()`, che include SEMPRE i
+// millisecondi, es. "2026-09-14T09:00:00.000Z"): validazione RIGIDA del
+// formato prima di toccare `new Date()`, perché il parser lenient di V8
+// accetta ed "interpreta" stringhe non-ISO senza senso invece di restituire
+// NaN (es. `new Date("boh:00Z")` torna una data valida del 2000). Un formato
+// sbagliato deve fallire in modo esplicito, mai produrre silenziosamente una
+// data a caso. Nessun fuso esplicito indicato -> trattato come UTC, stessa
+// semplificazione consapevole descritta sopra per tutto il resto del
+// booking engine.
+//
+// BUG CRITICO chiuso qui: prima di questa correzione la regex NON ammetteva
+// i millisecondi, quindi OGNI chiamata a `prenotaPubblico`/
+// `avviaPagamentoCaparra` (src/app/s/[slug]/azioni.ts) falliva sempre con
+// "Orario non valido, riprova la ricerca." -- il flusso di prenotazione
+// diretta (senza passare dalla chat AI) era completamente inutilizzabile in
+// produzione per qualunque cliente reale. Non causava perdita di dati (la
+// prenotazione semplicemente non veniva mai creata, l'utente vedeva
+// l'errore), ma bloccava silenziosamente un intero canale di prenotazione.
+// Scoperto SOLO perché testato dal vivo end-to-end su un tenant di prova
+// dedicato (vedi PROJECT_STATUS.md) -- nessun test automatico copriva questo
+// percorso perché i test esistenti di `parsaOrarioLocale` non includevano un
+// input con millisecondi.
+const FORMATO_ORARIO_SENZA_FUSO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/;
+const FORMATO_ORARIO_CON_FUSO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
 
 export function parsaOrarioLocale(valore: string): Date | null {
   let conFuso: string;
