@@ -1,6 +1,28 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, tredicesimo giro -- **email di notifica prenotazione confermate
+Ultimo aggiornamento: 13/09/2026, quattordicesimo giro -- bug reale corretto: "la navbar su
+telefono e la sezione accedi è inaccessibile" (segnalazione di Gabriel). Causa in
+`src/components/landing/Nav.tsx`: i tre link di sezione (Funzionalità/Per chi è/Prezzi) e il link
+"Accedi" erano semplicemente `hidden` sotto il breakpoint `sm` (640px) -- **non esisteva nessun
+menu mobile a sostituirli**, quindi su telefono sparivano nel nulla e non c'era alcun modo di
+raggiungerli dalla navbar (restava visibile solo "Inizia gratis"). Aggiunto un pulsante hamburger
+(icona `Menu`/`X` di lucide-react, già usata ovunque nel progetto) visibile solo sotto `sm`, che
+apre un pannello a comparsa animato con framer-motion (già usato nello stesso file per lo scroll
+fluido) contenente tutti e quattro i link nascosti; chiude il menu al click su un link, se la
+finestra torna a larghezza desktop, e blocca lo scroll della pagina sottostante mentre è aperto
+(pattern standard). Verificato **funzionalmente** con uno script Playwright headless nella sandbox
+(server `next dev` locale): link "Accedi" correttamente invisibile nella navbar a riposo, visibile
+e cliccabile nel pannello aperto, click porta davvero a `/accedi`. **Verifica visiva impossibile in
+questa sandbox** come già in altri giri (vedi DECISIONS.md, voci sullo shader WebGL): lo sfondo
+della Hero usa canvas WebGL che qui non renderizzano (headless, nessuna GPU reale), lasciando uno
+sfondo bianco piatto su cui testo/icone bianche risultano invisibili negli screenshot pur essendo
+tecnicamente presenti e funzionanti (bounding box corretto, `isVisible: true`) -- su un telefono
+vero, con lo sfondo sfumato viola renderizzato normalmente, il contrasto è quello già usato ovunque
+nel sito. **Serve la conferma visiva di Gabriel** sul sito vero dopo il deploy. `tsc --noEmit`,
+`eslint`, `npx vitest run` (149/149, invariato -- nessun test dedicato, è un componente puramente
+di interazione UI), `next build` tutti puliti.
+
+Aggiornamento precedente, 13/09/2026, tredicesimo giro -- **email di notifica prenotazione confermate
 funzionanti end-to-end**, chiusura della saga aperta nei giri 8-12. Dopo che Gabriel ha completato
 la validazione del mittente su Mailjet (era rimasta "Pending" nonostante pensasse di averla già
 fatta, vedi giro precedente), rifatto un ultimo test dal flusso pubblico ("Test Sender Validato",

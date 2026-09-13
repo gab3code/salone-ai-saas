@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { Menu, X } from "lucide-react";
 
 /** Easing standard "accelera poi rallenta" -- lento in apertura e in
  * chiusura, veloce nel mezzo. Stessa curva descritta da Gabriel ("fallo che
@@ -69,8 +70,24 @@ function useScrollFluido() {
   }, []);
 }
 
+const LINK_SEZIONI = [
+  { href: "#funzionalita", etichetta: "Funzionalità" },
+  { href: "#per-chi", etichetta: "Per chi è" },
+  { href: "#prezzi", etichetta: "Prezzi" },
+];
+
 export function Nav() {
   const [scrollato, setScrollato] = useState(false);
+  // Bug segnalato da Gabriel (13/09/2026): "la navbar su telefono e la
+  // sezione accedi è inaccessibile". Causa reale: i link di sezione e
+  // "Accedi" erano semplicemente `hidden` sotto il breakpoint `sm`
+  // (640px), senza che esistesse alcun menu mobile a sostituirli -- su
+  // telefono sparivano nel nulla, non c'era alcun modo di raggiungerli
+  // dalla navbar (solo "Inizia gratis" restava visibile). Aggiunto un
+  // pulsante hamburger, visibile solo sotto `sm` (speculare a `sm:hidden`
+  // sui link originali), che apre un pannello a comparsa con tutti e
+  // quattro i link nascosti.
+  const [menuAperto, setMenuAperto] = useState(false);
   useScrollFluido();
 
   useEffect(() => {
@@ -79,6 +96,28 @@ export function Nav() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Chiude il menu mobile se la finestra torna a una larghezza desktop
+  // (es. rotazione tablet o resize), altrimenti resterebbe aperto ma
+  // invisibile finché non si torna sotto `sm`.
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const chiudiSeDesktop = () => setMenuAperto(false);
+    mq.addEventListener("change", chiudiSeDesktop);
+    return () => mq.removeEventListener("change", chiudiSeDesktop);
+  }, []);
+
+  // Blocca lo scroll della pagina sotto al pannello aperto (pattern
+  // standard per i menu mobile a comparsa) -- senza, si potrebbe scrollare
+  // il contenuto sottostante mentre il menu resta fisso in overlay.
+  useEffect(() => {
+    if (!menuAperto) return;
+    const precedente = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = precedente;
+    };
+  }, [menuAperto]);
 
   return (
     <motion.header
@@ -128,8 +167,51 @@ export function Nav() {
           >
             Inizia gratis
           </a>
+          <button
+            type="button"
+            onClick={() => setMenuAperto((a) => !a)}
+            aria-expanded={menuAperto}
+            aria-controls="menu-mobile-nav"
+            aria-label={menuAperto ? "Chiudi il menu" : "Apri il menu"}
+            className="grid size-9 place-items-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white sm:hidden"
+          >
+            {menuAperto ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
       </nav>
+
+      <AnimatePresence>
+        {menuAperto && (
+          <motion.div
+            id="menu-mobile-nav"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="border-t border-white/10 bg-noir/95 px-5 pb-6 pt-2 backdrop-blur-md sm:hidden"
+          >
+            <div className="flex flex-col divide-y divide-white/10">
+              {LINK_SEZIONI.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMenuAperto(false)}
+                  className="py-3 text-base text-white/80 transition-colors hover:text-white"
+                >
+                  {link.etichetta}
+                </a>
+              ))}
+              <a
+                href="/accedi"
+                onClick={() => setMenuAperto(false)}
+                className="py-3 text-base text-white/80 transition-colors hover:text-white"
+              >
+                Accedi
+              </a>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.header>
   );
 }
