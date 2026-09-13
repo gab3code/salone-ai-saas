@@ -1155,3 +1155,30 @@ un domani generi un `inizioIso` con `toISOString()` resta coperto per lo stesso 
 fuso "Z" e con offset esplicito) -- `tsc --noEmit`, `eslint`, `npx vitest run` (138/138), `next
 build` tutti puliti. Non ancora riverificato dal vivo sul sito reale dopo il deploy (in corso,
 prossimo passo del test end-to-end sul tenant di prova).
+
+---
+
+## 2026-09-13 — Calendario di disponibilità colorato: rimandato al giro dedicato di UI/UX
+(Fase 7), non fatto subito
+
+**Decisione**: Gabriel ha chiesto, vedendo il flusso di prenotazione pubblico durante il test
+dal vivo, di sostituire il semplice `<input type="date">` con un vero calendario a griglia
+colorato (grigio = giorno passato, un colore per "pieno ma in lista d'attesa", uno per
+"disponibile", eventualmente più gradazioni per quanti slot restano liberi). Prima di
+implementarlo, gli ho segnalato che non è una modifica piccola -- serve un calendario
+personalizzato da zero (i browser non permettono di colorare le singole date dentro un
+`<input type="date">` nativo) più una nuova query che calcoli la disponibilità di più giorni in
+anticipo (oggi `cercaSlotPubblici` calcola un giorno alla volta, solo dopo che il cliente lo
+sceglie, non l'intero mese in anticipo) -- e gli ho chiesto se fosse il momento giusto per
+questo invece di continuare sulla coda di priorità già decisa.
+
+**Scelta di Gabriel**: rimandare tutto (versione semplice e gradazioni) al giro dedicato di
+UI/UX già previsto in `PIANO.md` Fase 7, invece di farlo ora.
+
+**Motivazione**: stessa logica già concordata il 12/09/2026 per il resto dell'interfaccia --
+nessun salone reale è ancora pubblico, quindi non c'è ancora un cliente vero che soffra
+l'attuale calendario "alla cieca"; la coda di priorità (notifiche email, multi-utente, ecc.) ha
+valore più immediato; e le gradazioni di colore in particolare avrebbero senso solo con dati
+reali sulla densità di prenotazione, che oggi non esistono. Aggiunto come voce esplicita in
+Fase 7 (`PIANO.md`) invece di lasciarlo solo in questa conversazione, così non si perde quando
+si arriverà lì.

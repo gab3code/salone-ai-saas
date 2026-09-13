@@ -694,6 +694,19 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
       con un'app nativa (punto 20)
 - [ ] Passata finale su performance percepita (caricamento, transizioni, feedback immediato sui
       click) -- un SaaS "premium" si sente anche nella reattività, non solo nell'estetica
+- [ ] **Calendario di disponibilità nella prenotazione pubblica** (richiesta di Gabriel,
+      13/09/2026): sostituire l'`<input type="date">` nativo del passo "Scegli il giorno" in
+      `FlussoPrenotazione.tsx` con un vero calendario a griglia, colorato per far capire a colpo
+      d'occhio dove conviene guardare, invece di dover cercare giorno per giorno alla cieca.
+      Almeno: grigio per i giorni passati, un colore per "pieno ma ci si può mettere in lista
+      d'attesa", un colore per "c'è ancora disponibilità". Discusso se spingersi a più
+      gradazioni (es. verde acceso = molti slot liberi, via via più spento = sempre meno posti,
+      fino a pieno) -- rimandata anche quella decisione a quando si arriva qui, si valuterà con
+      dati reali quanto la densità di prenotazioni la rende utile. Non una modifica piccola:
+      serve anche una nuova query che calcoli la disponibilità di più giorni in anticipo (oggi
+      `cercaSlotPubblici` calcola un giorno alla volta, solo dopo che il cliente lo sceglie) --
+      per questo rimandata qui invece di farla subito, come da decisione con Gabriel lo stesso
+      giorno (vedi DECISIONS.md).
 
 ---
 
