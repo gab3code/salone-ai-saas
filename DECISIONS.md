@@ -1429,5 +1429,13 @@ sempre, quando possibile, il confronto con valori letterali primitivi (stringhe,
 enum/namespace importati per i controlli di runtime critici.
 
 **Verifica**: `tsc --noEmit`, `eslint` (puliti sui file toccati), `npx vitest run` (149/149,
-invariato), `next build` tutti puliti. **Non ancora verificato con un nuovo invio reale** -- serve
-il deploy di Gabriel, poi un altro test dal vivo.
+invariato), `next build` tutti puliti.
+
+**Aggiornamento 13/09/2026**: dopo il deploy, nuovo test dal vivo dal flusso pubblico (unico modo
+per verificare la consegna reale -- il tenant di prova ha un titolare con email finta, vedi
+PROJECT_STATUS.md). Log runtime Vercel della richiesta andata a buon fine mostrano due
+`POST api.mailjet.com/v3.1/send` (titolare + cliente) e **nessun errore associato** -- a
+differenza del vecchio log delle 14:43 (precedente al fix) che mostrava ancora l'eccezione
+sull'enum. Indizio forte che il fix funziona, ma manca ancora la conferma finale: Gabriel deve
+controllare la propria casella (`gabrielmazzucchelli3@gmail.com`, anche spam) per le due email
+di quel test specifico.
