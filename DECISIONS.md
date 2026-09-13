@@ -946,4 +946,12 @@ esplicitamente -- non per il solo fatto che un concorrente lo ha.
 
 **Verifica**: nessun codice esiste per questo (verificato con grep su tutto `src/` e
 `supabase/migrations/`, zero risultati per cassa/fattura/ricevuta/scontrino). Dettaglio completo
-in `PIANO.md`, sezione "Gruppo B-bis", punto 8.
+in `PIANO.md`, sezione "Gruppo B-bis", punto 9 (rinumerato il 13/09/2026).
+
+**Chiarimento del 13/09/2026, domanda diretta di Gabriel** ("gli incassi previsti li lasci?"):
+questa esclusione riguarda SOLO un registro di pagamenti REALI incassati con relativi obblighi
+fiscali -- non riguarda una semplice proiezione di guadagni futuri calcolata sui dati che il
+database ha già (prezzo servizio × appuntamenti confermati nei prossimi giorni), che non tocca
+pagamenti né fiscalità e resta dentro il perimetro del prodotto. Quest'ultima ("incassi
+previsti") È stata aggiunta come task, in Fase 3 di `PIANO.md` -- le due cose non vanno confuse:
+stesso nome (accenna a "incassi"), natura tecnica e rischio completamente diversi.

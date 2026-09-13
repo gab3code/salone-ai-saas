@@ -83,33 +83,43 @@ per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
    NESSUNA parte del codice: un operatore non può avere un proprio login con permessi limitati,
    solo il titolare (owner) accede mai alla dashboard. Bloccante prima di vendere Enterprise a
    un cliente vero, per lo stesso motivo del Tono AI.
+4. **Incassi previsti** (chiesto esplicitamente da Gabriel il 13/09/2026, dopo aver visto
+   l'esclusione della "Cassa" sotto -- domanda giusta, sono due cose diverse): una proiezione
+   dei guadagni futuri (prezzo servizi × appuntamenti confermati nei prossimi 7/30 giorni),
+   non un incasso reale registrato. Zero pagamenti, zero fiscalità -- puro calcolo su dati già
+   in database, stessa natura degli altri numeri di `metriche.ts` (punto 21). **Non ha nulla del
+   rischio della Cassa esclusa sotto**: quella è un registro di pagamenti REALI incassati, con
+   tutti gli obblighi fiscali che ne conseguono; questa è solo un numero previsionale, come
+   "quanto ti aspetti di incassare questa settimana in base a chi ha già prenotato".
 
 **Possibili, da valutare (non urgenti, ma rafforzano il prodotto se costruiti bene)**:
-4. **Multi-utente/team reale**: conseguenza diretta del punto 3 -- dare a ogni "operatore" un
+5. **Multi-utente/team reale**: conseguenza diretta del punto 3 -- dare a ogni "operatore" un
    proprio login (invito via email, permessi limitati alla propria agenda) invece di essere solo
    un record gestito dal titolare. Rilevante per la persona di marketing "salone con team" che
    già usiamo in `PerChi.tsx` -- oggi quella promessa non è ancora mantenuta tecnicamente.
-5. **Raccolta recensioni post-appuntamento**: nessun gestionale italiano verificato la fa
+6. **Raccolta recensioni post-appuntamento**: nessun gestionale italiano verificato la fa
    nativamente (Estetia mostra solo testimonianze statiche in home page, non vere recensioni
    raccolte); i marketplace (Fresha/Treatwell/Booksy) invece fondano parte della fiducia proprio
    sulle recensioni. Un messaggio automatico post-appuntamento che chiede una valutazione,
    mostrata sulla pagina pubblica del salone, sarebbe un differenziale vero e non richiede
    grande lavoro sopra quello che già esiste (stessa infrastruttura di reminder/automazioni
    pianificata in Fase 6).
-6. **Export/import CSV dei clienti**: Estetia ce l'ha esplicitamente, utile per un titolare che
+7. **Export/import CSV dei clienti**: Estetia ce l'ha esplicitamente, utile per un titolare che
    migra da un altro gestionale (abbassa l'attrito di switch) o vuole i propri dati per un
    mailing esterno. Lavoro contenuto.
-7. **Pacchetti prepagati/tessera fedeltà digitale**: visto su CutApp, comune nel settore beauty
+8. **Pacchetti prepagati/tessera fedeltà digitale**: visto su CutApp, comune nel settore beauty
    ("10 sedute prepagate", punti fedeltà). Non urgente, ma un vero differenziale per i saloni
    che già usano questo modello di vendita oggi su carta.
 
 **Da NON fare senza pensarci due volte (rischio di scope creep)**:
-8. **"Cassa"/registro incassi reale dei servizi erogati** (diverso dal nostro billing Stripe, che
-   è per l'abbonamento SaaS): presente in Estetia ("Cassa" in sidebar) e WeGest ("cassa e
-   magazzino"). Utile in teoria, ma tocca fatturazione/ricevute fiscali italiane -- un terreno
-   normativo diverso dal nostro focus (booking + AI + CRM) e facile da sottovalutare in
-   complessità. Non aggiunto come task: da valutare SOLO se più di un cliente reale lo chiede
-   esplicitamente, non perché un concorrente ce l'ha.
+9. **"Cassa"/registro incassi REALE dei servizi erogati** -- diverso dagli "incassi previsti" del
+   punto 4 sopra: qui si parla di registrare pagamenti VERI incassati in presenza (diverso anche
+   dal nostro billing Stripe, che è solo per l'abbonamento SaaS del salone a noi). Presente in
+   Estetia ("Cassa" in sidebar) e WeGest ("cassa e magazzino"). Utile in teoria, ma tocca
+   fatturazione/ricevute fiscali italiane -- un terreno normativo diverso dal nostro focus
+   (booking + AI + CRM) e facile da sottovalutare in complessità. Non aggiunto come task: da
+   valutare SOLO se più di un cliente reale lo chiede esplicitamente, non perché un concorrente
+   ce l'ha.
 
 ### Gruppo C -- Completare le fasi già aperte (dettaglio nelle fasi sotto)
 1. Fase 1: collegare alle schermate/AI la gestione di servizi consecutivi e operatore non
@@ -351,6 +361,15 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       caso -- poi cancellato per pulizia.
 - [ ] Analytics più complete: retention, no-show reale (nessun flusso ancora marca un
       appuntamento "no_show", solo "confermato"/"cancellato" esistono nei dati veri finora)
+- [ ] **Incassi previsti** (nuovo task, chiesto esplicitamente da Gabriel il 13/09/2026, DA NON
+      confondere con la "Cassa"/registro incassi reale esclusa deliberatamente in DECISIONS.md):
+      `src/lib/metriche.ts` oggi calcola solo `valorePrenotazioniOggiCentesimi` (guarda indietro/
+      oggi, appuntamenti confermati di oggi) -- manca una proiezione in AVANTI (somma prezzo dei
+      servizi × appuntamenti confermati nei prossimi 7/30 giorni). Zero pagamenti reali, zero
+      fiscalità: è puro calcolo su dati che il database ha già, stessa natura degli altri numeri
+      in dashboard (punto 21) -- non ha nulla del rischio normativo della cassa esclusa in
+      DECISIONS.md, quindi resta dentro il perimetro del prodotto. Aggiunto qui, non in Fase 6bis
+      con la cassa.
 - [ ] **Export/import CSV clienti** (nuovo task, secondo giro mega-controllo 12/09/2026): visto
       su Estetia, utile per un titolare che migra da un altro gestionale (abbassa l'attrito di
       switch) o vuole i propri dati per un mailing esterno. Lavoro contenuto.
@@ -453,12 +472,13 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
 - [ ] **Pacchetti prepagati/tessera fedeltà digitale** (nuovo task, stesso giro): visto su
       CutApp, comune nel settore beauty ("10 sedute prepagate", punti fedeltà). Non urgente, ma
       differenziale vero per i saloni che già usano questo modello di vendita su carta.
-- **NON aggiunto come task, deliberatamente** (visto su Estetia/WeGest, "Cassa"/registro
-  incassi): tocca fatturazione/ricevute fiscali italiane, un terreno normativo diverso dal
-  nostro focus (booking + AI + CRM) e facile da sottovalutare in complessità. Da valutare SOLO
-  se più di un cliente reale lo chiede esplicitamente, non perché un concorrente ce l'ha --
-  vedi `docs/analisi-concorrenti-mercato.md`/PIANO.md "Gruppo B-bis" punto 8 per il ragionamento
-  completo.
+- **NON aggiunto come task, deliberatamente** (visto su Estetia/WeGest, "Cassa"/registro di
+  pagamenti REALI incassati -- diverso dagli "incassi previsti" aggiunti in Fase 3, che sono
+  solo una proiezione, zero pagamenti/fiscalità, vedi DECISIONS.md 13/09/2026): tocca
+  fatturazione/ricevute fiscali italiane, un terreno normativo diverso dal nostro focus
+  (booking + AI + CRM) e facile da sottovalutare in complessità. Da valutare SOLO se più di un
+  cliente reale lo chiede esplicitamente, non perché un concorrente ce l'ha -- vedi PIANO.md
+  "Gruppo B-bis" punto 9 per il ragionamento completo.
 - [ ] Revisione sicurezza (RLS, permessi tool AI, rate limiting, input validation)
 - [ ] Test completo su tutti gli scenari del punto 30
 
