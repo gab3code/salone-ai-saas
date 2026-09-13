@@ -56,12 +56,17 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
    dettaglio completo): iscrizione, cancellazione, match automatico, banner e "segna risolto"
    tutti confermati funzionanti in un browser vero. Nello stesso giro trovato e corretto un bug
    critico che bloccava ogni prenotazione pubblica diretta (vedi DECISIONS.md).
-9. **Creare un account gratis su resend.com e impostare `RESEND_API_KEY`** (nuovo, 13/09/2026):
-   il codice delle notifiche email è scritto e verificato (`tsc`/`eslint`/`vitest`/`build`
-   puliti, 11 test dedicati) ma senza questa chiave il modulo resta silenziosamente disattivato
-   (fail-open by design -- nessuna prenotazione si rompe, semplicemente non parte nessuna email).
-   Applicare anche la migrazione `0015_email_cliente_caparra.sql` (aggiunge solo una colonna,
-   stesso rischio nullo delle altre migrazioni additive già applicate). Dettaglio completo in
+9. **Validare un mittente su Mailjet e impostare `MJ_APIKEY_PUBLIC`/`MJ_APIKEY_PRIVATE`/
+   `MAILJET_FROM_EMAIL`** (nuovo, 13/09/2026, provider deciso lo stesso giorno -- avevi già un
+   account Mailjet con una subaccount key dedicata al progetto, e a piano gratis ha il doppio
+   dei volumi di Resend, vedi DECISIONS.md): il codice delle notifiche email è scritto e
+   verificato (`tsc`/`eslint`/`vitest`/`build` puliti, 11 test dedicati) ma senza le due chiavi
+   il modulo resta silenziosamente disattivato (fail-open by design -- nessuna prenotazione si
+   rompe, semplicemente non parte nessuna email). A differenza di Resend, Mailjet richiede anche
+   un mittente validato PRIMA di poter inviare qualunque email (un click di conferma via email
+   dal pannello Mailjet, Account -> Sender addresses & domains -- vedi `.env.example`). Applicare
+   anche la migrazione `0015_email_cliente_caparra.sql` (aggiunge solo una colonna, stesso
+   rischio nullo delle altre migrazioni additive già applicate). Dettaglio completo in
    `.env.example` e Gruppo B-bis punto 1 sotto.
 
 ### Gruppo B -- Nuovo codice a priorità alta, trovato nel mega-controllo competitor di oggi
@@ -88,19 +93,22 @@ per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
    13/09/2026**: ogni volta che `creaAppuntamentoTenant` crea un appuntamento (dashboard, AI,
    pubblico diretto o caparra/Stripe -- unica funzione di scrittura, punto 9 di CLAUDE.md) parte
    ora, in modo fail-open (mai bloccante per la prenotazione stessa, vedi
-   `src/lib/email/resend.server.ts`), un'email al titolare (sempre, indirizzo risolto da
+   `src/lib/email/mailjet.server.ts`), un'email al titolare (sempre, indirizzo risolto da
    `auth.users.email` via `profiles.ruolo = 'owner'`, non da `tenants.email` che esiste ma non è
    mai popolata) e una email di conferma al cliente (solo se ha lasciato un'email -- oggi raccolta
-   solo nel flusso pubblico `/s/[slug]`, campo facoltativo). Provider: Resend (piano gratuito,
-   3.000 email/mese, nessuna approvazione esterna a differenza di WhatsApp/Meta). Dettaglio
-   completo, alternative considerate e limitazioni oneste in DECISIONS.md.
-   **Resta da fare, tocca a te (Gruppo A)**: creare un account gratis su resend.com, generare una
-   API key e impostarla come `RESEND_API_KEY` (locale in `.env.local` + su Vercel), altrimenti il
-   modulo resta silenziosamente disattivato (nessuna email parte, ma nessuna prenotazione si
-   rompe); applicare la migrazione `0015_email_cliente_caparra.sql` al database reale (aggiunge
-   solo una colonna, stesso rischio nullo delle altre migrazioni additive già applicate). Per
-   inviare email vere ai clienti (non solo a te stesso) serve anche verificare un dominio tuo su
-   Resend e impostare `RESEND_FROM_EMAIL` -- vedi `.env.example` per i dettagli.
+   solo nel flusso pubblico `/s/[slug]`, campo facoltativo). Provider: Mailjet (piano gratuito,
+   6.000 email/mese, nessuna approvazione esterna a differenza di WhatsApp/Meta -- inizialmente
+   scritto su Resend, cambiato lo stesso giorno perché Gabriel aveva già un account Mailjet con
+   key dedicata e a piano gratis ha il doppio dei volumi, vedi DECISIONS.md). Dettaglio completo,
+   alternative considerate e limitazioni oneste in DECISIONS.md.
+   **Resta da fare, tocca a te (Gruppo A)**: validare un mittente sul pannello Mailjet (Account ->
+   Sender addresses & domains, un click di conferma via email -- obbligatorio, Mailjet non ha un
+   mittente di test universale come Resend) e impostare `MJ_APIKEY_PUBLIC`/`MJ_APIKEY_PRIVATE`/
+   `MAILJET_FROM_EMAIL` (locale in `.env.local` + su Vercel), altrimenti il modulo resta
+   silenziosamente disattivato (nessuna email parte, ma nessuna prenotazione si rompe); applicare
+   la migrazione `0015_email_cliente_caparra.sql` al database reale (aggiunge solo una colonna,
+   stesso rischio nullo delle altre migrazioni additive già applicate) -- vedi `.env.example` per
+   i dettagli.
 2. **Il cliente finale non può gestire da solo la propria prenotazione** dopo averla fatta su
    `/s/[slug]` (cancellarla, spostarla) -- deve richiamare o riscrivere al salone. Ogni
    concorrente verificato (inclusa Estetia) offre questo. Si lega bene al punto sopra: il modo
@@ -491,12 +499,11 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       competitor del 12/09/2026: gap reale, il progetto non ne ha nessuna, ogni concorrente
       verificato (Estetia/Calendix/Skedula/Fresha/Treatwell/Booksy) le ha. Non urgente prima del
       deploy di test, ma bloccante prima di pubblicare il link di un salone vero.
-- [ ] **Notifiche email (conferma al cliente + avviso al titolare)** -- nuovo task, priorità
-      alta, secondo giro mega-controllo 12/09/2026: oggi zero email parte quando arriva una
-      prenotazione (da dashboard, AI o pagina pubblica). Prima che WhatsApp sia disponibile,
-      l'email è l'unico canale di notifica passiva possibile -- senza, un titolare deve tenere
-      la dashboard aperta per accorgersi di una prenotazione nuova. Provider da scegliere
-      (Resend è la scelta più semplice con Next.js); zero codice/provider oggi.
+- [x] **Notifiche email (conferma al cliente + avviso al titolare)** -- **CODICE FATTO
+      13/09/2026** (vedi Gruppo B-bis punto 1 in cima al file per il dettaglio completo):
+      provider Mailjet, agganciato dentro `creaAppuntamentoTenant`. Resta solo la parte che
+      tocca a Gabriel (Gruppo A punto 9): validare un mittente su Mailjet + applicare la
+      migrazione `0015_email_cliente_caparra.sql`.
 - [ ] **Gestione della prenotazione lato cliente** (cancella/sposta da solo): oggi il cliente
       che prenota su `/s/[slug]` deve richiamare il salone per qualunque modifica. Si lega al
       punto sopra -- il modo più naturale è un link "gestisci la tua prenotazione" nell'email di
@@ -558,12 +565,14 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       le promesse del sito"): pubblicizzati come voce inclusa da Growth in su (`Prezzi.tsx`,
       `Funzionalita.tsx`) e usati esplicitamente nel calcolo ROI della landing
       (`ImpattoEconomico.tsx`: "Il promemoria automatico evita questa voce da solo", riferito ai
-      clienti dimenticati) -- **zero codice esiste**: nessun provider email (`grep` su tutto
-      `src/` per resend/nodemailer/sendgrid, zero risultati) né motore di invio automatico di
-      alcun tipo. Va costruito per intero: motore di automazioni configurabili (reminder prima
-      dell'appuntamento, follow-up clienti inattivi, promemoria compleanno), con almeno un canale
-      di invio reale (email è il più veloce da attivare, non dipende da Meta/costi SMS -- vedi
-      task email qui sotto). Stesso principio di "Il sito descrive il prodotto al lancio"
+      clienti dimenticati) -- **zero motore di invio automatico esiste** (nessun cron/scheduler
+      che invia in autonomia, a orari o eventi prestabiliti). Aggiornamento 13/09/2026: un canale
+      email ORA esiste (`inviaEmail()` in `src/lib/email/mailjet.server.ts`, costruito per le
+      notifiche di nuova prenotazione, Gruppo B-bis punto 1) -- riutilizzabile qui invece di
+      scegliere un provider da zero, resta comunque da costruire il motore di automazioni vero e
+      proprio (reminder prima dell'appuntamento, follow-up clienti inattivi, promemoria
+      compleanno) che decida QUANDO inviare, non solo il "come" spedire l'email. Stesso principio
+      di "Il sito descrive il prodotto al lancio"
       (DECISIONS.md 12/09/2026): non urgente finché non ci sono clienti Growth paganti reali, ma
       è tra i più concreti da rispettare -- viene usato come argomento di vendita diretto
       nel calcolo di risparmio mostrato a ogni visitatore, non solo elencato tra le funzioni.

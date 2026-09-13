@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { creaSupabaseFinto } from "@/test/supabase-finto";
 
 vi.mock("@/lib/supabase/admin", () => ({ creaClientAdmin: vi.fn() }));
-vi.mock("./resend.server", () => ({ inviaEmail: vi.fn().mockResolvedValue(true) }));
+vi.mock("./mailjet.server", () => ({ inviaEmail: vi.fn().mockResolvedValue(true) }));
 
 import { creaClientAdmin } from "@/lib/supabase/admin";
-import { inviaEmail } from "./resend.server";
+import { inviaEmail } from "./mailjet.server";
 import { inviaNotificheNuovoAppuntamento } from "./notifiche.server";
 
 const creaClientAdminFinto = vi.mocked(creaClientAdmin);
@@ -59,7 +59,8 @@ describe("inviaNotificheNuovoAppuntamento", () => {
   const ENV_ORIGINALE = { ...process.env };
 
   beforeEach(() => {
-    process.env.RESEND_API_KEY = "chiave-test";
+    process.env.MJ_APIKEY_PUBLIC = "chiave-pubblica-test";
+    process.env.MJ_APIKEY_PRIVATE = "chiave-privata-test";
     inviaEmailFinto.mockClear();
     inviaEmailFinto.mockResolvedValue(true);
   });
@@ -69,8 +70,9 @@ describe("inviaNotificheNuovoAppuntamento", () => {
     vi.clearAllMocks();
   });
 
-  it("senza RESEND_API_KEY non interroga nemmeno il database: nessuna latenza aggiunta a una prenotazione se Gabriel non ha ancora configurato Resend", async () => {
-    delete process.env.RESEND_API_KEY;
+  it("senza le chiavi Mailjet non interroga nemmeno il database: nessuna latenza aggiunta a una prenotazione se Gabriel non ha ancora configurato Mailjet", async () => {
+    delete process.env.MJ_APIKEY_PUBLIC;
+    delete process.env.MJ_APIKEY_PRIVATE;
     await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
     expect(creaClientAdminFinto).not.toHaveBeenCalled();
     expect(inviaEmailFinto).not.toHaveBeenCalled();

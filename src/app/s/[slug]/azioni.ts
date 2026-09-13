@@ -49,8 +49,8 @@ const FORMATO_DATA_YMD = /^\d{4}-\d{2}-\d{2}$/;
 const FORMATO_TELEFONO = /^[0-9+()\-\s]{6,30}$/;
 // Permissivo di proposito (nessuna validazione RFC completa): serve solo a
 // scartare refusi grossolani prima di provare a inviare un'email -- un
-// formato valido ma inesistente fallirà comunque lato Resend, fail-open
-// (vedi src/lib/email/resend.server.ts), senza mai bloccare la prenotazione.
+// formato valido ma inesistente fallirà comunque lato Mailjet, fail-open
+// (vedi src/lib/email/mailjet.server.ts), senza mai bloccare la prenotazione.
 const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface SlotPubblico {

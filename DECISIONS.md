@@ -1302,3 +1302,51 @@ senza profilo owner, fail-open su appuntamento non trovato, fail-open su eccezio
 dedicato (le notifiche hanno i loro test a parte, non c'è motivo di far fornire a ogni test di
 scrittura anche le risposte finte per le query di `notifiche.server.ts`). `tsc --noEmit`,
 `eslint`, `npx vitest run` (149/149, da 138), `next build` tutti puliti.
+
+---
+
+## 2026-09-13 — Ripensamento nello stesso giorno: Mailjet al posto di Resend
+
+**Cosa è successo**: mentre Gabriel seguiva le istruzioni per creare la chiave Resend, ha
+mandato uno screenshot che si è rivelato essere `app.mailjet.com`, non Resend -- con tanto di
+una subaccount API key già creata e chiamata proprio "salone-ai-saas". Prima di insistere su
+Resend gli ho chiesto quale dei due volesse usare; ha risposto giustamente "se ha più mail
+meglio questo no? esamina meglio qual'è il migliore e poi fai o dimmi" -- cioè: verifica i
+numeri veri (non fidarti della mia memoria, potrebbe essere cambiata) e decidi tu.
+
+**Verificato con ricerca web** (non a memoria, i piani gratuiti cambiano spesso):
+- Mailjet free: **6.000 email/mese, 200/giorno**, API/SMTP/webhook inclusi, nessuna carta di
+  credito richiesta ([fonte](https://www.mailjet.com/pricing/)).
+- Resend free: **3.000 email/mese, 100/giorno**, 3 domini
+  ([fonte](https://resend.com/docs/knowledge-base/what-is-resend-pricing)).
+
+**Decisione**: passare a Mailjet. Il doppio dei volumi gratuiti a parità di zero costo batte
+Resend su questo confronto puntuale, e Gabriel aveva già investito il tempo di creare l'account
+e una key dedicata al progetto -- nessun motivo per buttarlo e ripartire da un account nuovo.
+
+**Differenza tecnica non banale, verificata sui type declaration del pacchetto ufficiale
+(`node-mailjet`) prima di scrivere codice, non assunta**: Mailjet autentica con una VERA coppia
+API Key (pubblica) + Secret Key (privata) via Basic Auth (`Mailjet.apiConnect(apiKey,
+apiSecret)`), diverso dal singolo bearer token di Resend -- da qui la domanda iniziale di
+Gabriel era legittima, non confusione sua. Inoltre, a differenza di Resend (che ha un mittente
+di test universale "onboarding@resend.dev" utilizzabile senza alcuna configurazione), **Mailjet
+richiede un mittente validato PRIMA di poter inviare qualunque email**, anche solo a se stessi:
+va aggiunto e confermato con un click da Account -> Sender addresses & domains nel pannello
+Mailjet -- un passo in più che Gabriel deve fare lui (email reale richiesta), ma one-off e
+veloce (nessun dominio DNS necessario per un singolo indirizzo).
+
+**Rifatto**: `src/lib/email/resend.server.ts` -> `src/lib/email/mailjet.server.ts` (stessa
+firma esterna `inviaEmail({a, oggetto, html})`, quindi `notifiche.server.ts` non ha dovuto
+cambiare nella logica, solo l'import). Pacchetto npm `resend` rimosso, `node-mailjet` installato.
+Env var: `RESEND_API_KEY`/`RESEND_FROM_EMAIL` -> `MJ_APIKEY_PUBLIC`/`MJ_APIKEY_PRIVATE`
+(nomi ripresi identici dalla documentazione ufficiale Mailjet, per rendere immediato il confronto
+se Gabriel consulta le loro guide) + `MAILJET_FROM_EMAIL` (ora obbligatoria, non più opzionale
+come `RESEND_FROM_EMAIL`, per il motivo sopra). Rifatti anche i test dedicati al modulo
+provider (stesso numero e stesso tipo di casi: fail-open senza chiavi, fail-open senza mittente,
+invio riuscito, fail-open su risposta di errore, fail-open su eccezione di rete) verificando
+prima la forma esatta della risposta di Mailjet (`Messages[].Status`/`Errors`) sui type
+declaration del pacchetto, non per supposizione.
+
+**Verifica**: `tsc --noEmit`, `eslint`, `npx vitest run` (149/149, invariato: stesso numero di
+test, stesso comportamento esterno), `next build` tutti puliti. Non ancora verificato con un
+invio reale (serve il mittente validato sul pannello Mailjet, non ancora fatto).

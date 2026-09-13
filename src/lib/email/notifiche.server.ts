@@ -2,7 +2,7 @@ import "server-only";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
-import { inviaEmail } from "./resend.server";
+import { inviaEmail } from "./mailjet.server";
 
 /** Escape minimo per inserire testo libero (nome cliente, servizio, note) dentro l'HTML dell'email. */
 function escapeHtml(testo: string): string {
@@ -68,9 +68,9 @@ async function trovaEmailTitolare(
  * deve MAI far sembrare fallita una prenotazione già scritta con successo.
  */
 export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntamentoId: string): Promise<void> {
-  // Se Gabriel non ha ancora configurato Resend, non ha senso interrogare
+  // Se Gabriel non ha ancora configurato Mailjet, non ha senso interrogare
   // il database per niente -- niente latenza aggiunta alla prenotazione.
-  if (!process.env.RESEND_API_KEY) return;
+  if (!process.env.MJ_APIKEY_PUBLIC || !process.env.MJ_APIKEY_PRIVATE) return;
 
   try {
     const admin = creaClientAdmin();
