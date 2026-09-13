@@ -1,6 +1,38 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, decimo giro -- **trovata e corretta la vera causa per cui
+Ultimo aggiornamento: 13/09/2026, undicesimo giro -- verificato via log Vercel che il fix del giro
+precedente (enum Mailjet rotto dal bundling Turbopack) è davvero in produzione e ha funzionato.
+Dopo il deploy del fix, Gabriel ha rifatto un test dal vivo sul **flusso pubblico** (non dashboard:
+il tenant di prova "Salone Test Claude" ha come titolare un indirizzo finto
+`claude.test.lista.attesa@example.com`, quindi un test solo-dashboard non può mai arrivare in una
+casella reale -- vedi nota sotto), prenotazione "Test Fix Definitivo" il 19/09/2026 09:00 con email
+cliente `gabrielmazzucchelli3@gmail.com`. Letti i log runtime Vercel (stesso percorso via browser
+già autenticato, il tool MCP resta rotto):
+- Un primo tentativo (15:06:01) è fallito con un errore innocuo e transitorio, non legato al fix:
+  `Errore risolvendo il tenant dallo slug: salone-3ad8c9ad { message: 'Gateway Timeout' }` --
+  timeout della REST API di Supabase, non del nostro codice (corrisponde al messaggio "Attività non
+  trovata" visto e poi risolto con un secondo tentativo).
+- Il secondo tentativo (15:06:39, 200, 2.59s) è quello andato a buon fine ("Prenotazione
+  confermata!" a schermo). Nel dettaglio "Function Invocation" di quella richiesta compaiono, dopo
+  le chiamate a Supabase, **due `POST api.mailjet.com/v3.1/send`** -- una per la notifica al
+  titolare e una per la conferma al cliente, come atteso quando il cliente lascia un'email.
+  Filtrando i log per `level:error` nella stessa finestra temporale, l'unico altro errore trovato è
+  quello vecchio delle 14:43:25 (il bug dell'enum, **precedente** al fix/deploy -- è proprio il log
+  che aveva permesso di diagnosticarlo nel giro precedente). **Nessun errore associato alla
+  richiesta delle 15:06:39**: `inviaEmail()` logga sempre un `console.error` sia per eccezioni sia
+  per `Status !== "success"` dalla risposta Mailjet, quindi la sua assenza qui è un forte indizio
+  (non una controprova assoluta, i log Vercel non mostrano il body della risposta Mailjet
+  chiamata per chiamata) che entrambi gli invii sono stati accettati.
+**Serve la conferma finale di Gabriel**: controllare `gabrielmazzucchelli3@gmail.com` (posta in
+arrivo e spam) per due email relative alla prenotazione "Test Fix Definitivo" del 19/09 09:00 sul
+tenant "Salone Test Claude" -- una di notifica titolare, una di conferma cliente. Se sono arrivate,
+il fix del giro precedente è chiuso e verificato end-to-end. Nota per i test futuri: qualunque test
+fatto **solo da dashboard** su questo tenant di prova notifica un indirizzo finto e inesistente
+(`claude.test.lista.attesa@example.com`, verificato via query diretta su `auth.users`) -- per
+verificare la consegna reale serve sempre passare dal flusso pubblico (o dalla caparra) con
+l'email di Gabriel come contatto cliente.
+
+Aggiornamento precedente, 13/09/2026, decimo giro -- **trovata e corretta la vera causa per cui
 nessuna email di notifica è mai partita**, dopo diversi cicli di troubleshooting sul mittente
 Mailjet (tutti indizi reali ma non la causa di fondo: prima `MAILJET_FROM_EMAIL` mancante su
 Vercel, poi il mittente Gmail non validato -- entrambi corretti da Gabriel, ma le email
