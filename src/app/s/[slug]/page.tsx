@@ -45,8 +45,15 @@ const ETICHETTE_SOCIAL: Record<string, string> = {
   tiktok: "TikTok",
 };
 
-export default async function PaginaPubblicaSalone({ params }: { params: Promise<{ slug: string }> }) {
+export default async function PaginaPubblicaSalone({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ caparra?: string }>;
+}) {
   const { slug } = await params;
+  const { caparra: esitoCaparra } = await searchParams;
   const profilo = await caricaProfiloCache(slug);
   if (!profilo) notFound();
 
@@ -107,7 +114,17 @@ export default async function PaginaPubblicaSalone({ params }: { params: Promise
         {/* ── prenotazione (in cima: è l'azione principale della pagina) ── */}
         <section id="prenota" className="scroll-mt-6">
           <h2 className="mb-4 text-lg font-semibold text-zinc-900">Prenota online</h2>
-          <FlussoPrenotazione slug={slug} servizi={profilo.servizi} operatori={profilo.operatori} />
+          {esitoCaparra === "successo" && (
+            <p className="mb-4 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
+              Pagamento ricevuto, prenotazione confermata! Ti aspettiamo.
+            </p>
+          )}
+          {esitoCaparra === "annullata" && (
+            <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Pagamento annullato: la prenotazione non è stata confermata, nessun addebito effettuato.
+            </p>
+          )}
+          <FlussoPrenotazione slug={slug} servizi={profilo.servizi} operatori={profilo.operatori} caparra={profilo.caparra} />
         </section>
 
         {/* ── servizi (catalogo consultabile, stessi dati del flusso sopra) ── */}

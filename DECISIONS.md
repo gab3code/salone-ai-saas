@@ -955,3 +955,42 @@ database ha già (prezzo servizio × appuntamenti confermati nei prossimi giorni
 pagamenti né fiscalità e resta dentro il perimetro del prodotto. Quest'ultima ("incassi
 previsti") È stata aggiunta come task, in Fase 3 di `PIANO.md` -- le due cose non vanno confuse:
 stesso nome (accenna a "incassi"), natura tecnica e rischio completamente diversi.
+
+## 2026-09-13 — Deposito/caparra: l'appuntamento nasce solo a pagamento confermato, mai prima
+
+**Decisione**: quando un tenant richiede una caparra, la server action pubblica
+(`avviaPagamentoCaparra`) NON crea l'appuntamento -- crea solo una riga di tracciamento
+(`richieste_caparra`, stato `in_attesa`) e una Stripe Checkout Session. L'appuntamento vero
+(tabella `appuntamenti`, con la sua difesa anti-doppia-prenotazione) viene creato SOLO dal
+webhook, al ricevimento di `checkout.session.completed` -- stessa unica funzione di scrittura di
+sempre (`creaAppuntamentoTenant`, punto 9 di CLAUDE.md), mai una seconda via.
+
+**Alternativa considerata**: creare subito l'appuntamento con uno stato nuovo tipo
+"in_attesa_pagamento", e confermarlo (portarlo a "confermato") al webhook. Avrebbe il vantaggio
+di bloccare davvero lo slot durante il pagamento tramite il vincolo Postgres
+`niente_sovrapposizioni` -- ma quel vincolo è scoperto solo per righe `stato = 'confermato'`
+(vedi migrazione 0001): estenderlo avrebbe richiesto toccare un vincolo di database core già in
+produzione per un solo flusso nuovo, più un job di pulizia per gli "in_attesa_pagamento"
+abbandonati (chi inizia il pagamento e chiude la scheda senza completarlo).
+
+**Motivazione della scelta fatta**: niente appuntamenti "fantasma" non pagati nel calendario di
+un titolare (mai un rischio di dimenticarsene o di doverli ripulire a mano), niente modifica a un
+vincolo di database core per un solo flusso, codice più semplice da verificare. Il rovescio della
+medaglia, accettato consapevolmente: lo slot NON è bloccato durante il pagamento -- due clienti
+potrebbero pagare per lo stesso slot quasi in contemporanea. Mitigato (non eliminato) con un
+rimborso Stripe automatico (`stripe.refunds.create`) quando il webhook trova il conflitto al
+momento di creare l'appuntamento, invece di trattenere il pagamento di un cliente per una
+prenotazione che non esisterà mai. Vedi PROJECT_STATUS.md, "Problemi noti aperti" #16, per il
+dettaglio completo e il criterio per quando rivedere questa scelta (se diventa un problema reale
+misurato, non ipotetico).
+
+**Verifica**: `tsc --noEmit`, `eslint`, `npx vitest run` (119/119, inclusi 6 nuovi test su
+`src/lib/stripe/caparra.ts` per il calcolo dell'importo e 2 nuovi su `pagina-pubblica.server.ts`
+per la configurazione esposta), `next build` -- tutti puliti.
+
+**Nota operativa importante**: la migrazione `0011_deposito_caparra.sql` è scritta ma NON
+applicata al database reale (`weeaggiqovnmtovdjzxy`) -- il tentativo di applicarla direttamente
+da questa sessione è stato bloccato dal classificatore di sicurezza della sandbox ("modifica di
+una risorsa condivisa"), correttamente: è un database reale condiviso, non va toccato senza il
+tuo ok esplicito, stessa cautela già in uso per git push/deploy. Aspetto la tua conferma prima di
+applicarla (o puoi farlo tu stesso dall'SQL Editor di Supabase, il file è pronto così com'è).

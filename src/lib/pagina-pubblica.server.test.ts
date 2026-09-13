@@ -15,6 +15,9 @@ const TENANT_ROW = {
   logo_url: null,
   cover_url: null,
   piano: "growth", // ha accesso alla chat AI web (vedi src/lib/ai/limiti.ts)
+  caparra_attiva: false,
+  caparra_tipo: "percentuale",
+  caparra_valore: 20,
 };
 
 describe("caricaProfiloPubblico", () => {
@@ -82,6 +85,22 @@ describe("caricaProfiloPubblico", () => {
     expect(profilo?.operatori).toEqual([
       { id: "op-1", nome: "Sara", fotoUrl: null, ruolo: "Titolare", servizioIds: ["serv-1"] },
     ]);
+    expect(profilo?.caparra).toEqual({ attiva: false, tipo: "percentuale", valore: 20 });
+  });
+
+  it("caparra attiva/tipo/valore riflettono la configurazione del tenant", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: {
+        select: [
+          { data: { ...TENANT_ROW, caparra_attiva: true, caparra_tipo: "fisso", caparra_valore: 1000 }, error: null },
+        ],
+      },
+      servizi: { select: [{ data: [], error: null }] },
+      operatori: { select: [{ data: [], error: null }] },
+    });
+
+    const profilo = await caricaProfiloPubblico(supabase, "bella-hair");
+    expect(profilo?.caparra).toEqual({ attiva: true, tipo: "fisso", valore: 1000 });
   });
 
   it("chatAiAttiva è false per un piano senza AI (es. free)", async () => {

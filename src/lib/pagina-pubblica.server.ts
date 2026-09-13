@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { pianoHaAccessoAIChatWeb } from "@/lib/ai/limiti";
+import type { ConfigCaparra, TipoCaparra } from "@/lib/stripe/caparra";
 
 /**
  * Loader del profilo pubblico del salone (Fase 4, punto 15 di CLAUDE.md) --
@@ -58,6 +59,11 @@ export interface ProfiloPubblico {
   // -- il widget chat lato pagina pubblica si mostra SOLO se true, coerente
   // col gate già applicato server-side da /api/chat/[slug].
   chatAiAttiva: boolean;
+  // Deposito/caparra anti-no-show (Fase 6): letta qui insieme al resto del
+  // profilo pubblico, così FlussoPrenotazione.tsx può calcolare e mostrare
+  // l'importo PRIMA di far scegliere al cliente se pagare -- niente
+  // richiesta separata solo per questo.
+  caparra: ConfigCaparra;
   servizi: ServizioPubblico[];
   operatori: OperatorePubblico[];
 }
@@ -74,7 +80,7 @@ export async function caricaProfiloPubblico(
   const { data: tenant, error: erroreTenant } = await supabase
     .from("tenants")
     .select(
-      "id, slug, nome, descrizione, indirizzo, telefono, email, sito_web, social, logo_url, cover_url, piano"
+      "id, slug, nome, descrizione, indirizzo, telefono, email, sito_web, social, logo_url, cover_url, piano, caparra_attiva, caparra_tipo, caparra_valore"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -139,6 +145,11 @@ export async function caricaProfiloPubblico(
     logoUrl: tenant.logo_url,
     coverUrl: tenant.cover_url,
     chatAiAttiva: pianoHaAccessoAIChatWeb(tenant.piano),
+    caparra: {
+      attiva: tenant.caparra_attiva,
+      tipo: tenant.caparra_tipo as TipoCaparra,
+      valore: tenant.caparra_valore,
+    },
     servizi: (serviziRes.data ?? []).map((s) => ({
       id: s.id,
       nome: s.nome,

@@ -43,12 +43,19 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
    come Vercel (blocco di Apple sul traffico da IP di data center, vedi PROJECT_STATUS.md
    "Problemi noti aperti" #14) -- o lo dichiariamo non supportato, o si accetta il limite e si
    documenta così nel materiale di vendita quando esisterà.
+7. **Applicare la migrazione `0011_deposito_caparra.sql` e provare un pagamento di test della
+   caparra** (nuovo, 13/09/2026): il codice del Deposito/caparra è scritto e verificato
+   (`tsc`/`eslint`/`vitest`/`build` puliti) ma la migrazione non è ancora sul database reale --
+   bloccata di proposito dal classificatore di sicurezza della sandbox perché tocca un database
+   condiviso, serve il tuo ok esplicito (dall'SQL Editor di Supabase, il file è pronto così
+   com'è, o dimmi di applicarla e lo faccio). Dopo: attivare la caparra su un salone di test in
+   `/dashboard/impostazioni/caparra` e completare un pagamento di test reale su `/s/[slug]`.
 
 ### Gruppo B -- Nuovo codice a priorità alta, trovato nel mega-controllo competitor di oggi
-1. **Deposito/caparra anti-no-show** (Fase 6): gap reale in tutto il software italiano di
-   categoria, standard nei marketplace -- Stripe già integrato, da estendere. Il singolo task
-   con il miglior rapporto impatto/lavoro trovato oggi: ci mette avanti a TUTTI i concorrenti
-   italiani diretti, non solo ai marketplace.
+1. ~~**Deposito/caparra anti-no-show** (Fase 6)~~ **CODICE FATTO 13/09/2026** (vedi Fase 6 e
+   DECISIONS.md 13/09/2026 per il dettaglio) -- resta da fare solo la parte che tocca a Gabriel:
+   applicare la migrazione al database reale e verificare un pagamento di test dal vivo (Gruppo
+   A).
 2. **Tono dell'AI personalizzabile** (Fase 5): bloccante prima di aprire pagamenti veri sul
    piano Pro -- oggi pubblicizzato ma inesistente nel codice (nessuna colonna/UI/collegamento al
    prompt). Non urgentissimo solo perché nessun cliente Pro reale esiste ancora.
@@ -449,16 +456,18 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
 
 ## Fase 6 -- Automazioni e sicurezza (punti 16, 29, 30)
 - [ ] Motore di automazioni configurabili (reminder, follow-up, inattività, compleanno)
-- [ ] **Deposito/caparra anti-no-show** (nuovo task, mega-controllo competitor 12/09/2026): gap
-      reale verificato in TUTTO il software italiano di categoria (Estetia, Calendix, Skedula,
-      WeGest, CutApp -- nessuno lo offre), standard invece nei marketplace internazionali
-      (Fresha, Booksy: carta in garanzia o pagamento anticipato per ridurre i no-show). Stripe
-      è già integrato per il billing (Fase 5) -- stessa competenza tecnica: `PaymentIntent`
-      con blocco carta o pagamento anticipato al momento della prenotazione pubblica (`/s/
-      [slug]`, `FlussoPrenotazione.tsx`), configurabile per tenant (obbligatorio/opzionale/
-      importo). Priorità alta: colma un gap reale contro tutti i concorrenti italiani diretti,
-      non solo contro i marketplace. Vedere `docs/analisi-concorrenti-mercato.md`, sezione
-      "AGGIORNAMENTO CRITICO", punto 3.
+- [x] **Deposito/caparra anti-no-show** (nuovo task, mega-controllo competitor 12/09/2026,
+      CODICE FATTO 13/09/2026): gap reale verificato in TUTTO il software italiano di categoria
+      (Estetia, Calendix, Skedula, WeGest, CutApp -- nessuno lo offre), standard invece nei
+      marketplace internazionali (Fresha, Booksy). Costruito: pagamento anticipato via Stripe
+      Checkout ("payment", non `PaymentIntent` grezzo -- più semplice, coerente con il checkout
+      abbonamenti già esistente) al momento della prenotazione pubblica (`/s/[slug]`,
+      `FlussoPrenotazione.tsx` + `avviaPagamentoCaparra` in `azioni.ts`), configurabile per
+      tenant (attivo/disattivo, percentuale o importo fisso, `/dashboard/impostazioni/caparra`).
+      `tsc`/`eslint`/`vitest` (119/119)/`build` puliti. **Non ancora verificato dal vivo**:
+      migrazione `0011_deposito_caparra.sql` non applicata al database reale (serve l'ok di
+      Gabriel, vedi DECISIONS.md 13/09/2026) + nessun pagamento di test reale ancora fatto.
+      Vedere `docs/analisi-concorrenti-mercato.md`, sezione "AGGIORNAMENTO CRITICO", punto 3.
 - [ ] **Lista d'attesa automatica alla cancellazione** (vista su Calendix e CutApp, non su
       Estetia): a una cancellazione, proporre lo slot liberato al primo cliente in coda invece
       di lasciarlo semplicemente libero. Nessun lavoro architetturale enorme sopra il booking

@@ -1,6 +1,30 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 12/09/2026 notte, secondo giro -- Gabriel ha chiesto di continuare a
+Ultimo aggiornamento: 13/09/2026 -- Gabriel ha detto "quando hai finito di controllare inizia
+il lavoro seguendo gli md": fine della fase di sola documentazione, iniziata l'implementazione
+vera seguendo l'ordine di priorità di `PIANO.md` (Gruppo B, punto 1). **Costruito il Deposito/
+caparra anti-no-show** (Fase 6): configurabile per tenant (`/dashboard/impostazioni/caparra`,
+attiva/disattiva, percentuale o importo fisso), integrato nella pagina pubblica di prenotazione
+(`/s/[slug]`, `FlussoPrenotazione.tsx` mostra l'importo prima di far scegliere al cliente se
+procedere) tramite una nuova Stripe Checkout Session in modalità "payment" (diversa da quella
+già esistente per gli abbonamenti, che resta "subscription") -- stesso webhook Stripe di sempre,
+un ramo nuovo riconosciuto da `session.metadata.tipo === "caparra"`. Scelta di design importante:
+l'appuntamento vero e proprio NON viene creato finché il pagamento non è confermato dal webhook
+(mai un appuntamento "fantasma" non pagato in calendario) -- dettaglio e limite onestamente
+segnalato (lo slot non è bloccato durante il pagamento, mitigato con un rimborso automatico in
+caso di conflitto) in "Problemi noti aperti" qui sotto e nel commento della migrazione
+`0011_deposito_caparra.sql`. Verificato: 6 nuovi test per il calcolo dell'importo
+(`stripe/caparra.test.ts`) + 2 nuovi test per il profilo pubblico aggiornato
+(`pagina-pubblica.server.test.ts`), suite intera **119/119 verdi**, `tsc --noEmit` pulito,
+`eslint` pulito, `next build` pulito (nuova rotta `/dashboard/impostazioni/caparra` compilata
+correttamente). **NON ancora verificato dal vivo**: la migrazione non è stata applicata al
+database reale (il classificatore di sicurezza della sandbox ha bloccato l'applicazione
+automatica come "modifica di una risorsa condivisa" -- corretto non farlo senza il tuo ok
+esplicito, è la stessa cautela di sempre su push/deploy) e servirebbe comunque un pagamento di
+test reale nel browser per la verifica end-to-end, che solo tu puoi fare. Vedi "Cosa è mock,
+incompleto o non ancora iniziato" per il dettaglio completo e i prossimi passi.
+
+Aggiornamento precedente, 12/09/2026 notte, secondo giro -- Gabriel ha chiesto di continuare a
 controllare che tutti gli .md siano giusti e di aggiungere agli obiettivi altre funzioni
 mancanti. Due cose fatte: (1) **corretti altri due file rimasti indietro**, oltre ai due già
 sistemati nel giro precedente -- `docs/embedded-signup-whatsapp.md` dava la colpa a "il
@@ -1058,6 +1082,24 @@ l'11/09/2026 via MCP diretto).
 
 ## Cosa è mock, incompleto o non ancora iniziato
 
+- **Deposito/caparra anti-no-show (Fase 6, task 13/09/2026)**: CODICE SCRITTO per intero --
+  migrazione `0011_deposito_caparra.sql` (colonne `tenants.caparra_*`, colonne
+  `appuntamenti.caparra_*`, nuova tabella `richieste_caparra` con RLS), calcolo puro
+  dell'importo (`src/lib/stripe/caparra.ts`, 6 test), impostazioni tenant
+  (`/dashboard/impostazioni/caparra`, form + elenco richieste recenti incluse quelle fallite/
+  rimborsate), integrazione nel flusso pubblico (`avviaPagamentoCaparra` in
+  `src/app/s/[slug]/azioni.ts`, Stripe Checkout Session "payment"), gestione della conferma nel
+  webhook (`completaPagamentoCaparra` in `api/stripe/webhook/route.ts`: crea l'appuntamento
+  vero con la stessa `creaAppuntamentoTenant` di sempre, o rimborsa automaticamente se nel
+  frattempo lo slot è stato preso da un altro cliente). `tsc`/`eslint`/`vitest` (119/119)/
+  `next build` tutti puliti. **NON ancora verificato dal vivo**: (1) la migrazione non è
+  applicata al database reale -- va approvata da Gabriel prima di applicarla, non è
+  un'operazione che la sandbox esegue da sola su un database condiviso senza il suo ok esplicito;
+  (2) nessun pagamento di test reale ancora fatto nel browser (serve dopo la migrazione); (3) il
+  webhook Stripe esistente già gestisce il nuovo evento senza bisogno di una nuova
+  configurazione lato Stripe Dashboard (stesso endpoint, stesso signing secret). Vedi "Problemi
+  noti aperti" per il limite di design onestamente segnalato (slot non bloccato durante il
+  pagamento).
 - **WhatsApp**: predisposizione tecnica per l'Embedded Signup Meta scritta
   (`src/lib/whatsapp-embedded-signup.ts`, `src/app/api/whatsapp/embedded-signup/callback/
   route.ts`, migrazione 0003) ma **non attivabile**: bloccata dalla business verification
@@ -1254,6 +1296,20 @@ l'11/09/2026 via MCP diretto).
     Accettabile per ora (nessun salone reale ancora pubblico), ma da rivedere prima che un
     salone vero pubblichi il link -- possibili opzioni: conferma via SMS/WhatsApp del numero
     prima di bloccare lo slot, un semplice rate-limit per IP, o un CAPTCHA invisibile.
+
+16. **Deposito/caparra: lo slot non è bloccato durante il pagamento (13/09/2026)**: per non
+    creare un appuntamento "fantasma" prima di sapere se il cliente paga davvero, l'appuntamento
+    nasce solo al webhook `checkout.session.completed`. Conseguenza onestamente segnalata: due
+    clienti potrebbero avviare il pagamento per lo stesso slot quasi in contemporanea -- chi
+    completa il pagamento per secondo trova il conflitto quando il webhook prova a creare
+    l'appuntamento, e viene **rimborsato automaticamente** (`stripe.refunds.create`), con la riga
+    in `richieste_caparra` marcata `fallita_conflitto` (visibile in
+    `/dashboard/impostazioni/caparra`) invece di sparire nel nulla. Resta comunque un'esperienza
+    peggiore che bloccare davvero lo slot durante il pagamento (soluzione più complessa, non
+    fatta ora: richiederebbe una "prenotazione provvisoria" con scadenza automatica, un nuovo
+    stato appuntamento e un job di pulizia). Accettabile al primo rilascio -- nessun salone reale
+    ha ancora il traffico perché due persone scelgano lo stesso slot nella stessa finestra di
+    pochi minuti -- da rivedere se diventa un problema reale.
 
 ## Mappa dei file principali
 

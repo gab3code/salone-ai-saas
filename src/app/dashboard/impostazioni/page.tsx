@@ -44,6 +44,9 @@ export default async function PaginaImpostazioni() {
       <a href="/dashboard/impostazioni/calendari" className="text-sm underline">
         Calendari personali
       </a>
+      <a href="/dashboard/impostazioni/caparra" className="text-sm underline">
+        Deposito/caparra anti-no-show
+      </a>
     </div>
   );
 }

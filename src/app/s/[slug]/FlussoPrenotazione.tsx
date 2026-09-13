@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { ServizioPubblico, OperatorePubblico } from "@/lib/pagina-pubblica.server";
-import { cercaSlotPubblici, prenotaPubblico, type SlotPubblico } from "./azioni";
+import { calcolaImportoCaparraCentesimi, type ConfigCaparra } from "@/lib/stripe/caparra";
+import { cercaSlotPubblici, prenotaPubblico, avviaPagamentoCaparra, type SlotPubblico } from "./azioni";
 
 /**
  * Flusso di prenotazione lato cliente (Fase 4, punto 15): servizio -> data ->
@@ -48,10 +49,12 @@ export default function FlussoPrenotazione({
   slug,
   servizi,
   operatori,
+  caparra,
 }: {
   slug: string;
   servizi: ServizioPubblico[];
   operatori: OperatorePubblico[];
+  caparra: ConfigCaparra;
 }) {
   const [passo, setPasso] = useState<Passo>("servizio");
   const [servizioId, setServizioId] = useState<string>("");
@@ -65,6 +68,15 @@ export default function FlussoPrenotazione({
 
   const servizioScelto = useMemo(() => servizi.find((s) => s.id === servizioId) ?? null, [servizi, servizioId]);
   const nomeOperatore = (operatoreId: string) => operatori.find((o) => o.id === operatoreId)?.nome ?? "Operatore";
+
+  // Deposito/caparra (Fase 6): stesso calcolo puro usato lato server per
+  // creare la Checkout Session -- mostrato qui SOLO per informare il
+  // cliente prima che scelga se procedere, il server ricalcola e decide
+  // sempre da sé, non si fida di questo valore mostrato lato client.
+  const importoCaparra = useMemo(
+    () => (servizioScelto ? calcolaImportoCaparraCentesimi(caparra, servizioScelto.prezzoCentesimi) : 0),
+    [caparra, servizioScelto]
+  );
 
   async function cercaDisponibilita() {
     setErrore(null);
@@ -89,13 +101,29 @@ export default function FlussoPrenotazione({
     setErrore(null);
     setInCorso(true);
     try {
-      const risultato = await prenotaPubblico(slug, {
+      const datiPrenotazione = {
         servizioId: servizioScelto.id,
         operatoreId: slotScelto.operatoreId,
         inizioIso: slotScelto.inizioIso,
         clienteNome: nome,
         clienteTelefono: telefono,
-      });
+      };
+
+      // Caparra richiesta: si passa da Stripe, l'appuntamento nasce solo a
+      // pagamento confermato (vedi azioni.ts) -- il redirect lascia questa
+      // pagina, quindi non c'è un passo "fatto" da mostrare qui: il cliente
+      // torna su questa stessa pagina dopo aver pagato (o annullato).
+      if (importoCaparra > 0) {
+        const risultato = await avviaPagamentoCaparra(slug, datiPrenotazione);
+        if (!risultato.ok) {
+          setErrore(risultato.errore);
+          return;
+        }
+        window.location.href = risultato.checkoutUrl;
+        return;
+      }
+
+      const risultato = await prenotaPubblico(slug, datiPrenotazione);
       if (!risultato.ok) {
         setErrore(risultato.errore);
         return;
@@ -231,6 +259,12 @@ export default function FlussoPrenotazione({
           <div className="rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
             {servizioScelto.nome} · {formatoOraCivile(slotScelto.inizioIso)} con {nomeOperatore(slotScelto.operatoreId)}
           </div>
+          {importoCaparra > 0 && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Questa attività richiede una caparra di <strong>{formatoEuro(importoCaparra)}</strong> per confermare la
+              prenotazione, da pagare online nel passo successivo.
+            </p>
+          )}
           <label className="flex flex-col gap-1 text-sm">
             Nome e cognome
             <input
@@ -258,7 +292,13 @@ export default function FlussoPrenotazione({
             disabled={inCorso}
             className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-opacity disabled:opacity-50"
           >
-            {inCorso ? "Confermo..." : "Conferma prenotazione"}
+            {inCorso
+              ? importoCaparra > 0
+                ? "Ti porto al pagamento..."
+                : "Confermo..."
+              : importoCaparra > 0
+                ? `Paga la caparra (${formatoEuro(importoCaparra)}) e prenota`
+                : "Conferma prenotazione"}
           </button>
         </form>
       )}
