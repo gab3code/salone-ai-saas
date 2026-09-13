@@ -1,6 +1,26 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, ottavo giro -- delega ampia di Gabriel ("dobbiamo implementare
+Ultimo aggiornamento: 13/09/2026, nono giro -- Gabriel ha completato la sua parte (validato
+l'indirizzo Gmail su Mailjet, impostato `MJ_APIKEY_PUBLIC`/`MJ_APIKEY_PRIVATE`/`MAILJET_FROM_EMAIL`
+su Vercel) e ha chiesto di fare un test dal vivo dell'invio email. Eseguiti due test reali sul
+tenant di prova "Salone Test Claude" (produzione, `salone-3ad8c9ad`):
+1. **Dashboard** (`/dashboard/calendario`, 13/09 09:00, cliente "Test Email Claude" senza email) --
+   verifica del canale che copre sempre la notifica al titolare (quel form non raccoglie l'email
+   del cliente, solo nome/telefono).
+2. **Flusso pubblico diretto** (`/s/salone-3ad8c9ad`, 14/09 09:00, cliente "Gabriel Test Pubblico",
+   email `gabrielmazzucchelli3@gmail.com`) -- verifica di entrambe le email, titolare + conferma
+   cliente, sullo stesso indirizzo Gmail usato come mittente.
+Entrambe le prenotazioni sono state accettate correttamente dall'interfaccia ("Prenotazione
+confermata!"). **Non posso verificare da qui se le email sono arrivate davvero in una casella di
+posta** (nessun accesso alla webmail di Gabriel) né leggere i log runtime di Vercel per controllare
+eventuali errori Mailjet lato server: il tool MCP di Vercel risulta ancora non collegato
+correttamente all'account di Gabriel (`list_teams` torna vuoto, come nel giro precedente) --
+**serve conferma manuale di Gabriel**: controllare la casella `gabrielmazzucchelli3@gmail.com`
+(anche nello spam, dato il rischio SPF/DKIM già segnalato per un mittente Gmail via server terzi).
+I due appuntamenti di test restano nel tenant di prova, cancellabili da Gabriel dalla dashboard se
+non servono più.
+
+Aggiornamento precedente, 13/09/2026, ottavo giro -- delega ampia di Gabriel ("dobbiamo implementare
 tutte le funzioni, leggi gli md e fai tu quello che ritieni necessario ora") dopo la chiusura del
 settimo giro sotto. Rileggendo `PIANO.md`, la priorità più alta rimasta era Gruppo B-bis #1: zero
 notifica email quando arriva una prenotazione, né per il titolare né per il cliente. Costruito da
