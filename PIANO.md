@@ -234,9 +234,8 @@ sono nella loro Fase con `[x]`.
    specifica Enterprise in `Prezzi.tsx`) -- task già in Fase 4/7, **non era ancora collegato
    esplicitamente al fatto che è anche una voce di prezzo Enterprise**: stesso livello di urgenza
    degli altri bloccanti sopra, non solo un "nice to have" generico.
-8. "1 operatore" sul piano Free -- nuovo task in Fase 5 aggiunto oggi: pubblicizzato come limite
-   ma non applicato tecnicamente (diverso dagli altri punti: qui il prodotto fa PIÙ di quanto
-   promesso, non meno -- rischio di prodotto/revenue, non di reputazione verso il cliente).
+8. ~~"1 operatore" sul piano Free~~ **CODICE FATTO 13/09/2026** -- vedi Fase 5 (`limiteOperatori`
+   in `piani.ts`, applicato in `creaOperatore`).
 
 **Promesse verificate e già vere oggi** (nessuna azione, elencate solo per completezza
 dell'audit): pagina di prenotazione pubblica self-service 24/7 anche su Free; calendario unico
