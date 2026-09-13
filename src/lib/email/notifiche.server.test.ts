@@ -122,6 +122,35 @@ describe("inviaNotificheNuovoAppuntamento", () => {
     expect(inviaEmailFinto).not.toHaveBeenCalled();
   });
 
+  it("include il link 'gestisci la tua prenotazione' nell'email al cliente quando NEXT_PUBLIC_SITE_URL è definita", async () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://saloneai.esempio.it";
+    creaClientAdminFinto.mockReturnValue(
+      creaAdminFinto({ appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it" } } })
+    );
+
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
+
+    expect(inviaEmailFinto).toHaveBeenCalledWith(
+      expect.objectContaining({
+        a: "giulia@esempio.it",
+        html: expect.stringContaining(`https://saloneai.esempio.it/gestisci/${APPUNTAMENTO_ID}`),
+      })
+    );
+  });
+
+  it("omette il link 'gestisci' senza rompere l'invio se l'URL base non è determinabile (fuori da NEXT_PUBLIC_SITE_URL e da un contesto richiesta)", async () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    creaClientAdminFinto.mockReturnValue(
+      creaAdminFinto({ appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it" } } })
+    );
+
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
+
+    expect(inviaEmailFinto).toHaveBeenCalledWith(
+      expect.objectContaining({ a: "giulia@esempio.it", html: expect.not.stringContaining("/gestisci/") })
+    );
+  });
+
   it("fail-open: un'eccezione inattesa (es. auth.admin.getUserById che lancia) non si propaga mai fuori dalla funzione", async () => {
     creaClientAdminFinto.mockReturnValue(
       creaAdminFinto({ getUserById: vi.fn().mockRejectedValue(new Error("servizio auth non raggiungibile")) })

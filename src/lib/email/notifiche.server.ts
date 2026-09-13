@@ -1,4 +1,5 @@
 import "server-only";
+import { headers } from "next/headers";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
@@ -12,6 +13,30 @@ function escapeHtml(testo: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/**
+ * URL base del sito, per costruire il link "gestisci la tua prenotazione"
+ * (Fase 4 di PIANO.md) nell'email al cliente. `NEXT_PUBLIC_SITE_URL` non è
+ * ancora definita in produzione (dominio vero non ancora impostato, vedi
+ * docs/embedded-signup-whatsapp.md) -- fallback sugli header della richiesta
+ * corrente, stesso pattern già usato in `avviaPagamentoCaparra`
+ * (src/app/s/[slug]/azioni.ts). A differenza di lì, questa funzione viene
+ * chiamata anche da contesti dove `headers()` potrebbe non essere
+ * disponibile (nessuno oggi, ma es. un futuro job schedulato in background):
+ * try/catch fail-open, nessun link piuttosto che un link rotto o un'email
+ * che non parte affatto.
+ */
+async function urlBaseSito(): Promise<string | null> {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  try {
+    const intestazioni = await headers();
+    const proto = intestazioni.get("x-forwarded-proto") ?? "https";
+    const host = intestazioni.get("host");
+    return host ? `${proto}://${host}` : null;
+  } catch {
+    return null;
+  }
 }
 
 function formattaOrario(inizioReale: Date, fusoOrario: string): string {
@@ -120,6 +145,15 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
     }
 
     if (cliente?.email) {
+      // Link "gestisci la tua prenotazione" (Fase 4 di PIANO.md): solo
+      // cancellazione per ora (vedi src/app/gestisci/[id]/page.tsx per il
+      // perché "sposta" non è ancora incluso). Omesso del tutto se l'URL
+      // base non è determinabile -- mai un link rotto in un'email vera.
+      const base = await urlBaseSito();
+      const rigaGestisci = base
+        ? `<p><a href="${base}/gestisci/${appuntamentoId}">Gestisci o cancella la prenotazione</a></p>`
+        : "";
+
       await inviaEmail({
         a: cliente.email,
         oggetto: `Prenotazione confermata - ${nomeTenant}`,
@@ -130,6 +164,7 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
           <p>Servizio: ${escapeHtml(nomeServizio)}</p>
           ${rigaOperatore}
           <p>Quando: ${quando}</p>
+          ${rigaGestisci}
         `,
       });
     }

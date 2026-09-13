@@ -1,6 +1,27 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, ventesimo giro -- corretto un bug reale già tracciato in
+Ultimo aggiornamento: 13/09/2026, ventunesimo giro -- Gabriel ha deciso di rimandare il filtro
+"solo business" (giusto: senza traffico vero il rischio di abusi umani è quasi zero, l'anti-abuso
+da script già fatto copre il rischio concreto) e ha chiesto di continuare mentre non può pushare.
+Implementata "Gestione della prenotazione lato cliente" (Fase 4 di PIANO.md, in coda da quando le
+notifiche email sono state costruite -- ora che esistono davvero ha senso farla): nuova pagina
+pubblica `/gestisci/[id]`, nessun login, stesso modello di sicurezza di Calendly/Google
+Calendar/Stripe (link con un id non indovinabile). Solo CANCELLAZIONE per ora -- riprogrammare
+richiede un vero selettore di slot, rimandato onestamente, non taciuto. Riusa
+`cancellaAppuntamentoTenant` esistente, quindi la lista d'attesa automatica scatta anche da qui
+gratis. Link aggiunto nell'email di conferma cliente.
+
+**Limite di verifica onestamente segnalato**: la query della nuova pagina è confermata corretta
+contro il database reale (via SQL diretto: join risolti, dati completi per un vero appuntamento di
+test), ma un test end-to-end vero dal server di sviluppo locale di QUESTA sandbox fallisce con
+"Host not in allowlist" -- le chiamate dirette a Supabase dalla rete della sandbox sono bloccate
+(limite di rete già noto per altri strumenti in questo ambiente, non un bug del codice: lo stesso
+identico pattern di query è già usato in produzione in `notifiche.server.ts`/`[id]/page.tsx`).
+Verificato quindi: `tsc --noEmit` pulito, `eslint` pulito, `npx vitest run` **178/178** (era 176),
+`next build` pulito (nuova rotta `/gestisci/[id]` compilata). **Serve un click reale di Gabriel**
+su un link vero ricevuto per email per la conferma finale.
+
+Aggiornamento precedente, 13/09/2026, ventesimo giro -- corretto un bug reale già tracciato in
 PIANO.md ma rimandato per il rischio percepito ("Colonna 'Origine' in /dashboard/clienti mostra
 'pubblico' come 'Manuale'"): rileggendolo per intero, il rischio che aveva fatto rimandare il fix
 (migrare `clienti.creato_da_ai` da booleano a testo a tre stati su dati reali) non era necessario --

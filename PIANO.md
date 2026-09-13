@@ -524,10 +524,26 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       provider Mailjet, agganciato dentro `creaAppuntamentoTenant`. Resta solo la parte che
       tocca a Gabriel (Gruppo A punto 9): validare un mittente su Mailjet + applicare la
       migrazione `0015_email_cliente_caparra.sql`.
-- [ ] **Gestione della prenotazione lato cliente** (cancella/sposta da solo): oggi il cliente
-      che prenota su `/s/[slug]` deve richiamare il salone per qualunque modifica. Si lega al
-      punto sopra -- il modo più naturale è un link "gestisci la tua prenotazione" nell'email di
-      conferma, non un login separato per il cliente finale.
+- [x] **Gestione della prenotazione lato cliente -- SOLO cancellazione, CODICE FATTO 13/09/2026**
+      (il "sposta" resta da fare, vedi sotto): nuova pagina pubblica `/gestisci/[id]` (nessun
+      login, stesso modello di sicurezza di Calendly/Google Calendar -- il possesso dell'id
+      dell'appuntamento, un UUID v4 non indovinabile, ricevuto SOLO via il link nell'email di
+      conferma), con un pulsante di cancellazione a doppia conferma. Riusa
+      `cancellaAppuntamentoTenant` (punto 9 di CLAUDE.md, stessa funzione di dashboard/AI/pubblico)
+      -- la cancellazione lato cliente attiva quindi GRATIS anche la lista d'attesa automatica già
+      esistente. Link aggiunto nell'email di conferma cliente (`notifiche.server.ts`), con
+      `NEXT_PUBLIC_SITE_URL` o fallback sugli header della richiesta, omesso del tutto se
+      nessuno dei due è disponibile (mai un link rotto). 2 nuovi test in
+      `notifiche.server.test.ts`. **"Sposta" (riprogrammare) NON incluso**: richiede un vero
+      selettore di slot liberi (la stessa UI del flusso di prenotazione pubblica) -- lavoro a
+      parte, non "contenuto" come la sola cancellazione. **Verifica dal vivo limitata dalla
+      sandbox**: `tsc`/`eslint`/`vitest` (178/178)/`build` puliti, e la query è verificata
+      correttamente contro il database reale via SQL diretto (join risolti, dati completi per un
+      appuntamento di test vero) -- ma un `curl` alla pagina vera dal server dev locale di questa
+      sandbox fallisce con "Host not in allowlist" (le chiamate dirette a Supabase dalla rete di
+      questa sandbox sono bloccate, limite già noto per altri strumenti, diverso da un bug reale).
+      **Serve un click reale di Gabriel su un link vero** ricevuto per email per la conferma
+      finale end-to-end.
 
 ## Fase 5 -- Billing self-service e admin panel (punti 6, 7, 23, 24)
 - [x] Piani Free -> Enterprise progettati (non copiati), prezzi e posizionamento AI decisi
