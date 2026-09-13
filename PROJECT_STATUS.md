@@ -1,6 +1,19 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, quindicesimo giro -- Gabriel non può fare push (è da telefono),
+Ultimo aggiornamento: 13/09/2026, sedicesimo giro -- bug reale trovato rileggendo
+`notifiche.server.ts` per capire come funzionano le email (contesto: giro precedente). Le email di
+conferma prenotazione usano già `tenant.nome` nell'oggetto e nel corpo (es. "Prenotazione
+confermata - Estetica Bianchi"), ma il **mittente visualizzato** in `mailjet.server.ts` era
+hardcoded a `"Salone AI"` per ogni tenant -- un cliente che prenota da "Estetica Bianchi" vedeva
+comunque "Salone AI" come nome del mittente nella sua casella di posta, incoerente col resto
+dell'email e col fatto che il cliente probabilmente non ha mai sentito nominare "Salone AI" (è il
+nome della piattaforma, non del salone con cui ha davvero un rapporto). Aggiunto un campo opzionale
+`nomeMittente` a `ParametriEmail`/`inviaEmail`, con fallback a `"Salone AI"` per eventuali email
+future non legate a un tenant specifico; `notifiche.server.ts` ora passa `nomeTenant` in entrambe le
+chiamate (titolare e cliente). Nuovo test dedicato in `mailjet.server.test.ts`. Verificato: `tsc
+--noEmit` pulito, `eslint` pulito, `npx vitest run` **151/151** (era 150), `next build` pulito.
+
+Aggiornamento precedente, 13/09/2026, quindicesimo giro -- Gabriel non può fare push (è da telefono),
 quindi ho continuato con le funzionalità come richiesto ("rileggiti gli md e continua"). Due parti:
 
 1) **Domanda di Gabriel su registrazioni vere/anti-abuso**: verificato che `src/app/registrati/

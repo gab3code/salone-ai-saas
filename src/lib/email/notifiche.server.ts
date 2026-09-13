@@ -108,6 +108,7 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
       await inviaEmail({
         a: emailTitolare,
         oggetto: `Nuova prenotazione: ${nomeCliente} - ${quando}`,
+        nomeMittente: nomeTenant,
         html: `
           <p>Nuovo appuntamento su <strong>${escapeHtml(nomeTenant)}</strong>.</p>
           <p>Cliente: ${escapeHtml(nomeCliente)}</p>
@@ -122,6 +123,7 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
       await inviaEmail({
         a: cliente.email,
         oggetto: `Prenotazione confermata - ${nomeTenant}`,
+        nomeMittente: nomeTenant,
         html: `
           <p>Ciao ${escapeHtml(nomeCliente)},</p>
           <p>la tua prenotazione da <strong>${escapeHtml(nomeTenant)}</strong> è confermata.</p>

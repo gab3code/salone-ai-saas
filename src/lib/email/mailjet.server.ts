@@ -30,6 +30,17 @@ export interface ParametriEmail {
   a: string;
   oggetto: string;
   html: string;
+  /**
+   * Nome visualizzato come mittente (es. "Estetica Bianchi" invece del nome
+   * della piattaforma) -- il cliente che riceve la conferma di un
+   * appuntamento deve vedere il nome del salone con cui ha prenotato, non
+   * "Salone AI" (bug reale trovato il 13/09/2026: `nomeTenant` veniva già
+   * usato nell'oggetto/corpo dell'email in notifiche.server.ts, ma non nel
+   * mittente). Facoltativo: le email che non riguardano un tenant specifico
+   * (nessuna esiste ancora oggi, ma es. una futura email di sistema)
+   * ricadono sul nome della piattaforma.
+   */
+  nomeMittente?: string;
 }
 
 /**
@@ -51,7 +62,7 @@ export interface ParametriEmail {
  * errore "Unauthorized sender" -- gestito comunque qui sotto come un
  * semplice `false`, mai un'eccezione che risale al chiamante.
  */
-export async function inviaEmail({ a, oggetto, html }: ParametriEmail): Promise<boolean> {
+export async function inviaEmail({ a, oggetto, html, nomeMittente }: ParametriEmail): Promise<boolean> {
   const client = creaClientMailjet();
   if (!client) {
     console.warn(`[email] MJ_APIKEY_PUBLIC/MJ_APIKEY_PRIVATE non configurate: email a ${a} non inviata.`);
@@ -68,7 +79,7 @@ export async function inviaEmail({ a, oggetto, html }: ParametriEmail): Promise<
     const { body } = await client.post("send", { version: "v3.1" }).request<SendEmailV3_1.Response>({
       Messages: [
         {
-          From: { Email: mittente, Name: "Salone AI" },
+          From: { Email: mittente, Name: nomeMittente ?? "Salone AI" },
           To: [{ Email: a }],
           Subject: oggetto,
           HTMLPart: html,

@@ -95,6 +95,32 @@ describe("inviaEmail", () => {
     );
   });
 
+  it("usa `nomeMittente` come nome del mittente quando fornito, invece del nome della piattaforma", async () => {
+    process.env.MJ_APIKEY_PUBLIC = "chiave-pubblica";
+    process.env.MJ_APIKEY_PRIVATE = "chiave-privata";
+    process.env.MAILJET_FROM_EMAIL = "titolare@esempio.it";
+    const requestFinto = vi.fn().mockResolvedValue(rispostaSuccesso());
+    mockaMailjet(requestFinto);
+    const { inviaEmail } = await import("./mailjet.server");
+
+    await inviaEmail({
+      a: "cliente@esempio.it",
+      oggetto: "Ciao",
+      html: "<p>Ciao</p>",
+      nomeMittente: "Estetica Bianchi",
+    });
+
+    expect(requestFinto).toHaveBeenCalledWith(
+      expect.objectContaining({
+        Messages: [
+          expect.objectContaining({
+            From: { Email: "titolare@esempio.it", Name: "Estetica Bianchi" },
+          }),
+        ],
+      })
+    );
+  });
+
   it("fail-open: Status \"error\" nella risposta (es. mittente non validato) non lancia, ritorna false", async () => {
     process.env.MJ_APIKEY_PUBLIC = "chiave-pubblica";
     process.env.MJ_APIKEY_PRIVATE = "chiave-privata";
