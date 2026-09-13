@@ -1,6 +1,22 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, quarto giro -- Gabriel ha chiesto di verificare dal vivo il
+Ultimo aggiornamento: 13/09/2026, quinto giro -- Gabriel ha provato la lista d'attesa dal vivo
+(aggiunti due clienti veri, Federico e Daniele) e non vedeva niente né in
+`/dashboard/lista-attesa` né sul calendario. Verificato subito via query diretta: le righe
+c'erano davvero nel database, tenant e servizio corretti -- quindi non un problema di
+inserimento ma di lettura. **Trovata la causa reale**: `lista_attesa` ha due foreign key verso
+`operatori` (`operatore_id` e `slot_liberato_operatore_id`), e la query della pagina faceva
+`operatori(nome)` senza specificare quale delle due -- PostgREST rifiuta l'embed come ambiguo,
+la select falliva, e il codice ignorava l'errore in silenzio mostrando "nessuno in lista"
+invece di un messaggio d'errore. **Corretto**: hint esplicito sulla colonna
+(`operatori!operatore_id(nome)`) + un `console.error` se la query fallisce comunque, così un
+errore simile non sparisce più senza lasciare traccia. Confermate le due foreign key via
+`pg_constraint` sul database reale (non un'ipotesi). `tsc`/`eslint`/`vitest`
+(136/136)/`build` puliti dopo il fix. Chiarito anche a Gabriel che aggiungere qualcuno alla
+lista d'attesa non fa succedere nulla di per sé (e giustamente NON appare sul calendario, non è
+un appuntamento): il trigger vero è cancellare un appuntamento del suo stesso servizio.
+
+Aggiornamento precedente, 13/09/2026, quarto giro -- Gabriel ha chiesto di verificare dal vivo il
 Tono AI ("puoi provare tu a vedere se funziona usando il sito?"). Prima difficoltà onestamente
 segnalata: l'estensione Chrome non risultava collegata in sessione, i tentativi di rete diretta
 dal sandbox verso il dominio Vercel erano bloccati da una policy dell'organizzazione, e

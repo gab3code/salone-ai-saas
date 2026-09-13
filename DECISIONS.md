@@ -1087,3 +1087,22 @@ con l'ok esplicito di Gabriel (stesso schema già seguito per `0011`/`0012`), ta
 esistente via query diretta, nessun nuovo problema dai controlli di sicurezza Supabase. Non
 ancora verificato dal vivo in un browser vero (serve un cliente in lista d'attesa + una
 cancellazione reale dello stesso servizio).
+
+**Bug trovato e corretto lo stesso giorno**: Gabriel ha aggiunto due clienti reali alla lista
+("l'ho aggiubto e non è successo niente" / poi "non li vedo né nella lista d'attesa"), e in
+effetti `/dashboard/lista-attesa` mostrava sempre "nessuno in lista" nonostante le righe
+esistessero davvero nel database (verificato via query diretta: entrambe presenti, tenant e
+servizio corretti). **Causa**: la tabella `lista_attesa` ha DUE foreign key verso `operatori`
+(`operatore_id` e `slot_liberato_operatore_id`, confermato via `pg_constraint`) -- la query
+della pagina usava `operatori(nome)` senza specificare quale delle due, ambiguità che PostgREST
+rifiuta del tutto ("more than one relationship was found"), e la select falliva. Il bug vero
+non era la query in sé ma il fatto che l'errore veniva ignorato in silenzio (`.data ?? []`
+senza mai controllare `.error`), quindi la pagina mostrava "nessuno in lista" invece di un
+errore leggibile -- lezione: per QUALUNQUE query con un `select()` che incrocia più righe
+(embed), controllare `.error` esplicitamente prima di fidarsi di un array vuoto, non
+assumere che vuoto voglia sempre dire "nessun risultato". **Fix**: hint esplicito sulla colonna,
+`operatori!operatore_id(nome)`, più un `console.error` se la query fallisce comunque. Non
+riproducibile dal sandbox con una chiamata di rete diretta (stesso blocco di policy già visto
+per Vercel), ma confermato con certezza via `pg_constraint` sul database reale (le due foreign
+key ci sono davvero) -- root cause nota, non un'ipotesi. `tsc`/`eslint`/`vitest`
+(136/136)/`build` puliti dopo il fix.

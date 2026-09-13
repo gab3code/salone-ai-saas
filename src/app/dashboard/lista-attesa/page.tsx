@@ -43,7 +43,13 @@ export default async function PaginaListaAttesa() {
     supabase
       .from("lista_attesa")
       .select(
-        "id, cliente_nome, cliente_telefono, data_preferita, note, stato, slot_liberato_inizio, created_at, servizi(nome), operatori(nome)"
+        // "operatori!operatore_id(...)", non "operatori(...)": la tabella ha DUE foreign key
+        // verso operatori (operatore_id e slot_liberato_operatore_id) -- senza l'hint sulla
+        // colonna, PostgREST rifiuta l'embed come ambiguo ("more than one relationship was
+        // found") e la select fallisce IN SILENZIO qui sotto (solo `.data ?? []`, mai
+        // controllato `.error`): bug reale trovato il 13/09/2026, Gabriel aveva aggiunto due
+        // clienti alla lista ma la pagina risultava vuota. Vedi DECISIONS.md.
+        "id, cliente_nome, cliente_telefono, data_preferita, note, stato, slot_liberato_inizio, created_at, servizi(nome), operatori!operatore_id(nome)"
       )
       .eq("tenant_id", tenantId)
       .in("stato", ["in_attesa", "proposto"])
@@ -54,6 +60,10 @@ export default async function PaginaListaAttesa() {
   const servizi = (serviziRes.data ?? []).map((s) => ({ id: s.id, nome: s.nome }));
   const operatori = (operatoriRes.data ?? []).map((o) => ({ id: o.id, nome: o.nome }));
 
+  // Non silenziare un errore reale dietro un fuorviante "nessuno in lista" (esattamente il bug
+  // del 13/09/2026: la select falliva per l'embed ambiguo su operatori, ma la pagina mostrava
+  // comunque "nessuno in lista d'attesa" invece di un errore leggibile).
+  if (listaRes.error) console.error("Errore caricando la lista d'attesa:", listaRes.error);
   const righe = (listaRes.data ?? []) as unknown as RigaListaAttesa[];
   // "proposto" (da contattare adesso) sempre in cima, poi FIFO tra chi resta in attesa.
   const proposte = righe.filter((r) => r.stato === "proposto");
