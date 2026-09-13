@@ -51,10 +51,11 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
    com'è, o dimmi di applicarla e lo faccio). Dopo: attivare la caparra su un salone di test in
    `/dashboard/impostazioni/caparra` e completare un pagamento di test reale su `/s/[slug]`.
 8. ~~Applicare la migrazione `0013_lista_attesa.sql`~~ **FATTO 13/09/2026** (applicata al
-   database reale con il tuo ok). Resta da **provare dal vivo la lista d'attesa**: aggiungere
-   un cliente a `/dashboard/lista-attesa` per un servizio/giorno, poi cancellare un appuntamento
-   reale di quello stesso servizio/giorno da `/dashboard/calendario` e verificare che compaia il
-   banner "🔔 contattalo" e la riga passi a "proposto".
+   database reale con il tuo ok). ~~Provare dal vivo la lista d'attesa~~ **FATTO 13/09/2026**
+   (verificato su un tenant di prova dedicato, non sui tuoi dati reali -- vedi Fase 6 per il
+   dettaglio completo): iscrizione, cancellazione, match automatico, banner e "segna risolto"
+   tutti confermati funzionanti in un browser vero. Nello stesso giro trovato e corretto un bug
+   critico che bloccava ogni prenotazione pubblica diretta (vedi DECISIONS.md).
 
 ### Gruppo B -- Nuovo codice a priorità alta, trovato nel mega-controllo competitor di oggi
 1. ~~**Deposito/caparra anti-no-show** (Fase 6)~~ **CODICE FATTO 13/09/2026** (vedi Fase 6 e
@@ -595,9 +596,16 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       alla persona con cui sta chattando. `tsc`/`eslint`/`vitest` (136/136)/`build` puliti.
       Migrazione `0013_lista_attesa.sql` **applicata al database reale il 13/09/2026** (stesso
       via libera già dato per 0011/0012); `0014_lista_attesa_pubblico.sql` (allarga
-      `creato_da` a `'pubblico'`) **applicata anche questa il 13/09/2026**. **Non ancora
-      verificato dal vivo**: nessuna cancellazione reale con un match ancora provata in un
-      browser vero.
+      `creato_da` a `'pubblico'`) **applicata anche questa il 13/09/2026**. **Verificato dal
+      vivo il 13/09/2026** su un tenant di prova dedicato ("Salone Test Claude", per non toccare
+      i dati reali): iscrizione pubblica dal flusso di prenotazione diretto, prenotazione e
+      cancellazione dello stesso slot da dashboard, match automatico scattato correttamente
+      (banner "🔔" in calendario + riga "proposto" in `/dashboard/lista-attesa`), "segna
+      risolto" verificato -- intera catena confermata funzionante in un browser reale, non solo
+      con `vitest`. Nello stesso giro trovato e corretto anche un bug critico scoperto dal vivo:
+      `parsaOrarioLocale` rifiutava i millisecondi che `cercaSlotPubblici` genera con
+      `Date.toISOString()`, quindi la prenotazione pubblica diretta falliva SEMPRE per
+      qualunque tenant (vedi DECISIONS.md 13/09/2026) -- corretto e riverificato in produzione.
 - [ ] **Multi-utente/team reale** (nuovo task, secondo giro mega-controllo 12/09/2026): dare a
       ogni "operatore" un proprio login (invito via email, permessi limitati alla propria
       agenda) invece di essere solo un record gestito dal titolare -- prerequisito tecnico dei
@@ -716,6 +724,17 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
       servizio con pochi slot probabilmente serve a più clienti reali (la maggior parte vuole
       "il prima possibile", non naviga un calendario colorato) -- il calendario a griglia resta
       comunque un miglioramento valido in più, non un'alternativa esclusiva.
+- [ ] **Colonna "Origine" in `/dashboard/clienti` mostra "pubblico" come "Manuale"** (trovato
+      13/09/2026 durante il test dal vivo, rimandato qui su richiesta di Gabriel): la lista
+      clienti legge `clienti.creato_da_ai` (booleano, solo "AI"/"Manuale"), un campo più vecchio
+      di quando è stato introdotto il terzo canale "pubblico" per appuntamenti/lista d'attesa
+      (13/09/2026) -- quindi un cliente che prenota da sé dal sito risulta etichettato come se
+      lo avesse inserito lo staff. Il dato giusto esiste già ed è mostrato correttamente nella
+      scheda del singolo cliente (storico appuntamenti, colonna origine per-appuntamento) -- manca
+      solo in questa colonna riassuntiva. Richiede migrare `clienti.creato_da_ai` da booleano a
+      testo a tre stati (`'manuale'|'ai'|'pubblico'`, stessa terna già usata altrove) su una
+      tabella con dati reali già dentro -- non un cambio a rischio zero come gli altri fix di
+      oggi, per questo rimandato invece di farlo subito.
 
 ---
 
