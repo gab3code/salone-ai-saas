@@ -1,6 +1,22 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, diciannovesimo giro -- continuo da solo (Gabriel al momento
+Ultimo aggiornamento: 13/09/2026, ventesimo giro -- corretto un bug reale già tracciato in
+PIANO.md ma rimandato per il rischio percepito ("Colonna 'Origine' in /dashboard/clienti mostra
+'pubblico' come 'Manuale'"): rileggendolo per intero, il rischio che aveva fatto rimandare il fix
+(migrare `clienti.creato_da_ai` da booleano a testo a tre stati su dati reali) non era necessario --
+il dato giusto (`appuntamenti.creato_da`) esiste già per ogni riga, va solo aggregato per cliente
+invece di leggere il campo sbagliato. Nessuna migrazione, quindi nessun rischio sul database
+condiviso. Nuovo modulo puro `src/lib/origine-cliente.ts`: "origine" di un cliente = canale del suo
+PRIMO appuntamento mai creato (created_at più vecchio, non l'orario dell'appuntamento). Usato in
+TRE punti che avevano lo stesso identico bug (scoperto sistemandone uno, verificando gli altri
+due): la colonna riassuntiva di `/dashboard/clienti`, l'intestazione della scheda cliente
+(`[id]/page.tsx`, diceva "creato dall'AI"/"creato manualmente" -- stesso booleano a due stati) e
+l'export CSV appena aggiunto nel giro precedente (per coerenza "esporta quello che vedi"). Fallback
+sul vecchio booleano solo per un cliente senza ancora nessun appuntamento. 7 nuovi test in
+`origine-cliente.test.ts`. Verificato: `tsc --noEmit` pulito, `eslint` pulito, `npx vitest run`
+**176/176** (era 169), `next build` pulito.
+
+Aggiornamento precedente, 13/09/2026, diciannovesimo giro -- continuo da solo (Gabriel al momento
 lavora da telefono, non può testare dal vivo). Implementata la metà "export" di "Export/import CSV
 clienti" (PIANO.md, secondo giro mega-controllo 12/09/2026): route `/dashboard/clienti/export`
 (GET autenticata, `ottieniTenantCorrente` verifica l'utente) genera un CSV con BOM UTF-8 (Excel su

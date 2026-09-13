@@ -774,17 +774,19 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
       servizio con pochi slot probabilmente serve a più clienti reali (la maggior parte vuole
       "il prima possibile", non naviga un calendario colorato) -- il calendario a griglia resta
       comunque un miglioramento valido in più, non un'alternativa esclusiva.
-- [ ] **Colonna "Origine" in `/dashboard/clienti` mostra "pubblico" come "Manuale"** (trovato
-      13/09/2026 durante il test dal vivo, rimandato qui su richiesta di Gabriel): la lista
-      clienti legge `clienti.creato_da_ai` (booleano, solo "AI"/"Manuale"), un campo più vecchio
-      di quando è stato introdotto il terzo canale "pubblico" per appuntamenti/lista d'attesa
-      (13/09/2026) -- quindi un cliente che prenota da sé dal sito risulta etichettato come se
-      lo avesse inserito lo staff. Il dato giusto esiste già ed è mostrato correttamente nella
-      scheda del singolo cliente (storico appuntamenti, colonna origine per-appuntamento) -- manca
-      solo in questa colonna riassuntiva. Richiede migrare `clienti.creato_da_ai` da booleano a
-      testo a tre stati (`'manuale'|'ai'|'pubblico'`, stessa terna già usata altrove) su una
-      tabella con dati reali già dentro -- non un cambio a rischio zero come gli altri fix di
-      oggi, per questo rimandato invece di farlo subito.
+- [x] ~~**Colonna "Origine" in `/dashboard/clienti` mostra "pubblico" come "Manuale"**~~ **CODICE
+      FATTO 13/09/2026** (trovato 13/09/2026 durante il test dal vivo): ripensato l'approccio
+      rispetto a quanto scritto qui inizialmente -- NON serve migrare `clienti.creato_da_ai` da
+      booleano a testo su una tabella con dati reali (il rischio segnalato sopra, per questo
+      rimandato in un primo momento): il dato giusto (`appuntamenti.creato_da`, tre stati) esiste
+      già per ogni riga, basta aggregarlo per cliente invece di leggere il campo sbagliato. Nuovo
+      modulo puro `src/lib/origine-cliente.ts` (`origineDalPrimoAppuntamento`/`originePerCliente`
+      -- origine = canale del primo appuntamento mai creato per quel cliente, `created_at` più
+      vecchio), usato sia nella colonna riassuntiva di `/dashboard/clienti` sia nell'intestazione
+      della scheda cliente (`[id]/page.tsx`, che diceva "creato dall'AI"/"creato manualmente",
+      stesso identico bug) sia nell'export CSV appena fatto -- **tre punti allineati con un solo
+      fix**, zero migrazioni. Fallback sul vecchio booleano SOLO per un cliente senza ancora nessun
+      appuntamento (es. inserito solo in lista d'attesa). 7 nuovi test dedicati.
 - [x] ~~**Nome mittente delle email fisso a "Salone AI" per tutti i tenant**~~ **CODICE FATTO
       13/09/2026** (trovato lo stesso giorno rileggendo `notifiche.server.ts` per la domanda di
       Gabriel su sicurezza/abusi -- stesso gap già segnalato qui): aggiunto `nomeMittente`

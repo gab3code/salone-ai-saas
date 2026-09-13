@@ -5,6 +5,7 @@ import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { aggiornaCliente } from "../azioni";
+import { origineDalPrimoAppuntamento } from "@/lib/origine-cliente";
 
 /**
  * Scheda cliente (punto 12, CRM "realmente connesso"): dati anagrafici
@@ -39,7 +40,7 @@ export default async function PaginaClienteDettaglio({
 
   const { data: appuntamentiGrezzi } = await supabase
     .from("appuntamenti")
-    .select("id, inizio, fine, stato, creato_da, servizi(nome), operatori(nome)")
+    .select("id, inizio, fine, stato, creato_da, created_at, servizi(nome), operatori(nome)")
     .eq("tenant_id", tenantId)
     .eq("cliente_id", id)
     .order("inizio", { ascending: false });
@@ -60,6 +61,15 @@ export default async function PaginaClienteDettaglio({
     no_show: "No-show",
   };
 
+  // Stesso bug/fix di /dashboard/clienti (vedi origine-cliente.ts): origine
+  // dal canale del primo appuntamento mai creato, non dal booleano a due
+  // stati creato_da_ai -- fallback su quest'ultimo SOLO se il cliente non ha
+  // ancora nessun appuntamento (es. inserito solo in lista d'attesa).
+  const origine =
+    origineDalPrimoAppuntamento(
+      (appuntamentiGrezzi ?? []).map((a) => ({ creatoDa: a.creato_da, createdAt: new Date(a.created_at) }))
+    ) ?? (cliente.creato_da_ai ? "AI" : "Manuale");
+
   return (
     <div className="flex flex-1 flex-col p-8">
       <Link href="/dashboard/clienti" className="text-sm underline">
@@ -68,8 +78,7 @@ export default async function PaginaClienteDettaglio({
       <h1 className="mt-2 text-xl font-semibold">{cliente.nome || "(senza nome)"}</h1>
       <p className="text-sm text-zinc-500">
         {cliente.telefono || "nessun telefono"} · cliente dal{" "}
-        {new Date(cliente.created_at).toLocaleDateString("it-IT")} ·{" "}
-        {cliente.creato_da_ai ? "creato dall'AI" : "creato manualmente"}
+        {new Date(cliente.created_at).toLocaleDateString("it-IT")} · origine: {origine}
       </p>
 
       <div className="mt-6 grid gap-8 lg:grid-cols-2">

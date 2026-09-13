@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { elencaClientiInattivi } from "@/lib/metriche";
+import { originePerCliente } from "@/lib/origine-cliente";
 
 /**
  * CRM (punto 12): anagrafica cliente con storico -- qui l'elenco con
@@ -47,10 +48,11 @@ export default async function PaginaClienti({
 
   // Una query sola per: (a) il conteggio appuntamenti per cliente mostrato
   // in tabella, (b) l'elenco di chi è "inattivo da 60 giorni" se richiesto
-  // dal filtro -- non due giri separati sulla stessa tabella.
+  // dal filtro, (c) l'origine di ogni cliente (vedi origine-cliente.ts) --
+  // non tre giri separati sulla stessa tabella.
   const { data: righeAppuntamenti } = await supabase
     .from("appuntamenti")
-    .select("cliente_id, inizio, stato")
+    .select("cliente_id, inizio, stato, creato_da, created_at")
     .eq("tenant_id", tenantId)
     .not("cliente_id", "is", null);
 
@@ -59,6 +61,14 @@ export default async function PaginaClienti({
     if (!riga.cliente_id) continue;
     conteggioPerCliente.set(riga.cliente_id, (conteggioPerCliente.get(riga.cliente_id) ?? 0) + 1);
   }
+
+  const origineCliente = originePerCliente(
+    (righeAppuntamenti ?? []).map((r) => ({
+      clienteId: r.cliente_id,
+      creatoDa: r.creato_da,
+      createdAt: new Date(r.created_at),
+    }))
+  );
 
   let clienti = clientiGrezzi ?? [];
   if (filtro === "inattivi") {
@@ -147,7 +157,7 @@ export default async function PaginaClienti({
                 <td className="px-3 py-2">{c.email || "—"}</td>
                 <td className="px-3 py-2">{(c.tag ?? []).join(", ") || "—"}</td>
                 <td className="px-3 py-2">{conteggioPerCliente.get(c.id) ?? 0}</td>
-                <td className="px-3 py-2">{c.creato_da_ai ? "AI" : "Manuale"}</td>
+                <td className="px-3 py-2">{origineCliente.get(c.id) ?? (c.creato_da_ai ? "AI" : "Manuale")}</td>
                 <td className="px-3 py-2">{new Date(c.created_at).toLocaleDateString("it-IT")}</td>
               </tr>
             ))}

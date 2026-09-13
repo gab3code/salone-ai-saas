@@ -3,6 +3,7 @@ import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { elencaClientiInattivi } from "@/lib/metriche";
 import { clientiACsv } from "@/lib/csv";
+import { originePerCliente } from "@/lib/origine-cliente";
 
 /**
  * Esportazione CSV dei clienti del tenant loggato (PIANO.md "Export/import
@@ -46,13 +47,16 @@ export async function GET(request: NextRequest) {
 
   let clienti = clientiGrezzi ?? [];
 
-  if (filtro === "inattivi") {
-    const { data: righeAppuntamenti } = await supabase
-      .from("appuntamenti")
-      .select("cliente_id, inizio, stato")
-      .eq("tenant_id", tenantId)
-      .not("cliente_id", "is", null);
+  // Caricata sempre (non solo per il filtro "inattivi"): serve anche per
+  // l'origine di ogni cliente sotto, stesso principio "una query sola per
+  // più usi" di /dashboard/clienti (page.tsx).
+  const { data: righeAppuntamenti } = await supabase
+    .from("appuntamenti")
+    .select("cliente_id, inizio, stato, creato_da, created_at")
+    .eq("tenant_id", tenantId)
+    .not("cliente_id", "is", null);
 
+  if (filtro === "inattivi") {
     const inattivi = elencaClientiInattivi(
       (righeAppuntamenti ?? []).map((r) => ({
         inizio: new Date(r.inizio),
@@ -68,16 +72,23 @@ export async function GET(request: NextRequest) {
     clienti = clienti.filter((c) => inattivi.has(c.id));
   }
 
+  const origineCliente = originePerCliente(
+    (righeAppuntamenti ?? []).map((r) => ({
+      clienteId: r.cliente_id,
+      creatoDa: r.creato_da,
+      createdAt: new Date(r.created_at),
+    }))
+  );
+
   const csv = clientiACsv(
     clienti.map((c) => ({
       nome: c.nome,
       telefono: c.telefono,
       email: c.email,
       tag: c.tag,
-      // Stessa etichetta già mostrata nella tabella di /dashboard/clienti
-      // (limite noto: un cliente "pubblico" risulta ancora "Manuale", vedi
-      // PIANO.md sulla migrazione di creato_da_ai a tre stati).
-      origine: c.creato_da_ai ? "AI" : "Manuale",
+      // Stessa origine (canale del primo appuntamento) già mostrata in
+      // /dashboard/clienti -- "esporta quello che vedi", vedi origine-cliente.ts.
+      origine: origineCliente.get(c.id) ?? (c.creato_da_ai ? "AI" : "Manuale"),
       createdAt: new Date(c.created_at),
     }))
   );
