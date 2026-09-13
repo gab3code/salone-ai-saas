@@ -24,3 +24,20 @@ const TETTO_PRENOTAZIONI_MENSILI_PER_PIANO: Record<string, number> = {
 export function limiteMensilePrenotazioni(piano: string): number {
   return TETTO_PRENOTAZIONI_MENSILI_PER_PIANO[piano] ?? Infinity;
 }
+
+/**
+ * "1 operatore" sul piano Free (Fase 5, trovato nel controllo promesse del
+ * sito 13/09/2026): `Prezzi.tsx` elenca questo limite tra le caratteristiche
+ * del piano Free, ma finché questa funzione non esisteva nessun codice lo
+ * applicava davvero -- un tenant Free poteva creare operatori illimitati da
+ * `/dashboard/configura`, una promessa scritta e mai controllata. Stessa
+ * forma di `limiteMensilePrenotazioni` sopra (Record + fallback Infinity),
+ * usata da `creaOperatore` in `dashboard/configura/azioni.ts`.
+ */
+const LIMITE_OPERATORI_PER_PIANO: Record<string, number> = {
+  free: 1,
+};
+
+export function limiteOperatori(piano: string): number {
+  return LIMITE_OPERATORI_PER_PIANO[piano] ?? Infinity;
+}

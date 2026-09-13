@@ -1,6 +1,19 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, diciassettesimo giro -- risposta a una domanda esplicita di
+Ultimo aggiornamento: 13/09/2026, diciottesimo giro -- Gabriel ha detto "continua con le funzioni,
+lavora per molto tempo", quindi ho proseguito da solo sul PIANO.md. Fatti due allineamenti minori
+trovati rileggendo il file per intero: 1) la promessa "1 operatore" del piano Free (elencata in
+`Prezzi.tsx`) non era mai stata applicata tecnicamente -- aggiunta `limiteOperatori()` in
+`piani.ts` e il controllo in `creaOperatore()`, stessa forma del tetto mensile di prenotazioni già
+esistente. **Limite onesto segnalato**: `/dashboard/configura` non mostra ancora messaggi d'errore
+dei form a schermo (scelta di design deliberata della pagina, non introdotta da questo fix) -- il
+blocco lato server funziona comunque, ma il titolare Free non vede ancora scritto perché la
+creazione non è andata a buon fine. 2) Il PIANO.md aveva già una voce identica al fix del nome
+mittente email fatto nel giro 16 (trovata indipendentemente, senza saperlo già tracciata) --
+marcata come fatta anche lì, per non avere due tracce divergenti della stessa cosa. Verificato:
+`tsc --noEmit` pulito, `eslint` pulito, `npx vitest run` **161/161** (era 158), `next build` pulito.
+
+Aggiornamento precedente, 13/09/2026, diciassettesimo giro -- risposta a una domanda esplicita di
 Gabriel ("volevo chiederti se metteremo qualcosa... altre cose di sicurezza per non intasare i
 server" + "ma altre cose per evitare abusi?"). Implementato il punto già segnalato onestamente nel
 codice stesso (`azioni.ts`, Gruppo D #1 di PIANO.md): il canale pubblico di prenotazione

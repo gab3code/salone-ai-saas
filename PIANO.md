@@ -545,14 +545,18 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       un dominio pubblico, quindi dopo il deploy). Vedi PROJECT_STATUS.md per il dettaglio.
 - [ ] Pannello admin per te: saloni, abbonamenti, utilizzo, interventi manuali quando serve --
       zero codice.
-- [ ] **"1 operatore" sul piano Free pubblicizzato ma non applicato tecnicamente** (trovato nel
-      controllo promesse del sito 13/09/2026): `Prezzi.tsx` elenca "1 operatore" tra i limiti del
-      piano Free, ma `src/lib/piani.ts` applica SOLO il tetto di 60 prenotazioni/mese -- nessun
-      controllo impedisce a un tenant Free di creare più di un operatore oggi (verificato: nessun
-      `limiteOperatori` o simile in tutto `src/`). Rischio basso (leva di prodotto/upsell mancata,
-      non un dato mostrato falsamente a un cliente), ma va allineato: o si applica il limite come
-      per le prenotazioni, o si toglie la voce da `Prezzi.tsx` se si decide di non farlo rispettare
-      davvero -- non lasciarlo un numero scritto e mai controllato.
+- [x] ~~**"1 operatore" sul piano Free pubblicizzato ma non applicato tecnicamente**~~ **CODICE
+      FATTO 13/09/2026** (trovato nel controllo promesse del sito 13/09/2026): aggiunta
+      `limiteOperatori(piano)` in `src/lib/piani.ts` (stessa forma di `limiteMensilePrenotazioni`),
+      applicata in `creaOperatore` (`dashboard/configura/azioni.ts`) prima dell'insert -- un tenant
+      Free che prova a creare un secondo operatore riceve un errore esplicito invece che
+      silenziosamente riuscirci. **Limite onesto**: la pagina `/dashboard/configura` è "Server
+      Component puro" per scelta (vedi commento in testa al file, passata di design vera in Fase 7)
+      -- nessun messaggio d'errore dei form viene mostrato a schermo oggi (vale per TUTTE le azioni
+      di questa pagina, non solo questa: `creaServizio` ha lo stesso limite). L'inserimento viene
+      comunque bloccato lato server (la promessa è tecnicamente rispettata), ma il titolare Free
+      non vede ancora scritto IL PERCHÉ finché la pagina non avrà un vero stato d'errore. 3 nuovi
+      test in `piani.test.ts` (161/161 verdi).
 - [x] **Tono dell'AI personalizzabile -- CODICE FATTO 13/09/2026** (trovato nel mega-controllo
       del 12/09/2026, vedi `docs/analisi-concorrenti-mercato.md`): `Prezzi.tsx` pubblicizza
       "Tono dell'AI personalizzabile" su Pro -- costruito guidato a 3 opzioni fisse
@@ -776,15 +780,12 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
       testo a tre stati (`'manuale'|'ai'|'pubblico'`, stessa terna già usata altrove) su una
       tabella con dati reali già dentro -- non un cambio a rischio zero come gli altri fix di
       oggi, per questo rimandato invece di farlo subito.
-- [ ] **Nome mittente delle email fisso a "Salone AI" per tutti i tenant** (trovato 13/09/2026,
-      domanda diretta di Gabriel su cosa vede chi riceve l'email): `src/lib/email/mailjet.server.ts`
-      scrive sempre `Name: "Salone AI"` nel campo Da, uguale per ogni salone/professionista sulla
-      piattaforma -- un cliente che riceve la conferma non vede il nome del salone specifico. Non
-      bloccante per il test con un mittente Gmail personale (rimandato apposta a quando Gabriel
-      avrà un dominio proprio verificato su Mailjet, altrimenti il nome mittente conterebbe meno
-      del problema di deliverability già segnalato in DECISIONS.md), ma da correggere prima di
-      email a clienti reali: passare il nome del tenant (`tenants.nome`, già caricato in
-      `notifiche.server.ts`) invece della stringa fissa.
+- [x] ~~**Nome mittente delle email fisso a "Salone AI" per tutti i tenant**~~ **CODICE FATTO
+      13/09/2026** (trovato lo stesso giorno rileggendo `notifiche.server.ts` per la domanda di
+      Gabriel su sicurezza/abusi -- stesso gap già segnalato qui): aggiunto `nomeMittente`
+      opzionale a `inviaEmail`/`ParametriEmail` in `mailjet.server.ts`, passato da
+      `notifiche.server.ts` come `tenants.nome`. Test dedicato aggiunto (vedi PROJECT_STATUS.md,
+      sedicesimo giro).
 
 ---
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { limiteOperatori } from "@/lib/piani";
 
 const GIORNI = [0, 1, 2, 3, 4, 5, 6] as const;
 
@@ -52,6 +53,27 @@ export async function creaOperatore(formData: FormData) {
 
   const nome = String(formData.get("nome") || "").trim();
   if (!nome) return { errore: "Il nome dell'operatore è obbligatorio." };
+
+  // "1 operatore" sul piano Free (Fase 5 di PIANO.md, trovato 13/09/2026):
+  // pubblicizzato in Prezzi.tsx ma mai applicato tecnicamente finché
+  // limiteOperatori non esisteva -- stesso principio del tetto mensile di
+  // prenotazioni in booking-engine.server.ts (punto 20 di CLAUDE.md, "il
+  // sistema deve tecnicamente applicare i limiti"). Fail-open sull'errore di
+  // lettura del piano: non riuscire a leggerlo non deve mai bloccare la
+  // creazione di un operatore vero.
+  const { data: tenant } = await supabase.from("tenants").select("piano").eq("id", tenantId).single();
+  const limite = limiteOperatori(tenant?.piano ?? "");
+  if (limite !== Infinity) {
+    const { count } = await supabase
+      .from("operatori")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId);
+    if ((count ?? 0) >= limite) {
+      return {
+        errore: `Il piano Free è limitato a ${limite} ${limite === 1 ? "operatore" : "operatori"}. Passa a un piano superiore per aggiungerne altri.`,
+      };
+    }
+  }
 
   const { error } = await supabase.from("operatori").insert({ tenant_id: tenantId, nome });
   if (error) return { errore: `Errore creando l'operatore: ${error.message}` };
