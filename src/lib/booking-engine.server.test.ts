@@ -25,6 +25,16 @@ import { caricaImpegniEsterni } from "@/lib/calendario-esterno/collegamenti.serv
 
 const caricaImpegniEsterniFinto = vi.mocked(caricaImpegniEsterni);
 
+// Le notifiche email (Fase 6, Gruppo B-bis #1) hanno già i loro test dedicati
+// in notifiche.server.test.ts, con un client admin vero da mockare a parte --
+// qui isoliamo creaAppuntamentoTenant da quel dettaglio (altrimenti ogni test
+// scrittura di questo file dovrebbe anche fornire risposte finte per le query
+// di notifiche.server.ts, che non c'entrano con ciò che questi test
+// verificano).
+vi.mock("@/lib/email/notifiche.server", () => ({
+  inviaNotificheNuovoAppuntamento: vi.fn().mockResolvedValue(undefined),
+}));
+
 const TENANT_ID = "11111111-1111-1111-1111-111111111111";
 const OPERATORE_ID = "operatore-1";
 const SERVIZIO_ID = "servizio-1";

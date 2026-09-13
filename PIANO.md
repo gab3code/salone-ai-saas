@@ -56,6 +56,13 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
    dettaglio completo): iscrizione, cancellazione, match automatico, banner e "segna risolto"
    tutti confermati funzionanti in un browser vero. Nello stesso giro trovato e corretto un bug
    critico che bloccava ogni prenotazione pubblica diretta (vedi DECISIONS.md).
+9. **Creare un account gratis su resend.com e impostare `RESEND_API_KEY`** (nuovo, 13/09/2026):
+   il codice delle notifiche email è scritto e verificato (`tsc`/`eslint`/`vitest`/`build`
+   puliti, 11 test dedicati) ma senza questa chiave il modulo resta silenziosamente disattivato
+   (fail-open by design -- nessuna prenotazione si rompe, semplicemente non parte nessuna email).
+   Applicare anche la migrazione `0015_email_cliente_caparra.sql` (aggiunge solo una colonna,
+   stesso rischio nullo delle altre migrazioni additive già applicate). Dettaglio completo in
+   `.env.example` e Gruppo B-bis punto 1 sotto.
 
 ### Gruppo B -- Nuovo codice a priorità alta, trovato nel mega-controllo competitor di oggi
 1. ~~**Deposito/caparra anti-no-show** (Fase 6)~~ **CODICE FATTO 13/09/2026** (vedi Fase 6 e
@@ -77,14 +84,23 @@ aspetterebbe da un prodotto di questa categoria (non solo dal confronto competit
 per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
 
 **Dovute (mancano, e sono cose che qualunque prodotto di booking ha)**:
-1. **Nessuna notifica email, né per il titolare né per il cliente**: oggi, quando arriva una
-   prenotazione (da dashboard, da AI, o dalla pagina pubblica), zero email parte -- il titolare
-   se ne accorge solo aprendo la dashboard, e il cliente finale non riceve nessuna conferma
-   scritta della propria prenotazione. Prima che WhatsApp sia disponibile (bloccato da Meta),
-   l'email è l'UNICO canale di notifica passiva possibile -- senza, un titolare deve tenere la
-   dashboard aperta per accorgersi di una prenotazione nuova. Verificato: zero provider email
-   (Resend/Postmark/nodemailer) nel progetto. **Priorità alta, manca qualcosa che ogni
-   concorrente verificato ha.**
+1. ~~**Nessuna notifica email, né per il titolare né per il cliente**~~ **CODICE FATTO
+   13/09/2026**: ogni volta che `creaAppuntamentoTenant` crea un appuntamento (dashboard, AI,
+   pubblico diretto o caparra/Stripe -- unica funzione di scrittura, punto 9 di CLAUDE.md) parte
+   ora, in modo fail-open (mai bloccante per la prenotazione stessa, vedi
+   `src/lib/email/resend.server.ts`), un'email al titolare (sempre, indirizzo risolto da
+   `auth.users.email` via `profiles.ruolo = 'owner'`, non da `tenants.email` che esiste ma non è
+   mai popolata) e una email di conferma al cliente (solo se ha lasciato un'email -- oggi raccolta
+   solo nel flusso pubblico `/s/[slug]`, campo facoltativo). Provider: Resend (piano gratuito,
+   3.000 email/mese, nessuna approvazione esterna a differenza di WhatsApp/Meta). Dettaglio
+   completo, alternative considerate e limitazioni oneste in DECISIONS.md.
+   **Resta da fare, tocca a te (Gruppo A)**: creare un account gratis su resend.com, generare una
+   API key e impostarla come `RESEND_API_KEY` (locale in `.env.local` + su Vercel), altrimenti il
+   modulo resta silenziosamente disattivato (nessuna email parte, ma nessuna prenotazione si
+   rompe); applicare la migrazione `0015_email_cliente_caparra.sql` al database reale (aggiunge
+   solo una colonna, stesso rischio nullo delle altre migrazioni additive già applicate). Per
+   inviare email vere ai clienti (non solo a te stesso) serve anche verificare un dominio tuo su
+   Resend e impostare `RESEND_FROM_EMAIL` -- vedi `.env.example` per i dettagli.
 2. **Il cliente finale non può gestire da solo la propria prenotazione** dopo averla fatta su
    `/s/[slug]` (cancellarla, spostarla) -- deve richiamare o riscrivere al salone. Ogni
    concorrente verificato (inclusa Estetia) offre questo. Si lega bene al punto sopra: il modo

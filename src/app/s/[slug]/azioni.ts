@@ -47,6 +47,11 @@ const FORMATO_DATA_YMD = /^\d{4}-\d{2}-\d{2}$/;
 // stessa tolleranza già implicita nella colonna `telefono` (testo libero, la
 // chiave di riconoscimento cliente WhatsApp/chat è comunque il testo esatto).
 const FORMATO_TELEFONO = /^[0-9+()\-\s]{6,30}$/;
+// Permissivo di proposito (nessuna validazione RFC completa): serve solo a
+// scartare refusi grossolani prima di provare a inviare un'email -- un
+// formato valido ma inesistente fallirà comunque lato Resend, fail-open
+// (vedi src/lib/email/resend.server.ts), senza mai bloccare la prenotazione.
+const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface SlotPubblico {
   operatoreId: string;
@@ -96,6 +101,9 @@ export interface DatiPrenotazionePubblica {
   inizioIso: string; // uno degli `inizioIso` restituiti da cercaSlotPubblici, invariato
   clienteNome: string;
   clienteTelefono: string;
+  // Opzionale (Fase 6, Gruppo B-bis #1): se presente abilita l'email di
+  // conferma al cliente, vedi src/lib/email/notifiche.server.ts.
+  clienteEmail?: string;
 }
 
 /**
@@ -136,6 +144,7 @@ export async function prenotaPubblico(
 ): Promise<RisultatoAzionePubblica<{ appuntamentoId: string }>> {
   const clienteNome = dati.clienteNome.trim().slice(0, 200);
   const clienteTelefono = dati.clienteTelefono.trim();
+  const clienteEmail = dati.clienteEmail?.trim().slice(0, 200) || undefined;
 
   if (!dati.servizioId || !dati.operatoreId || !dati.inizioIso) {
     return { ok: false, errore: "Scegli servizio, operatore e orario." };
@@ -143,6 +152,9 @@ export async function prenotaPubblico(
   if (!clienteNome) return { ok: false, errore: "Inserisci il tuo nome." };
   if (!FORMATO_TELEFONO.test(clienteTelefono)) {
     return { ok: false, errore: "Inserisci un numero di telefono valido." };
+  }
+  if (clienteEmail && !FORMATO_EMAIL.test(clienteEmail)) {
+    return { ok: false, errore: "Inserisci un'email valida, o lascia il campo vuoto." };
   }
 
   // Validazione rigida dell'orario con lo stesso parser usato ovunque nel
@@ -170,6 +182,7 @@ export async function prenotaPubblico(
     inizio,
     clienteNome,
     clienteTelefono,
+    clienteEmail,
     creatoDa: "pubblico",
   });
 
@@ -196,6 +209,7 @@ export async function avviaPagamentoCaparra(
 ): Promise<RisultatoAzionePubblica<{ checkoutUrl: string }>> {
   const clienteNome = dati.clienteNome.trim().slice(0, 200);
   const clienteTelefono = dati.clienteTelefono.trim();
+  const clienteEmail = dati.clienteEmail?.trim().slice(0, 200) || undefined;
 
   if (!dati.servizioId || !dati.operatoreId || !dati.inizioIso) {
     return { ok: false, errore: "Scegli servizio, operatore e orario." };
@@ -203,6 +217,9 @@ export async function avviaPagamentoCaparra(
   if (!clienteNome) return { ok: false, errore: "Inserisci il tuo nome." };
   if (!FORMATO_TELEFONO.test(clienteTelefono)) {
     return { ok: false, errore: "Inserisci un numero di telefono valido." };
+  }
+  if (clienteEmail && !FORMATO_EMAIL.test(clienteEmail)) {
+    return { ok: false, errore: "Inserisci un'email valida, o lascia il campo vuoto." };
   }
 
   const inizio = parsaOrarioLocale(dati.inizioIso);
@@ -296,6 +313,7 @@ export async function avviaPagamentoCaparra(
     inizio_iso: dati.inizioIso,
     cliente_nome: clienteNome,
     cliente_telefono: clienteTelefono,
+    cliente_email: clienteEmail ?? null,
     importo_centesimi: importoCentesimi,
     stripe_checkout_session_id: session.id,
     stato: "in_attesa",

@@ -1215,3 +1215,90 @@ colorato: da confermare con Gabriel se vale la pena farlo ora o in quel giro ded
 
 **Verifica**: `tsc --noEmit`, `eslint`, `next build` puliti (nessun test automatico dedicato,
 sono link statici in JSX senza logica da testare).
+
+---
+
+## 2026-09-13 — Notifiche email di prenotazione (Fase 6, Gruppo B-bis #1): titolare + cliente
+
+**Contesto**: dopo il completamento del test end-to-end della lista d'attesa, Gabriel ha dato
+delega ampia ("dobbiamo implementare tutte le funzioni, leggi gli md e fai tu quello che
+ritieni necessario ora") per continuare a implementare le funzioni mancanti segnalate in
+`PIANO.md`. Rileggendo il piano, il punto con priorità più alta rimasto era Gruppo B-bis #1:
+zero notifica email quando arriva una prenotazione, né per il titolare né per il cliente --
+segnalato esplicitamente come "manca qualcosa che ogni concorrente verificato ha".
+
+**Cosa è stato costruito**:
+- `src/lib/email/resend.server.ts`: wrapper minimo su Resend (provider scelto -- piano gratuito
+  3.000 email/mese, attivabile subito con solo un account, a differenza di WhatsApp/Meta che
+  richiede business verification + App Review non ancora completate). Fail-open per design:
+  senza `RESEND_API_KEY` in ambiente, o se Resend risponde con un errore, o per qualunque
+  eccezione di rete, `inviaEmail()` non lancia mai -- ritorna `false` e logga. Stesso principio
+  già applicato al tetto di prenotazioni mensili e al match della lista d'attesa: una funzione
+  accessoria non deve mai poter far fallire l'operazione primaria (qui, salvare l'appuntamento).
+- `src/lib/email/notifiche.server.ts`: orchestrazione. Una email al titolare SEMPRE (indirizzo
+  risolto via `profiles.ruolo = 'owner'` + `supabase.auth.admin.getUserById()` con un client
+  service-role dedicato -- `tenants.email` esiste come colonna dalla migrazione 0001 ma non è
+  mai stata popolata da nessuna parte del codice, quindi l'unica email vera del titolare è
+  quella con cui si è registrato su Supabase Auth) e una email di conferma al cliente SOLO se ha
+  lasciato un indirizzo. Anche questa funzione non lancia mai (try/catch attorno a tutto il
+  corpo): un problema di rete o di permessi qui non deve mai far tornare una prenotazione come
+  fallita quando sul database è già scritta con successo. Se `RESEND_API_KEY` non è impostata,
+  la funzione ritorna subito senza nemmeno interrogare il database -- zero latenza aggiunta a
+  ogni prenotazione finché Gabriel non ha configurato Resend.
+- Agganciata dentro `creaAppuntamentoTenant` (booking-engine.server.ts), subito dopo l'insert
+  riuscito su `appuntamenti` -- STESSA unica funzione di scrittura usata da dashboard, AI,
+  pubblico diretto e caparra/Stripe (punto 9 di CLAUDE.md): un solo punto d'aggancio copre
+  automaticamente tutti e quattro i canali, senza duplicare la chiamata in ciascun chiamante.
+  Verificato leggendo per intero `src/app/api/stripe/webhook/route.ts`: anche
+  `completaPagamentoCaparra` passa da `creaAppuntamentoTenant`, quindi è coperto senza modifiche
+  a quel file oltre a inoltrare l'email del cliente (vedi sotto).
+- `CreaAppuntamentoParams.clienteEmail` (opzionale) e `trovaOCreaCliente` aggiornati per
+  accettarla e salvarla su `clienti.email` (colonna già esistente dalla migrazione 0001, mai
+  popolata finora): su cliente nuovo la salva subito, su cliente già esistente la aggiunge SOLO
+  se non ne aveva già una (mai sovrascrivere un'email magari corretta a mano in dashboard).
+- Raccolta dell'email: aggiunto un campo facoltativo nello step "contatto" di
+  `FlussoPrenotazione.tsx` (unico punto di raccolta per ora -- dashboard e AI restano senza,
+  vedi limitazione sotto). Per il flusso con caparra, l'appuntamento vero nasce solo dopo il
+  pagamento (nel webhook Stripe), quindi l'email va "parcheggiata" nel frattempo sulla riga di
+  `richieste_caparra`: aggiunta la colonna `cliente_email` con la migrazione
+  `0015_email_cliente_caparra.sql`, letta dal webhook e inoltrata a `creaAppuntamentoTenant`.
+- `.env.example` aggiornato con `RESEND_API_KEY`/`RESEND_FROM_EMAIL` e la spiegazione di come
+  attivarli (vedi anche `PIANO.md` Gruppo A punto 9).
+
+**Alternative considerate**:
+- *Provider*: scartati Postmark (richiede carta di credito anche sul piano gratuito) e
+  nodemailer/SMTP diretto (richiederebbe un account email dedicato da gestire, più rischio di
+  finire in spam senza un provider transazionale) -- Resend vince su "attivabile subito da un
+  indie dev senza budget", stesso criterio già usato per scegliere Stripe/Supabase.
+- *Dove agganciare l'invio*: valutato di chiamare le notifiche da ciascun chiamante (dashboard,
+  AI, pubblico, webhook) invece che da dentro `creaAppuntamentoTenant` -- scartato subito,
+  violerebbe direttamente punto 9 di CLAUDE.md e avrebbe richiesto ricordarsi di aggiungerlo in
+  4 punti diversi invece di 1.
+- *Aggiornare l'email di un cliente esistente*: valutato di sovrascriverla sempre con l'ultima
+  fornita -- scartato, un cliente potrebbe aver corretto la propria email a mano in dashboard;
+  si aggiorna solo se il campo era vuoto.
+
+**Limitazioni oneste segnalate**:
+- L'email del cliente si raccoglie oggi SOLO nel flusso pubblico diretto (`/s/[slug]`) --non
+  nella dashboard (form "nuovo appuntamento" manuale) né nei tool dell'AI. Un cliente prenotato
+  da staff o via chat AI non riceverà mai la conferma finché questi due punti non vengono
+  estesi allo stesso modo (possibile fast-follow, non fatto ora per restare nello scope minimo
+  della priorità "titolare sempre notificato + cliente quando possibile").
+- Nessun retry se l'invio fallisce: un'email non partita (dominio non verificato, chiave
+  scaduta, timeout di rete) è persa, non in coda per un nuovo tentativo -- accettabile per il
+  primo rilascio (il fail-open è per non bloccare la prenotazione, non per garantire la
+  consegna), da rivedere se emergono invii persi con clienti reali.
+- Il corpo delle email è HTML minimale in italiano, senza logo/branding del tenant né un
+  "gestisci la tua prenotazione" (quel link è il punto 2 di Gruppo B-bis, non ancora costruito,
+  ma già progettato per appoggiarsi a queste stesse email in futuro).
+- Non ancora verificato con un invio reale (serve `RESEND_API_KEY` vera, che Gabriel deve
+  creare lui su resend.com) né con la migrazione `0015` applicata al database reale.
+
+**Verifica**: 11 nuovi test dedicati (`resend.server.test.ts`: fail-open senza chiave/con
+errore Resend/con eccezione di rete, mittente di default vs `RESEND_FROM_EMAIL`;
+`notifiche.server.test.ts`: invio titolare sempre, invio cliente solo con email, fail-open
+senza profilo owner, fail-open su appuntamento non trovato, fail-open su eccezione da
+`auth.admin.getUserById`) + `booking-engine.server.test.ts` isolato dal dettaglio con un mock
+dedicato (le notifiche hanno i loro test a parte, non c'è motivo di far fornire a ogni test di
+scrittura anche le risposte finte per le query di `notifiche.server.ts`). `tsc --noEmit`,
+`eslint`, `npx vitest run` (149/149, da 138), `next build` tutti puliti.

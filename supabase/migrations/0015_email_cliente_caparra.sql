@@ -1,0 +1,11 @@
+-- Fase 6, Gruppo B-bis #1 (13/09/2026): notifiche email di prenotazione.
+-- `clienti.email` esiste già dalla migrazione 0001 ma non era mai stata
+-- raccolta da nessun flusso -- ora lo fa il flusso di prenotazione pubblica
+-- (FlussoPrenotazione.tsx), sia diretto (prenotaPubblico, passata subito a
+-- creaAppuntamentoTenant) sia con caparra (avviaPagamentoCaparra): in
+-- quest'ultimo caso l'appuntamento vero non esiste ancora al momento in cui
+-- il cliente la scrive (si crea solo dopo il pagamento, nel webhook Stripe,
+-- vedi completaPagamentoCaparra in src/app/api/stripe/webhook/route.ts),
+-- quindi va tenuta in "parcheggio" sulla riga di richiesta come già si fa
+-- per cliente_nome/cliente_telefono.
+alter table richieste_caparra add column cliente_email text;

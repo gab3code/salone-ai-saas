@@ -1,6 +1,27 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, settimo giro -- Gabriel ha detto "d'ora in poi i test li fai tu
+Ultimo aggiornamento: 13/09/2026, ottavo giro -- delega ampia di Gabriel ("dobbiamo implementare
+tutte le funzioni, leggi gli md e fai tu quello che ritieni necessario ora") dopo la chiusura del
+settimo giro sotto. Rileggendo `PIANO.md`, la priorità più alta rimasta era Gruppo B-bis #1: zero
+notifica email quando arriva una prenotazione, né per il titolare né per il cliente. Costruito da
+zero: `src/lib/email/resend.server.ts` (wrapper Resend fail-open -- senza `RESEND_API_KEY` o con
+qualunque errore/eccezione non lancia mai, ritorna `false` e logga) + `notifiche.server.ts`
+(email al titolare SEMPRE, indirizzo risolto via `profiles.ruolo='owner'` +
+`auth.admin.getUserById()` perché `tenants.email` non è mai popolata; email di conferma al
+cliente solo se ha lasciato un indirizzo). Agganciato dentro `creaAppuntamentoTenant`, l'unica
+funzione di scrittura degli appuntamenti (punto 9 di CLAUDE.md) -- copre automaticamente tutti e
+quattro i canali (dashboard, AI, pubblico diretto, caparra/Stripe) senza duplicare la chiamata.
+Raccolta dell'email aggiunta come campo facoltativo nel flusso pubblico (`FlussoPrenotazione.tsx`);
+per il flusso con caparra serve la nuova colonna `richieste_caparra.cliente_email`
+(migrazione `0015_email_cliente_caparra.sql`, non ancora applicata al database reale). Dettaglio
+completo, alternative scartate e limitazioni oneste (email raccolta solo dal flusso pubblico,
+nessun retry sugli invii falliti, corpo email minimale senza branding) in DECISIONS.md.
+**Resta da fare, tocca a Gabriel**: creare un account gratis su resend.com e impostare
+`RESEND_API_KEY` (senza, il modulo resta silenziosamente disattivato, nessuna prenotazione si
+rompe) + applicare la migrazione `0015`. 11 nuovi test dedicati, `tsc`/`eslint`/`vitest`
+(149/149, da 138)/`build` tutti puliti -- non ancora verificato con un invio email reale.
+
+Aggiornamento precedente, 13/09/2026, settimo giro -- Gabriel ha detto "d'ora in poi i test li fai tu
 su google" e poi "crea tu un nuovo account di test e fai tutto tu": creato un tenant di prova
 dedicato ("Salone Test Claude", slug `salone-3ad8c9ad`, via `/registrati` -- nessuna conferma
 email richiesta in questo progetto Supabase, sessione autenticata subito) per testare dal vivo

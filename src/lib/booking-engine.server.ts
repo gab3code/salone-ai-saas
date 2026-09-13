@@ -14,6 +14,7 @@ import { limiteMensilePrenotazioni } from "@/lib/piani";
 import { caricaImpegniEsterni } from "@/lib/calendario-esterno/collegamenti.server";
 import { pseudoUtcAReale, realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
+import { inviaNotificheNuovoAppuntamento } from "@/lib/email/notifiche.server";
 
 /**
  * Livello di collegamento tra il motore puro (booking-engine.ts, già testato
@@ -365,20 +366,29 @@ async function trovaOCreaCliente(
   tenantId: string,
   nome: string | null,
   telefono: string,
-  creatoDaAi: boolean
+  creatoDaAi: boolean,
+  email?: string | null
 ): Promise<{ id: string } | { errore: string }> {
   const { data: esistente } = await supabase
     .from("clienti")
-    .select("id")
+    .select("id, email")
     .eq("tenant_id", tenantId)
     .eq("telefono", telefono)
     .maybeSingle();
 
-  if (esistente) return { id: esistente.id };
+  if (esistente) {
+    // Cliente già noto ma senza email salvata: se questa prenotazione ne
+    // porta una la aggiungiamo, best-effort -- non sovrascrive mai
+    // un'email già presente (potrebbe essere stata corretta a mano).
+    if (email && !esistente.email) {
+      await supabase.from("clienti").update({ email }).eq("id", esistente.id);
+    }
+    return { id: esistente.id };
+  }
 
   const { data: nuovo, error } = await supabase
     .from("clienti")
-    .insert({ tenant_id: tenantId, nome: nome || null, telefono, creato_da_ai: creatoDaAi })
+    .insert({ tenant_id: tenantId, nome: nome || null, telefono, creato_da_ai: creatoDaAi, email: email || null })
     .select("id")
     .single();
   if (error) return { errore: `Errore creando il cliente: ${error.message}` };
@@ -391,6 +401,10 @@ export interface CreaAppuntamentoParams {
   inizio: Date;
   clienteNome?: string;
   clienteTelefono?: string;
+  // Raccolta oggi solo dal flusso pubblico (FlussoPrenotazione.tsx) --
+  // se presente, abilita l'email di conferma al cliente (vedi
+  // src/lib/email/notifiche.server.ts) e viene salvata su clienti.email.
+  clienteEmail?: string;
   // "manuale" = da dashboard (staff), "ai" = chat/WhatsApp AI, "pubblico" =
   // il cliente prenota da solo dalla pagina pubblica del salone senza
   // passare dall'AI (Fase 4) -- tre canali distinti, stessa unica funzione
@@ -483,7 +497,8 @@ export async function creaAppuntamentoTenant(
       tenantId,
       params.clienteNome ?? null,
       params.clienteTelefono,
-      params.creatoDa === "ai"
+      params.creatoDa === "ai",
+      params.clienteEmail ?? null
     );
     if ("errore" in risultato) return { ok: false, errore: risultato.errore };
     clienteId = risultato.id;
@@ -516,6 +531,17 @@ export async function creaAppuntamentoTenant(
       };
     }
     return { ok: false, errore: `Errore salvando l'appuntamento: ${error.message}` };
+  }
+
+  // Notifiche email (Fase 6, Gruppo B-bis #1): l'appuntamento è già scritto
+  // con successo qui sopra -- fail-open totale, un problema di invio non
+  // deve mai far tornare questa funzione come se la prenotazione fosse
+  // fallita (la funzione stessa non lancia mai, il try/catch qui è solo
+  // difesa in profondità).
+  try {
+    await inviaNotificheNuovoAppuntamento(tenantId, appuntamento.id);
+  } catch (erroreNotifica) {
+    console.error("[email] Errore inatteso propagato dalle notifiche di nuovo appuntamento:", erroreNotifica);
   }
 
   return { ok: true, appuntamentoId: appuntamento.id };

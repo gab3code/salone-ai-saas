@@ -65,6 +65,7 @@ async function completaPagamentoCaparra(
         inizio,
         clienteNome: richiesta.cliente_nome,
         clienteTelefono: richiesta.cliente_telefono,
+        clienteEmail: richiesta.cliente_email ?? undefined,
         creatoDa: "pubblico",
       })
     : { ok: false as const, errore: "Orario della richiesta non valido." };

@@ -69,6 +69,9 @@ export default function FlussoPrenotazione({
   const [slotScelto, setSlotScelto] = useState<SlotPubblico | null>(null);
   const [nome, setNome] = useState("");
   const [telefono, setTelefono] = useState("");
+  // Opzionale (Fase 6, Gruppo B-bis #1): se lasciata, il cliente riceve
+  // un'email di conferma -- vedi src/lib/email/notifiche.server.ts.
+  const [email, setEmail] = useState("");
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   // Lista d'attesa (Fase 6): si attiva solo quando cercaSlotPubblici non trova
@@ -156,6 +159,7 @@ export default function FlussoPrenotazione({
         inizioIso: slotScelto.inizioIso,
         clienteNome: nome,
         clienteTelefono: telefono,
+        clienteEmail: email.trim() || undefined,
       };
 
       // Caparra richiesta: si passa da Stripe, l'appuntamento nasce solo a
@@ -369,6 +373,16 @@ export default function FlussoPrenotazione({
               onChange={(e) => setTelefono(e.target.value)}
               className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
               placeholder="Es. 333 1234567"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Email <span className="text-zinc-400">(facoltativa, per la conferma via email)</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+              placeholder="Es. giulia@esempio.it"
             />
           </label>
           <button
