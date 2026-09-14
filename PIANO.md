@@ -695,22 +695,28 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       il task "Multi-utente/team reale" in Fase 6 sotto, che è il prerequisito dei ruoli.
 
 ## Fase 6 -- Automazioni e sicurezza (punti 16, 29, 30)
-- [ ] **Promemoria automatici -- BLOCCANTE prima di aprire pagamenti veri sul piano Growth**
-      (trovato nel controllo promesse del sito 13/09/2026, richiesto da Gabriel: "aggiungi tutte
-      le promesse del sito"): pubblicizzati come voce inclusa da Growth in su (`Prezzi.tsx`,
-      `Funzionalita.tsx`) e usati esplicitamente nel calcolo ROI della landing
-      (`ImpattoEconomico.tsx`: "Il promemoria automatico evita questa voce da solo", riferito ai
-      clienti dimenticati) -- **zero motore di invio automatico esiste** (nessun cron/scheduler
-      che invia in autonomia, a orari o eventi prestabiliti). Aggiornamento 13/09/2026: un canale
-      email ORA esiste (`inviaEmail()` in `src/lib/email/mailjet.server.ts`, costruito per le
-      notifiche di nuova prenotazione, Gruppo B-bis punto 1) -- riutilizzabile qui invece di
-      scegliere un provider da zero, resta comunque da costruire il motore di automazioni vero e
-      proprio (reminder prima dell'appuntamento, follow-up clienti inattivi, promemoria
-      compleanno) che decida QUANDO inviare, non solo il "come" spedire l'email. Stesso principio
-      di "Il sito descrive il prodotto al lancio"
-      (DECISIONS.md 12/09/2026): non urgente finché non ci sono clienti Growth paganti reali, ma
-      è tra i più concreti da rispettare -- viene usato come argomento di vendita diretto
-      nel calcolo di risparmio mostrato a ogni visitatore, non solo elencato tra le funzioni.
+- [x] **Promemoria automatici -- CODICE FATTO 14/09/2026** (era bloccante prima di aprire
+      pagamenti veri sul piano Growth; trovato nel controllo promesse del sito 13/09/2026,
+      richiesto da Gabriel: "aggiungi tutte le promesse del sito"): pubblicizzati come voce
+      inclusa da Growth in su (`Prezzi.tsx`, `Funzionalita.tsx`: "Reminder prima
+      dell'appuntamento e follow-up ai clienti inattivi") e usati esplicitamente nel calcolo ROI
+      della landing (`ImpattoEconomico.tsx`). Costruite ESATTAMENTE le due cose promesse, non di
+      più (niente promemoria di compleanno, mai stato scritto da nessuna parte sul sito nonostante
+      fosse nella lista di idee del 13/09/2026): job schedulato una volta al giorno
+      (`/api/cron/promemoria`, Vercel Cron -- vedi `vercel.json`, protetto da `CRON_SECRET`),
+      logica di decisione pura e testata in `src/lib/promemoria.ts` (13 test), connessione DB in
+      `src/lib/promemoria.server.ts`. Reminder pre-appuntamento: finestra 24-48h prima (non
+      "esattamente 24h", vedi il commento in `promemoria.ts` sul perché -- un cron che gira una
+      volta al giorno a un'ora fissa mancherebbe sistematicamente metà degli appuntamenti con una
+      finestra più stretta), una volta sola per appuntamento (`appuntamenti.promemoria_inviato_at`,
+      migrazione `0017_promemoria_automatici.sql`). Follow-up clienti inattivi: riusa
+      `elencaClientiInattivi` (src/lib/metriche.ts, stessa regola già in dashboard, non
+      ricalcolata), al massimo una volta ogni 60 giorni per cliente
+      (`clienti.promemoria_inattivita_inviato_at`). Gate di piano dedicato
+      (`pianoHaPromemoria`/`PIANI_CON_PROMEMORIA` in `src/lib/piani.ts`, stessa forma di
+      `pianoHaAnalytics`). `tsc`/`eslint`/`vitest` (214/214)/`build` puliti. **Non ancora
+      verificato dal vivo** (serve `CRON_SECRET` impostato su Vercel + un giro naturale del cron,
+      o un test manuale chiamando l'endpoint a mano) -- vedi PROJECT_STATUS.md.
 - [ ] **SMS -- BLOCCANTE prima di aprire pagamenti veri sul piano Pro** (trovato stesso giro,
       13/09/2026): `Prezzi.tsx` elenca "SMS" come voce inclusa da Pro in su, e `Funzionalita.tsx`
       la descrive esplicitamente ("Promemoria e conferme anche senza WhatsApp o smartphone") --

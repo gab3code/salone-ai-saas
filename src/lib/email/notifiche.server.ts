@@ -6,7 +6,7 @@ import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { inviaEmail } from "./mailjet.server";
 
 /** Escape minimo per inserire testo libero (nome cliente, servizio, note) dentro l'HTML dell'email. */
-function escapeHtml(testo: string): string {
+export function escapeHtml(testo: string): string {
   return testo
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -26,8 +26,14 @@ function escapeHtml(testo: string): string {
  * disponibile (nessuno oggi, ma es. un futuro job schedulato in background):
  * try/catch fail-open, nessun link piuttosto che un link rotto o un'email
  * che non parte affatto.
+ *
+ * Esportata: riusata anche da `promemoria.server.ts` (Fase 6, 14/09/2026) --
+ * quel "futuro job schedulato" ipotizzato sopra è arrivato davvero. La
+ * richiesta che Vercel Cron fa per invocare il job passa comunque da
+ * `headers()` come qualunque altra richiesta HTTP, quindi funziona senza
+ * modifiche.
  */
-async function urlBaseSito(): Promise<string | null> {
+export async function urlBaseSito(): Promise<string | null> {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
   try {
     const intestazioni = await headers();
@@ -39,7 +45,7 @@ async function urlBaseSito(): Promise<string | null> {
   }
 }
 
-function formattaOrario(inizioReale: Date, fusoOrario: string): string {
+export function formattaOrario(inizioReale: Date, fusoOrario: string): string {
   const pseudo = realeAPseudoUtc(inizioReale, fusoOrario);
   const data = pseudo.toLocaleDateString("it-IT", { timeZone: "UTC" });
   const ora = pseudo.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });

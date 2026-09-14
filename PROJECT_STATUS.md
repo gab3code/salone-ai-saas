@@ -1,6 +1,60 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 14/09/2026, ventisettesimo giro -- Gabriel ha detto "faccio io quasi tutto
+Ultimo aggiornamento: 14/09/2026, ventottesimo giro -- chiuso il test di pagamento Stripe (giro
+precedente), chiesto a Gabriel "dimmi quali sono le opzioni" sul prossimo blocco, scelto insieme
+(consigliato da Claude): **Promemoria automatici**, uno dei due blocchi reali rimasti prima di poter
+vendere sul serio i piani Growth/Pro (l'altro è SMS su Pro, rimandato -- richiede prima una
+decisione di Gabriel sul provider/margine, non solo codice).
+
+**Costruite ESATTAMENTE le due cose promesse dal sito, non di più** (stesso principio già seguito
+per Analytics): `Funzionalita.tsx` promette "Reminder prima dell'appuntamento e follow-up ai
+clienti inattivi" -- niente promemoria di compleanno (mai scritto da nessuna parte sul sito,
+nonostante fosse tra le idee originali del 13/09/2026).
+
+Scelta tecnica presa in autonomia (non serviva l'ok di Gabriel, reversibile): **Vercel Cron** che
+chiama un endpoint Next.js, non pg_cron/Supabase Edge Functions come ipotizzato nel primissimo
+documento di fattibilità (`docs/verifica-fattibilita-33-punti.md`, scritto prima di conoscere bene
+il progetto reale) -- coerente con come il resto del progetto è già fatto (tutto Next.js/Vercel,
+zero Edge Function Supabase in uso da nessuna parte oggi), un solo posto da deployare invece di due
+sistemi diversi da tenere sincronizzati.
+
+**Vincolo scoperto e gestito**: Vercel Cron sul piano Hobby (quello di Gabriel) permette al
+massimo 1 esecuzione al giorno, non ogni ora. Con un cron a un orario FISSO che gira una volta al
+giorno, una finestra stretta tipo "esattamente 24h prima" mancherebbe sistematicamente metà degli
+appuntamenti (la finestra si sposta con l'orario dell'appuntamento, il cron no). Soluzione: finestra
+larga 24 ore intere (24-48h prima), che matematicamente garantisce di intercettare OGNI
+appuntamento a prescindere dal suo orario -- il preavviso varia da 1 a 2 giorni invece di essere
+fisso, ma la promessa scritta non garantisce un orario specifico. Ragionamento completo nel commento
+di `src/lib/promemoria.ts`. Se in futuro Gabriel passa a Vercel Pro, si stringe la finestra senza
+toccare la logica di decisione.
+
+Costruito:
+- Migrazione `0017_promemoria_automatici.sql`: due colonne (`appuntamenti.promemoria_inviato_at`,
+  `clienti.promemoria_inattivita_inviato_at`) per non rimandare due volte lo stesso avviso.
+- `src/lib/piani.ts`: nuovo gate `pianoHaPromemoria`/`PIANI_CON_PROMEMORIA` (Growth in su, stessa
+  lista di Analytics oggi, ma tenuta indipendente apposta).
+- `src/lib/promemoria.ts`: logica pura (chi va avvisato, quando) -- **13 nuovi test**, zero query.
+- `src/lib/promemoria.server.ts`: carica i dati veri (un tenant Growth+ alla volta, try/catch per
+  isolare un tenant con dati sporchi dagli altri), chiama `inviaEmail()` (stesso modulo Mailjet
+  delle notifiche di prenotazione, nessun secondo provider), segna gli invii. Il follow-up
+  clienti inattivi riusa `elencaClientiInattivi` di `src/lib/metriche.ts` -- stessa identica regola
+  già mostrata in dashboard e nel filtro `/dashboard/clienti?filtro=inattivi`, non ricalcolata una
+  seconda volta.
+- `src/app/api/cron/promemoria/route.ts`: l'endpoint vero e proprio, protetto da `CRON_SECRET`
+  (a differenza del resto del modulo email, qui NON fail-open se il secret manca -- un endpoint
+  che manda email vere e scrive sul DB senza autenticazione sarebbe un vettore di abuso reale).
+- `vercel.json`: nuovo file, registra il cron (`0 8 * * *`, le 08:00 UTC ogni giorno).
+- `.env.example` aggiornato con `CRON_SECRET` e istruzioni per generarlo.
+
+`npx vitest run` (214/214, tutti verdi, 13 nuovi), `tsc --noEmit`, `eslint`, `npm run build` tutti
+puliti. **Non ancora verificato dal vivo**: `CRON_SECRET` non ancora impostato su Vercel (stesso
+tipo di variabile "segreto" della chiave Stripe -- generata qui in autonomia, ma va incollata da
+Gabriel su Vercel se il classificatore della sandbox blocca anche questa, come già successo con
+`STRIPE_SECRET_KEY` nel giro precedente), nessun giro reale del cron ancora avvenuto, nessuna email
+di promemoria vista arrivare per davvero in una casella di posta. Prossimo giro: chiudere questa
+verifica dal vivo, poi eventualmente SMS (Pro) o multi-sede/ruoli (Enterprise).
+
+Aggiornamento precedente, 14/09/2026, ventisettesimo giro -- Gabriel ha detto "faccio io quasi tutto
 (consigliato)": autorizzazione esplicita a configurare da solo il webhook Stripe, le variabili
 d'ambiente su Vercel e a eseguire un pagamento di prova vero in test-mode, chiedendo conferma solo
 se necessario.

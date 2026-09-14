@@ -55,3 +55,20 @@ export const PIANI_CON_ANALYTICS = new Set(["growth", "pro", "enterprise"]);
 export function pianoHaAnalytics(piano: string): boolean {
   return PIANI_CON_ANALYTICS.has(piano);
 }
+
+/**
+ * Gate di piano per i Promemoria automatici (Fase 6, trovato nel controllo
+ * promesse del sito 13/09/2026, costruito il 14/09/2026): `Prezzi.tsx`
+ * elenca "Promemoria automatici" da Growth in su, `Funzionalita.tsx` lo
+ * descrive esplicitamente come due cose ("Reminder prima dell'appuntamento
+ * e follow-up ai clienti inattivi") -- entrambe usano questo stesso gate,
+ * un solo posto invece di duplicare il controllo piano nel job schedulato
+ * per ciascuna delle due. Stessa lista di piani di `PIANI_CON_ANALYTICS`
+ * (coincidenza dei requisiti attuali, non un vincolo: i due Set restano
+ * indipendenti apposta, un domani potrebbero divergere).
+ */
+export const PIANI_CON_PROMEMORIA = new Set(["growth", "pro", "enterprise"]);
+
+export function pianoHaPromemoria(piano: string): boolean {
+  return PIANI_CON_PROMEMORIA.has(piano);
+}
