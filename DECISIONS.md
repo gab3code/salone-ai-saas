@@ -1987,3 +1987,74 @@ modificati -> pulito; `npm run build` -> production build riuscita, tutte le rou
 Nessuna verifica dal vivo nel browser di questo fix specifico (il comportamento "giorno pieno"
 resta coperto dai test automatici esistenti, non ripetuto manualmente); da tenere a mente se
 riemerge qualche dubbio sul flusso pubblico.
+
+---
+
+## 2026-09-14 — Fase 1 costruita: contatto automatico (opzionale) del cliente in lista d'attesa
+
+**Contesto**: chiuso Fase 0 (a parte SMS/Skebby, in sospeso su richiesta di Gabriel, vedi voce
+precedente), Gabriel ha chiesto di iniziare la Fase 1 del piano riordinato (vedi PIANO.md): oggi,
+alla cancellazione di un appuntamento, `trovaEAvvisaListaAttesa` trova già da solo il primo
+cliente compatibile in `lista_attesa` e lo marca "proposto", ma il contatto vero al cliente resta
+manuale (il titolare vede un banner in dashboard e telefona/scrive). Prima di scrivere codice,
+Gabriel ha posto un vincolo esplicito: il salone deve poter scegliere se lasciare questo (e gli
+altri automatismi, presenti e futuri) automatico o tenerlo manuale -- fatte quattro domande
+mirate (via `AskUserQuestion`) prima di procedere, per non costruire scelte di prodotto/prezzo a
+caso.
+
+**Decisioni di Gabriel, vincolanti per l'implementazione**:
+1. **Un solo interruttore per tutto il salone** (non per servizio) in Dashboard ->
+   Impostazioni -> "Contatto automatico lista d'attesa".
+2. **Default `manuale`** per ogni tenant, nuovo o esistente -- chi non tocca l'impostazione
+   mantiene esattamente il comportamento di oggi, nessuna sorpresa per chi già usa il prodotto.
+3. **Gate di piano Growth in su**, stessa soglia dei Promemoria automatici -- ma un `Set`
+   indipendente (`PIANI_CON_LISTA_ATTESA_AUTOMATICA` in `piani.ts`), stesso principio già
+   applicato tra `PIANI_CON_ANALYTICS`/`PIANI_CON_PROMEMORIA` (stessi piani oggi, non un vincolo:
+   potrebbero divergere in futuro).
+4. **Costruito come se Skebby fosse già attivo**: Gabriel, testualmente, "per ora non abbiamo
+   nessun cliente e punto ad arrivare sul mercato con un prodotto più completo possibile" --
+   quindi niente logica speciale per "SMS non ancora configurato": si riusa da subito la stessa
+   catena email->SMS già scritta per le notifiche di prenotazione (`inviaNotificheNuovoAppuntamento`
+   in `notifiche.server.ts`), che è già fail-open per design quando mancano le credenziali Skebby
+   (logga e ritorna `false`, non lancia mai) -- quando le credenziali vere ci saranno, il canale SMS
+   si attiva da solo, zero righe di codice in più da scrivere.
+
+**Modifiche** (implementate da una sub-agente con uno spec dettagliato a livello di codice, poi
+riviste file per file da me prima di fidarmene, stesso schema già usato per il fix della lista
+d'attesa qui sopra):
+- `supabase/migrations/0020_lista_attesa_contatto_automatico.sql`: `tenants
+  .lista_attesa_contatto_automatico boolean not null default false` (il default copre da solo sia
+  i tenant esistenti sia quelli nuovi, nessun trigger da toccare) + `lista_attesa.cliente_email
+  text` nullable (oggi raccolta solo dal flusso pubblico).
+- `src/lib/piani.ts`: `PIANI_CON_LISTA_ATTESA_AUTOMATICA`/`pianoHaListaAttesaAutomatica`.
+- `src/lib/booking-engine.server.ts`: nuova funzione privata
+  `contattaClienteListaAttesaSeAutomatico`, chiamata da `trovaEAvvisaListaAttesa` SUBITO DOPO che
+  il match è già scritto con successo (mai prima) -- try/catch interno separato, così un problema
+  nel contatto (Mailjet giù, Skebby non configurato, ecc.) non fa mai sparire il match che il
+  titolare deve comunque vedere in dashboard. Controlla piano + toggle del tenant, poi email se il
+  cliente in coda l'ha lasciata, altrimenti SMS via `inviaSmsSeInclusoNelPiano` (che ricontrolla
+  comunque piano/quota/credenziali per conto suo). `AggiungiListaAttesaParams`/
+  `aggiungiListaAttesaTenant` estesi con `clienteEmail` opzionale.
+- `src/app/s/[slug]/azioni.ts` + `FlussoPrenotazione.tsx`: campo email opzionale aggiunto al modulo
+  di iscrizione diretta alla lista d'attesa (stessa validazione già usata per la prenotazione),
+  riusando lo state già esistente nel componente -- senza un'email lasciata qui (o già presente su
+  un cliente noto), il cliente resta raggiungibile solo via SMS quando Skebby sarà attivo.
+  Dashboard/AI non raccolgono ancora l'email per la lista d'attesa (nessuna richiesta in questo
+  senso, estensione futura se servirà).
+- Nuova pagina `Dashboard -> Impostazioni -> Contatto automatico lista d'attesa` (stesso pattern di
+  `impostazioni/caparra`, gate di piano nello stile di `impostazioni/promemoria`): un solo
+  checkbox, salvato con un ricontrollo del piano lato server PRIMA di scrivere `true` (difesa in
+  profondità, mai fidarsi che la UI abbia già nascosto il pannello a chi non dovrebbe vederlo).
+
+**Verifica**: rieseguiti io stesso dopo la revisione riga per riga di tutti i file toccati -- `npx
+vitest run` -> 265/265 verdi (24 file, 8 nuovi test: gate di piano in `piani.test.ts`, 5 casi in
+`booking-engine.server.test.ts` -- toggle spento, piano senza accesso, email inviata senza SMS, SMS
+inviato quando manca l'email, un'eccezione nell'invio non fa sparire il match); `npx tsc --noEmit`
+-> pulito; `npx eslint` sui file toccati -> pulito; `npm run build` -> production build riuscita,
+`/dashboard/impostazioni/lista-attesa` presente tra le route generate.
+
+**Non ancora fatto**: la migrazione non è ancora applicata al database reale (serve l'ok di
+Gabriel, stesso principio già seguito per ogni migrazione precedente) -- nessun test dal vivo in
+browser quindi ancora possibile. Nessuna verifica dal vivo dell'invio email reale per questo
+flusso specifico (il codice riusa `inviaEmail`/`inviaSmsSeInclusoNelPiano`, già verificati dal
+vivo altrove in questa stessa giornata per i promemoria).

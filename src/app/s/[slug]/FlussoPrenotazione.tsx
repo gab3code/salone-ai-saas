@@ -165,6 +165,7 @@ export default function FlussoPrenotazione({
         dataPreferitaYMD: dataYMD,
         clienteNome: nome,
         clienteTelefono: telefono,
+        clienteEmail: email.trim() || undefined,
         trappola,
         iniziatoAlleMs,
       });
@@ -341,6 +342,13 @@ export default function FlussoPrenotazione({
                     value={telefono}
                     onChange={(e) => setTelefono(e.target.value)}
                     placeholder="Telefono"
+                    className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email (opzionale)"
                     className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
                   />
                   <button

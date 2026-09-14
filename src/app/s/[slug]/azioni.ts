@@ -368,6 +368,11 @@ export interface DatiListaAttesaPubblica {
   dataPreferitaYMD?: string; // il giorno cercato in cercaSlotPubblici, per cui non c'era niente
   clienteNome: string;
   clienteTelefono: string;
+  // Opzionale (Fase 1, contatto automatico lista d'attesa, 14/09/2026): se
+  // presente e il tenant ha attivato il contatto automatico, abilita
+  // l'email quando si libera un posto -- vedi
+  // src/lib/booking-engine.server.ts (contattaClienteListaAttesaSeAutomatico).
+  clienteEmail?: string;
   // Anti-bot silenzioso (vedi src/lib/anti-bot.ts), stesso di DatiPrenotazionePubblica.
   trappola?: string;
   iniziatoAlleMs?: number;
@@ -398,10 +403,14 @@ export async function iscrivitiListaAttesaPubblico(
 
   const clienteNome = dati.clienteNome.trim().slice(0, 200);
   const clienteTelefono = dati.clienteTelefono.trim();
+  const clienteEmail = dati.clienteEmail?.trim().slice(0, 200) || undefined;
 
   if (!dati.servizioId) return { ok: false, errore: "Servizio non specificato." };
   if (!FORMATO_TELEFONO.test(clienteTelefono)) {
     return { ok: false, errore: "Inserisci un numero di telefono valido." };
+  }
+  if (clienteEmail && !FORMATO_EMAIL.test(clienteEmail)) {
+    return { ok: false, errore: "Inserisci un'email valida, o lascia il campo vuoto." };
   }
   if (dati.dataPreferitaYMD && !FORMATO_DATA_YMD.test(dati.dataPreferitaYMD)) {
     return { ok: false, errore: "Richiesta non valida." };
@@ -417,6 +426,7 @@ export async function iscrivitiListaAttesaPubblico(
     dataPreferitaYMD: dati.dataPreferitaYMD,
     clienteNome: clienteNome || undefined,
     clienteTelefono,
+    clienteEmail,
     creatoDa: "pubblico",
   });
   if (!risultato.ok) return { ok: false, errore: risultato.errore };

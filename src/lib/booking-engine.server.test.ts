@@ -31,10 +31,27 @@ const caricaImpegniEsterniFinto = vi.mocked(caricaImpegniEsterni);
 // qui isoliamo creaAppuntamentoTenant da quel dettaglio (altrimenti ogni test
 // scrittura di questo file dovrebbe anche fornire risposte finte per le query
 // di notifiche.server.ts, che non c'entrano con ciò che questi test
-// verificano).
-vi.mock("@/lib/email/notifiche.server", () => ({
-  inviaNotificheNuovoAppuntamento: vi.fn().mockResolvedValue(undefined),
-}));
+// verificano). SOLO `inviaNotificheNuovoAppuntamento` è mockata -- il resto
+// del modulo (escapeHtml/formattaOrario/urlBaseSito) resta quello vero,
+// perché `contattaClienteListaAttesaSeAutomatico` (Fase 1, contatto
+// automatico lista d'attesa) li importa da qui e un mock "tutto il modulo"
+// li renderebbe `undefined`, rompendo quella funzione.
+vi.mock("@/lib/email/notifiche.server", async (importOriginal) => {
+  const reale = await importOriginal<typeof import("@/lib/email/notifiche.server")>();
+  return { ...reale, inviaNotificheNuovoAppuntamento: vi.fn().mockResolvedValue(undefined) };
+});
+
+// Contatto automatico della lista d'attesa (Fase 1, 14/09/2026):
+// booking-engine.server.ts ora chiama direttamente questi due moduli --
+// mockati qui allo stesso modo, per verificare nei test sotto CHE vengano
+// chiamati (o non chiamati) a seconda del toggle/piano del tenant.
+vi.mock("@/lib/email/mailjet.server", () => ({ inviaEmail: vi.fn().mockResolvedValue(true) }));
+vi.mock("@/lib/sms/invio.server", () => ({ inviaSmsSeInclusoNelPiano: vi.fn().mockResolvedValue(true) }));
+import { inviaEmail } from "@/lib/email/mailjet.server";
+import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
+
+const inviaEmailFinta = vi.mocked(inviaEmail);
+const inviaSmsSeInclusoNelPianoFinto = vi.mocked(inviaSmsSeInclusoNelPiano);
 
 const TENANT_ID = "11111111-1111-1111-1111-111111111111";
 const OPERATORE_ID = "operatore-1";
@@ -61,6 +78,10 @@ function rispostaTenantFuso(fuso = FUSO) {
 beforeEach(() => {
   caricaImpegniEsterniFinto.mockReset();
   caricaImpegniEsterniFinto.mockResolvedValue([]);
+  inviaEmailFinta.mockReset();
+  inviaEmailFinta.mockResolvedValue(true);
+  inviaSmsSeInclusoNelPianoFinto.mockReset();
+  inviaSmsSeInclusoNelPianoFinto.mockResolvedValue(true);
 });
 
 describe("parsaOrarioLocale", () => {
@@ -863,6 +884,122 @@ describe("cancellaAppuntamentoTenant", () => {
 
       const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
       expect(risultato).toEqual({ ok: true });
+    });
+
+    // Contatto automatico del cliente proposto (Fase 1, 14/09/2026 --
+    // decisione con Gabriel: toggle unico per tenant, default manuale,
+    // Growth in su, stessa email->SMS fallback delle notifiche di
+    // prenotazione). Il match in lista d'attesa è già scritto con successo
+    // in tutti questi test -- ciò che varia è SOLO se/come viene contattato.
+    describe("contatto automatico del cliente proposto", () => {
+      const CANDIDATO_CON_EMAIL = {
+        id: "attesa-1",
+        cliente_nome: "Maria",
+        cliente_telefono: "3331112222",
+        cliente_email: "maria@esempio.it",
+        operatore_id: null,
+        data_preferita: null,
+      };
+      const CANDIDATO_SENZA_EMAIL = { ...CANDIDATO_CON_EMAIL, cliente_email: null };
+
+      function rispostaTenantContatto(piano: string, contattoAutomatico: boolean) {
+        return { data: { nome: "Estetica Test", piano, lista_attesa_contatto_automatico: contattoAutomatico }, error: null };
+      }
+      function rispostaServizio() {
+        return { data: { nome: "Taglio" }, error: null };
+      }
+
+      it("toggle disattivato (piano growth): nessun contatto automatico, nessuna email/SMS inviati", async () => {
+        const supabase = creaSupabaseFinto({
+          appuntamenti: { update: [{ data: [RIGA_CANCELLATA], error: null }] },
+          tenants: { select: [rispostaTenantFuso(), rispostaTenantContatto("growth", false)] },
+          lista_attesa: {
+            select: [{ data: [CANDIDATO_CON_EMAIL], error: null }],
+            update: [{ data: null, error: null }],
+          },
+        });
+
+        const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
+        expect(risultato.ok).toBe(true);
+        expect(inviaEmailFinta).not.toHaveBeenCalled();
+        expect(inviaSmsSeInclusoNelPianoFinto).not.toHaveBeenCalled();
+      });
+
+      it("toggle attivo ma piano senza accesso (free): nessun contatto automatico", async () => {
+        const supabase = creaSupabaseFinto({
+          appuntamenti: { update: [{ data: [RIGA_CANCELLATA], error: null }] },
+          tenants: { select: [rispostaTenantFuso(), rispostaTenantContatto("free", true)] },
+          lista_attesa: {
+            select: [{ data: [CANDIDATO_CON_EMAIL], error: null }],
+            update: [{ data: null, error: null }],
+          },
+        });
+
+        const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
+        expect(risultato.ok).toBe(true);
+        expect(inviaEmailFinta).not.toHaveBeenCalled();
+        expect(inviaSmsSeInclusoNelPianoFinto).not.toHaveBeenCalled();
+      });
+
+      it("toggle attivo + piano growth + candidato con email: invia email, non SMS", async () => {
+        const supabase = creaSupabaseFinto({
+          appuntamenti: { update: [{ data: [RIGA_CANCELLATA], error: null }] },
+          tenants: { select: [rispostaTenantFuso(), rispostaTenantContatto("growth", true)] },
+          servizi: { select: [rispostaServizio()] },
+          lista_attesa: {
+            select: [{ data: [CANDIDATO_CON_EMAIL], error: null }],
+            update: [{ data: null, error: null }],
+          },
+        });
+
+        const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
+        expect(risultato.ok).toBe(true);
+        expect(inviaSmsSeInclusoNelPianoFinto).not.toHaveBeenCalled();
+        expect(inviaEmailFinta).toHaveBeenCalledTimes(1);
+        const chiamata = inviaEmailFinta.mock.calls[0][0];
+        expect(chiamata.a).toBe("maria@esempio.it");
+        expect(chiamata.html).toContain("Maria");
+        expect(chiamata.html).toContain("Taglio");
+      });
+
+      it("toggle attivo + piano growth + candidato senza email (solo telefono): invia SMS, non email", async () => {
+        const supabase = creaSupabaseFinto({
+          appuntamenti: { update: [{ data: [RIGA_CANCELLATA], error: null }] },
+          tenants: { select: [rispostaTenantFuso(), rispostaTenantContatto("growth", true)] },
+          servizi: { select: [rispostaServizio()] },
+          lista_attesa: {
+            select: [{ data: [CANDIDATO_SENZA_EMAIL], error: null }],
+            update: [{ data: null, error: null }],
+          },
+        });
+
+        const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
+        expect(risultato.ok).toBe(true);
+        expect(inviaEmailFinta).not.toHaveBeenCalled();
+        expect(inviaSmsSeInclusoNelPianoFinto).toHaveBeenCalledTimes(1);
+        const args = inviaSmsSeInclusoNelPianoFinto.mock.calls[0];
+        expect(args[2]).toBe("growth"); // piano
+        expect(args[3]).toBe("3331112222"); // telefono
+      });
+
+      it("un'eccezione nell'invio (email/dettagli tenant) non fa sparire il match già scritto -- resta ok:true con listaAttesaAvvisata", async () => {
+        inviaEmailFinta.mockRejectedValueOnce(new Error("Mailjet giù"));
+        const supabase = creaSupabaseFinto({
+          appuntamenti: { update: [{ data: [RIGA_CANCELLATA], error: null }] },
+          tenants: { select: [rispostaTenantFuso(), rispostaTenantContatto("growth", true)] },
+          servizi: { select: [rispostaServizio()] },
+          lista_attesa: {
+            select: [{ data: [CANDIDATO_CON_EMAIL], error: null }],
+            update: [{ data: null, error: null }],
+          },
+        });
+
+        const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
+        expect(risultato).toEqual({
+          ok: true,
+          listaAttesaAvvisata: { id: "attesa-1", clienteNome: "Maria", clienteTelefono: "3331112222" },
+        });
+      });
     });
   });
 });

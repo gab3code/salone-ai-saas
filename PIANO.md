@@ -38,9 +38,15 @@ reale delle fasi è:
   personale di Gabriel -- vedi DECISIONS.md per il perché non posso crearlo/impostarlo io). Zero
   codice nuovo per questo ultimo punto, ma blocca la vendita a chiunque finché resta aperto -- va
   chiuso PRIMA di qualunque fase nuova sotto.
-- **Fase 1 = contatto automatico del cliente in lista d'attesa** (oggi il match è automatico ma
-  avvisa solo il titolare, che deve contattare il cliente a mano -- vedi Gruppo B punto 3 e
-  Fase 6 sotto): unico gap competitivo reale rimasto contro Calendix.
+- **Fase 1 = contatto automatico (opzionale) del cliente in lista d'attesa** -- **CODICE FATTO
+  14/09/2026** (vedi DECISIONS.md per il dettaglio completo): un solo toggle per tenant in
+  Dashboard -> Impostazioni -> "Contatto automatico lista d'attesa" (default `manuale`, Growth in
+  su), che quando attivo fa scrivere subito Salone AI al cliente (email, SMS di fallback quando
+  Skebby sarà configurato) invece di lasciare il contatto al titolare. `tsc`/`eslint`/`vitest`
+  (265/265)/`build` puliti. **Non ancora fatto**: applicare la migrazione
+  `0020_lista_attesa_contatto_automatico.sql` al database reale (serve l'ok di Gabriel) e
+  verificare dal vivo (attivare il toggle su un tenant di prova, cancellare un appuntamento con un
+  candidato in coda, controllare che l'email parta davvero).
 - **Fase 2 = onboarding AI-assisted**: descrizione testuale della propria attività → bozza
   generata dall'AI → compilata sui form di `/dashboard/configura` che esistono già, il
   titolare conferma/corregge invece di partire da campi vuoti. Non ancora una voce di questo

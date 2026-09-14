@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { limiteMensilePrenotazioni, limiteMensileSms, limiteOperatori, pianoHaAnalytics, pianoHaSms } from "./piani";
+import {
+  limiteMensilePrenotazioni,
+  limiteMensileSms,
+  limiteOperatori,
+  pianoHaAnalytics,
+  pianoHaListaAttesaAutomatica,
+  pianoHaSms,
+} from "./piani";
 
 describe("limiteMensilePrenotazioni", () => {
   it("il piano free ha un tetto di 60 prenotazioni al mese", () => {
@@ -48,6 +55,24 @@ describe("pianoHaAnalytics", () => {
 
   it("un piano sconosciuto/malformato non ha accesso -- fail-closed qui: diverso dai limiti sopra, dare accesso a una funzione a pagamento per un valore imprevisto sarebbe il difetto pericoloso, non il contrario", () => {
     expect(pianoHaAnalytics("qualcosa-di-strano")).toBe(false);
+  });
+});
+
+describe("pianoHaListaAttesaAutomatica", () => {
+  it("growth, pro ed enterprise hanno accesso al contatto automatico della lista d'attesa", () => {
+    for (const piano of ["growth", "pro", "enterprise"]) {
+      expect(pianoHaListaAttesaAutomatica(piano)).toBe(true);
+    }
+  });
+
+  it("free e starter non hanno accesso", () => {
+    for (const piano of ["free", "starter"]) {
+      expect(pianoHaListaAttesaAutomatica(piano)).toBe(false);
+    }
+  });
+
+  it("un piano sconosciuto/malformato non ha accesso -- fail-closed, stesso principio di pianoHaAnalytics", () => {
+    expect(pianoHaListaAttesaAutomatica("qualcosa-di-strano")).toBe(false);
   });
 });
 

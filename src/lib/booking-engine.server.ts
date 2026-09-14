@@ -11,11 +11,13 @@ import {
   type OrarioGiorno,
   type SlotDisponibile,
 } from "@/lib/booking-engine";
-import { limiteMensilePrenotazioni } from "@/lib/piani";
+import { limiteMensilePrenotazioni, pianoHaListaAttesaAutomatica } from "@/lib/piani";
 import { caricaImpegniEsterni } from "@/lib/calendario-esterno/collegamenti.server";
 import { pseudoUtcAReale, realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
-import { inviaNotificheNuovoAppuntamento } from "@/lib/email/notifiche.server";
+import { inviaNotificheNuovoAppuntamento, escapeHtml, formattaOrario, urlBaseSito } from "@/lib/email/notifiche.server";
+import { inviaEmail } from "@/lib/email/mailjet.server";
+import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
 
 /**
  * Livello di collegamento tra il motore puro (booking-engine.ts, già testato
@@ -799,6 +801,63 @@ export interface ListaAttesaAvvisata {
  * non risponde non deve MAI far fallire la cancellazione vera, che è già
  * andata a buon fine quando questa funzione viene chiamata.
  */
+/**
+ * Contatta subito il cliente proposto (Fase 1, 14/09/2026 -- decisione con
+ * Gabriel: toggle unico per tenant, default manuale, disponibile Growth in
+ * su, stessa email->SMS fallback usata per le notifiche di prenotazione).
+ * Fail-open totale in un try/catch interno separato: un problema qui non
+ * deve mai far sparire il match già scritto sopra (che il titolare deve
+ * comunque vedere in dashboard anche se il contatto automatico fallisce).
+ */
+async function contattaClienteListaAttesaSeAutomatico(
+  supabase: SupabaseClient,
+  tenantId: string,
+  voce: { clienteNome: string | null; clienteTelefono: string; clienteEmail: string | null },
+  servizioId: string,
+  inizioRealeIso: string,
+  fusoOrario: string
+): Promise<void> {
+  try {
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("nome, piano, lista_attesa_contatto_automatico")
+      .eq("id", tenantId)
+      .single();
+    if (!tenant || !tenant.lista_attesa_contatto_automatico || !pianoHaListaAttesaAutomatica(tenant.piano)) return;
+
+    const { data: servizio } = await supabase.from("servizi").select("nome").eq("id", servizioId).single();
+    const nomeServizio = servizio?.nome ?? "il servizio richiesto";
+    const nomeCliente = voce.clienteNome ?? "Cliente";
+    const quando = formattaOrario(new Date(inizioRealeIso), fusoOrario);
+    const base = await urlBaseSito();
+    const rigaPrenota = base ? `<p><a href="${base}">Prenota subito qui</a></p>` : "";
+
+    if (voce.clienteEmail) {
+      await inviaEmail({
+        a: voce.clienteEmail,
+        oggetto: `Si è liberato un posto - ${tenant.nome}`,
+        nomeMittente: tenant.nome,
+        html: `
+          <p>Ciao ${escapeHtml(nomeCliente)},</p>
+          <p>si è liberato un posto per <strong>${escapeHtml(nomeServizio)}</strong> da ${escapeHtml(tenant.nome)}, ${quando}.</p>
+          <p>Il posto va a chi conferma per primo -- contattaci o prenota direttamente.</p>
+          ${rigaPrenota}
+        `,
+      });
+    } else if (voce.clienteTelefono) {
+      await inviaSmsSeInclusoNelPiano(
+        supabase,
+        tenantId,
+        tenant.piano,
+        voce.clienteTelefono,
+        `${tenant.nome}: si è liberato un posto per ${nomeServizio}, ${quando}. Contattaci per confermare, il posto va a chi risponde per primo.`
+      );
+    }
+  } catch (errore) {
+    console.error("[lista-attesa] Errore nel contatto automatico del cliente:", errore);
+  }
+}
+
 async function trovaEAvvisaListaAttesa(
   supabase: SupabaseClient,
   tenantId: string,
@@ -820,7 +879,7 @@ async function trovaEAvvisaListaAttesa(
 
     const { data: candidati, error } = await supabase
       .from("lista_attesa")
-      .select("id, cliente_nome, cliente_telefono, operatore_id, data_preferita")
+      .select("id, cliente_nome, cliente_telefono, cliente_email, operatore_id, data_preferita")
       .eq("tenant_id", tenantId)
       .eq("servizio_id", servizioId)
       .eq("stato", "in_attesa")
@@ -831,7 +890,14 @@ async function trovaEAvvisaListaAttesa(
     // questo" (idem per data_preferita) è più chiaro qui che con `.or(...)`
     // di PostgREST, e la lista per un singolo tenant/servizio resta piccola.
     const match = (
-      candidati as { id: string; cliente_nome: string | null; cliente_telefono: string; operatore_id: string | null; data_preferita: string | null }[]
+      candidati as {
+        id: string;
+        cliente_nome: string | null;
+        cliente_telefono: string;
+        cliente_email: string | null;
+        operatore_id: string | null;
+        data_preferita: string | null;
+      }[]
     ).find(
       (c) =>
         (c.operatore_id === null || c.operatore_id === operatoreId) &&
@@ -849,6 +915,15 @@ async function trovaEAvvisaListaAttesa(
       .eq("id", match.id)
       .eq("tenant_id", tenantId);
     if (erroreUpdate) return null;
+
+    await contattaClienteListaAttesaSeAutomatico(
+      supabase,
+      tenantId,
+      { clienteNome: match.cliente_nome, clienteTelefono: match.cliente_telefono, clienteEmail: match.cliente_email },
+      servizioId,
+      inizio,
+      fusoOrario
+    );
 
     return { id: match.id, clienteNome: match.cliente_nome, clienteTelefono: match.cliente_telefono };
   } catch {
@@ -885,6 +960,12 @@ export interface AggiungiListaAttesaParams {
   operatoreId?: string; // assente = va bene qualunque operatore
   clienteNome?: string;
   clienteTelefono: string;
+  // Raccolta oggi solo dal flusso pubblico (vedi iscrivitiListaAttesaPubblico
+  // in src/app/s/[slug]/azioni.ts) -- se presente, abilita il contatto
+  // automatico via email quando si libera un posto (Fase 1, contatto
+  // automatico lista d'attesa, 14/09/2026, vedi trovaEAvvisaListaAttesa
+  // sotto). Dashboard/AI non la raccolgono ancora.
+  clienteEmail?: string;
   dataPreferitaYMD?: string; // "YYYY-MM-DD", assente = va bene qualunque giorno
   note?: string;
   creatoDa: "manuale" | "ai" | "pubblico";
@@ -923,6 +1004,7 @@ export async function aggiungiListaAttesaTenant(
       operatore_id: params.operatoreId ?? null,
       cliente_nome: params.clienteNome ?? null,
       cliente_telefono: params.clienteTelefono,
+      cliente_email: params.clienteEmail ?? null,
       data_preferita: params.dataPreferitaYMD ?? null,
       note: params.note ?? null,
       creato_da: params.creatoDa,

@@ -74,6 +74,25 @@ export function pianoHaPromemoria(piano: string): boolean {
 }
 
 /**
+ * Gate di piano per il Contatto automatico della lista d'attesa (Fase 1,
+ * deciso con Gabriel il 14/09/2026): quando un posto si libera e un cliente
+ * in `lista_attesa` viene marcato "proposto" (`trovaEAvvisaListaAttesa` in
+ * booking-engine.server.ts), il tenant può scegliere di farlo contattare
+ * subito da Salone AI (email o SMS, stessa logica di fallback già usata per
+ * le notifiche di prenotazione) invece che a mano dal titolare -- default
+ * "manuale" per ogni tenant, questo gate decide solo CHI può attivare
+ * l'automatico. Stessa lista piani di `PIANI_CON_PROMEMORIA` (coincidenza
+ * dei requisiti attuali, non un vincolo) -- Set indipendente apposta, come
+ * già `PIANI_CON_ANALYTICS`/`PIANI_CON_PROMEMORIA`: un domani potrebbero
+ * divergere.
+ */
+export const PIANI_CON_LISTA_ATTESA_AUTOMATICA = new Set(["growth", "pro", "enterprise"]);
+
+export function pianoHaListaAttesaAutomatica(piano: string): boolean {
+  return PIANI_CON_LISTA_ATTESA_AUTOMATICA.has(piano);
+}
+
+/**
  * Gate di piano per SMS (Fase 5+SMS, deciso con Gabriel il 14/09/2026 --
  * vedi DECISIONS.md per il ragionamento completo su costi e prezzo per
  * operatore): `Prezzi.tsx` elenca "SMS" tra le voci di Pro. Usato SOLO come
