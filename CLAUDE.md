@@ -70,6 +70,47 @@ Usa Cowork nel modo più efficace possibile:
 
 Non fermarti al primo risultato che "sembra funzionare".
 
+## 2bis. Il principio centrale del prodotto: un dipendente AI, non un gestionale (14/09/2026)
+
+Da questo momento, ogni decisione di prodotto va giudicata con questo principio, non solo con
+il confronto diretto con Estetia del punto 3 sotto (i due non sono in conflitto, sono due
+strati diversi -- vedi la nota finale di questa sezione).
+
+**Non stiamo vendendo un gestionale per appuntamenti con qualche funzione AI. Stiamo costruendo
+un vero "dipendente AI" per professionisti che lavorano su appuntamento.**
+
+La promessa a cui vogliamo arrivare: **"Non devi più gestire l'agenda."** Obiettivo: ZERO
+INTERVENTO MANUALE del professionista (non di Gabriel -- quello è già il punto 29, qui parliamo
+del titolare che usa il prodotto).
+
+Niente onboarding fatto di "registrazione → configurazione complessa → decine di impostazioni →
+template → automazioni → studio del gestionale". Deve essere: "registrazione → il professionista
+descrive la propria attività → il sistema capisce come funziona → configura automaticamente ciò
+che serve → il professionista è operativo".
+
+Dopodiché il sistema deve lavorare da solo: cliente scrive → AI comprende la richiesta →
+controlla disponibilità → propone gli slot migliori → prenota → aggiorna CRM → invia
+conferme/reminder → gestisce modifiche e cancellazioni → cerca di recuperare appuntamenti
+persi/cancellati → gestisce il follow-up → interviene un umano solo quando realmente necessario.
+
+Ogni funzionalità si valuta rispetto a questo: se una parte del prodotto oggi obbliga il
+professionista a fare a mano qualcosa che il sistema potrebbe ragionevolmente fare da solo, è un
+problema da segnalare, non un dettaglio. Se una funzione è tecnicamente bella ma non rende il
+sistema più autonomo o più utile al cliente, non ha priorità. Il cliente non deve pensare "ho
+comprato un gestionale" -- deve pensare "ho assunto un assistente che si occupa dei miei
+appuntamenti".
+
+**Nota che evita un equivoco tra questo punto e il punto 23/`docs/analisi-concorrenti-mercato.md`**:
+questo è un principio di COSA COSTRUIRE (guida le priorità di prodotto). Il materiale di vendita
+resta un problema diverso, già analizzato a parte (competitor reali verificati: Calendix,
+Skedula, CutApp hanno già un'AI che prenota da sola su WhatsApp, e Treatwell/Fresha l'hanno
+appena lanciata anche loro) -- "l'AI risponde da sola" da solo non è più un argomento di vendita
+differenziante, è già commodity. Si continua a vendere sui cinque argomenti verificati in
+`docs/analisi-concorrenti-mercato.md` (zero commissione, prezzo mai a consumo, caparra anti-
+no-show, target più ampio, fondatore raggiungibile) mentre si costruisce con la mentalità di
+questa sezione. Le due cose non si contraddicono: si costruisce come un dipendente AI, si vende
+con argomenti più difendibili di "abbiamo l'AI".
+
 ## 3. Implementa tutto quello che abbiamo individuato da Estetia
 
 Voglio che tu continui a implementare tutte le funzionalità importanti che abbiamo
@@ -637,6 +678,20 @@ Deve permettermi di vedere:
 e intervenire quando necessario.
 
 Ma la piattaforma deve essere autonoma per la maggior parte delle operazioni.
+
+**Vincolo aggiunto il 14/09/2026 (segnalato da Gabriel, giustamente)**: tutto quanto sopra è
+metriche/utilizzo/account -- va bene senza limiti. Diverso il discorso per **leggere le
+conversazioni AI vere tra un salone e i SUOI clienti finali**: lì Gabriel/Salone AI è
+processore di dati per conto del titolare (che è il titolare del trattamento verso il proprio
+cliente), non il proprietario di quel dato -- un accesso libero e non giustificato dal
+fondatore della piattaforma è un problema di conformità reale (GDPR/Codice Privacy), non solo
+di privacy percepita. Prima di costruire QUALUNQUE vista che mostri contenuto di conversazioni
+reali tra un salone e i suoi clienti, serve una base giuridica chiara (es. clausola esplicita
+nei termini di servizio verso il titolare, finalità limitata alla sola assistenza tecnica/
+sicurezza, log di ogni accesso, mai un accesso "di curiosità"). Finché questo non è definito,
+il pannello admin resta a metriche aggregate/anonime (quante conversazioni, quanti handoff,
+quanti errori) e NON a trascrizioni leggibili -- rimosso dal piano attivo il 14/09/2026 per
+questo motivo (vedi DECISIONS.md).
 
 ## 22. Workflow 02 → 03
 

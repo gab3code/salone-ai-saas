@@ -17,11 +17,43 @@ pensati da subito per parlare a qualunque professionista con agenda, non solo al
 estetico. Estetia resta il riferimento competitivo perché è lo stesso tipo di prodotto
 (booking + CRM + AI), anche se il loro mercato dichiarato è più stretto del nostro.
 
-## COSA DOBBIAMO FARE, DA OGGI IN POI, IN ORDINE (aggiornato 12/09/2026, richiesta esplicita di Gabriel)
+## COSA DOBBIAMO FARE, DA OGGI IN POI, IN ORDINE (aggiornato 14/09/2026, richiesta esplicita di Gabriel)
 
 Lista unica e concreta, in ordine di priorità reale -- non un indice delle fasi sotto, ma cosa
 fare per davvero prima di cos'altro. Il dettaglio tecnico di ogni punto è nelle fasi più sotto o
 nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo fare".
+
+**Guida attuale (14/09/2026, dettaglio completo in DECISIONS.md)**: si costruisce seguendo il
+principio "dipendente AI, non gestionale" (CLAUDE.md punto 2bis) -- ogni funzionalità nuova si
+giudica su quanto lavoro manuale toglie al professionista, non solo su quanto è bella. L'ordine
+reale delle fasi è:
+
+- **Fase 0 = Gruppo A qui sotto** (già fatto ma non ancora verificato dal vivo -- pagamento
+  Stripe reale, pagamento caparra reale, mittente Mailjet, `CRON_SECRET` su Vercel, test Google
+  Calendar, decisione Apple/iCloud). Zero codice nuovo, ma blocca la vendita a chiunque finché
+  resta aperto -- va chiuso PRIMA di qualunque fase nuova sotto.
+- **Fase 1 = contatto automatico del cliente in lista d'attesa** (oggi il match è automatico ma
+  avvisa solo il titolare, che deve contattare il cliente a mano -- vedi Gruppo B punto 3 e
+  Fase 6 sotto): unico gap competitivo reale rimasto contro Calendix.
+- **Fase 2 = onboarding AI-assisted**: descrizione testuale della propria attività → bozza
+  generata dall'AI → compilata sui form di `/dashboard/configura` che esistono già, il
+  titolare conferma/corregge invece di partire da campi vuoti. Non ancora una voce di questo
+  documento prima di oggi -- nuovo task, priorità alta.
+- **Fase 3 = riprogrammazione cliente self-service + promemoria di compleanno** (vedi Gruppo
+  B-bis e la lista "cosa manca ancora" più sotto per il dettaglio di ciascuna).
+- **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni
+  AI cliente-salone -- vincolo legale reale (Salone AI è processore di dati per conto del
+  titolare, non proprietario di quella conversazione), dettaglio in CLAUDE.md punto 21 e
+  DECISIONS.md 14/09/2026. Il pannello admin per metriche/utilizzo/account (CLAUDE.md punto 21)
+  resta valido, solo senza trascrizioni leggibili.
+- **Fuori scope per ora**: ruoli/staff reali con login separato (bloccante solo per Enterprise,
+  nessun lead concreto oggi), report/analytics avanzati di Pro (scope ancora da definire),
+  follow-up marketing ricorrente oltre i 60 giorni già automatizzati (serve prima un consenso
+  GDPR esplicito, non ancora deciso), canale vocale (Skedula ce l'ha già, richiede Twilio/
+  speech-to-text, fuori scala per ora).
+
+Il resto di questa sezione (Gruppo A/B/B-bis) è il dettaglio tecnico della Fase 0 e dei gap già
+mappati -- resta valido, non riscritto da zero.
 
 ### Gruppo A -- Serve solo il tuo ok o un tuo test, zero nuovo codice (sblocca tutto il resto)
 1. **Dare l'ok al push di quanto già pronto e in attesa da questa sessione**: titolo Hero con i

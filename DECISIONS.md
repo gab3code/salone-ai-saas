@@ -1710,3 +1710,80 @@ proteggere segreti.
 
 **Verifica**: `.claude/settings.json` non tocca nessun test/build esistente (è pura
 configurazione, zero codice applicativo). `git status` pulito a parte il nuovo file.
+
+---
+
+## 2026-09-14 — Principio "dipendente AI" adottato, riconciliato con l'analisi concorrenti già
+## fatta il 12/09; rimosso il pannello di lettura conversazioni per un vincolo legale reale
+
+**Richiesta di Gabriel**: adottare come principio centrale di prodotto "non vendiamo un
+gestionale con AI, costruiamo un dipendente AI" (zero intervento manuale del professionista),
+da inserire in CLAUDE.md e seguire d'ora in poi. Chiesto esplicitamente, prima di applicarlo,
+se c'erano altre debolezze del piano da sistemare.
+
+**Errore mio corretto durante la discussione**: la prima risposta trattava "l'AI risponde da
+sola" come se fosse ancora un differenziale di vendita da rafforzare. Rileggendo
+`docs/analisi-concorrenti-mercato.md` (mega-controllo competitor del 12/09, già fatto e già
+deciso prima di questa conversazione) risulta il contrario: Calendix e Skedula lo fanno già in
+produzione da tempo con feature che noi non abbiamo ancora (contatto automatico del cliente in
+lista d'attesa, marketing automatico su inattivi, in un caso la voce), CutApp lo fa a consumo,
+Treatwell l'ha lanciato il 9/09 e Fresha da maggio. "Abbiamo l'AI" non è più un argomento di
+vendita difendibile da solo -- verificato con una ricerca aggiuntiva in questa sessione (Estetia,
+Fresha, Treatwell, Booksy, WeGest tutti con AI o in arrivo) che conferma e aggiorna, senza
+contraddire, quanto già scritto il 12/09.
+
+**Riconciliazione**: il principio "dipendente AI" e l'analisi concorrenti del 12/09 non sono in
+conflitto, operano su due piani diversi -- il primo guida COSA costruire (priorità di prodotto,
+CLAUDE.md punto 2bis), il secondo guida COME venderlo (materiale commerciale, restano validi i
+cinque argomenti già verificati: zero commissione sui nuovi clienti, prezzo mai a consumo,
+caparra/deposito anti-no-show -- già costruita e applicata al DB reale il 13/09 -- target più
+ampio del beauty, fondatore raggiungibile personalmente). Si costruisce come un dipendente AI,
+si vende con argomenti più difendibili di "abbiamo l'AI". Aggiunto in CLAUDE.md punto 2bis
+esplicitamente per evitare che una sessione futura confonda i due piani.
+
+**Margini**: nessuna modifica ai prezzi. Growth (39,90€, AI inclusa) resta più economico
+dell'add-on AI di Fresha (99,95$/mese) e di Treatwell AI Receptionist (da 69€/mese). Unico
+rischio di margine nuovo identificato in questa sessione, non ancora in PIANO.md prima d'ora:
+**Vercel Hobby permette un solo cron al giorno** (vincolo già noto e gestito per i promemoria,
+vedi giro 28), il passaggio a Vercel Pro (20$/mese) è un costo fisso nuovo da mettere in conto
+appena il numero di clienti reali lo giustifica, non dopo.
+
+**Pannello di controllo/osservabilità AI -- rimosso dal piano attivo, richiesta di Gabriel**:
+proposto da me come prerequisito prima di far mandare più messaggi automatici all'AI (contatto
+lista d'attesa, ecc.), nella forma "pagina admin con le trascrizioni delle conversazioni AI di
+ogni salone". Gabriel ha segnalato correttamente un problema che non avevo considerato: leggere
+le conversazioni vere tra un salone e i SUOI clienti finali senza una base giuridica chiara è un
+problema di conformità reale, non solo di privacy percepita -- Salone AI è processore di dati
+per conto del titolare, non proprietario di quel dato. Rimosso dalle fasi attive. Annotato in
+CLAUDE.md punto 21 (non cancellato in silenzio, il pannello resta un requisito dichiarato da
+Gabriel per metriche/utilizzo/account, solo NON per trascrizioni leggibili) come vincolo da
+risolvere prima di riproporlo: serve prima una base giuridica esplicita (clausola nei termini di
+servizio, finalità limitata, log di accesso) -- fino ad allora il pannello admin (quando verrà
+costruito) mostra solo metriche aggregate/anonime (numero di conversazioni, quante passate a
+operatore, quanti errori), mai il testo delle conversazioni.
+
+**Piano d'azione finale, fasi (dettaglio completo in PIANO.md)**:
+- Fase 0: chiudere il "già fatto ma non ancora verificato dal vivo" (Gruppo A di PIANO.md --
+  pagamento Stripe reale, pagamento caparra reale, mittente Mailjet, `CRON_SECRET` su Vercel,
+  test Google Calendar, decisione su Apple/iCloud). Nessun codice nuovo, ma blocca la vendita a
+  chiunque finché resta aperto.
+- Fase 1: contatto automatico del cliente in lista d'attesa (oggi avvisa solo Gabriel) -- unico
+  gap competitivo reale rimasto contro Calendix.
+- Fase 2: onboarding AI-assisted (descrizione testuale → bozza compilata sui form esistenti) --
+  coerente sia col principio "dipendente AI" sia con la difficoltà reale di vendere a saloni che
+  oggi lavorano solo a telefono (vedi lettura mercato locale in `docs/analisi-concorrenti-
+  mercato.md`, Grumello del Monte).
+- Fase 3 (era Fase 4): riprogrammazione cliente self-service + promemoria di compleanno.
+- Fuori scope per ora: ruoli/staff reali (bloccante solo per Enterprise, nessun lead), report
+  avanzati (scope da definire), follow-up marketing oltre i 60 giorni (serve consenso GDPR
+  esplicito), canale vocale (Skedula ce l'ha, richiede Twilio/speech-to-text).
+
+**Nota GTM, non tecnica ma rilevante**: Gabriel ha già un prodotto funzionante e testato con un
+cliente vero (l'assistente WhatsApp mono-tenant del progetto precedente) e una lista di attività
+locali già pronta da contattare (Grumello del Monte e comuni vicini) -- non serve aspettare che
+salone-ai-saas sia perfetto per il primo euro. La Partita IVA (non ancora aperta) blocca la
+verifica business Meta su ENTRAMBI i progetti ed è pura amministrazione, non ore di sviluppo:
+va avviata subito, in parallelo alle fasi sopra.
+
+**Verifica**: nessuna modifica di codice in questo giro, solo principio di prodotto (CLAUDE.md),
+riconciliazione strategica e pianificazione (DECISIONS.md, PIANO.md).
