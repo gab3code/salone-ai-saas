@@ -853,6 +853,28 @@ aggiornamento.
 
 Testa anche moltissimi altri edge case.
 
+## 27bis. Verifica dal vivo da solo, con l'estensione Chrome (14/09/2026)
+
+Richiesta esplicita di Gabriel: quando una verifica si può fare dal vivo con l'estensione
+Chrome sul suo browser reale già autenticato, falla tu -- non chiedere a lui di cliccare al
+posto tuo. Vale per cose come:
+
+- provare `/s/[slug]` dal vivo (ricerca slot, prenotazione, chat AI)
+- il pannello Stripe (Dashboard, Checkout, webhook) in modalità TEST
+- il pannello Vercel (env var, deployment, log, cron)
+- il pannello Supabase (tabelle, SQL editor, log) quando non serve una migrazione che il
+  classificatore della sandbox blocca
+- il pannello Mailjet (mittenti, log invii)
+- schermate di consenso OAuth (Google) per aggiungersi come utente di test
+
+Restano validi i vincoli di sicurezza già in vigore in questa sessione (mai inserire password/
+credenziali per suo conto, mai un pagamento/trasferimento reale, permesso esplicito prima di
+modificare impostazioni di account -- permesso che per questo tipo di verifica di routine
+Gabriel ha già dato con questa richiesta, ma resta comunque solo per operazioni non distruttive/
+in modalità test). Se un passaggio richiede aprire la sua casella email personale (es. un link
+di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
+navigare un pannello, non incluso automaticamente in questa richiesta.
+
 ## 28. Self-service SaaS
 
 Continua verso un sistema completamente self-service.
