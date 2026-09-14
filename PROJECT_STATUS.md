@@ -32,9 +32,32 @@ si trova su Stripe -> Sviluppatori -> Chiavi API -> "Chiave privata", account te
 gambarelli 31" -- va incollata da Gabriel stesso, poi serve un redeploy (come già fatto per le altre
 variabili) prima di ripetere il test di checkout.
 
-Non ancora fatto: redeploy dopo l'ultima chiave, ripetizione del test di checkout reale (carta
-`4242 4242 4242 4242`), verifica via SQL che il webhook abbia aggiornato `piano`/`stato_abbonamento`/
-`stripe_subscription_id` sul tenant di test, correzione della nota superata in PIANO.md.
+**Esito finale, stesso giro**: Gabriel ha incollato lui `STRIPE_SECRET_KEY` su Vercel; il suo
+successivo `git push` (per consegnare questo stesso file) ha scatenato in automatico un nuovo deploy
+che ha preso tutte le variabili -- nessun redeploy manuale servito. Rifatto il test di checkout dal
+tenant free (`Salone Test Claude`), stavolta con la carta di test Stripe fino in fondo
+(`4242 4242 4242 4242`): redirect a Stripe Checkout riuscito (prima falliva con 500 silenzioso),
+pagina "Prova Growth" mostrata correttamente, pagamento completato, redirect di ritorno a
+`/dashboard?checkout=successo` con messaggio "Abbonamento attivato".
+
+Verificato via SQL diretto sul database reale (non solo l'interfaccia): il webhook ha scritto
+`piano = growth`, `stato_abbonamento = trialing`, più `stripe_customer_id` e `stripe_subscription_id`
+veri. Aperta anche `/dashboard/analytics` da quel tenant: il grafico vero si vede finalmente coi
+miei occhi (barre reali, niente upsell) -- chiude il punto rimasto in sospeso nel giro precedente
+(era stato bloccato dal classificatore un `UPDATE` di test sul piano).
+
+Per non lasciare il tenant di test con un abbonamento attivo in giro, ho anche cancellato la
+sottoscrizione su Stripe (`sub_1UFPRtCTPsGON8WA4CBe2XsT`) e riverificato via SQL: il webhook
+`customer.subscription.deleted` ha correttamente riportato `piano = free`,
+`stato_abbonamento = cancellato`. Prova che **tutto il ciclo di vita** (attivazione + cancellazione)
+passa per davvero dai webhook Stripe al database, non solo l'attivazione.
+
+**L'intero flusso di pagamento è ora verificato end-to-end su Stripe test-mode, dall'infrastruttura
+mancante fino al database.** Nessuna modifica al codice applicativo in questo giro -- solo
+configurazione (Vercel + Stripe) e verifica dal vivo. Resta da correggere la nota superata "chiavi
+sandbox reali già configurate" in PIANO.md (fatto in questo stesso aggiornamento) e, quando Gabriel
+vorrà aprire i pagamenti veri, ripetere la stessa procedura in modalità live (chiavi `sk_live_...`,
+webhook live, price ID live) -- oggi è tutto e solo in test-mode, zero soldi veri coinvolti.
 
 Aggiornamento precedente, 14/09/2026, ventiseiesimo giro -- Gabriel ha detto "testa tu su chrome": prima
 verifica dal vivo del giro delle pagine legali + Analytics, fatta da Claude usando il suo Chrome

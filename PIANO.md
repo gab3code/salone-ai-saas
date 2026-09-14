@@ -647,10 +647,17 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       11/09/2026 sera** (corretto qui il 12/09/2026, era rimasto indietro, vedi commit
       `faafc55`): `/api/stripe/checkout` (Checkout Session, trial 10 giorni su Growth/Pro),
       `/api/stripe/webhook` (firma verificata, unica fonte di verità per `piano`/
-      `stato_abbonamento`), `/api/stripe/portal` (Customer Portal self-service). 14 test verdi,
-      chiavi sandbox reali già configurate. **Non ancora verificato dal vivo con un pagamento di
-      test reale nel browser** -- il webhook va anche configurato lato Stripe Dashboard (serve
-      un dominio pubblico, quindi dopo il deploy). Vedi PROJECT_STATUS.md per il dettaglio.
+      `stato_abbonamento`), `/api/stripe/portal` (Customer Portal self-service). 14 test verdi.
+      **CORREZIONE 14/09/2026: la riga "chiavi sandbox reali già configurate" qui sopra era
+      sbagliata** -- controllato solo ora, in produzione su Vercel non c'era NESSUNA chiave Stripe
+      (`STRIPE_SECRET_KEY` e i tre `STRIPE_PRICE_*` mancavano del tutto). Sistemato: webhook creato
+      su Stripe, tutte le chiavi impostate su Vercel, **e verificato dal vivo con un pagamento di
+      test reale in test-mode fino in fondo** (checkout completato, `piano`/`stato_abbonamento`/
+      `stripe_subscription_id` scritti per davvero dal webhook, poi cancellazione testata anche
+      quella e riportata correttamente a `free`/`cancellato`). Vedi PROJECT_STATUS.md per il
+      dettaglio. Resta da fare solo quando si aprono i pagamenti veri: stessa procedura in modalità
+      live (chiavi `sk_live_...`, webhook live, price ID live) -- oggi tutto test-mode, zero soldi
+      veri.
 - [ ] Pannello admin per te: saloni, abbonamenti, utilizzo, interventi manuali quando serve --
       zero codice.
 - [x] ~~**"1 operatore" sul piano Free pubblicizzato ma non applicato tecnicamente**~~ **CODICE
