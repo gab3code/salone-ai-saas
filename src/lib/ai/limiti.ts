@@ -86,6 +86,13 @@ export const INTERVALLO_MINIMO_MS_TRA_MESSAGGI = 2000;
 //    è condivisa tra tutti i clienti del tenant ed è molto più alta). Oltre
 //    questa soglia una conversazione non sta più prenotando qualcosa di
 //    reale, sta solo consumando quota: meglio passarla a un operatore.
+//    Soglia scelta bassa apposta (15, non 40 come una prima stima troppo
+//    permissiva corretta da Gabriel il 14/09/2026): un vero flusso di
+//    prenotazione, anche complesso -- più servizi, cambio data,
+//    riprogrammazione -- raramente supera 10-15 messaggi cliente. A 40, una
+//    singola conversazione incastrata o abusiva poteva consumare il 4%
+//    dell'intera quota MENSILE di Growth (1000 messaggi TOTALI, condivisi
+//    tra tutti i clienti del tenant) prima che scattasse qualunque difesa.
 // 2. "Scrivono cose che non centrano": non esiste un modo deterministico di
 //    giudicare "è in tema" senza un altro giro di AI (costoso e
 //    aggirabile), quindi si usa un proxy comportamentale -- una vera
@@ -96,5 +103,5 @@ export const INTERVALLO_MINIMO_MS_TRA_MESSAGGI = 2000;
 //    far "ragionare" il modello su qualcos'altro). Il contatore vive su
 //    `conversazioni.turni_senza_tool_consecutivi` (si azzera ad ogni turno
 //    che invece usa almeno uno strumento) -- vedi conversazione.server.ts.
-export const LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE = 40;
+export const LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE = 15;
 export const LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI = 3;

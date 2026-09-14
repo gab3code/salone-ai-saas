@@ -1615,11 +1615,18 @@ parte del cliente, ad esempio clienti che scrivono cose che non centrano, o scri
 Due difese distinte, entrambe controllate PRIMA di chiamare il modello (nessun costo Anthropic
 per un turno bloccato qui, stesso principio dell'anti-burst/quota mensile già esistenti):
 
-1. **"Scrivono troppo"**: tetto di 40 messaggi CLIENTE per singola conversazione
+1. **"Scrivono troppo"**: tetto di 15 messaggi CLIENTE per singola conversazione
    (`LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE` in `limiti.ts`) -- diverso e molto più basso
    della quota mensile per tenant (condivisa tra tutti i clienti). Oltre questa soglia una
    conversazione non sta più prenotando qualcosa di reale, meglio passarla a un operatore.
    Calcolato dallo storico già caricato in memoria (`caricaMessaggi`), nessuna query aggiuntiva.
+   **Prima stima (40) corretta da Gabriel nello stesso giorno**, giudicata giustamente troppo
+   permissiva: un vero flusso di prenotazione, anche complesso, raramente supera 10-15 messaggi
+   cliente, e 40 avrebbe lasciato che una singola conversazione incastrata o abusiva consumasse
+   il 4% dell'intera quota MENSILE di Growth (1000 messaggi TOTALI, condivisi tra tutti i clienti
+   del tenant) prima che scattasse qualunque difesa -- stesso tipo di errore già fatto e
+   corretto una volta con la quota SMS (100/mese totale poi scoperta troppo bassa, vedi sopra):
+   partire da un numero senza far prima il confronto con l'altro limite che già esisteva.
 2. **"Scrivono cose che non centrano"**: non esiste un modo deterministico di giudicare "è in
    tema" senza un altro giro di AI (costoso e aggirabile) -- usato invece un proxy
    comportamentale, il numero di turni CONSECUTIVI in cui l'assistente risponde senza mai usare

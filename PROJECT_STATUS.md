@@ -16,9 +16,11 @@ DECISIONS.md con il ragionamento completo:
    in `src/lib/ai/limiti.ts`, ora accetta `numeroOperatori`) -- coerenza con il prezzo di Pro che
    già scala per operatore.
 3. **Anti-abuso lato cliente sulla chat AI** (richiesta esplicita di Gabriel: clienti che
-   scrivono cose fuori tema o troppo): tetto di 40 messaggi cliente per conversazione + un
-   contatore di turni consecutivi senza uso di strumenti (soglia 3, proxy comportamentale per
-   "fuori tema" -- `conversazioni.turni_senza_tool_consecutivi`, migrazione 0019, applicata al DB
+   scrivono cose fuori tema o troppo): tetto di 15 messaggi cliente per conversazione (abbassato
+   da una prima stima di 40, corretta da Gabriel: troppo permissiva rispetto alla quota mensile
+   condivisa) + un contatore di turni consecutivi senza uso di strumenti (soglia 3, proxy
+   comportamentale per "fuori tema" -- `conversazioni.turni_senza_tool_consecutivi`, migrazione
+   0019, applicata al DB
    reale). Entrambe le difese bloccano PRIMA di chiamare il modello, zero costo Anthropic per un
    turno rifiutato.
 4. **Prezzo base di Pro portato da 69,90€ a 89,90€/mese** (pareggia il prezzo del piano
