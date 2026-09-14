@@ -3,11 +3,12 @@ import { creaClientAdmin } from "@/lib/supabase/admin";
 import { elencaClientiInattivi } from "@/lib/metriche";
 import { PIANI_CON_PROMEMORIA } from "@/lib/piani";
 import {
-  appuntamentiDaAvvisare,
+  appuntamentiDaAvvisarePerRegola,
   clientiDaAvvisarePerInattivita,
-  FINESTRA_PROMEMORIA_ORE_MAX,
+  LARGHEZZA_FINESTRA_ORE,
   type AppuntamentoPerPromemoria,
   type ClientePerPromemoriaInattivita,
+  type RegolaPromemoria,
 } from "@/lib/promemoria";
 import { inviaEmail } from "@/lib/email/mailjet.server";
 import { escapeHtml, formattaOrario, urlBaseSito } from "@/lib/email/notifiche.server";
@@ -37,22 +38,38 @@ function uno<T>(v: unknown): T | null {
 
 /**
  * Reminder pre-appuntamento (metà di "Promemoria automatici", vedi
- * src/lib/promemoria.ts per il perché della finestra 24-48h). Interroga con
- * un margine più ampio della finestra vera (il filtro esatto è nella
- * funzione pura) per non dover ricalcolare la stessa query se le costanti
- * cambiano.
+ * src/lib/promemoria.ts per il perché della finestra di 24 ore per ogni
+ * regola). Un tenant può avere più regole attive (es. 72h E 24h prima --
+ * `regole_promemoria`, configurabili da `/dashboard/impostazioni/promemoria`);
+ * ogni regola viene valutata indipendentemente sullo stesso elenco di
+ * appuntamenti, e ciascuna tiene il proprio tracciamento invii
+ * (`promemoria_appuntamento_inviati`, una riga per coppia appuntamento+regola)
+ * -- così due regole diverse possono scattare entrambe per lo stesso
+ * appuntamento, in momenti diversi.
  */
 async function avvisaAppuntamentiImminenti(admin: ClientAdmin, tenant: TenantConPromemoria, adesso: Date): Promise<number> {
-  const margineQuery = new Date(adesso.getTime() + (FINESTRA_PROMEMORIA_ORE_MAX + 24) * 60 * 60 * 1000);
+  const { data: regoleGrezze } = await admin
+    .from("regole_promemoria")
+    .select("id, ore_preavviso")
+    .eq("tenant_id", tenant.id);
+  const regole: RegolaPromemoria[] = (regoleGrezze ?? []).map((r) => ({ id: r.id, orePreavviso: r.ore_preavviso }));
+  if (regole.length === 0) return 0;
+
+  // Margine di query oltre la regola più lontana: la finestra vera di ciascuna regola (larga
+  // LARGHEZZA_FINESTRA_ORE) è filtrata dopo, in memoria, dalla funzione pura -- qui prendiamo
+  // tutto quello che potrebbe servire a QUALUNQUE regola in un colpo solo.
+  const oreMassimeAvanti = Math.max(...regole.map((r) => r.orePreavviso)) + LARGHEZZA_FINESTRA_ORE;
+  const finoA = new Date(adesso.getTime() + oreMassimeAvanti * 60 * 60 * 1000);
 
   const { data: righe } = await admin
     .from("appuntamenti")
-    .select("id, inizio, stato, promemoria_inviato_at, clienti(nome, email), servizi(nome)")
+    .select(
+      "id, inizio, stato, clienti(nome, email), servizi(nome), promemoria_appuntamento_inviati(regola_id)"
+    )
     .eq("tenant_id", tenant.id)
     .eq("stato", "confermato")
-    .is("promemoria_inviato_at", null)
     .gte("inizio", adesso.toISOString())
-    .lt("inizio", margineQuery.toISOString());
+    .lt("inizio", finoA.toISOString());
 
   if (!righe || righe.length === 0) return 0;
 
@@ -64,54 +81,63 @@ async function avvisaAppuntamentiImminenti(admin: ClientAdmin, tenant: TenantCon
   for (const r of righe) {
     const cliente = uno<{ nome: string | null; email: string | null }>(r.clienti);
     const servizio = uno<{ nome: string }>(r.servizi);
+    const righeInviate = (r.promemoria_appuntamento_inviati ?? []) as { regola_id: string }[];
     perId.set(r.id, {
       id: r.id,
       inizio: new Date(r.inizio),
       stato: r.stato,
-      promemoriaInviatoAt: r.promemoria_inviato_at ? new Date(r.promemoria_inviato_at) : null,
       clienteEmail: cliente?.email ?? null,
       clienteNome: cliente?.nome ?? null,
       servizioNome: servizio?.nome ?? null,
       tenantPiano: tenant.piano,
+      regoleGiaInviate: new Set(righeInviate.map((x) => x.regola_id)),
     });
   }
-
-  const daAvvisare = appuntamentiDaAvvisare([...perId.values()], adesso);
+  const tutti = [...perId.values()];
 
   let inviati = 0;
-  for (const ridotto of daAvvisare) {
-    const appuntamento = perId.get(ridotto.id)!;
-    const quando = formattaOrario(appuntamento.inizio, tenant.fuso_orario);
-    const rigaServizio = appuntamento.servizioNome ? ` per ${escapeHtml(appuntamento.servizioNome)}` : "";
+  for (const regola of regole) {
+    const daAvvisare = appuntamentiDaAvvisarePerRegola(tutti, regola, adesso);
+    for (const ridotto of daAvvisare) {
+      const appuntamento = perId.get(ridotto.id)!;
+      const quando = formattaOrario(appuntamento.inizio, tenant.fuso_orario);
+      const rigaServizio = appuntamento.servizioNome ? ` per ${escapeHtml(appuntamento.servizioNome)}` : "";
 
-    const inviato = await inviaEmail({
-      a: appuntamento.clienteEmail!,
-      oggetto: `Promemoria: il tuo appuntamento da ${tenant.nome}`,
-      nomeMittente: tenant.nome,
-      html: `
-        <p>Ciao ${escapeHtml(appuntamento.clienteNome ?? "")},</p>
-        <p>ti ricordiamo il tuo appuntamento da <strong>${escapeHtml(tenant.nome)}</strong>${rigaServizio}.</p>
-        <p>Quando: ${quando}</p>
-      `,
-    });
-    if (inviato) inviati += 1;
+      const inviato = await inviaEmail({
+        a: appuntamento.clienteEmail!,
+        oggetto: `Promemoria: il tuo appuntamento da ${tenant.nome}`,
+        nomeMittente: tenant.nome,
+        html: `
+          <p>Ciao ${escapeHtml(appuntamento.clienteNome ?? "")},</p>
+          <p>ti ricordiamo il tuo appuntamento da <strong>${escapeHtml(tenant.nome)}</strong>${rigaServizio}.</p>
+          <p>Quando: ${quando}</p>
+        `,
+      });
+      if (inviato) inviati += 1;
 
-    // Segnato come "avvisato" a prescindere dall'esito dell'invio -- stesso
-    // fail-open del resto del modulo email: un problema di consegna non deve
-    // bloccare gli invii successivi, e comunque un nuovo tentativo domani non
-    // sarebbe più possibile (l'appuntamento sarebbe uscito dalla finestra
-    // 24-48h, quindi non ritentato in nessun caso).
-    await admin.from("appuntamenti").update({ promemoria_inviato_at: adesso.toISOString() }).eq("id", appuntamento.id);
+      // Segnato come "avvisato" per QUESTA regola a prescindere dall'esito
+      // dell'invio -- stesso fail-open del resto del modulo email: un
+      // problema di consegna non deve bloccare gli invii successivi (né di
+      // altri appuntamenti, né delle altre regole), e un nuovo tentativo
+      // domani non sarebbe comunque più possibile per questa stessa regola
+      // (l'appuntamento sarebbe uscito dalla sua finestra).
+      await admin
+        .from("promemoria_appuntamento_inviati")
+        .insert({ appuntamento_id: appuntamento.id, regola_id: regola.id });
+      // Anche in memoria, per non farlo rientrare se un'altra regola con
+      // finestra sovrapposta lo rivalutasse più avanti in questo stesso giro.
+      appuntamento.regoleGiaInviate.add(regola.id);
+    }
   }
   return inviati;
 }
 
 /**
  * Follow-up "ci manchi" ai clienti inattivi (l'altra metà di "Promemoria
- * automatici"). Riusa `elencaClientiInattivi` (src/lib/metriche.ts) --
- * stessa identica regola già mostrata in dashboard, non una seconda scritta
- * qui -- poi la funzione pura decide chi non è già stato avvisato di
- * recente (`GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA`).
+ * automatici", invariato -- non fa parte di questa richiesta di
+ * configurabilità). Riusa `elencaClientiInattivi` (src/lib/metriche.ts) --
+ * stessa identica regola già mostrata in dashboard, non ricalcolata qui --
+ * poi la funzione pura decide chi non è già stato avvisato di recente.
  */
 async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromemoria, adesso: Date): Promise<number> {
   const [{ data: clientiGrezzi }, { data: righeAppuntamenti }] = await Promise.all([

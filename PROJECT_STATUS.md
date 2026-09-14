@@ -1,6 +1,53 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 14/09/2026, ventottesimo giro -- chiuso il test di pagamento Stripe (giro
+Ultimo aggiornamento: 14/09/2026, ventinovesimo giro -- Gabriel ha confermato il push del giro
+precedente e chiesto, nello stesso messaggio: "vorrei che lo staff possa decidere quanto tempo
+prima mandare il promemoria e anche se averne più di uno". Richiesta arrivata **prima** che il
+cron girasse per la prima volta sul serio (le 8:00 UTC di oggi non erano ancora scattate) -- tempismo
+fortunato: la migrazione `0017` del giro precedente non era ancora stata applicata al database
+reale, quindi lo schema è stato riscritto da zero invece di dover fare una migrazione correttiva
+sopra una già in produzione.
+
+**Verificato per primo, prima di scrivere una riga di codice**: interrogato il database reale per
+controllare se la colonna `promemoria_inviato_at` esistesse già (rischio concreto: il codice già
+pushato da Gabriel la referenzia, se il cron fosse scattato prima di questo controllo avrebbe
+fallito su ogni tenant Growth+). Risposta: nessuna colonna, migrazione mai applicata -- via libera
+per riscriverla senza lasciare macerie.
+
+Cambiato lo schema da "una colonna = un invio per appuntamento" a due tabelle:
+- `regole_promemoria` (tenant_id, ore_preavviso): una riga per ogni "quando avvisare" che lo staff
+  vuole attivo, gestita dalla nuova pagina `/dashboard/impostazioni/promemoria`.
+- `promemoria_appuntamento_inviati` (appuntamento_id, regola_id): traccia quali regole sono già
+  scattate per quale appuntamento -- permette a più regole diverse (es. "3 giorni prima" E "1
+  giorno prima") di scattare indipendentemente sullo stesso appuntamento, cosa impossibile con la
+  singola colonna del giro precedente.
+
+`src/lib/promemoria.ts`: `appuntamentiDaAvvisare` è diventata `appuntamentiDaAvvisarePerRegola`,
+valutata una volta per ogni regola attiva sul tenant (stessa identica matematica della finestra di
+24 ore già spiegata nel giro precedente, solo ancorata a `ore_preavviso` invece che fissa a 24).
+15 test (2 in più: una regola non "ruba" la finestra di un'altra, e un appuntamento già avvisato
+da una regola può comunque ricevere il promemoria di un'altra). Ogni tenant esistente riceve una
+regola di default a 24 ore via `insert...select` nella migrazione (continuità: chi non tocca nulla
+mantiene lo stesso comportamento di ieri), e il trigger di provisioning automatico
+(`gestisci_nuovo_utente`) è stato aggiornato per dare la stessa riga di default a ogni nuovo
+tenant che si registra da oggi in poi.
+
+Nuova pagina `/dashboard/impostazioni/promemoria` (gate Growth+ come le altre pagine simili):
+elenco regole con pulsante rimuovi, form per aggiungerne una (3 preset rapidi -- 24/48/72 ore --
+più un campo libero), tetto di 5 regole per tenant, avviso testuale (non un blocco) se lo staff
+sceglie un preavviso sotto le 24 ore: sul piano Vercel Hobby attuale il cron gira una volta al
+giorno, sotto quella soglia il promemoria potrebbe non partire in tempo per ogni orario possibile
+(stesso ragionamento matematico del giro precedente, ora esposto anche in UI invece che solo nei
+commenti del codice).
+
+`npx vitest run` (216/216, tutti verdi), `tsc --noEmit`, `eslint`, `npm run build` tutti puliti.
+**Non ancora verificato dal vivo**: `CRON_SECRET` è impostato su Vercel (fatto da Gabriel, confermato
+guardando le Environment Variables -- "Added 4m ago" al momento del controllo), ma la migrazione
+`0017_promemoria_automatici.sql` (nella sua nuova forma) non è ancora stata applicata al database
+reale -- serve il suo via libera esplicito, come per ogni migrazione precedente (0011/0012/0013
+ecc.), prima che il primo giro vero del cron possa fare qualcosa di utile.
+
+Aggiornamento precedente, 14/09/2026, ventottesimo giro -- chiuso il test di pagamento Stripe (giro
 precedente), chiesto a Gabriel "dimmi quali sono le opzioni" sul prossimo blocco, scelto insieme
 (consigliato da Claude): **Promemoria automatici**, uno dei due blocchi reali rimasti prima di poter
 vendere sul serio i piani Growth/Pro (l'altro è SMS su Pro, rimandato -- richiede prima una

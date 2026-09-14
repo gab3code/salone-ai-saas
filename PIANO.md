@@ -714,9 +714,22 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       ricalcolata), al massimo una volta ogni 60 giorni per cliente
       (`clienti.promemoria_inattivita_inviato_at`). Gate di piano dedicato
       (`pianoHaPromemoria`/`PIANI_CON_PROMEMORIA` in `src/lib/piani.ts`, stessa forma di
-      `pianoHaAnalytics`). `tsc`/`eslint`/`vitest` (214/214)/`build` puliti. **Non ancora
-      verificato dal vivo** (serve `CRON_SECRET` impostato su Vercel + un giro naturale del cron,
-      o un test manuale chiamando l'endpoint a mano) -- vedi PROJECT_STATUS.md.
+      `pianoHaAnalytics`). **Aggiornamento stesso giorno, richiesto da Gabriel**: "vorrei che lo
+      staff possa decidere quanto tempo prima mandare il promemoria e anche se averne più di uno"
+      -- schema riscritto (nessuna migrazione ancora applicata al DB reale, nessun danno a
+      riscriverla) da singola colonna a tabella `regole_promemoria` per-tenant + tabella
+      `promemoria_appuntamento_inviati` per tracciare gli invii per coppia appuntamento/regola,
+      così più regole (es. "72 ore prima" E "24 ore prima") possono scattare indipendentemente
+      sullo stesso appuntamento. Nuova pagina `/dashboard/impostazioni/promemoria`: elenco regole,
+      aggiungi/rimuovi, avviso in UI se il preavviso scelto è sotto le 24 ore (il cron gira una
+      volta al giorno sul piano Vercel Hobby di Gabriel, sotto quella soglia non è garantito che
+      scatti in tempo). Ogni tenant esistente riceve una regola di default a 24 ore (stesso
+      comportamento di prima, zero configurazione richiesta), e ogni nuovo tenant che si registra
+      da qui in avanti pure (aggiunto al trigger di provisioning automatico,
+      `gestisci_nuovo_utente`). `tsc`/`eslint`/`vitest` (216/216)/`build` puliti. **Non ancora
+      verificato dal vivo**: `CRON_SECRET` è impostato su Vercel (fatto da Gabriel), ma la
+      migrazione `0017_promemoria_automatici.sql` non è ancora stata applicata al database reale
+      (serve il suo via libera, come per ogni migrazione) -- vedi PROJECT_STATUS.md.
 - [ ] **SMS -- BLOCCANTE prima di aprire pagamenti veri sul piano Pro** (trovato stesso giro,
       13/09/2026): `Prezzi.tsx` elenca "SMS" come voce inclusa da Pro in su, e `Funzionalita.tsx`
       la descrive esplicitamente ("Promemoria e conferme anche senza WhatsApp o smartphone") --
