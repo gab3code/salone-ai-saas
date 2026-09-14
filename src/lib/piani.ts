@@ -41,3 +41,17 @@ const LIMITE_OPERATORI_PER_PIANO: Record<string, number> = {
 export function limiteOperatori(piano: string): number {
   return LIMITE_OPERATORI_PER_PIANO[piano] ?? Infinity;
 }
+
+/**
+ * Gate di piano per Analytics (Fase 3, trovato nel controllo promesse del
+ * sito 13/09/2026, costruito il 14/09/2026): `Prezzi.tsx`/`Funzionalita.tsx`
+ * pubblicizzano "Analytics -- Andamento prenotazioni e clienti nel tempo"
+ * incluso da Growth in su. Stessa forma di `pianoHaTonoPersonalizzato` in
+ * `src/lib/ai/limiti.ts` (Set + funzione dedicata), qui in `piani.ts` e non
+ * in `ai/limiti.ts` perché non ha nulla a che fare con l'assistente AI.
+ */
+export const PIANI_CON_ANALYTICS = new Set(["growth", "pro", "enterprise"]);
+
+export function pianoHaAnalytics(piano: string): boolean {
+  return PIANI_CON_ANALYTICS.has(piano);
+}

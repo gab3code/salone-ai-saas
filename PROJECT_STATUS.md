@@ -1,6 +1,31 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 14/09/2026, ventiquattresimo giro -- confermato dal vivo tutto il resto del
+Ultimo aggiornamento: 14/09/2026, venticinquesimo giro -- continuato subito dopo le pagine legali
+sulla seconda priorità segnalata: **Analytics**, bloccante prima di aprire pagamenti veri sul piano
+Growth (`Prezzi.tsx`/`Funzionalita.tsx` promettono "Andamento prenotazioni e clienti nel tempo, non
+solo i numeri di oggi", la dashboard mostrava solo finestre fisse).
+
+Costruita ESATTAMENTE la promessa scritta, non di più: nuova pagina `/dashboard/analytics`
+(gate di piano Growth in su, upsell altrimenti, stesso pattern di `/dashboard/impostazioni/
+tono-ai`), due grafici a barre fatti a mano (niente nuova dipendenza di charting per due serie su
+12 colonne) su prenotazioni confermate e nuovi clienti nelle ultime 12 settimane. Logica pura e
+testata in `src/lib/analytics.ts`, layer Supabase in `analytics.server.ts` (stessa forma di query
+di `metriche.server.ts`).
+
+**Deliberatamente NON incluse retention e no-show reale**: erano una mia nota "da costruire" in
+una versione precedente del task, ma rileggendo il sito riga per riga nessuno dei due è promesso
+da nessuna parte -- costruirli oggi vorrebbe dire inventare una definizione di "retention" mai
+discussa con Gabriel, o cambiare il significato di `appuntamenti.stato` (un vero cambio al booking
+engine, serve una migrazione e una decisione su come lo staff marca un no-show). Scelte che secondo
+CLAUDE.md richiedono il suo confronto prima, non dopo -- lasciate esplicitamente aperte in
+PIANO.md come task separato, non dimenticate.
+
+Verificato: query e struttura dati confermate corrette contro il database reale (tenant "Salone
+Test Fase1", piano growth, 5 appuntamenti reali nella finestra) via SQL diretto, `tsc --noEmit`
+pulito, `eslint` pulito, `npx vitest run` **201/201** (era 193, +8 da questo giro), `next build`
+pulito (nuova rotta `/dashboard/analytics`).
+
+Aggiornamento precedente, 14/09/2026, ventiquattresimo giro -- confermato dal vivo tutto il resto del
 Gruppo A (resta aperto solo il pagamento di test Stripe), chiesto "come procediamo?": scelta la
 priorità più alta segnalata al giro precedente, le **pagine legali** (privacy/termini/cookie) --
 bloccavano qualunque pubblicazione di un salone vero e mancavano del tutto, lavoro contenuto.

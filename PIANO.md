@@ -244,8 +244,7 @@ sono nella loro Fase con `[x]`.
 3. SMS (Pro) -- nuovo task in Fase 6 aggiunto oggi (bloccante prima di vendere Pro), **zero
    codice/provider prima d'oggi, non tracciato da nessuna parte finché non l'ho trovato in
    questo giro**.
-4. Analytics / "andamento nel tempo" (Growth) -- task in Fase 3, aggiornato oggi per collegarlo
-   esplicitamente a questa promessa (bloccante prima di vendere Growth).
+4. ~~Analytics / "andamento nel tempo" (Growth)~~ **CODICE FATTO 14/09/2026** -- vedi Fase 3.
 5. Promemoria automatici (Growth, e usati nel calcolo ROI di `ImpattoEconomico.tsx`) -- task in
    Fase 6, aggiornato oggi per collegarlo esplicitamente a questa promessa e al fatto che è usato
    come argomento di vendita diretto (bloccante prima di vendere Growth).
@@ -483,18 +482,39 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       un appuntamento reale da 25€/30min e verificato che appuntamenti=1, valore=25,00€,
       occupazione=5% (30min su 600min di apertura) -- tutti numeri esatti, non arrotondati a
       caso -- poi cancellato per pulizia.
-- [ ] **Analytics -- BLOCCANTE prima di aprire pagamenti veri sul piano Growth** (trovato nel
-      controllo promesse del sito 13/09/2026, richiesto da Gabriel: "aggiungi tutte le promesse
-      del sito"): `Prezzi.tsx`/`Funzionalita.tsx` pubblicizzano "Analytics" con "Andamento
-      prenotazioni e clienti nel tempo, non solo i numeri di oggi" come voce inclusa da Growth in
-      su, ma la dashboard oggi mostra SOLO metriche di oggi/finestre fisse (30gg nuovi clienti,
-      60gg inattivi) -- zero vista storica/andamento nel tempo, zero grafico, nessuna pagina
-      dedicata (verificato: nessuna rotta oltre `/dashboard/{page,calendario,clienti,configura,
-      impostazioni}`). Da costruire: retention, no-show reale (nessun flusso ancora marca un
-      appuntamento "no_show", solo "confermato"/"cancellato" esistono nei dati veri finora), e
-      almeno un grafico andamento prenotazioni/clienti nel tempo. Stesso principio di
-      "Il sito descrive il prodotto al lancio" (DECISIONS.md 12/09/2026): non urgente finché non
-      ci sono clienti Growth paganti reali, ma va fatto prima di incassare su quel piano.
+- [x] ~~**Analytics -- BLOCCANTE prima di aprire pagamenti veri sul piano Growth**~~ **CODICE
+      FATTO 14/09/2026, PARZIALE PER SCELTA ONESTA** (trovato nel controllo promesse del sito
+      13/09/2026: `Prezzi.tsx`/`Funzionalita.tsx` pubblicizzano "Analytics" con "Andamento
+      prenotazioni e clienti nel tempo, non solo i numeri di oggi" da Growth in su, la dashboard
+      mostrava solo finestre fisse). Costruita esattamente la promessa scritta, non di più: nuova
+      pagina `/dashboard/analytics`, gate di piano (`pianoHaAnalytics` in `src/lib/piani.ts`,
+      stessa forma di `pianoHaTonoPersonalizzato`, upsell se il piano non include la funzione),
+      due grafici a barre (prenotazioni confermate e nuovi clienti, ultime 12 settimane) costruiti
+      a mano con `div` ad altezza percentuale -- niente Recharts/Chart.js, due serie su 12
+      colonne non giustificano una nuova dipendenza. Logica pura e testata in
+      `src/lib/analytics.ts` (`calcolaAndamentoSettimanale`, 5 test), layer di collegamento in
+      `analytics.server.ts` che riusa la stessa identica forma di query di `metriche.server.ts`.
+      **Retention e no-show reale DELIBERATAMENTE NON inclusi**: rileggendo il sito riga per riga,
+      nessuno dei due è promesso da nessuna parte (solo "andamento nel tempo" lo è) -- erano una
+      mia nota "da costruire" in una versione precedente di questo stesso punto, non un impegno
+      preso con un cliente. Costruirli oggi vorrebbe dire o inventare una definizione di
+      "retention" mai discussa con Gabriel, o cambiare il significato di `appuntamenti.stato` (un
+      vero cambio al booking engine: serve una migrazione E una decisione su come lo staff marca
+      un no-show dall'interfaccia) -- entrambe scelte che secondo CLAUDE.md/AGENTS.md richiedono
+      il suo confronto prima, non dopo. Lasciati esplicitamente aperti sotto, non dimenticati.
+      Verificato: query e struttura dati confermate corrette contro il database reale (tenant
+      "Salone Test Fase1", piano growth, 5 appuntamenti reali nella finestra) via SQL diretto,
+      `tsc`/`eslint`/`vitest` (201/201, +8 da questo giro)/`build` puliti (nuova rotta
+      `/dashboard/analytics`).
+- [ ] **Retention e no-show reale** (separato da Analytics sopra il 14/09/2026, non erano promesse
+      scritte sul sito): due decisioni da prendere PRIMA di scrivere codice, non durante --
+      1) definire cosa vuol dire "retention" per un titolare (es. % di clienti con almeno 2
+      prenotazioni confermate, o che tornano entro N giorni dalla precedente); 2) per il no-show
+      reale, decidere se aggiungere uno stato `no_show` a `appuntamenti.stato` (richiede una
+      migrazione sulla CHECK constraint, se esiste, da verificare) e COME lo staff lo marca
+      dall'interfaccia (un bottone sul calendario per un appuntamento passato? automatico se
+      "confermato" e mai spostato a "completato", che oggi non esiste nemmeno come stato?). Non
+      urgente finché non ci sono clienti Growth paganti reali che lo richiedono esplicitamente.
 - [x] ~~**Incassi previsti**~~ **CODICE FATTO 13/09/2026** (nuovo task, chiesto esplicitamente da
       Gabriel il 13/09/2026, DA NON confondere con la "Cassa"/registro incassi reale esclusa
       deliberatamente in DECISIONS.md): `src/lib/metriche.ts` oggi calcola solo
