@@ -1,6 +1,31 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 14/09/2026, ventitreesimo giro -- Gabriel, tornato al computer, ha chiesto
+Ultimo aggiornamento: 14/09/2026, ventiquattresimo giro -- confermato dal vivo tutto il resto del
+Gruppo A (resta aperto solo il pagamento di test Stripe), chiesto "come procediamo?": scelta la
+priorità più alta segnalata al giro precedente, le **pagine legali** (privacy/termini/cookie) --
+bloccavano qualunque pubblicazione di un salone vero e mancavano del tutto, lavoro contenuto.
+
+Tre nuove pagine, `/privacy` `/termini` `/cookie`, stessa identità dark/viola di
+`/accedi`/`/registrati` (`src/components/legale/PaginaLegale.tsx`), linkate dal footer della
+landing e come promemoria (non checkbox obbligatoria, di proposito) sopra il bottone di
+`/registrati`. Contenuto scritto leggendo il comportamento REALE del codice, non un template
+generico: la Privacy distingue i due ruoli GDPR di Salone AI (Titolare per i dati di
+account/fatturazione dei titolari di attività, Responsabile per conto loro sui dati dei LORO
+clienti finali) ed elenca i fornitori terzi veri (Supabase eu-west-1, Stripe, Mailjet, Google
+Calendar opzionale, WhatsApp/Meta quando attivo). La Cookie Policy dichiara solo il cookie tecnico
+di sessione di Supabase Auth -- verificato che non esiste nessuno script di analytics/tracking in
+tutto il progetto, quindi nessun banner di consenso necessario per legge.
+
+**Non è consulenza legale**: resta un placeholder `[NOME_TITOLARE]` da completare quando Gabriel
+avrà un'identità legale definita (oggi persona fisica, senza P.IVA), e resta consigliato un
+controllo di un professionista prima di aprire i pagamenti veri a clienti reali -- il trattamento
+dei dati dei clienti finali dei saloni ha implicazioni GDPR reali.
+
+Verificato: `tsc --noEmit` pulito, `eslint` pulito, `npx vitest run` **193/193** (invariato, nessuna
+logica applicativa nuova da testare), `next build` pulito (3 nuove rotte statiche: `/privacy`
+`/termini` `/cookie`, nessuna dipendenza da Supabase quindi nessun limite di rete della sandbox).
+
+Aggiornamento precedente, 14/09/2026, ventitreesimo giro -- Gabriel, tornato al computer, ha chiesto
 due cose sulla cancellazione lato cliente costruita nel giro precedente: 1) che non fosse
 disponibile entro una finestra di ore decisa dal titolare (es. "niente cancellazioni online il
 giorno prima, bisogna chiamare"); 2) di spiegare meglio l'anti-abuso, e ha giustamente osservato

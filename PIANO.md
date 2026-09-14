@@ -217,9 +217,9 @@ per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
    conferma SMS/WhatsApp del numero -- ma richiederebbe un provider SMS a pagamento (nessuno
    integrato oggi), quindi non incluso qui. 9 nuovi test (`anti-bot.test.ts`), `tsc`/`eslint`/
    `vitest`/`build` puliti.
-2. **Pagine legali** (privacy/termini/cookie): gap reale, mai tracciato come task da nessuna
+2. ~~**Pagine legali** (privacy/termini/cookie): gap reale, mai tracciato come task da nessuna
    parte prima di oggi (solo menzionato in `docs/analisi-estetia.md`) -- il progetto non ne ha
-   nessuna. Ogni concorrente verificato le ha.
+   nessuna. Ogni concorrente verificato le ha.~~ **CODICE FATTO 14/09/2026** -- vedi Fase 4.
 3. **Completare la generalizzazione del copy** oltre "salone" (deciso il 02/09/2026, mai
    finito): `/registrati` e la dashboard usano ancora "Crea il tuo salone" e testi
    settore-specifici in alcuni punti.
@@ -546,10 +546,31 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       titolare che lavora, non un cliente finale). Verificato dal vivo col server locale:
       `/manifest.webmanifest`, `/sw.js` e le icone rispondono 200, il tag `<link rel="manifest">`
       è presente nell'head. `tsc`/`eslint`/`vitest` (178/178, invariato)/`build` puliti.
-- [ ] **Pagine legali (privacy/termini/cookie)** -- nuovo task, trovato nel mega-controllo
-      competitor del 12/09/2026: gap reale, il progetto non ne ha nessuna, ogni concorrente
-      verificato (Estetia/Calendix/Skedula/Fresha/Treatwell/Booksy) le ha. Non urgente prima del
-      deploy di test, ma bloccante prima di pubblicare il link di un salone vero.
+- [x] ~~**Pagine legali (privacy/termini/cookie)**~~ **CODICE FATTO 14/09/2026** (trovato nel
+      mega-controllo competitor del 12/09/2026: gap reale, il progetto non ne aveva nessuna, ogni
+      concorrente verificato le ha). Tre pagine nuove, `/privacy` `/termini` `/cookie`, stessa
+      identità dark/viola di `/accedi`/`/registrati` (componente condiviso
+      `src/components/legale/PaginaLegale.tsx`), linkate dal footer della landing e, come
+      promemoria informativo (non una checkbox obbligatoria -- passo successivo possibile, non
+      fatto qui per non aggiungere attrito solo per creare le pagine mancanti), sopra il bottone
+      di `/registrati`. Contenuto scritto sul comportamento REALE del codice (letti
+      `booking-engine.server.ts`, `stripe/`, `email/mailjet.server.ts`, `ai/`, calendario Google),
+      non un template generico: la Privacy distingue esplicitamente i due ruoli GDPR di Salone AI
+      -- Titolare del trattamento per i dati di account/fatturazione dei titolari di attività,
+      Responsabile del trattamento per conto loro sui dati dei LORO clienti finali (nome,
+      telefono, storico appuntamenti) -- ed elenca i fornitori terzi reali (Supabase eu-west-1,
+      Stripe, Mailjet, Google Calendar opzionale, WhatsApp/Meta quando attivo). La Cookie Policy
+      dichiara solo il cookie di sessione tecnico di Supabase Auth: verificato nel codice che non
+      esiste nessuno script di analytics/tracking/marketing in tutto il progetto, quindi
+      **nessun banner di consenso necessario** (i cookie strettamente tecnici non lo richiedono
+      per legge) -- se in futuro si aggiungerà analytics, questa pagina e il banner andranno
+      aggiornati PRIMA, non dopo. **NON è consulenza legale**: il placeholder `[NOME_TITOLARE]`
+      nella Privacy va completato da Gabriel quando avrà un'identità legale definita (oggi persona
+      fisica senza P.IVA), e resta consigliato un controllo di un professionista prima di aprire i
+      pagamenti veri a clienti reali -- non per sfiducia nel testo, ma perché il trattamento dei
+      dati dei clienti finali dei saloni ha implicazioni GDPR reali che vanno oltre quello che un
+      assistente AI può garantire da solo. `tsc`/`eslint`/`vitest` (193/193, invariato)/`build`
+      puliti (3 nuove rotte statiche, nessuna dipendenza da Supabase).
 - [x] **Notifiche email (conferma al cliente + avviso al titolare)** -- **CODICE FATTO
       13/09/2026** (vedi Gruppo B-bis punto 1 in cima al file per il dettaglio completo):
       provider Mailjet, agganciato dentro `creaAppuntamentoTenant`. Resta solo la parte che

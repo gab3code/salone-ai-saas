@@ -248,6 +248,23 @@ function FormRegistrazione() {
             {caricamento ? "Creazione in corso..." : "Crea account"}
           </button>
 
+          {/* Solo un link informativo, non una checkbox obbligatoria (PIANO.md
+              Gruppo D punto 2, 14/09/2026): un vincolo esplicito di accettazione
+              prima di poter registrarsi è un possibile passo successivo più
+              solido, non fatto qui per non aggiungere attrito/scope creep alla
+              sola creazione delle pagine mancanti. */}
+          <p className="text-center text-xs text-white/40">
+            Registrandoti accetti i{" "}
+            <Link className="underline decoration-white/40 hover:text-white/70" href="/termini">
+              Termini di Servizio
+            </Link>{" "}
+            e l&apos;
+            <Link className="underline decoration-white/40 hover:text-white/70" href="/privacy">
+              Informativa Privacy
+            </Link>
+            .
+          </p>
+
           <p className="text-center text-sm text-white/50">
             Hai già un account?{" "}
             <Link className="text-white underline underline-offset-2" href="/accedi">

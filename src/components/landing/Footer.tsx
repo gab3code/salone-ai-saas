@@ -24,12 +24,23 @@ export function Footer() {
     <footer className="border-t border-white/10 py-8">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 text-sm text-white/40 sm:flex-row sm:px-8">
         <span>© {new Date().getFullYear()} Salone AI</span>
-        <div className="flex items-center gap-5">
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
           <a href="/accedi" className="transition-colors hover:text-white">
             Accedi
           </a>
           <a href="/registrati" className="transition-colors hover:text-white">
             Registrati
+          </a>
+          {/* Pagine legali (PIANO.md Gruppo D punto 2, 14/09/2026): gap reale,
+              il sito non ne aveva nessuna. */}
+          <a href="/privacy" className="transition-colors hover:text-white">
+            Privacy
+          </a>
+          <a href="/termini" className="transition-colors hover:text-white">
+            Termini
+          </a>
+          <a href="/cookie" className="transition-colors hover:text-white">
+            Cookie
           </a>
         </div>
       </div>
