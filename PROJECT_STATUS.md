@@ -14,10 +14,10 @@ aveva NESSUNA pagina delle impostazioni da cui modificarlo -- sistemato nello st
 punto più naturale). Sotto la soglia il link "gestisci la tua prenotazione" mostra quel numero
 invece del bottone di cancellazione. Regola pura e testata in `src/lib/finestra-cancellazione.ts`,
 applicata sia come controllo autorevole in `gestisci/[id]/azioni.ts` sia in anteprima in
-`page.tsx`. **Migrazione non ancora applicata al database reale**: stavolta il classificatore di
-sicurezza della sandbox ha bloccato anche il mio tentativo con l'ok già dato in chat (diverso dalle
-migrazioni precedenti) -- il file è pronto in `supabase/migrations/`, serve che Gabriel lo esegua
-lui dall'SQL Editor di Supabase.
+`page.tsx`. Migrazione applicata al database reale: il primo tentativo era stato bloccato dal
+classificatore di sicurezza della sandbox nonostante l'ok già dato in chat (diverso dalle
+migrazioni precedenti) -- riprovato su richiesta esplicita di Gabriel subito dopo e stavolta
+passato, verificato in `information_schema.columns`.
 
 **Revisione anti-abuso** (aveva ragione lui): il vecchio tetto di volume (8 scritture pubbliche
 ogni 10 minuti per tenant) rischiava di bloccare clienti VERI durante un picco di richieste

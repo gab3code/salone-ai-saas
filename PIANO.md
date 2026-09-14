@@ -71,16 +71,12 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
    `0015_email_cliente_caparra.sql`~~ **FATTO 13/09/2026** (applicata da me al database reale su
    tuo ok esplicito, verificata in `supabase_migrations.schema_migrations`). Dettaglio completo
    in `.env.example` e Gruppo B-bis punto 1 sotto.
-10. **Applicare la migrazione `0016_finestra_cancellazione.sql`** (nuovo, 14/09/2026, richiesta
-    esplicita: "la cancellazione non deve essere disponibile entro un tot di ore decise dallo
-    staff"): il codice è scritto e verificato (`tsc`/`eslint`/`vitest`/`build` puliti) ma
-    stavolta il classificatore di sicurezza della sandbox ha bloccato anche il MIO tentativo di
-    applicarla con un ok già dato in chat (diverso dalle migrazioni precedenti, dove bastava il
-    tuo sì) -- serve che la esegui tu direttamente dall'SQL Editor di Supabase, il file è pronto
-    così com'è in `supabase/migrations/0016_finestra_cancellazione.sql` (una colonna additiva con
-    default, zero rischio sui dati esistenti). Dopo: impostare le ore minime e il numero di
-    telefono dell'attività in `/dashboard/impostazioni/cancellazione` (vedi Fase 4 per il
-    dettaglio).
+10. ~~**Applicare la migrazione `0016_finestra_cancellazione.sql`**~~ **FATTO 14/09/2026**
+    (primo tentativo bloccato dal classificatore di sicurezza della sandbox nonostante l'ok già
+    dato in chat -- diverso dalle migrazioni precedenti; riprovato su richiesta esplicita di
+    Gabriel e stavolta passato, applicata al database reale e verificata in
+    `information_schema.columns`). Resta da fare solo la parte tua: impostare le ore minime e il
+    numero di telefono dell'attività in `/dashboard/impostazioni/cancellazione` (vedi Fase 4).
 
 ### Gruppo B -- Nuovo codice a priorità alta, trovato nel mega-controllo competitor di oggi
 1. ~~**Deposito/caparra anti-no-show** (Fase 6)~~ **CODICE FATTO 13/09/2026** (vedi Fase 6 e
@@ -587,11 +583,10 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       dell'attività: girando il codice è emerso che `tenants.telefono` (colonna già esistente,
       usata sulla pagina pubblica) non aveva NESSUNA pagina delle impostazioni da cui modificarlo
       -- gap onestamente segnalato e sistemato nello stesso giro, era il punto più naturale visto
-      che è esattamente il numero che serve perché questa funzionalità sia utile. **Migrazione
-      NON ancora applicata al database reale** -- stavolta bloccata dal classificatore di
-      sicurezza della sandbox anche con l'ok di Gabriel già dato in chat (vedi Gruppo A punto 10):
-      serve che la esegua lui dall'SQL Editor di Supabase. `tsc`/`eslint`/`vitest` (193/193, +15
-      da questo giro)/`build` puliti.
+      che è esattamente il numero che serve perché questa funzionalità sia utile. Migrazione
+      applicata al database reale il 14/09/2026 (primo tentativo bloccato dal classificatore di
+      sicurezza della sandbox, riprovato su richiesta esplicita di Gabriel -- vedi Gruppo A punto
+      10). `tsc`/`eslint`/`vitest` (193/193, +15 da questo giro)/`build` puliti.
 
 ## Fase 5 -- Billing self-service e admin panel (punti 6, 7, 23, 24)
 - [x] Piani Free -> Enterprise progettati (non copiati), prezzi e posizionamento AI decisi
