@@ -1657,3 +1657,56 @@ nessun impatto sulle conversazioni esistenti).
 scaling per operatore, `usoStrumenti` in agente.test.ts, e i nuovi
 `conversazione.server.test.ts`), `tsc --noEmit` pulito, `eslint` pulito sui file toccati,
 `next build` pulito. Migrazione applicata al progetto Supabase reale (`weeaggiqovnmtovdjzxy`).
+
+---
+
+## 2026-09-14 — `.claude/settings.json` con `permissions.deny` per risparmiare token
+
+**Richiesta di Gabriel**: "credo che dovresti creare un claudeignore per risparmiare
+crediti, non credi? se lo fai verifica che non comprometta lo sviluppo della nostra app".
+
+**Cosa NON esiste**: `.claudeignore` non è una feature reale di Claude Code (verificato,
+non è un file che Claude Code riconosce). Il meccanismo vero e documentato è
+`permissions.deny` dentro `.claude/settings.json`.
+
+**Verifica fatta prima di creare il file** (come richiesto esplicitamente da Gabriel):
+- `.claude/settings.json` non esisteva già in questo repo -- nessun rischio di
+  sovrascrivere una config esistente.
+- Le uniche due directory davvero pesanti nel repo sono `node_modules` (879 MB) e
+  `.next` (889 MB), entrambe già in `.gitignore`, entrambe generate/vendorizzate (mai
+  codice sorgente nostro).
+- Nessun altro file sopra i 500 KB nel resto del repo (controllato con `find`/`du`) --
+  niente altro da escludere.
+- Confermato con un test diretto (`Grep` di "react" su tutto il repo) che Grep/Glob
+  **già** saltano automaticamente le directory in `.gitignore` di default -- quindi il
+  vero rischio-token non è la ricerca, ma un `Read` diretto e mirato di un singolo file
+  dentro `node_modules`/`.next` (raro ma possibile, es. per debug di una dipendenza).
+
+**Decisione**: creato `.claude/settings.json` (versionato, non `.local.json` -- è un
+problema di repo, non una preferenza personale) con:
+```json
+{ "permissions": { "deny": [
+  "Read(/node_modules/**)", "Read(/.next/**)", "Read(/dist/**)",
+  "Read(/build/**)", "Read(/coverage/**)", "Read(**/*.log)"
+] } }
+```
+`dist`/`build`/`coverage` non esistono ancora in questo repo ma sono già in
+`.gitignore` (build futuri, coverage di Vitest) -- inclusi per prudenza, costo zero.
+Deliberatamente **non** toccato: nessun file sorgente, migrazione, `CLAUDE.md`,
+`DECISIONS.md`/`PIANO.md`/`PROJECT_STATUS.md`, `.env*` -- tutto ciò che serve per
+sviluppare l'app resta leggibile esattamente come prima.
+
+**Limite importante da sapere**: ho testato dal vivo provando a leggere un file dentro
+`node_modules` in QUESTA sessione (già in corso quando ho creato il file) ed è stato
+letto senza problemi -- cioè il blocco non ha avuto effetto immediato qui. Questo è
+atteso: le regole di permesso si caricano all'avvio di una sessione Claude Code, non a
+caldo mentre gira. Il file è comunque corretto e utile: si applicherà alla prossima
+sessione Claude Code aperta su questo progetto (inclusa una sessione `claude` lanciata
+da Gabriel nel Terminal dentro `salone-ai-saas`). Da sapere anche: questo NON è un
+confine di sicurezza rigido -- comandi Bash che leggono file senza nominarli
+esplicitamente (es. `grep -r pattern .` lanciato dalla cartella che contiene il file)
+possono comunque aggirarlo. Serve a risparmiare token per errore/curiosità, non a
+proteggere segreti.
+
+**Verifica**: `.claude/settings.json` non tocca nessun test/build esistente (è pura
+configurazione, zero codice applicativo). `git status` pulito a parte il nuovo file.
