@@ -544,15 +544,28 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
 - [x] Pagina pubblica per-salone generata automaticamente, condivisibile -- **scritta
       11/09/2026** (corretto qui il 12/09/2026, era rimasta indietro): `/s/[slug]`, loader in
       `src/lib/pagina-pubblica.server.ts`, flusso di prenotazione self-service completo
-      (`FlussoPrenotazione.tsx`). Test automatici puliti (98/98), **non ancora verificata dal
-      vivo in un browser reale contro un salone vero** -- va fatto da Gabriel dopo il deploy
-      (stesso limite di rete della sandbox già noto per altri strumenti).
+      (`FlussoPrenotazione.tsx`). Test automatici puliti (98/98). **VERIFICATA DAL VIVO
+      14/09/2026** (trentunesimo giro, browser reale contro `salone-ai-saas.vercel.app`, tenant
+      "Salone Test Fase1"): intero flusso (scegli servizio -> giorno -> slot reali -> dati cliente
+      -> conferma) funziona, l'appuntamento finisce davvero sul DB, la pagina `/gestisci/[id]`
+      mostra i dati giusti e applica la finestra minima di cancellazione. Trovato e corretto un
+      bug reale nello stesso giro: il primo tentativo di conferma è fallito con "Attività non
+      trovata" (blip di rete/cold-start verso Supabase in `risolviTenantIdDaSlug`, non un bug di
+      logica -- nessuna scrittura parziale, il secondo tentativo identico è riuscito subito).
+      Aggiunto un singolo retry in `risolviTenantIdDaSlug` (src/lib/ai/tools.ts), condiviso da
+      tutti i punti di ingresso pubblici (chat AI, checkout caparra, le 4 server action di
+      `azioni.ts`), attivo SOLO su un errore vero della query (mai su uno slug che semplicemente
+      non esiste, altrimenti ogni URL sbagliato pagherebbe un retry inutile).
 - [x] Widget chat AI mostrato SOLO se `tenant.piano` la include (vedi `src/lib/ai/limiti.ts`,
       `pianoHaAccessoAIChatWeb`) -- un salone Free/Starter non deve vedere nemmeno il box della
       chat, non un box che dice "non disponibile" (deciso con Gabriel il 02/09/2026). Il blocco
       lato server in `api/chat/[slug]/route.ts` resta comunque, indipendentemente da questo --
       qui è solo UX, non l'unica difesa. **Scritto 11/09/2026** (`ChatWidgetPubblico.tsx`),
-      stesso limite di verifica dal vivo del punto sopra.
+      **verificato dal vivo 14/09/2026** insieme al punto sopra: la chat risponde con dati reali
+      (prezzo/orari corretti). Trovata e corretta una rifinitura nello stesso giro: le risposte
+      usavano markdown (`**grassetto**`) che il widget (testo semplice) mostrava con gli
+      asterischi letterali -- aggiunta una regola assoluta al system prompt
+      (`src/lib/ai/agente.ts`): mai markdown, solo testo semplice.
 - [ ] Galleria/upload immagini (Supabase Storage) -- zero codice, colonne `logo_url`/`cover_url`
       esistono nello schema ma senza upload configurato.
 - [x] ~~PWA installabile~~ **BASE FATTA 13/09/2026, rifinitura in Fase 7** (notifiche push

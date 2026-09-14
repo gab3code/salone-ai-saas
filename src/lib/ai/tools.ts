@@ -39,16 +39,33 @@ export interface ContestoStrumento {
   tenantId: string;
 }
 
-/** Risolve il tenant dal quale il visitatore sta chattando (slug della pagina pubblica). */
+/**
+ * Risolve il tenant dal quale il visitatore sta chattando/prenotando (slug
+ * della pagina pubblica). Un solo retry dopo una breve pausa SOLO se la
+ * query è fallita con un errore vero (rete/timeout verso Supabase, non uno
+ * "slug inesistente" -- quel caso ha `error === null` e va rifiutato subito,
+ * un retry lì rallenterebbe inutilmente ogni URL sbagliato/scanner senza
+ * mai risolvere nulla). Aggiunto 14/09/2026 dopo aver visto dal vivo un
+ * primo tentativo fallire con "Attività non trovata" su uno slug valido e
+ * il retry immediato (manuale, stesso slug) riuscire subito dopo -- sintomo
+ * di un blip di rete/cold-start verso Supabase, non un bug applicativo.
+ * Un solo retry basta a coprire un blip isolato senza mascherare un
+ * problema persistente (che continuerebbe a fallire anche al secondo giro
+ * e finirebbe comunque nel log sottostante).
+ */
 export async function risolviTenantIdDaSlug(
   supabase: SupabaseClient,
   slug: string
 ): Promise<string | null> {
-  const { data, error } = await supabase.from("tenants").select("id").eq("slug", slug).maybeSingle();
+  let { data, error } = await supabase.from("tenants").select("id").eq("slug", slug).maybeSingle();
+  if (error) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    ({ data, error } = await supabase.from("tenants").select("id").eq("slug", slug).maybeSingle());
+  }
   if (error) {
     // Non silenziare un errore reale (es. service_role key mancante/errata) dietro
     // un fuorviante "tenant non trovato": logghiamo per capire davvero cosa è successo.
-    console.error("Errore risolvendo il tenant dallo slug:", slug, error);
+    console.error("Errore risolvendo il tenant dallo slug (anche dopo un retry):", slug, error);
   }
   return data?.id ?? null;
 }

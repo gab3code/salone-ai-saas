@@ -1,6 +1,43 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 14/09/2026, trentesimo giro -- migrazione `0017` (nella sua forma
+Ultimo aggiornamento: 14/09/2026, trentunesimo giro -- verificato dal vivo, per la prima volta in
+un browser reale contro il deploy vero (`salone-ai-saas.vercel.app`, tenant di test "Salone Test
+Fase1", piano growth), l'intero flusso della pagina pubblica per-salone (`/s/[slug]`): ricerca
+slot, prenotazione, pagina "gestisci/cancella", widget chat AI. Scelto da Gabriel tra le opzioni
+proposte ("Verifica dal vivo prenotazione pubblica") perché mai testato fuori sandbox nonostante
+il codice risalga all'11/09/2026.
+
+**Trovato un bug reale, non cosmetico**: il primo tentativo di conferma prenotazione è fallito
+con "Attività non trovata" su uno slug valido (la stessa identica ricerca slot, un attimo prima,
+era riuscita). Verificato subito dopo che non ha scritto nulla a metà (nessuna riga doppia/parziale
+in `appuntamenti` o `clienti`) e che un secondo tentativo, identico, è riuscito subito -- sintomo
+di un blip di rete/cold-start verso Supabase in `risolviTenantIdDaSlug` (src/lib/ai/tools.ts),
+condivisa da tutti i punti di ingresso pubblici (chat AI, checkout caparra, le 4 server action di
+`/s/[slug]/azioni.ts`), non un bug di logica. Corretto con un singolo retry dopo una breve pausa,
+MA SOLO quando la query fallisce con un errore vero (non quando lo slug semplicemente non esiste
+-- quel caso resta immediato, altrimenti ogni URL sbagliato o scanner pagherebbe il costo di un
+retry inutile). Un blip isolato ora si autocorregge senza che il cliente se ne accorga; un problema
+persistente continuerebbe comunque a fallire (e a finire nel log) anche al secondo tentativo.
+
+**Trovata una rifinitura reale nel widget chat AI**: le risposte del modello usavano markdown
+(`**grassetto**`) che il widget (testo semplice, nessun renderer) mostrava letteralmente con gli
+asterischi -- brutto ma non un bug funzionale. Aggiunta una regola assoluta al system prompt
+(`src/lib/ai/agente.ts`, ora la #9, tono spostato a #10): mai markdown, solo testo semplice.
+
+**Confermato che funziona correttamente**: prezzo/durata del servizio, slot realmente calcolati
+contro orari di apertura + appuntamenti esistenti, scrittura dell'appuntamento sul DB reale, pagina
+`/gestisci/[id]` (mostra i dati corretti e applica giustamente la finestra minima di cancellazione
+-- l'appuntamento di test era a meno di 24h, mostrato "non cancellabile online" come da regola),
+risposte della chat AI con dati reali (prezzo e orari di apertura corretti per il giorno chiesto).
+**Non verificabile da qui**: se l'email di conferma sia arrivata davvero nella casella di Gabriel
+(usata come email del cliente di test) -- Mailjet è fail-open per design, quindi un mancato arrivo
+non genererebbe comunque un errore visibile in questo giro.
+
+`npx vitest run` (216/216, invariati), `tsc --noEmit`, `eslint`, `npm run build` puliti dopo
+entrambe le correzioni. Nessuna migrazione: solo `src/lib/ai/tools.ts` (retry) e
+`src/lib/ai/agente.ts` (regola anti-markdown).
+
+Aggiornamento precedente, 14/09/2026, trentesimo giro -- migrazione `0017` (nella sua forma
 riscritta a più regole) applicata al database reale con l'ok esplicito di Gabriel, verificata
 via query diretta: tutti e 3 i tenant esistenti (Salone Test Fase1/growth, prova gabriel/pro,
 Salone Test Claude/free) hanno ricevuto la regola di default a 24 ore. Poi Gabriel ha chiesto,
@@ -2194,9 +2231,12 @@ serve Gabriel) tutto ciò che è già scritto e testato ma mai provato in un bro
 Supabase/Stripe/Google veri** -- in ordine di blocco:
 1. **Deploy su Vercel** (già collegato, deploy automatico ad ogni push su `main` -- vedi
    "Problemi noti aperti" #2) del codice di questo giro, appena committato e consegnato.
-2. **Fase 4, pagina pubblica per-salone (`/s/[slug]`)**: codice scritto e testato l'11/09/2026,
+2. ~~**Fase 4, pagina pubblica per-salone (`/s/[slug]`)**: codice scritto e testato l'11/09/2026,
    **mai aperta in un browser reale** -- provare l'intero flusso (cercare slot, prenotare,
-   parlare con il widget chat AI) su un salone di test vero.
+   parlare con il widget chat AI) su un salone di test vero.~~ **FATTO 14/09/2026, trentunesimo
+   giro** -- vedi in cima al file: flusso completo verificato dal vivo su
+   `salone-ai-saas.vercel.app`, trovato e corretto un bug reale (risoluzione tenant instabile) più
+   una rifinitura (markdown grezzo nella chat AI).
 3. **Checkout Stripe (Fase 5, task #21)**: codice collegato per intero l'11/09/2026 sera, **mai
    verificato con un pagamento di test reale** -- serve anche configurare il webhook lato Stripe
    Dashboard (endpoint pubblico + signing secret), possibile solo ora che l'app ha un dominio
