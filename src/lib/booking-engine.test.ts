@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calcolaSlotDisponibili,
   calcolaSlotServiziConsecutivi,
+  giornoChiuso,
   verificaConflitto,
   type AppuntamentoEsistente,
   type Chiusura,
@@ -197,6 +198,29 @@ describe("calcolaSlotDisponibili", () => {
       appuntamentiEsistenti: [],
     });
     expect(slot.every((s) => s.operatoreId === "anna")).toBe(true);
+  });
+});
+
+describe("giornoChiuso", () => {
+  // Bug UX segnalato da Gabriel il 14/09/2026: distinguere "il salone non
+  // apre proprio questo giorno" da "il salone è aperto ma è pieno", i due
+  // casi che `calcolaSlotDisponibili` collassa entrambi in un array vuoto.
+  it("true per un giorno marcato esplicitamente chiuso", () => {
+    expect(giornoChiuso(orariStandard, new Date(Date.UTC(2026, 8, 6)))).toBe(true); // domenica
+  });
+
+  it("true per un giorno senza nessuna riga di orario configurata", () => {
+    const orariIncompleti: OrarioGiorno[] = orariStandard.filter((o) => o.giornoSettimana !== 1);
+    expect(giornoChiuso(orariIncompleti, LUNEDI)).toBe(true);
+  });
+
+  it("true se apertura/chiusura mancano nonostante chiuso sia false", () => {
+    const orariMalconfigurati: OrarioGiorno[] = [{ giornoSettimana: 1, chiuso: false }];
+    expect(giornoChiuso(orariMalconfigurati, LUNEDI)).toBe(true);
+  });
+
+  it("false per un giorno regolarmente aperto, indipendentemente dagli slot poi trovati", () => {
+    expect(giornoChiuso(orariStandard, LUNEDI)).toBe(false);
   });
 });
 

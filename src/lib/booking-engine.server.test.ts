@@ -8,6 +8,7 @@ import {
   modificaAppuntamentoTenant,
   cancellaAppuntamentoTenant,
   aggiungiListaAttesaTenant,
+  trovaSlotEStatoGiornoTenant,
 } from "./booking-engine.server";
 import type { AppuntamentoEsistente } from "./booking-engine";
 
@@ -214,6 +215,88 @@ describe("caricaContestoBooking", () => {
     await expect(caricaContestoBooking(supabase, TENANT_ID, INIZIO_PSEUDO, INIZIO_PSEUDO)).rejects.toThrow(
       /orari.*connessione persa/
     );
+  });
+});
+
+// Mercoledì 2026-07-15 (giorno_settimana = 3), stessa data usata sopra.
+const MERCOLEDI = new Date(Date.UTC(2026, 6, 15));
+
+describe("trovaSlotEStatoGiornoTenant", () => {
+  // Bug UX segnalato da Gabriel il 14/09/2026: `cercaSlotPubblici` (flusso di
+  // prenotazione pubblico, src/app/s/[slug]/azioni.ts) mostrava lo stesso
+  // identico "nessuna disponibilità" + modulo lista d'attesa sia per un
+  // giorno di chiusura sia per un giorno aperto ma pieno -- iscriversi alla
+  // lista d'attesa in un giorno di chiusura non ha senso, nessuno slot si
+  // libererà mai lì. Questi due test coprono esattamente la distinzione che
+  // `giornoChiuso` nel risultato deve rendere possibile.
+  it("giorno di chiusura (nessun orario aperto quel giorno): nessuno slot e giornoChiuso true", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [rispostaTenantFuso()] },
+      orari_apertura: {
+        select: [{ data: [{ giorno_settimana: 3, chiuso: true, apertura: null, chiusura: null, pausa_inizio: null, pausa_fine: null }], error: null }],
+      },
+      chiusure: { select: [{ data: [], error: null }] },
+      operatori: { select: [{ data: [{ id: OPERATORE_ID, attivo: true }], error: null }] },
+      operatori_servizi: {
+        select: [{ data: [{ operatore_id: OPERATORE_ID, servizio_id: SERVIZIO_ID }], error: null }],
+      },
+      appuntamenti: { select: [{ data: [], error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+    });
+
+    const risultato = await trovaSlotEStatoGiornoTenant(supabase, TENANT_ID, {
+      data: MERCOLEDI,
+      servizioIds: [SERVIZIO_ID],
+    });
+
+    expect(risultato.slot).toEqual([]);
+    expect(risultato.giornoChiuso).toBe(true);
+  });
+
+  it("giorno aperto ma completamente occupato: nessuno slot ma giornoChiuso false", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [rispostaTenantFuso()] },
+      orari_apertura: {
+        select: [
+          {
+            data: [{ giorno_settimana: 3, chiuso: false, apertura: "09:00:00", chiusura: "10:00:00", pausa_inizio: null, pausa_fine: null }],
+            error: null,
+          },
+        ],
+      },
+      chiusure: { select: [{ data: [], error: null }] },
+      operatori: { select: [{ data: [{ id: OPERATORE_ID, attivo: true }], error: null }] },
+      operatori_servizi: {
+        select: [{ data: [{ operatore_id: OPERATORE_ID, servizio_id: SERVIZIO_ID }], error: null }],
+      },
+      // Un solo appuntamento confermato che copre TUTTO l'orario di apertura
+      // (09:00-10:00 reale, coerente col fuso Europe/Rome usato altrove in
+      // questo file per l'estate: 09:00-10:00 civile = 07:00-08:00 UTC).
+      appuntamenti: {
+        select: [
+          {
+            data: [
+              {
+                operatore_id: OPERATORE_ID,
+                inizio: "2026-07-15T07:00:00.000Z",
+                fine: "2026-07-15T08:00:00.000Z",
+                stato: "confermato",
+              },
+            ],
+            error: null,
+          },
+        ],
+      },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+    });
+
+    const risultato = await trovaSlotEStatoGiornoTenant(supabase, TENANT_ID, {
+      data: MERCOLEDI,
+      servizioIds: [SERVIZIO_ID],
+    });
+
+    expect(risultato.slot).toEqual([]);
+    expect(risultato.giornoChiuso).toBe(false);
   });
 });
 

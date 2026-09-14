@@ -83,6 +83,12 @@ export default function FlussoPrenotazione({
   const [servizioId, setServizioId] = useState<string>("");
   const [dataYMD, setDataYMD] = useState<string>(oggiYMD());
   const [slot, setSlot] = useState<SlotPubblico[]>([]);
+  // true se il salone è chiuso nel giorno cercato (bug UX segnalato da
+  // Gabriel il 14/09/2026): distingue "chiuso" da "aperto ma pieno" quando
+  // `slot` è vuoto, i due casi che prima mostravano lo stesso identico
+  // messaggio + modulo lista d'attesa, che per un giorno di chiusura non ha
+  // senso (nessuno slot si libererà mai lì).
+  const [giornoChiuso, setGiornoChiuso] = useState(false);
   const [slotScelto, setSlotScelto] = useState<SlotPubblico | null>(null);
   const [nome, setNome] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -126,6 +132,7 @@ export default function FlussoPrenotazione({
         return;
       }
       setSlot(risultato.slot);
+      setGiornoChiuso(risultato.giornoChiuso);
       setPasso("slot");
     } catch {
       setErrore("Impossibile cercare la disponibilità, riprova.");
@@ -302,7 +309,15 @@ export default function FlussoPrenotazione({
             Orari disponibili -- {new Date(`${dataYMD}T00:00:00Z`).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}
           </h3>
           {slot.length === 0 ? (
-            inCodaListaAttesa ? (
+            giornoChiuso ? (
+              // Giorno di chiusura (nessun orario aperto quel giorno della
+              // settimana, o festività per tutto il salone): nessuno slot si
+              // libererà mai qui, quindi niente modulo lista d'attesa -- solo
+              // l'invito a scegliere un altro giorno.
+              <p className="text-sm text-zinc-600">
+                Il salone è chiuso in questo giorno, scegli un altro giorno.
+              </p>
+            ) : inCodaListaAttesa ? (
               <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
                 Fatto -- se si libera un posto per {servizioScelto.nome} in questo giorno ti contattiamo noi.
               </p>

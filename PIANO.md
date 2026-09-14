@@ -30,10 +30,14 @@ reale delle fasi è:
 
 - **Fase 0 = Gruppo A qui sotto** (già fatto ma non ancora verificato dal vivo). **Chiuso finora
   dal vivo, 14/09/2026**: pagamento Stripe reale, pagamento caparra reale, mittente Mailjet +
-  promemoria automatico (email ricevuta per davvero da Gabriel). **Ancora aperto**: SMS
-  (credenziali Skebby non ancora impostate, serve un account Skebby personale di Gabriel), test
-  Google Calendar dal vivo, decisione Apple/iCloud. Zero codice nuovo, ma blocca la vendita a
-  chiunque finché resta aperto -- va chiuso PRIMA di qualunque fase nuova sotto.
+  promemoria automatico (email ricevuta per davvero da Gabriel), sync Google Calendar (evento
+  reale creato/verificato, slot bloccati correttamente), scope Apple/iCloud deciso (infrastruttura
+  CalDAV resta nel codice, non utilizzata/proposta per ora), bug lista d'attesa su giorno di
+  chiusura trovato e corretto (fix rivisto e testato indipendentemente, non ancora committato).
+  **Ancora aperto**: SMS (credenziali Skebby non ancora impostate, serve un account Skebby
+  personale di Gabriel -- vedi DECISIONS.md per il perché non posso crearlo/impostarlo io). Zero
+  codice nuovo per questo ultimo punto, ma blocca la vendita a chiunque finché resta aperto -- va
+  chiuso PRIMA di qualunque fase nuova sotto.
 - **Fase 1 = contatto automatico del cliente in lista d'attesa** (oggi il match è automatico ma
   avvisa solo il titolare, che deve contattare il cliente a mano -- vedi Gruppo B punto 3 e
   Fase 6 sotto): unico gap competitivo reale rimasto contro Calendix.

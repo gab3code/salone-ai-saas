@@ -1887,6 +1887,103 @@ aperte contemporaneamente su servizi diversi.
 ancora impostate -- richiede che Gabriel crei l'account personalmente), test Google Calendar dal
 vivo, decisione Apple/iCloud.
 
+---
+
+## 2026-09-14 — Fase 0, terzo item chiuso dal vivo: sync Google Calendar confermata; deciso lo
+## scope di Apple/iCloud; bug reale trovato nel flusso lista d'attesa
+
+**Google Calendar -- VERIFICATO DAL VIVO, con una scoperta**: il collegamento OAuth risultava
+già presente da un giro precedente (11/09/2026, tenant "prova gabriel", operatore Gabriel,
+`collegamenti_calendario_esterni.stato = 'connesso'`, nessun errore) -- riepiloghi precedenti lo
+elencavano ancora come "da verificare" per un disallineamento documentale, non perché mancasse
+davvero. Prima di procedere, controllata la schermata di consenso OAuth su Google Cloud Console
+(progetto `assistente-whatsapp-507115`, condiviso con l'altro progetto di Gabriel): Gabriel
+risultava già utente di prova, nessuna azione necessaria lì. Test vero: creato un evento reale
+("Test sync Salone AI", 14:30-15:30) sul calendario Google personale di Gabriel per sabato 19/09
+(unico giorno di apertura di quel tenant di prova), poi ricaricata `/s/salone-bc163ecf` --
+prima della creazione gli slot 14:00-16:30 erano tutti liberi, dopo sono spariti esattamente
+14:15-15:15 (ogni slot di 30 min che si sovrappone all'impegno), riprendendo da 15:30. Sync
+bidirezionale confermata end-to-end con un impegno personale reale, non solo nei test
+automatici. Evento di prova rimosso subito dopo la verifica.
+
+**Apple/iCloud Calendar -- decisione di Gabriel**: "lascialo nella infrastruttura ma non lo
+utilizziamo per ora". Il client CalDAV (`src/lib/calendario-esterno/caldav.server.ts`, Fase 6bis
+del 02/09) resta nel codice così com'è -- nessuna rimozione -- ma non viene proposto/costruito
+oltre (nessuna UI di collegamento, nessuna menzione in vendita) finché non si decide di
+affrontare il limite noto (blocco Apple sul traffico da IP data center, PROJECT_STATUS.md
+"Problemi noti aperti" #14). Coerente con la decisione già presa il 12/09/2026 di non mostrarlo
+né in landing né in dashboard.
+
+**Bug reale trovato durante il test, segnalato da Gabriel**: mentre verificavo Google Calendar,
+Gabriel ha notato che il 16/09 (mercoledì, giorno di chiusura settimanale per quel tenant)
+mostrava comunque "Nessuna disponibilità in questo giorno" seguito dal modulo per iscriversi
+alla lista d'attesa -- la stessa identica schermata di un giorno APERTO ma completamente pieno.
+Osservazione corretta: un cliente non dovrebbe poter iscriversi a una lista d'attesa per un
+giorno in cui il salone non lavora affatto (nessuno slot si libererà mai lì, a differenza di un
+giorno pieno dove una cancellazione può liberare posto). Il flusso pubblico di prenotazione non
+distingue oggi le due situazioni ("giorno chiuso" vs "giorno aperto ma pieno") -- stesso
+messaggio, stesso modulo lista d'attesa, in entrambi i casi. Deciso di correggerlo separatamente
+(vedi voce successiva) invece di lasciarlo scivolare come "lo sistemiamo dopo": è esattamente il
+tipo di piccolo attrito manuale che il principio "dipendente AI, zero intervento" (CLAUDE.md
+punto 2bis) chiede di eliminare -- un titolare che ricevesse iscrizioni alla lista d'attesa per
+un giorno di chiusura dovrebbe poi scriverlo a mano al cliente per spiegarglielo.
+
+**Verifica**: nessuna modifica di codice per Google Calendar/Apple (solo verifica dal vivo +
+decisione di scope); il bug della lista d'attesa è documentato qui e affrontato nella prossima
+voce.
+
 **Verifica**: nessuna modifica di codice, solo verifica dal vivo + query dirette sul DB reale +
 lettura del codice per capire la finestra prima di ripetere il test in modo corretto + conferma
 diretta di Gabriel sulla consegna reale.
+
+---
+
+## 2026-09-14 — Fase 0, quarto item chiuso: fix del bug lista d'attesa su giorno di chiusura
+
+**Decisione**: distinguere esplicitamente "giorno di chiusura" da "giorno aperto ma pieno" nel
+flusso pubblico di prenotazione, invece di far propagare a entrambi i casi lo stesso `slot: []`
+indistinguibile che arrivava fin qui al componente.
+
+**Causa reale**: `calcolaSlotDisponibili` (`booking-engine.ts`, motore puro) ritorna un array
+vuoto sia quando il giorno è chiuso sia quando è aperto ma completamente occupato -- nessuna
+distinzione nel valore di ritorno. `trovaSlotDisponibiliTenant` (`booking-engine.server.ts`) e
+`cercaSlotPubblici` (`azioni.ts`) si limitavano a propagare quell'array vuoto senza aggiungere
+contesto, e `FlussoPrenotazione.tsx` mostrava sempre lo stesso messaggio "nessuna disponibilità"
++ modulo lista d'attesa ogni volta che `slot.length === 0`, indipendentemente dal motivo.
+
+**Modifiche**:
+- `booking-engine.ts`: nuova funzione pura `giornoChiuso(orari, data)` (riusa
+  `intervalliApertura` già esistente) -- dipende SOLO dagli orari settimanali del tenant, mai da
+  operatori/appuntamenti, coerente con la definizione di "il salone non apre proprio questo
+  giorno". 4 nuovi casi di test in `booking-engine.test.ts`.
+- `booking-engine.server.ts`: estratta un'implementazione condivisa
+  `trovaSlotEContestoTenant` (un solo caricamento del contesto, mai due query duplicate per la
+  stessa ricerca). `trovaSlotDisponibiliTenant` resta INVARIATA nella sua firma/comportamento
+  (continua a restituire solo gli slot, usata da dashboard e tool AI, che non hanno bisogno di
+  questa distinzione). Nuova funzione `trovaSlotEStatoGiornoTenant`, che restituisce anche
+  `giornoChiuso`, usata SOLO dal flusso pubblico. Nuovi test in `booking-engine.server.test.ts`.
+- `src/app/s/[slug]/azioni.ts`: `cercaSlotPubblici` ora chiama `trovaSlotEStatoGiornoTenant` e
+  restituisce anche `giornoChiuso` al client.
+- `src/app/s/[slug]/FlussoPrenotazione.tsx`: nuovo stato `giornoChiuso`. Quando `slot.length ===
+  0`, mostra "Il salone è chiuso in questo giorno, scegli un altro giorno." SENZA il modulo
+  lista d'attesa se il giorno è di chiusura; comportamento invariato (messaggio + modulo lista
+  d'attesa) se invece è aperto ma pieno.
+
+**Perché non toccare `trovaSlotDisponibiliTenant`**: dashboard (calendario manuale) e tool AI
+chiamano quella funzione per sapere "quali slot posso proporre/prenotare ORA", una domanda che
+non ha bisogno di sapere PERCHÉ non ci sono slot -- cambiarne la firma avrebbe significato
+toccare due chiamanti che non hanno il bug, per un beneficio che non li riguarda. Nuova funzione
+separata invece, stesso principio già seguito ovunque nel progetto (single source of truth nel
+motore puro, wrapper diversi per bisogni diversi dei chiamanti -- punto 9 di CLAUDE.md).
+
+**Chi ha scritto il fix**: delegato a una sub-agente con perimetro esplicito (non toccare
+`trovaSlotDisponibiliTenant`, seguire il pattern puro/server esistente, non committare, far
+girare test/build/lint) per un bug ben isolato e autocontenuto -- poi rivisto direttamente da me
+(letti tutti i file modificati, non solo il riepilogo della sub-agente) prima di fidarmene.
+
+**Verifica**: rieseguiti io stesso, indipendentemente dal riepilogo della sub-agente: `npx
+vitest run` -> 257/257 test verdi (24 file); `npx tsc --noEmit` -> pulito; `npx eslint` sui file
+modificati -> pulito; `npm run build` -> production build riuscita, tutte le route generate.
+Nessuna verifica dal vivo nel browser di questo fix specifico (il comportamento "giorno pieno"
+resta coperto dai test automatici esistenti, non ripetuto manualmente); da tenere a mente se
+riemerge qualche dubbio sul flusso pubblico.

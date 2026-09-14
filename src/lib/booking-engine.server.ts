@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   calcolaSlotDisponibili,
   calcolaSlotServiziConsecutivi,
+  giornoChiuso,
   verificaConflitto,
   type AppuntamentoEsistente,
   type Chiusura,
@@ -242,24 +243,39 @@ export interface RicercaSlotParams {
   passoMinuti?: number;
 }
 
+export interface RisultatoRicercaSlot {
+  slot: SlotDisponibile[];
+  // true se il salone è chiuso in questo giorno (vedi `giornoChiuso` nel
+  // motore puro) -- indipendente dagli slot: un giorno può essere chiuso
+  // (slot sempre vuoto) o aperto ma pieno (slot vuoto solo per quel motivo).
+  giornoChiuso: boolean;
+}
+
 /**
- * Punto di ingresso da usare da qualunque schermata/tool voglia sapere gli
- * slot liberi per il tenant loggato: carica i dati veri e delega SEMPRE al
- * motore puro per la decisione (mai reimplementata qui).
+ * Implementazione condivisa da `trovaSlotDisponibiliTenant` (solo gli slot,
+ * per chi non ha bisogno di distinguere "chiuso" da "pieno": dashboard e
+ * tool dell'AI) e `trovaSlotEStatoGiornoTenant` (slot + stato del giorno, per
+ * il flusso pubblico -- vedi `cercaSlotPubblici` in
+ * src/app/s/[slug]/azioni.ts): un solo caricamento del contesto per
+ * entrambe, mai due query duplicate per la stessa ricerca.
  */
-export async function trovaSlotDisponibiliTenant(
+async function trovaSlotEContestoTenant(
   supabase: SupabaseClient,
   tenantId: string,
   params: RicercaSlotParams
-): Promise<SlotDisponibile[]> {
-  if (params.servizioIds.length === 0) return [];
+): Promise<RisultatoRicercaSlot> {
+  if (params.servizioIds.length === 0) return { slot: [], giornoChiuso: false };
 
   const [contesto, servizi] = await Promise.all([
     caricaContestoBooking(supabase, tenantId, params.data, params.data),
     caricaServizi(supabase, tenantId, params.servizioIds),
   ]);
 
-  if (servizi.length !== params.servizioIds.length) return []; // servizio inesistente/di un altro tenant
+  const chiuso = giornoChiuso(contesto.orari, params.data);
+
+  if (servizi.length !== params.servizioIds.length) {
+    return { slot: [], giornoChiuso: chiuso }; // servizio inesistente/di un altro tenant
+  }
 
   const paramsBase = {
     data: params.data,
@@ -272,10 +288,44 @@ export async function trovaSlotDisponibiliTenant(
     passoMinuti: params.passoMinuti,
   };
 
-  if (servizi.length === 1) {
-    return calcolaSlotDisponibili({ ...paramsBase, durataMinuti: servizi[0].durataMinuti, servizioId: servizi[0].id });
-  }
-  return calcolaSlotServiziConsecutivi(paramsBase, servizi);
+  const slot =
+    servizi.length === 1
+      ? calcolaSlotDisponibili({ ...paramsBase, durataMinuti: servizi[0].durataMinuti, servizioId: servizi[0].id })
+      : calcolaSlotServiziConsecutivi(paramsBase, servizi);
+
+  return { slot, giornoChiuso: chiuso };
+}
+
+/**
+ * Punto di ingresso da usare da qualunque schermata/tool voglia sapere gli
+ * slot liberi per il tenant loggato: carica i dati veri e delega SEMPRE al
+ * motore puro per la decisione (mai reimplementata qui).
+ */
+export async function trovaSlotDisponibiliTenant(
+  supabase: SupabaseClient,
+  tenantId: string,
+  params: RicercaSlotParams
+): Promise<SlotDisponibile[]> {
+  const { slot } = await trovaSlotEContestoTenant(supabase, tenantId, params);
+  return slot;
+}
+
+/**
+ * Come `trovaSlotDisponibiliTenant`, ma include anche se il giorno cercato è
+ * di chiusura per il salone -- usata dal flusso di prenotazione pubblico per
+ * decidere se ha senso proporre la lista d'attesa quando non c'è nessuno
+ * slot: iscriversi in lista d'attesa per un giorno di chiusura non ha senso
+ * (nessuno slot si libererà mai lì), a differenza di un giorno aperto ma
+ * pieno (una cancellazione può liberare un posto). Bug UX segnalato da
+ * Gabriel il 14/09/2026: prima di questa funzione i due casi erano
+ * indistinguibili dal chiamante, che vedeva sempre e solo un array vuoto.
+ */
+export async function trovaSlotEStatoGiornoTenant(
+  supabase: SupabaseClient,
+  tenantId: string,
+  params: RicercaSlotParams
+): Promise<RisultatoRicercaSlot> {
+  return trovaSlotEContestoTenant(supabase, tenantId, params);
 }
 
 export interface VerificaConflittoParams {

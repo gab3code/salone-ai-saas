@@ -170,6 +170,24 @@ function intervalliOccupatiDaAppuntamenti(
 }
 
 /**
+ * true se il salone è chiuso in questo giorno della settimana -- nessuna riga
+ * di orario configurata per quel giorno, oppure orario esplicitamente
+ * marcato `chiuso`, oppure apertura/chiusura mancanti o invertite. Dipende
+ * SOLO dagli orari settimanali del salone, mai da operatori/appuntamenti
+ * (`orari_apertura` non è per-operatore): serve a distinguere "il salone non
+ * apre proprio questo giorno" da "il salone è aperto ma è pieno", i due casi
+ * che `calcolaSlotDisponibili` collassa entrambi in un array vuoto. La UI del
+ * flusso pubblico (src/app/s/[slug]/FlussoPrenotazione.tsx) deve mostrare un
+ * messaggio diverso nei due casi: iscriversi alla lista d'attesa per un
+ * giorno di chiusura non ha senso, nessuno slot si libererà mai lì (bug UX
+ * segnalato da Gabriel il 14/09/2026).
+ */
+export function giornoChiuso(orari: OrarioGiorno[], data: Date): boolean {
+  const orarioGiorno = orari.find((o) => o.giornoSettimana === data.getUTCDay());
+  return intervalliApertura(orarioGiorno).length === 0;
+}
+
+/**
  * Calcola gli slot liberi per uno o più operatori compatibili con il servizio
  * richiesto, in un giorno specifico. Questa è la funzione che sia il calendario
  * manuale sia i tool dell'AI devono chiamare per sapere cosa proporre davvero.

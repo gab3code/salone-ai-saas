@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { risolviTenantIdDaSlug } from "@/lib/ai/tools";
 import {
-  trovaSlotDisponibiliTenant,
+  trovaSlotEStatoGiornoTenant,
   creaAppuntamentoTenant,
   verificaConflittoTenant,
   parsaOrarioLocale,
@@ -69,12 +69,20 @@ export type RisultatoAzionePubblica<T extends object = object> =
   | ({ ok: true } & T)
   | { ok: false; errore: string };
 
-/** Cerca gli slot liberi di un giorno per un servizio, per la pagina pubblica. */
+/**
+ * Cerca gli slot liberi di un giorno per un servizio, per la pagina
+ * pubblica. Ritorna anche `giornoChiuso` (bug UX segnalato da Gabriel il
+ * 14/09/2026): senza questo campo, il componente non può distinguere "il
+ * salone è chiuso questo giorno" (la lista d'attesa non ha senso, nessuno
+ * slot si libererà mai lì) da "il salone è aperto ma è pieno" (la lista
+ * d'attesa ha senso, una cancellazione può liberare un posto) -- prima
+ * entrambi i casi arrivavano qui come lo stesso `slot: []`.
+ */
 export async function cercaSlotPubblici(
   slug: string,
   servizioId: string,
   dataYMD: string
-): Promise<RisultatoAzionePubblica<{ slot: SlotPubblico[] }>> {
+): Promise<RisultatoAzionePubblica<{ slot: SlotPubblico[]; giornoChiuso: boolean }>> {
   if (!servizioId || !FORMATO_DATA_YMD.test(dataYMD)) {
     return { ok: false, errore: "Richiesta non valida." };
   }
@@ -85,7 +93,7 @@ export async function cercaSlotPubblici(
 
   const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
 
-  const slotGrezzi = await trovaSlotDisponibiliTenant(supabase, tenantId, {
+  const { slot: slotGrezzi, giornoChiuso } = await trovaSlotEStatoGiornoTenant(supabase, tenantId, {
     data: new Date(`${dataYMD}T00:00:00Z`),
     servizioIds: [servizioId],
   });
@@ -99,7 +107,7 @@ export async function cercaSlotPubblici(
     .filter((s) => s.inizio.getTime() > adessoPseudo.getTime())
     .map((s) => ({ operatoreId: s.operatoreId, inizioIso: s.inizio.toISOString() }));
 
-  return { ok: true, slot };
+  return { ok: true, slot, giornoChiuso };
 }
 
 export interface DatiPrenotazionePubblica {
