@@ -38,6 +38,11 @@ DECISIONS.md con il ragionamento completo:
 `npx vitest run` (251/251, 9 nuovi/modificati rispetto al giro precedente), `tsc --noEmit`,
 `eslint`, `npm run build` tutti puliti.
 
+**Aggiunta minore nello stesso giro**: creato `.claude/settings.json` (su richiesta di
+Gabriel, per risparmiare token) con `permissions.deny` su `node_modules`/`.next`/`dist`/
+`build`/`coverage`/`*.log` -- verificato prima di crearlo che non tocca nulla di cui lo
+sviluppo ha bisogno (dettagli e limiti del meccanismo in DECISIONS.md, voce 14/09/2026).
+
 Aggiornamento precedente, 14/09/2026, trentaduesimo giro -- costruito da zero l'SMS come canale di
 fallback sul piano Pro (mai in aggiunta all'email, solo in sua sostituzione quando il cliente non
 ha lasciato un indirizzo), insieme al prezzo per operatore su Pro che Gabriel ha chiesto di
