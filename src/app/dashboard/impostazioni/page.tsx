@@ -53,6 +53,9 @@ export default async function PaginaImpostazioni() {
       <a href="/dashboard/impostazioni/tono-ai" className="text-sm underline">
         Tono dell&apos;AI
       </a>
+      <a href="/dashboard/impostazioni/cancellazione" className="text-sm underline">
+        Cancellazione online
+      </a>
     </div>
   );
 }

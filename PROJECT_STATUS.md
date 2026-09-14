@@ -1,6 +1,41 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 13/09/2026, ventiduesimo giro -- Gabriel ha chiesto se attivare il CAPTCHA
+Ultimo aggiornamento: 14/09/2026, ventitreesimo giro -- Gabriel, tornato al computer, ha chiesto
+due cose sulla cancellazione lato cliente costruita nel giro precedente: 1) che non fosse
+disponibile entro una finestra di ore decisa dal titolare (es. "niente cancellazioni online il
+giorno prima, bisogna chiamare"); 2) di spiegare meglio l'anti-abuso, e ha giustamente osservato
+che il tetto di volume "può causare problemi". Fatte entrambe.
+
+**Finestra minima di cancellazione**: nuova colonna `tenants.ore_minime_cancellazione` (migrazione
+`0016_finestra_cancellazione.sql`, default 24h, 0 = nessun limite), configurabile da una nuova
+pagina `/dashboard/impostazioni/cancellazione` insieme al numero di telefono dell'attività (emerso
+girando il codice: `tenants.telefono`, colonna già esistente e usata sulla pagina pubblica, non
+aveva NESSUNA pagina delle impostazioni da cui modificarlo -- sistemato nello stesso giro, era il
+punto più naturale). Sotto la soglia il link "gestisci la tua prenotazione" mostra quel numero
+invece del bottone di cancellazione. Regola pura e testata in `src/lib/finestra-cancellazione.ts`,
+applicata sia come controllo autorevole in `gestisci/[id]/azioni.ts` sia in anteprima in
+`page.tsx`. **Migrazione non ancora applicata al database reale**: stavolta il classificatore di
+sicurezza della sandbox ha bloccato anche il mio tentativo con l'ok già dato in chat (diverso dalle
+migrazioni precedenti) -- il file è pronto in `supabase/migrations/`, serve che Gabriel lo esegua
+lui dall'SQL Editor di Supabase.
+
+**Revisione anti-abuso** (aveva ragione lui): il vecchio tetto di volume (8 scritture pubbliche
+ogni 10 minuti per tenant) rischiava di bloccare clienti VERI durante un picco di richieste
+legittime, es. dopo un post social -- esattamente il momento in cui un salone ha più bisogno che
+le prenotazioni arrivino, non meno. Aggiunto un livello prima di quello, senza NESSUN rischio di
+falso positivo: `src/lib/anti-bot.ts`, campo trappola invisibile ("honeypot", tecnica da vent'anni
+nei plugin anti-spam) più un tempo minimo di compilazione dal caricamento della pagina (un umano
+che ha già scelto servizio/giorno/slot non arriva mai a confermare in meno di 3 secondi, un bot che
+chiama la server action direttamente sì). Un bot beccato dal campo trappola riceve una finta
+conferma, senza scrivere nulla -- non gli si dà mai segnale di essere stato scoperto. Con questo
+filtro a monte, il tetto di volume è stato alzato da 8 a 25: resta solo l'ultima rete di sicurezza
+contro un attacco vero, non deve più essere lui a bloccare un salone impegnato. Zero CAPTCHA
+(deliberatamente ancora rimandato), zero nuove migrazioni.
+
+Verificato: `tsc --noEmit` pulito, `eslint` pulito, `npx vitest run` **193/193** (era 178, +15 da
+questo giro), `next build` pulito (nuova rotta `/dashboard/impostazioni/cancellazione` compilata).
+
+Aggiornamento precedente, 13/09/2026, ventiduesimo giro -- Gabriel ha chiesto se attivare il CAPTCHA
 ora avesse senso, temendo interferisse coi miei test via Chrome: risposta sì, rischio reale
 (Turnstile è pensato apposta per riconoscere un browser automatizzato), consigliato di rimandarlo
 allo stesso trigger del filtro "solo business" (prima di un annuncio pubblico/primo cliente vero),

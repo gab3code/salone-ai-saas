@@ -14,6 +14,7 @@ import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { creaClientStripe } from "@/lib/stripe/server";
 import { calcolaImportoCaparraCentesimi, type ConfigCaparra } from "@/lib/stripe/caparra";
+import { campoTrappolaCompilato, formPubblicoCompilatoTroppoVeloce } from "@/lib/anti-bot";
 
 /**
  * Server action pubbliche di prenotazione (Fase 4, punto 15) -- chiamate dal
@@ -32,14 +33,20 @@ import { calcolaImportoCaparraCentesimi, type ConfigCaparra } from "@/lib/stripe
  *   Postgres) e il tetto di prenotazioni mensili Free si applicano quindi
  *   automaticamente anche qui, senza bisogno di duplicarli.
  *
- * ANTI-ABUSO (Gruppo D punto 1 di PIANO.md, aggiunto 13/09/2026): oltre al
- * tetto mensile del piano Free, `creaAppuntamentoTenant`/
- * `aggiungiListaAttesaTenant` applicano ora anche per il canale "pubblico"
- * un anti-burst per telefono (stesso numero, stesso tenant, non due volte a
- * meno di 20s) e un tetto di volume (max 8 scritture pubbliche per tenant
- * ogni 10 minuti) -- vedi i commenti in booking-engine.server.ts per il
- * dettaglio. Non ancora inclusa una vera conferma SMS/WhatsApp del numero
- * (richiederebbe un provider SMS a pagamento, nessuno integrato oggi).
+ * ANTI-ABUSO (Gruppo D punto 1 di PIANO.md, aggiunto 13/09/2026, rivisto
+ * 14/09/2026): tre livelli, dal più economico/sicuro al più drastico.
+ * 1) Campo trappola + tempo minimo di compilazione (`src/lib/anti-bot.ts`),
+ *    controllati qui per primi, PRIMA di qualunque query: zero rischio di
+ *    falso positivo su un cliente vero, quindi filtrano la maggior parte
+ *    dei bot senza mai poter respingere una prenotazione legittima.
+ * 2) Anti-burst per telefono (stesso numero, stesso tenant, non due volte a
+ *    meno di 20s) in `creaAppuntamentoTenant`.
+ * 3) Tetto di volume per tenant (vedi booking-engine.server.ts) come ultima
+ *    rete di sicurezza contro un attacco vero, tenuto volutamente alto
+ *    proprio perché i livelli 1-2 già fermano i bot più comuni -- non deve
+ *    diventare lui a bloccare un salone durante un picco di richieste vere.
+ * Non ancora inclusa una vera conferma SMS/WhatsApp del numero (richiederebbe
+ * un provider SMS a pagamento, nessuno integrato oggi).
  */
 
 const FORMATO_DATA_YMD = /^\d{4}-\d{2}-\d{2}$/;
@@ -104,6 +111,10 @@ export interface DatiPrenotazionePubblica {
   // Opzionale (Fase 6, Gruppo B-bis #1): se presente abilita l'email di
   // conferma al cliente, vedi src/lib/email/notifiche.server.ts.
   clienteEmail?: string;
+  // Anti-bot silenzioso (vedi src/lib/anti-bot.ts): entrambi opzionali e mai
+  // popolati da un cliente reale, solo dal componente client.
+  trappola?: string;
+  iniziatoAlleMs?: number;
 }
 
 /**
@@ -142,6 +153,17 @@ export async function prenotaPubblico(
   slug: string,
   dati: DatiPrenotazionePubblica
 ): Promise<RisultatoAzionePubblica<{ appuntamentoId: string }>> {
+  // Anti-bot silenzioso, controllato per primo (vedi src/lib/anti-bot.ts e il
+  // docblock in cima al file): un bot beccato dal campo trappola riceve una
+  // finta conferma, senza scrivere nulla -- non gli si dà mai conferma di
+  // essere stato scoperto.
+  if (campoTrappolaCompilato(dati.trappola)) {
+    return { ok: true, appuntamentoId: "00000000-0000-0000-0000-000000000000" };
+  }
+  if (formPubblicoCompilatoTroppoVeloce(dati.iniziatoAlleMs)) {
+    return { ok: false, errore: "Richiesta non valida, riprova." };
+  }
+
   const clienteNome = dati.clienteNome.trim().slice(0, 200);
   const clienteTelefono = dati.clienteTelefono.trim();
   const clienteEmail = dati.clienteEmail?.trim().slice(0, 200) || undefined;
@@ -207,6 +229,13 @@ export async function avviaPagamentoCaparra(
   slug: string,
   dati: DatiPrenotazionePubblica
 ): Promise<RisultatoAzionePubblica<{ checkoutUrl: string }>> {
+  // Stesso anti-bot silenzioso di prenotaPubblico -- qui senza finta
+  // conferma (non si può fingere un `checkoutUrl` Stripe reale), un errore
+  // generico basta: un bot non arriva comunque quasi mai a questo punto.
+  if (campoTrappolaCompilato(dati.trappola) || formPubblicoCompilatoTroppoVeloce(dati.iniziatoAlleMs)) {
+    return { ok: false, errore: "Richiesta non valida, riprova." };
+  }
+
   const clienteNome = dati.clienteNome.trim().slice(0, 200);
   const clienteTelefono = dati.clienteTelefono.trim();
   const clienteEmail = dati.clienteEmail?.trim().slice(0, 200) || undefined;
@@ -331,6 +360,9 @@ export interface DatiListaAttesaPubblica {
   dataPreferitaYMD?: string; // il giorno cercato in cercaSlotPubblici, per cui non c'era niente
   clienteNome: string;
   clienteTelefono: string;
+  // Anti-bot silenzioso (vedi src/lib/anti-bot.ts), stesso di DatiPrenotazionePubblica.
+  trappola?: string;
+  iniziatoAlleMs?: number;
 }
 
 /**
@@ -349,6 +381,13 @@ export async function iscrivitiListaAttesaPubblico(
   slug: string,
   dati: DatiListaAttesaPubblica
 ): Promise<RisultatoAzionePubblica> {
+  // Stesso anti-bot silenzioso di prenotaPubblico -- finta conferma sul
+  // campo trappola (qui non c'è nessun id da inventare, `ok: true` basta).
+  if (campoTrappolaCompilato(dati.trappola)) return { ok: true };
+  if (formPubblicoCompilatoTroppoVeloce(dati.iniziatoAlleMs)) {
+    return { ok: false, errore: "Richiesta non valida, riprova." };
+  }
+
   const clienteNome = dati.clienteNome.trim().slice(0, 200);
   const clienteTelefono = dati.clienteTelefono.trim();
 

@@ -474,11 +474,19 @@ async function superatoTettoPrenotazioniMensile(
 // accidentale o uno script, non una persona che sceglie di nuovo servizio e
 // orario a mano.
 const INTERVALLO_MINIMO_MS_STESSO_TELEFONO_PUBBLICO = 20_000;
-// Numeri di partenza, deliberatamente prudenti e facili da cambiare (stessa
-// nota onesta di ai/limiti.ts): un salone reale non riceve normalmente più
-// di una manciata di prenotazioni dirette in 10 minuti.
+// Rivisto il 14/09/2026 (osservazione di Gabriel: il valore originale di 8
+// rischiava di bloccare clienti VERI durante un picco di richieste
+// legittime, es. dopo un post social o una promozione -- esattamente il
+// momento in cui un salone ha più bisogno che le prenotazioni arrivino, non
+// meno). Da quando esistono anche il campo trappola e il tempo minimo di
+// compilazione (`src/lib/anti-bot.ts`, controllati PRIMA di questo, in
+// s/[slug]/azioni.ts), la maggior parte dei bot viene già fermata senza
+// nessun rischio di falso positivo: questo tetto resta solo come ultima
+// rete di sicurezza contro un attacco vero e proprio, quindi può stare più
+// alto. Restano numeri di partenza, facili da cambiare (stessa nota onesta
+// di ai/limiti.ts).
 const FINESTRA_MS_VOLUME_PUBBLICO = 10 * 60_000;
-const LIMITE_VOLUME_PUBBLICO_PER_FINESTRA = 8;
+const LIMITE_VOLUME_PUBBLICO_PER_FINESTRA = 25;
 
 async function contaRecentiCanalePubblico(
   supabase: SupabaseClient,

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
+import { cancellazioneOnlineConsentita, messaggioCancellazioneBloccata } from "@/lib/finestra-cancellazione";
 import { ModuloCancellazione } from "./ModuloCancellazione";
 
 /**
@@ -29,7 +30,9 @@ export default async function PaginaGestisciPrenotazione({
 
   const { data: appuntamento } = await supabase
     .from("appuntamenti")
-    .select("id, inizio, stato, tenant_id, tenants(nome), servizi(nome), operatori(nome), clienti(nome)")
+    .select(
+      "id, inizio, stato, tenant_id, tenants(nome, telefono, ore_minime_cancellazione), servizi(nome), operatori(nome), clienti(nome)"
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -47,7 +50,7 @@ export default async function PaginaGestisciPrenotazione({
   // seconda della cardinalità dedotta -- stesso pattern di normalizzazione
   // già usato in notifiche.server.ts.
   const uno = <T,>(v: unknown): T | null => (Array.isArray(v) ? ((v[0] as T) ?? null) : (v as T | null));
-  const tenant = uno<{ nome: string }>(appuntamento.tenants);
+  const tenant = uno<{ nome: string; telefono: string | null; ore_minime_cancellazione: number }>(appuntamento.tenants);
   const servizio = uno<{ nome: string }>(appuntamento.servizi);
   const operatore = uno<{ nome: string }>(appuntamento.operatori);
   const cliente = uno<{ nome: string | null }>(appuntamento.clienti);
@@ -55,6 +58,20 @@ export default async function PaginaGestisciPrenotazione({
   const fuso = await caricaFusoOrarioTenant(supabase, appuntamento.tenant_id);
   const inizioPseudo = realeAPseudoUtc(new Date(appuntamento.inizio), fuso);
   const quando = `${inizioPseudo.toLocaleDateString("it-IT", { timeZone: "UTC" })} alle ${inizioPseudo.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}`;
+
+  // Finestra minima di cancellazione (richiesta di Gabriel il 14/09/2026):
+  // qui solo per mostrare in anticipo il messaggio giusto invece del
+  // bottone -- confronto su `appuntamento.inizio` grezzo (timestamptz reale),
+  // MAI su `inizioPseudo`, perché qui serve la vera distanza nel tempo da
+  // "adesso", non un valore pensato solo per la visualizzazione (vedi
+  // fuso-orario.ts). Il controllo che conta davvero resta in azioni.ts.
+  const cancellazioneBloccataDaFinestra =
+    !!tenant &&
+    appuntamento.stato !== "cancellato" &&
+    !cancellazioneOnlineConsentita(new Date(appuntamento.inizio), tenant.ore_minime_cancellazione);
+  const messaggioFinestraBloccata = tenant
+    ? messaggioCancellazioneBloccata(tenant.ore_minime_cancellazione, tenant.nome, tenant.telefono)
+    : null;
 
   return (
     <Cornice>
@@ -79,7 +96,11 @@ export default async function PaginaGestisciPrenotazione({
       </dl>
 
       <div className="mt-6">
-        <ModuloCancellazione appuntamentoId={id} giaCancellata={appuntamento.stato === "cancellato"} />
+        <ModuloCancellazione
+          appuntamentoId={id}
+          giaCancellata={appuntamento.stato === "cancellato"}
+          messaggioBloccata={cancellazioneBloccataDaFinestra ? messaggioFinestraBloccata : null}
+        />
       </div>
     </Cornice>
   );

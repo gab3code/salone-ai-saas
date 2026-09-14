@@ -13,9 +13,16 @@ import { cancellaPrenotazionePubblica } from "./azioni";
 export function ModuloCancellazione({
   appuntamentoId,
   giaCancellata,
+  messaggioBloccata,
 }: {
   appuntamentoId: string;
   giaCancellata: boolean;
+  // Non null quando la finestra minima di cancellazione (impostazioni del
+  // titolare, vedi src/lib/finestra-cancellazione.ts) è già superata: qui
+  // solo per mostrare subito il messaggio giusto invece del bottone, il
+  // controllo che conta resta comunque in azioni.ts (un link riaperto da
+  // una pagina in cache non deve mai bypassare la regola).
+  messaggioBloccata?: string | null;
 }) {
   const [confermaRichiesta, setConfermaRichiesta] = useState(false);
   const [esito, setEsito] = useState<{ ok: boolean; messaggio: string } | null>(null);
@@ -23,6 +30,10 @@ export function ModuloCancellazione({
 
   if (giaCancellata || esito?.ok) {
     return <p className="text-sm text-zinc-600">Questa prenotazione è cancellata.</p>;
+  }
+
+  if (messaggioBloccata) {
+    return <p className="text-sm text-zinc-600">{messaggioBloccata}</p>;
   }
 
   if (!confermaRichiesta) {

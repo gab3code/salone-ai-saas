@@ -457,7 +457,9 @@ describe("creaAppuntamentoTenant", () => {
   it("blocca il canale pubblico se il volume di prenotazioni pubbliche recenti per il tenant è troppo alto", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [rispostaTenantPiano("growth")] },
-      appuntamenti: { select: [{ data: null, error: null, count: 8 }] },
+      // 25 = LIMITE_VOLUME_PUBBLICO_PER_FINESTRA (alzato da 8 il 14/09/2026,
+      // vedi commento nel file sorgente sul perché).
+      appuntamenti: { select: [{ data: null, error: null, count: 25 }] },
     });
     const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
       operatoreId: OPERATORE_ID,
@@ -828,7 +830,8 @@ describe("aggiungiListaAttesaTenant", () => {
   // Anti-abuso sul canale pubblico (stesso principio di creaAppuntamentoTenant sopra).
   it("blocca l'iscrizione pubblica se il volume recente di richieste per il tenant è troppo alto", async () => {
     const supabase = creaSupabaseFinto({
-      lista_attesa: { select: [{ data: null, error: null, count: 8 }] },
+      // 25 = LIMITE_VOLUME_PUBBLICO_PER_FINESTRA (alzato da 8 il 14/09/2026).
+      lista_attesa: { select: [{ data: null, error: null, count: 25 }] },
     });
     const risultato = await aggiungiListaAttesaTenant(supabase, TENANT_ID, {
       servizioId: SERVIZIO_ID,

@@ -43,6 +43,23 @@ function oggiYMD(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/**
+ * Campo trappola anti-bot (vedi src/lib/anti-bot.ts): invisibile e
+ * irraggiungibile da tastiera per un visitatore umano, ma trovabile da un
+ * bot che compila tutti gli <input> del DOM. `aria-hidden` + `tabIndex={-1}`
+ * lo saltano anche per chi naviga con screen reader/tastiera.
+ */
+function CampoTrappola({ valore, onChange }: { valore: string; onChange: (v: string) => void }) {
+  return (
+    <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+      <label>
+        Lascia questo campo vuoto
+        <input type="text" tabIndex={-1} autoComplete="off" value={valore} onChange={(e) => onChange(e.target.value)} />
+      </label>
+    </div>
+  );
+}
+
 function formatoOraCivile(iso: string): string {
   // `iso` è un istante "pseudo-UTC" (vedi src/lib/fuso-orario.ts): i campi
   // UTC rappresentano già l'ora civile del salone, quindi si legge con
@@ -79,6 +96,12 @@ export default function FlussoPrenotazione({
   // passava dalla chat AI vedeva solo "prova un altro giorno" e usciva dal
   // sito senza lasciare traccia (domanda diretta di Gabriel il 13/09/2026).
   const [inCodaListaAttesa, setInCodaListaAttesa] = useState(false);
+  // Anti-bot silenzioso (vedi src/lib/anti-bot.ts): `iniziatoAlleMs` è
+  // l'istante di montaggio di questo componente (lazy init: calcolato una
+  // sola volta), `trappola` è il campo invisibile che un cliente vero non
+  // vede e non compila mai.
+  const [iniziatoAlleMs] = useState(() => Date.now());
+  const [trappola, setTrappola] = useState("");
 
   const servizioScelto = useMemo(() => servizi.find((s) => s.id === servizioId) ?? null, [servizi, servizioId]);
   const nomeOperatore = (operatoreId: string) => operatori.find((o) => o.id === operatoreId)?.nome ?? "Operatore";
@@ -135,6 +158,8 @@ export default function FlussoPrenotazione({
         dataPreferitaYMD: dataYMD,
         clienteNome: nome,
         clienteTelefono: telefono,
+        trappola,
+        iniziatoAlleMs,
       });
       if (!risultato.ok) {
         setErrore(risultato.errore);
@@ -160,6 +185,8 @@ export default function FlussoPrenotazione({
         clienteNome: nome,
         clienteTelefono: telefono,
         clienteEmail: email.trim() || undefined,
+        trappola,
+        iniziatoAlleMs,
       };
 
       // Caparra richiesta: si passa da Stripe, l'appuntamento nasce solo a
@@ -282,7 +309,8 @@ export default function FlussoPrenotazione({
             ) : (
               <div className="flex flex-col gap-3">
                 <p className="text-sm text-zinc-600">Nessuna disponibilità in questo giorno, prova un altro giorno.</p>
-                <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                <div className="relative flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                  <CampoTrappola valore={trappola} onChange={setTrappola} />
                   <p className="text-sm text-zinc-700">
                     Oppure iscriviti alla lista d&apos;attesa: se qualcuno cancella, ti contattiamo noi.
                   </p>
@@ -335,12 +363,13 @@ export default function FlussoPrenotazione({
 
       {passo === "contatto" && servizioScelto && slotScelto && (
         <form
-          className="flex flex-col gap-3"
+          className="relative flex flex-col gap-3"
           onSubmit={(e) => {
             e.preventDefault();
             confermaPrenotazione();
           }}
         >
+          <CampoTrappola valore={trappola} onChange={setTrappola} />
           <button type="button" onClick={() => setPasso("slot")} className="self-start text-xs text-zinc-400 underline">
             ← Cambia orario
           </button>

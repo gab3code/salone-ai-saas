@@ -71,6 +71,16 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
    `0015_email_cliente_caparra.sql`~~ **FATTO 13/09/2026** (applicata da me al database reale su
    tuo ok esplicito, verificata in `supabase_migrations.schema_migrations`). Dettaglio completo
    in `.env.example` e Gruppo B-bis punto 1 sotto.
+10. **Applicare la migrazione `0016_finestra_cancellazione.sql`** (nuovo, 14/09/2026, richiesta
+    esplicita: "la cancellazione non deve essere disponibile entro un tot di ore decise dallo
+    staff"): il codice è scritto e verificato (`tsc`/`eslint`/`vitest`/`build` puliti) ma
+    stavolta il classificatore di sicurezza della sandbox ha bloccato anche il MIO tentativo di
+    applicarla con un ok già dato in chat (diverso dalle migrazioni precedenti, dove bastava il
+    tuo sì) -- serve che la esegui tu direttamente dall'SQL Editor di Supabase, il file è pronto
+    così com'è in `supabase/migrations/0016_finestra_cancellazione.sql` (una colonna additiva con
+    default, zero rischio sui dati esistenti). Dopo: impostare le ore minime e il numero di
+    telefono dell'attività in `/dashboard/impostazioni/cancellazione` (vedi Fase 4 per il
+    dettaglio).
 
 ### Gruppo B -- Nuovo codice a priorità alta, trovato nel mega-controllo competitor di oggi
 1. ~~**Deposito/caparra anti-no-show** (Fase 6)~~ **CODICE FATTO 13/09/2026** (vedi Fase 6 e
@@ -185,17 +195,28 @@ per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
 ### Gruppo D -- Prima di pubblicare il link di un salone vero, non prima
 1. ~~**Anti-abuso sulla prenotazione pubblica** (`/s/[slug]`): oggi solo il tetto mensile del piano
    Free protegge da un uso abusivo -- serve almeno un rate-limit per IP o una conferma
-   SMS/WhatsApp del numero prima di bloccare uno slot.~~ **CODICE FATTO 13/09/2026** (chiesto
-   esplicitamente da Gabriel: "altre cose per evitare abusi?"). Aggiunti due controlli in
-   `booking-engine.server.ts`, gate su `creatoDa === "pubblico"` (dashboard e AI non ne hanno
-   bisogno, hanno già le loro difese): 1) anti-burst -- stesso telefono non può ricreare un
-   appuntamento pubblico per lo stesso tenant a meno di 20 secondi dal precedente; 2) tetto di
-   volume -- non più di 8 scritture pubbliche (appuntamenti O lista d'attesa) per tenant ogni 10
-   minuti, a prescindere dal telefono usato (blocca uno script che ruota numeri finti). Zero nuove
-   tabelle/migrazioni: legge `created_at`/`creato_da`, colonne già esistenti. Fail-open come tutto
-   il resto del booking engine. Resta valido il punto più specifico -- una vera conferma SMS/
-   WhatsApp del numero -- ma richiederebbe un provider SMS a pagamento (nessuno integrato oggi),
-   quindi non incluso qui.
+   SMS/WhatsApp del numero prima di bloccare uno slot.~~ **CODICE FATTO 13/09/2026, RIVISTO
+   14/09/2026** (chiesto esplicitamente da Gabriel: "altre cose per evitare abusi?", poi lui
+   stesso il 14/09 ha segnalato giustamente che il tetto di volume "può causare problemi").
+   Tre livelli, dal più economico al più drastico, controllati in quest'ordine:
+   1) **campo trappola + tempo minimo di compilazione** (`src/lib/anti-bot.ts`, nuovo il
+   14/09/2026): un campo invisibile che un cliente vero non vede mai ma un bot che compila tutti
+   gli `<input>` del DOM riempie comunque (tecnica "honeypot", zero CAPTCHA), più un controllo sul
+   tempo trascorso dal caricamento della pagina (un umano che ha già scelto servizio/giorno/slot
+   non può mai confermare in meno di 3 secondi da lì, un bot che chiama la server action
+   direttamente sì). **Zero rischio di falso positivo su un cliente vero** -- è la ragione della
+   revisione: il vecchio tetto di volume da solo rischiava di bloccare clienti VERI durante un
+   picco di richieste legittime (es. dopo un post social), esattamente il momento in cui un
+   salone ha più bisogno che le prenotazioni arrivino, non meno; 2) **anti-burst per telefono**
+   (stesso numero, stesso tenant, non due volte a meno di 20 secondi); 3) **tetto di volume per
+   tenant**, alzato da 8 a 25 scritture pubbliche ogni 10 minuti proprio perché i livelli 1-2 già
+   fermano la maggior parte dei bot senza rischio, quindi questo resta solo l'ultima rete di
+   sicurezza contro un attacco vero, non deve essere lui a bloccare un salone impegnato. Zero
+   nuove tabelle/migrazioni. Fail-open come tutto il resto del booking engine (un valore
+   `iniziatoAlleMs` assente non blocca mai). Resta valido il punto più specifico -- una vera
+   conferma SMS/WhatsApp del numero -- ma richiederebbe un provider SMS a pagamento (nessuno
+   integrato oggi), quindi non incluso qui. 9 nuovi test (`anti-bot.test.ts`), `tsc`/`eslint`/
+   `vitest`/`build` puliti.
 2. **Pagine legali** (privacy/termini/cookie): gap reale, mai tracciato come task da nessuna
    parte prima di oggi (solo menzionato in `docs/analisi-estetia.md`) -- il progetto non ne ha
    nessuna. Ogni concorrente verificato le ha.
@@ -554,6 +575,23 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       questa sandbox sono bloccate, limite già noto per altri strumenti, diverso da un bug reale).
       **Serve un click reale di Gabriel su un link vero** ricevuto per email per la conferma
       finale end-to-end.
+      **Aggiunta 14/09/2026, richiesta esplicita di Gabriel**: la cancellazione online ora rispetta
+      una finestra minima decisa dal titolare (`tenants.ore_minime_cancellazione`, migrazione
+      `0016_finestra_cancellazione.sql`, default 24h, 0 = nessun limite) -- sotto quella soglia il
+      link mostra il numero di telefono dell'attività invece del bottone, con l'invito a chiamare.
+      Regola pura e testata in `src/lib/finestra-cancellazione.ts` (5+3 test), applicata sia come
+      controllo autorevole in `gestisci/[id]/azioni.ts` sia in anteprima in `page.tsx` (per
+      nascondere subito il bottone, stesso principio del doppio controllo già usato altrove --
+      un link riaperto da cache non deve mai bypassare la regola vera). Configurabile da una
+      nuova pagina `/dashboard/impostazioni/cancellazione`, che salva anche il numero di telefono
+      dell'attività: girando il codice è emerso che `tenants.telefono` (colonna già esistente,
+      usata sulla pagina pubblica) non aveva NESSUNA pagina delle impostazioni da cui modificarlo
+      -- gap onestamente segnalato e sistemato nello stesso giro, era il punto più naturale visto
+      che è esattamente il numero che serve perché questa funzionalità sia utile. **Migrazione
+      NON ancora applicata al database reale** -- stavolta bloccata dal classificatore di
+      sicurezza della sandbox anche con l'ok di Gabriel già dato in chat (vedi Gruppo A punto 10):
+      serve che la esegua lui dall'SQL Editor di Supabase. `tsc`/`eslint`/`vitest` (193/193, +15
+      da questo giro)/`build` puliti.
 
 ## Fase 5 -- Billing self-service e admin panel (punti 6, 7, 23, 24)
 - [x] Piani Free -> Enterprise progettati (non copiati), prezzi e posizionamento AI decisi

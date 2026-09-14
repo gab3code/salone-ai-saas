@@ -1,0 +1,12 @@
+-- Finestra minima di cancellazione online (richiesta esplicita di Gabriel,
+-- 14/09/2026): ogni titolare decide, da /dashboard/impostazioni/cancellazione,
+-- quante ore prima dell'appuntamento un cliente può ancora cancellare da solo
+-- dal link "gestisci la tua prenotazione" ricevuto via email. Sotto quella
+-- soglia il link mostra invece il numero dell'attività (tenants.telefono,
+-- già esistente) e chiede di chiamare.
+--
+-- Default 24 ore: valore di partenza prudente e comune nel settore
+-- (Calendly/Fresha usano finestre simili), modificabile in ogni momento dal
+-- titolare. 0 = nessun limite, comportamento identico a prima di questa
+-- migrazione (cancellazione online sempre permessa fino all'ultimo).
+alter table tenants add column ore_minime_cancellazione integer not null default 24;
