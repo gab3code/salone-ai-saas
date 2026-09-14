@@ -31,12 +31,16 @@ nei documenti citati; questa è la vista d'insieme che risponde a "cosa dobbiamo
    istruzioni per `git pull`+`git push` dal tuo Mac.
 2. **Deploy Vercel** del codice sopra una volta pushato (automatico ad ogni push su `main`, già
    collegato).
-3. **Provare dal vivo `/s/[slug]`** (pagina pubblica del salone) con un salone di test: cercare
-   slot, prenotare, parlare con il widget chat AI -- scritta e testata in automatico, mai aperta
-   in un browser reale.
+3. ~~**Provare dal vivo `/s/[slug]`** (pagina pubblica del salone) con un salone di test: cercare
+   slot, prenotare, parlare con il widget chat AI.~~ **FATTO 14/09/2026** (confermato da Gabriel
+   in un browser vero, non solo scritto/testato in automatico). Confermato nello stesso giro anche
+   il click reale sul link "gestisci la tua prenotazione" ricevuto per email (vedi Fase 4 --
+   chiudeva il limite di verifica onestamente segnalato lì, la sandbox non può raggiungere
+   Supabase direttamente per questo test).
 4. **Provare un pagamento di test reale su Stripe Checkout** + configurare il webhook lato
    Stripe Dashboard (serve un dominio pubblico, quindi va fatto dopo il deploy) -- il codice è
-   scritto e testato, mai verificato con un pagamento vero.
+   scritto e testato, mai verificato con un pagamento vero. **Unico punto rimasto aperto** del
+   giro di test dal vivo del 14/09/2026 (tutto il resto di quel giro è confermato funzionante).
 5. **Aggiungerti come "utente di test"** nella schermata di consenso OAuth Google (Google Cloud
    Console), poi provare "Collega Google" dal vivo in `/dashboard/impostazioni/calendari`.
 6. **Decidere cosa fare di Apple/iCloud Calendar**: non risolvibile da un hosting cloud standard
@@ -569,8 +573,8 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       appuntamento di test vero) -- ma un `curl` alla pagina vera dal server dev locale di questa
       sandbox fallisce con "Host not in allowlist" (le chiamate dirette a Supabase dalla rete di
       questa sandbox sono bloccate, limite già noto per altri strumenti, diverso da un bug reale).
-      **Serve un click reale di Gabriel su un link vero** ricevuto per email per la conferma
-      finale end-to-end.
+      **Confermato da Gabriel il 14/09/2026**: click reale sul link ricevuto per email, verificato
+      funzionante end-to-end in un browser vero. Chiuso il limite di verifica sopra.
       **Aggiunta 14/09/2026, richiesta esplicita di Gabriel**: la cancellazione online ora rispetta
       una finestra minima decisa dal titolare (`tenants.ore_minime_cancellazione`, migrazione
       `0016_finestra_cancellazione.sql`, default 24h, 0 = nessun limite) -- sotto quella soglia il

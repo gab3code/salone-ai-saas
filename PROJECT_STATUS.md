@@ -35,6 +35,13 @@ contro un attacco vero, non deve più essere lui a bloccare un salone impegnato.
 Verificato: `tsc --noEmit` pulito, `eslint` pulito, `npx vitest run` **193/193** (era 178, +15 da
 questo giro), `next build` pulito (nuova rotta `/dashboard/impostazioni/cancellazione` compilata).
 
+**Aggiunta stesso giorno**: Gabriel ha confermato dal vivo, in un browser vero (non solo scritto e
+testato in automatico), tutto il flusso pubblico -- ricerca slot e prenotazione su `/s/[slug]`,
+chat AI, e il click reale sul link "gestisci la tua prenotazione" ricevuto per email (chiude il
+limite di verifica end-to-end segnalato al giro precedente, bloccato solo dalla rete della
+sandbox). **Resta aperto solo il pagamento di test reale su Stripe** (Gruppo A punto 4 di
+PIANO.md) -- unico punto del giro di test dal vivo non ancora confermato.
+
 Aggiornamento precedente, 13/09/2026, ventiduesimo giro -- Gabriel ha chiesto se attivare il CAPTCHA
 ora avesse senso, temendo interferisse coi miei test via Chrome: risposta sì, rischio reale
 (Turnstile è pensato apposta per riconoscere un browser automatizzato), consigliato di rimandarlo
