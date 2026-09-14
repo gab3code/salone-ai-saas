@@ -30,6 +30,17 @@ import { LiquidMetal } from "./LiquidMetal";
  *    (richiesta di Gabriel: "metti la prova gratuita solo sul piano
  *    growth") -- coerente con `giorniDiProva` in src/lib/stripe/piani.ts,
  *    aggiornato allo stesso modo.
+ *
+ * Aggiornamento 14/09/2026 (Fase 5+SMS) -- il prezzo di Pro non è più fisso:
+ * 69,90€/mese includono 1 operatore, ognuno oltre il primo costa 20€/mese in
+ * più (deciso con Gabriel dopo aver introdotto l'SMS come canale di
+ * fallback -- il costo Skebby reale scala con quanti appuntamenti/promemoria
+ * un salone genera, che scala a sua volta con gli operatori, vedi
+ * DECISIONS.md e priceIdOperatoreExtraPro in stripe/piani.ts). `notaPrezzo`
+ * sotto rende esplicita questa condizione, altrimenti "€69,90/mese" letto da
+ * solo sarebbe una promessa scritta diversa da quella che il checkout
+ * applica davvero (stesso principio del controllo promesse del sito del
+ * 13/09/2026 che ha portato a `limiteOperatori`/`pianoHaAnalytics`/ecc.).
  */
 const PIANI = [
   {
@@ -70,6 +81,11 @@ const PIANI = [
     descrizione: "Anche su WhatsApp.",
     voci: ["Tutto di Growth", "Assistente AI su WhatsApp", "SMS", "Tono dell'AI personalizzabile"],
     consigliato: false,
+    // Vedi il commento sopra PIANI (aggiornamento 14/09/2026): il prezzo
+    // include 1 operatore, non è più tutto compreso a prescindere da quanti
+    // ce ne sono, come invece resta per Starter/Growth ("operatori
+    // illimitati").
+    notaPrezzo: "1 operatore incluso, +20€/mese ciascuno in più",
   },
   {
     nome: "Enterprise",
@@ -272,6 +288,9 @@ export function Prezzi() {
               <p className={`mt-1 text-xs ${p.consigliato ? "text-white/50" : "text-white/40"}`}>{p.descrizione}</p>
               {"trial" in p && p.trial && (
                 <p className="mt-1 text-xs font-medium text-emerald-400">10 giorni di prova, poi si paga</p>
+              )}
+              {"notaPrezzo" in p && p.notaPrezzo && (
+                <p className={`mt-1 text-xs ${p.consigliato ? "text-white/50" : "text-white/40"}`}>{p.notaPrezzo}</p>
               )}
 
               <ul className="mt-4 flex flex-1 flex-col gap-2 text-sm">

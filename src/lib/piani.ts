@@ -72,3 +72,46 @@ export const PIANI_CON_PROMEMORIA = new Set(["growth", "pro", "enterprise"]);
 export function pianoHaPromemoria(piano: string): boolean {
   return PIANI_CON_PROMEMORIA.has(piano);
 }
+
+/**
+ * Gate di piano per SMS (Fase 5+SMS, deciso con Gabriel il 14/09/2026 --
+ * vedi DECISIONS.md per il ragionamento completo su costi e prezzo per
+ * operatore): `Prezzi.tsx` elenca "SMS" tra le voci di Pro. Usato SOLO come
+ * canale di fallback quando un cliente non ha lasciato un'email (mai in
+ * aggiunta all'email -- vedi src/lib/sms/invio.server.ts), sia per la
+ * conferma di una nuova prenotazione (notifiche.server.ts) sia per i
+ * Promemoria automatici (promemoria.ts/promemoria.server.ts). A differenza
+ * degli altri gate booleani qui sopra, l'SMS costa soldi VERI per messaggio
+ * (Skebby, vedi src/lib/sms/skebby.server.ts) -- da qui il tetto mensile
+ * sotto, che gli altri canali (email, AI chat con un modello economico) non
+ * hanno bisogno di avere.
+ */
+export const PIANI_CON_SMS = new Set(["pro", "enterprise"]);
+
+export function pianoHaSms(piano: string): boolean {
+  return PIANI_CON_SMS.has(piano);
+}
+
+/**
+ * Tetto SMS mensile per tenant, proporzionale al numero di operatori
+ * (deciso con Gabriel il 14/09/2026, DOPO aver corretto una prima stima
+ * fissa troppo bassa -- 100 SMS/mese in totale non regge un salone Pro
+ * davvero attivo, che ha prenotazioni illimitate: vedi DECISIONS.md per il
+ * confronto costi Skebby/Twilio/WhatsApp e per come si è arrivati alla
+ * scelta "69,90€ include 1 operatore, +20€/mese ciascuno oltre il primo" in
+ * priceIdOperatoreExtraPro, stripe/piani.ts). Un salone con più operatori
+ * gestisce più appuntamenti e quindi manda più SMS a chi non ha lasciato
+ * un'email, e paga già di più su Stripe per quegli operatori extra --
+ * scalare anche la quota SMS con lo stesso numero mantiene il margine per
+ * operatore costante invece di restringersi man mano che un salone cresce.
+ * 100 SMS/operatore/mese è una prima stima prudente, non un numero
+ * definitivo -- una riga sola da cambiare se il volume reale (oggi zero,
+ * nessun cliente Pro reale ancora) si rivela diverso, stesso spirito già
+ * dichiarato per QUOTA_MENSILE_MESSAGGI_PER_PIANO in ai/limiti.ts.
+ */
+const SMS_MENSILI_PER_OPERATORE = 100;
+
+export function limiteMensileSms(piano: string, numeroOperatori: number): number {
+  if (!pianoHaSms(piano)) return 0;
+  return SMS_MENSILI_PER_OPERATORE * Math.max(1, numeroOperatori);
+}

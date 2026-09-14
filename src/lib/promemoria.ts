@@ -1,4 +1,4 @@
-import { pianoHaPromemoria } from "@/lib/piani";
+import { pianoHaPromemoria, pianoHaSms } from "@/lib/piani";
 
 /**
  * Logica pura del motore di "Promemoria automatici" (Fase 6, trovato nel
@@ -53,6 +53,11 @@ export interface AppuntamentoPerPromemoria {
   inizio: Date;
   stato: string; // confermato | cancellato | completato | no_show
   clienteEmail: string | null;
+  /** Canale di fallback quando il cliente non ha lasciato un'email (SMS su
+   * Pro/Enterprise, vedi pianoHaSms in piani.ts) -- MAI usato in aggiunta
+   * all'email, solo in sua sostituzione: un cliente con email riceve
+   * sempre e solo l'email. */
+  clienteTelefono: string | null;
   tenantPiano: string;
   /** Id delle regole (RegolaPromemoria.id) già inviate per QUESTO appuntamento -- una per ognuna
    * delle eventuali più regole attive sul tenant, non un singolo booleano. */
@@ -62,11 +67,15 @@ export interface AppuntamentoPerPromemoria {
 /**
  * Appuntamenti a cui mandare il reminder di UNA specifica regola ORA:
  * confermati, sul piano giusto, nella finestra di preavviso di quella
- * regola, con un'email del cliente da usare, e quella regola specifica non
- * ancora inviata per quell'appuntamento (tabella
- * `promemoria_appuntamento_inviati`, migrazione 0017 -- evita di rimandare
- * la stessa email a ogni giro del cron, e permette a più regole di
- * scattare indipendentemente per lo stesso appuntamento).
+ * regola, con un modo di contattare il cliente (email, o telefono SOLO se
+ * il piano include l'SMS -- deciso con Gabriel il 14/09/2026, vedi
+ * DECISIONS.md: l'SMS costa soldi veri, quindi anche qui, come per
+ * pianoHaPromemoria, si ricontrolla il piano invece di fidarsi che il
+ * chiamante l'abbia già fatto), e quella regola specifica non ancora
+ * inviata per quell'appuntamento (tabella `promemoria_appuntamento_inviati`,
+ * migrazione 0017 -- evita di rimandare lo stesso avviso a ogni giro del
+ * cron, e permette a più regole di scattare indipendentemente per lo stesso
+ * appuntamento).
  */
 export function appuntamentiDaAvvisarePerRegola(
   righe: AppuntamentoPerPromemoria[],
@@ -80,7 +89,7 @@ export function appuntamentiDaAvvisarePerRegola(
     (r) =>
       r.stato === "confermato" &&
       pianoHaPromemoria(r.tenantPiano) &&
-      !!r.clienteEmail &&
+      (!!r.clienteEmail || (!!r.clienteTelefono && pianoHaSms(r.tenantPiano))) &&
       !r.regoleGiaInviate.has(regola.id) &&
       r.inizio >= inizioFinestra &&
       r.inizio < fineFinestra
@@ -90,6 +99,9 @@ export function appuntamentiDaAvvisarePerRegola(
 export interface ClientePerPromemoriaInattivita {
   id: string;
   email: string | null;
+  /** Stesso fallback SMS del reminder pre-appuntamento sopra -- vedi il
+   * docblock di AppuntamentoPerPromemoria.clienteTelefono. */
+  telefono: string | null;
   tenantPiano: string;
   promemoriaInattivitaInviatoAt: Date | null;
 }
@@ -99,11 +111,13 @@ export interface ClientePerPromemoriaInattivita {
  * "inattivo da 60 giorni" già calcolato da `elencaClientiInattivi`
  * (src/lib/metriche.ts -- stessa identica definizione di "inattivo" usata
  * dalla card in dashboard e dal filtro `/dashboard/clienti?filtro=inattivi`,
- * non una seconda regola scritta qui), sul piano giusto, con un'email da
- * usare, e non avvisato negli ultimi `GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA`
- * giorni. A differenza del reminder pre-appuntamento sopra, questo NON è
- * configurabile in numero/distanza (Gabriel non l'ha chiesto: "quanto tempo
- * prima" non ha senso per un'inattività, è un asse diverso).
+ * non una seconda regola scritta qui), sul piano giusto, con un modo di
+ * contattarlo (email, o telefono solo se il piano include l'SMS -- stesso
+ * principio del reminder pre-appuntamento sopra), e non avvisato negli
+ * ultimi `GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA` giorni. A differenza del
+ * reminder pre-appuntamento sopra, questo NON è configurabile in
+ * numero/distanza (Gabriel non l'ha chiesto: "quanto tempo prima" non ha
+ * senso per un'inattività, è un asse diverso).
  */
 export function clientiDaAvvisarePerInattivita(
   clienti: ClientePerPromemoriaInattivita[],
@@ -118,7 +132,7 @@ export function clientiDaAvvisarePerInattivita(
     (c) =>
       clientiInattivi.has(c.id) &&
       pianoHaPromemoria(c.tenantPiano) &&
-      !!c.email &&
+      (!!c.email || (!!c.telefono && pianoHaSms(c.tenantPiano))) &&
       (c.promemoriaInattivitaInviatoAt === null || c.promemoriaInattivitaInviatoAt < sogliaRipetizione)
   );
 }

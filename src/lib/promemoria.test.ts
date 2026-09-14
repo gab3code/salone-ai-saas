@@ -20,6 +20,7 @@ function appuntamento(overrides: Partial<AppuntamentoPerPromemoria>): Appuntamen
     inizio: new Date(ADESSO.getTime() + 30 * ORA), // dentro la finestra 24-48h della regola di default
     stato: "confermato",
     clienteEmail: "cliente@example.com",
+    clienteTelefono: null,
     tenantPiano: "growth",
     regoleGiaInviate: new Set(),
     ...overrides,
@@ -87,7 +88,7 @@ describe("appuntamentiDaAvvisarePerRegola", () => {
     expect(risultato.map((r) => r.id)).toEqual(["app-1"]);
   });
 
-  it("esclude un cliente senza email -- non c'è dove mandare il promemoria", () => {
+  it("esclude un cliente senza email e senza telefono -- non c'è dove mandare il promemoria", () => {
     const risultato = appuntamentiDaAvvisarePerRegola([appuntamento({ clienteEmail: null })], REGOLA_24H, ADESSO);
     expect(risultato).toEqual([]);
   });
@@ -96,12 +97,31 @@ describe("appuntamentiDaAvvisarePerRegola", () => {
     const risultato = appuntamentiDaAvvisarePerRegola([appuntamento({ tenantPiano: "starter" })], REGOLA_24H, ADESSO);
     expect(risultato).toEqual([]);
   });
+
+  it("include un cliente senza email ma con telefono su un piano con SMS (Pro)", () => {
+    const risultato = appuntamentiDaAvvisarePerRegola(
+      [appuntamento({ clienteEmail: null, clienteTelefono: "+393331234567", tenantPiano: "pro" })],
+      REGOLA_24H,
+      ADESSO
+    );
+    expect(risultato.map((r) => r.id)).toEqual(["app-1"]);
+  });
+
+  it("esclude un cliente senza email ma con telefono su un piano SENZA SMS (Growth) -- l'SMS costa, non è incluso ovunque abbia i Promemoria", () => {
+    const risultato = appuntamentiDaAvvisarePerRegola(
+      [appuntamento({ clienteEmail: null, clienteTelefono: "+393331234567", tenantPiano: "growth" })],
+      REGOLA_24H,
+      ADESSO
+    );
+    expect(risultato).toEqual([]);
+  });
 });
 
 function cliente(overrides: Partial<ClientePerPromemoriaInattivita>): ClientePerPromemoriaInattivita {
   return {
     id: "cliente-1",
     email: "cliente@example.com",
+    telefono: null,
     tenantPiano: "growth",
     promemoriaInattivitaInviatoAt: null,
     ...overrides,
@@ -119,8 +139,26 @@ describe("clientiDaAvvisarePerInattivita", () => {
     expect(risultato).toEqual([]);
   });
 
-  it("esclude un cliente senza email", () => {
+  it("esclude un cliente senza email e senza telefono", () => {
     const risultato = clientiDaAvvisarePerInattivita([cliente({ email: null })], new Set(["cliente-1"]), ADESSO);
+    expect(risultato).toEqual([]);
+  });
+
+  it("include un cliente senza email ma con telefono su un piano con SMS (Pro)", () => {
+    const risultato = clientiDaAvvisarePerInattivita(
+      [cliente({ email: null, telefono: "+393331234567", tenantPiano: "pro" })],
+      new Set(["cliente-1"]),
+      ADESSO
+    );
+    expect(risultato.map((r) => r.id)).toEqual(["cliente-1"]);
+  });
+
+  it("esclude un cliente senza email ma con telefono su un piano SENZA SMS (Growth)", () => {
+    const risultato = clientiDaAvvisarePerInattivita(
+      [cliente({ email: null, telefono: "+393331234567", tenantPiano: "growth" })],
+      new Set(["cliente-1"]),
+      ADESSO
+    );
     expect(risultato).toEqual([]);
   });
 

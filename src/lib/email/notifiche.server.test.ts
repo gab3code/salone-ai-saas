@@ -3,23 +3,26 @@ import { creaSupabaseFinto } from "@/test/supabase-finto";
 
 vi.mock("@/lib/supabase/admin", () => ({ creaClientAdmin: vi.fn() }));
 vi.mock("./mailjet.server", () => ({ inviaEmail: vi.fn().mockResolvedValue(true) }));
+vi.mock("@/lib/sms/invio.server", () => ({ inviaSmsSeInclusoNelPiano: vi.fn().mockResolvedValue(true) }));
 
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { inviaEmail } from "./mailjet.server";
+import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
 import { inviaNotificheNuovoAppuntamento } from "./notifiche.server";
 
 const creaClientAdminFinto = vi.mocked(creaClientAdmin);
 const inviaEmailFinto = vi.mocked(inviaEmail);
+const inviaSmsFinto = vi.mocked(inviaSmsSeInclusoNelPiano);
 
 const TENANT_ID = "tenant-1";
 const APPUNTAMENTO_ID = "app-1";
 const RIGA_APPUNTAMENTO_BASE = {
   inizio: "2026-07-15T14:00:00.000Z", // 16:00 civile Roma (CEST, UTC+2)
   note: null,
-  clienti: { nome: "Giulia Bianchi", email: null as string | null },
+  clienti: { nome: "Giulia Bianchi", email: null as string | null, telefono: "+393331234567" as string | null },
   servizi: { nome: "Taglio" },
   operatori: { nome: "Marco" },
-  tenants: { nome: "Salone Test" },
+  tenants: { nome: "Salone Test", piano: "pro" },
 };
 
 /**
@@ -61,8 +64,12 @@ describe("inviaNotificheNuovoAppuntamento", () => {
   beforeEach(() => {
     process.env.MJ_APIKEY_PUBLIC = "chiave-pubblica-test";
     process.env.MJ_APIKEY_PRIVATE = "chiave-privata-test";
+    delete process.env.SKEBBY_EMAIL;
+    delete process.env.SKEBBY_PASSWORD;
     inviaEmailFinto.mockClear();
     inviaEmailFinto.mockResolvedValue(true);
+    inviaSmsFinto.mockClear();
+    inviaSmsFinto.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -70,12 +77,25 @@ describe("inviaNotificheNuovoAppuntamento", () => {
     vi.clearAllMocks();
   });
 
-  it("senza le chiavi Mailjet non interroga nemmeno il database: nessuna latenza aggiunta a una prenotazione se Gabriel non ha ancora configurato Mailjet", async () => {
+  it("senza le chiavi Mailjet NÉ Skebby non interroga nemmeno il database: nessuna latenza aggiunta a una prenotazione se Gabriel non ha ancora configurato nessuno dei due canali", async () => {
     delete process.env.MJ_APIKEY_PUBLIC;
     delete process.env.MJ_APIKEY_PRIVATE;
     await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
     expect(creaClientAdminFinto).not.toHaveBeenCalled();
     expect(inviaEmailFinto).not.toHaveBeenCalled();
+    expect(inviaSmsFinto).not.toHaveBeenCalled();
+  });
+
+  it("senza le chiavi Mailjet ma CON Skebby configurato, interroga comunque il database (il cliente potrebbe non avere email)", async () => {
+    delete process.env.MJ_APIKEY_PUBLIC;
+    delete process.env.MJ_APIKEY_PRIVATE;
+    process.env.SKEBBY_EMAIL = "gabriel@esempio.it";
+    process.env.SKEBBY_PASSWORD = "segreta";
+    creaClientAdminFinto.mockReturnValue(creaAdminFinto({}));
+
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
+
+    expect(creaClientAdminFinto).toHaveBeenCalled();
   });
 
   it("invia sempre l'email al titolare, anche se il cliente non ha lasciato un'email", async () => {
@@ -89,9 +109,35 @@ describe("inviaNotificheNuovoAppuntamento", () => {
     );
   });
 
+  it("manda un SMS al cliente (piano Pro) quando non ha lasciato un'email ma ha un telefono -- MAI email e SMS insieme", async () => {
+    creaClientAdminFinto.mockReturnValue(creaAdminFinto({}));
+
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
+
+    expect(inviaEmailFinto).toHaveBeenCalledTimes(1); // solo il titolare, mai il cliente
+    expect(inviaSmsFinto).toHaveBeenCalledTimes(1);
+    expect(inviaSmsFinto).toHaveBeenCalledWith(
+      expect.anything(),
+      TENANT_ID,
+      "pro",
+      "+393331234567",
+      expect.stringContaining("Taglio")
+    );
+  });
+
+  it("non manda l'SMS se il cliente non ha né email né telefono", async () => {
+    creaClientAdminFinto.mockReturnValue(
+      creaAdminFinto({ appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: null, telefono: null } } })
+    );
+
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
+
+    expect(inviaSmsFinto).not.toHaveBeenCalled();
+  });
+
   it("invia anche l'email di conferma al cliente quando ha lasciato un indirizzo", async () => {
     creaClientAdminFinto.mockReturnValue(
-      creaAdminFinto({ appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it" } } })
+      creaAdminFinto({ appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it", telefono: null } } })
     );
 
     await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
@@ -104,7 +150,7 @@ describe("inviaNotificheNuovoAppuntamento", () => {
   it("fail-open: se non esiste nessun profilo owner per il tenant, salta solo l'email del titolare (il cliente la riceve comunque)", async () => {
     creaClientAdminFinto.mockReturnValue(
       creaAdminFinto({
-        appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it" } },
+        appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it", telefono: null } },
         profiloOwner: null,
       })
     );
@@ -125,7 +171,7 @@ describe("inviaNotificheNuovoAppuntamento", () => {
   it("include il link 'gestisci la tua prenotazione' nell'email al cliente quando NEXT_PUBLIC_SITE_URL è definita", async () => {
     process.env.NEXT_PUBLIC_SITE_URL = "https://saloneai.esempio.it";
     creaClientAdminFinto.mockReturnValue(
-      creaAdminFinto({ appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it" } } })
+      creaAdminFinto({ appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it", telefono: null } } })
     );
 
     await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
@@ -141,7 +187,7 @@ describe("inviaNotificheNuovoAppuntamento", () => {
   it("omette il link 'gestisci' senza rompere l'invio se l'URL base non è determinabile (fuori da NEXT_PUBLIC_SITE_URL e da un contesto richiesta)", async () => {
     delete process.env.NEXT_PUBLIC_SITE_URL;
     creaClientAdminFinto.mockReturnValue(
-      creaAdminFinto({ appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it" } } })
+      creaAdminFinto({ appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it", telefono: null } } })
     );
 
     await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);

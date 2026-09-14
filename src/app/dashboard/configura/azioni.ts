@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { limiteOperatori } from "@/lib/piani";
+import { sincronizzaQuantitaOperatoriStripe } from "@/lib/stripe/operatori.server";
 
 const GIORNI = [0, 1, 2, 3, 4, 5, 6] as const;
 
@@ -78,14 +79,24 @@ export async function creaOperatore(formData: FormData) {
   const { error } = await supabase.from("operatori").insert({ tenant_id: tenantId, nome });
   if (error) return { errore: `Errore creando l'operatore: ${error.message}` };
 
+  // Su Pro il prezzo scala con gli operatori (69,90€ include il primo, poi
+  // 20€/mese ciascuno, vedi priceIdOperatoreExtraPro in stripe/piani.ts) --
+  // DOPO che la scrittura sopra è già andata a buon fine, mai prima (fail-open,
+  // vedi il docblock della funzione).
+  await sincronizzaQuantitaOperatoriStripe(supabase, tenantId);
+
   revalidatePath("/dashboard/configura");
   return { ok: true };
 }
 
 export async function eliminaOperatore(id: string) {
   const supabase = await creaClientServer();
+  const tenantId = await ottieniTenantCorrente(supabase);
   const { error } = await supabase.from("operatori").delete().eq("id", id);
   if (error) return { errore: `Errore eliminando l'operatore: ${error.message}` };
+
+  if (tenantId) await sincronizzaQuantitaOperatoriStripe(supabase, tenantId);
+
   revalidatePath("/dashboard/configura");
   return { ok: true };
 }

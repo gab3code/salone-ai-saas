@@ -1,6 +1,51 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 14/09/2026, trentunesimo giro -- verificato dal vivo, per la prima volta in
+Ultimo aggiornamento: 14/09/2026, trentaduesimo giro -- costruito da zero l'SMS come canale di
+fallback sul piano Pro (mai in aggiunta all'email, solo in sua sostituzione quando il cliente non
+ha lasciato un indirizzo), insieme al prezzo per operatore su Pro che Gabriel ha chiesto di
+affrontare nella stessa conversazione. Vedi DECISIONS.md ("SMS su Pro...") per il ragionamento
+completo su costi/quota/provider, incluso un errore mio corretto da Gabriel lungo la strada
+(quota SMS inizialmente troppo bassa, ricalcata da un pattern pensato per un costo marginale
+quasi zero che non si applica all'SMS) e una falsa pista scartata (WhatsApp non è gratis per un
+promemoria avviato dal salone, verificato prima di procedere).
+
+**Prezzo per operatore su Pro**: 69,90€/mese includono 1 operatore, +20€/mese ciascuno oltre il
+primo -- un secondo Price Stripe dedicato ("Pro - Operatore extra",
+`price_1UFYAXCTPsGON8WAVPINXkXj` in TEST), aggiunto automaticamente al checkout iniziale
+(`/api/stripe/checkout`) e tenuto sincronizzato quando gli operatori cambiano dopo l'attivazione
+(`src/lib/stripe/operatori.server.ts`, chiamata da `creaOperatore`/`eliminaOperatore`, fail-open:
+un problema di fatturazione non blocca mai la creazione/eliminazione di un operatore vero, con
+proration su Stripe). Corretto anche un bug potenziale prima che accadesse mai in produzione:
+`sincronizzaAbbonamento` leggeva solo il primo line item per riconoscere il piano -- con 2 item
+su Pro, Stripe non garantisce che il Price base sia il primo dell'array. Ora cerca in tutti gli
+item quello riconosciuto.
+
+**SMS**: provider **Skebby** (scelto sopra Twilio -- prezzo comparabile o migliore, nessun canone
+mensile per un numero dedicato, fatturazione EUR, API REST semplice). Nuovo modulo
+`src/lib/sms/` (`skebby.server.ts` per l'integrazione REST fail-open, `limiti.server.ts` +
+`invio.server.ts` per il punto di ingresso unico `inviaSmsSeInclusoNelPiano` che centralizza gate
+di piano/tetto mensile/tracciamento). Tetto: 100 SMS/operatore/mese (`limiteMensileSms` in
+`piani.ts`, `PIANI_CON_SMS`/`pianoHaSms` per pro+enterprise), tracciato nella nuova tabella
+`sms_inviati` (migrazione applicata al DB reale). Cablato come fallback sia nella conferma di
+nuova prenotazione (`notifiche.server.ts`) sia in ENTRAMBI i Promemoria automatici (reminder
+pre-appuntamento e follow-up clienti inattivi, `promemoria.ts`/`.server.ts` -- la logica pura
+ricontrolla `pianoHaSms` invece di fidarsi che il chiamante l'abbia già filtrato).
+
+Env var `STRIPE_PRICE_PRO_OPERATORE_EXTRA` aggiunta su Vercel (Production) e migrazione
+`sms_inviati` applicata al progetto Supabase reale (`weeaggiqovnmtovdjzxy`) direttamente da
+Claude, con accesso concesso da Gabriel al proprio browser Chrome autenticato (Stripe/Vercel) e
+ai tool MCP Supabase -- prima volta in questo progetto che Claude ha operato direttamente su
+Stripe/Vercel invece di dare istruzioni manuali a Gabriel.
+
+**Ancora da fare, non bloccante**: Gabriel deve creare un account Skebby e fornire
+`SKEBBY_EMAIL`/`SKEBBY_PASSWORD` prima che un SMS possa davvero partire (fail-open nel frattempo).
+
+`npx vitest run` (242/242, tutti verdi -- 26 test nuovi/modificati rispetto al giro precedente),
+`tsc --noEmit`, `eslint`, `npm run build` tutti puliti (gli errori eslint residui in componenti
+landing preesistenti -- `StreamText.tsx`, `ApprovalCard.tsx`, `Flowchart.tsx`, `PromptBar.tsx`,
+`RecordsTable.tsx` -- e un warning in `metriche.ts` non sono stati toccati in questo giro).
+
+Aggiornamento precedente, 14/09/2026, trentunesimo giro -- verificato dal vivo, per la prima volta in
 un browser reale contro il deploy vero (`salone-ai-saas.vercel.app`, tenant di test "Salone Test
 Fase1", piano growth), l'intero flusso della pagina pubblica per-salone (`/s/[slug]`): ricerca
 slot, prenotazione, pagina "gestisci/cancella", widget chat AI. Scelto da Gabriel tra le opzioni
@@ -1935,9 +1980,13 @@ l'11/09/2026 via MCP diretto).
   ingresso (form manuale in `/dashboard/lista-attesa` + nuovo strumento AI
   `aggiungi_lista_attesa` quando `verifica_disponibilita` non trova nulla), banner immediato in
   `/dashboard/calendario` dopo una cancellazione con match. **Notifica al cliente NON
-  automatica** (nessun provider email/SMS nel progetto oggi, vedi "Gruppo B-bis" punto 1 in
-  PIANO.md): il titolare vede la riga "proposto" e contatta a mano -- limite onestamente
-  segnalato, non un difetto nascosto. 11 test nuovi, `tsc`/`eslint`/`vitest`
+  automatica** (quando scritto, nessun provider email/SMS esisteva nel progetto -- vedi "Gruppo
+  B-bis" punto 1 in PIANO.md): il titolare vede la riga "proposto" e contatta a mano -- limite
+  onestamente segnalato, non un difetto nascosto. **Aggiornamento 14/09/2026**: ora esistono
+  entrambi i provider (Mailjet dal Gruppo B-bis, Skebby da Fase 5+SMS) ma `trovaEAvvisaListaAttesa`
+  non è ancora stato collegato a nessuno dei due -- resta un gap reale, solo non più bloccato
+  dall'assenza di un canale: quando qualcuno lo riprenderà, il lavoro è "collegare", non "costruire
+  da zero un provider". 11 test nuovi, `tsc`/`eslint`/`vitest`
   (136/136)/`build` puliti. Migrazione `0013_lista_attesa.sql` **applicata al database reale il
   13/09/2026** (stesso via libera già dato per `0011`/`0012`, nessun nuovo problema dai
   controlli di sicurezza Supabase). **NON ancora verificato dal vivo**: nessuna cancellazione
@@ -2212,6 +2261,15 @@ l'11/09/2026 via MCP diretto).
   `FlipWords.tsx`, `Lampada.tsx`, `VorticeSfondo.tsx`, `BorderBeam.tsx`, `GlowBorder.tsx`
   (dettagli di ognuno in `docs/librerie-ui.md`).
 - `src/app/not-found.tsx` — 404 brandizzata (nuovo 12/09/2026).
+- `src/lib/sms/{skebby.server,limiti.server,invio.server}.ts` — SMS come canale di fallback su
+  Pro/Enterprise (Fase 5+SMS, 14/09/2026): integrazione REST Skebby fail-open, conteggio mensile
+  per tenant, punto di ingresso unico `inviaSmsSeInclusoNelPiano` usato da
+  `email/notifiche.server.ts` e `promemoria.server.ts`.
+- `src/lib/stripe/operatori.server.ts` — tiene sincronizzata la quantità del line item
+  "operatore extra" su un abbonamento Pro già attivo quando gli operatori cambiano da dashboard
+  (Fase 5+SMS, 14/09/2026).
+- `supabase/migrations/0018_sms_inviati.sql` — tabella di tracciamento SMS inviati (solo per il
+  tetto mensile, nessun dato su "chi ha ricevuto cosa").
 
 ## Prossimo passo pianificato
 

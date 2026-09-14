@@ -4,6 +4,7 @@ import { creaClientAdmin } from "@/lib/supabase/admin";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { inviaEmail } from "./mailjet.server";
+import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
 
 /** Escape minimo per inserire testo libero (nome cliente, servizio, note) dentro l'HTML dell'email. */
 export function escapeHtml(testo: string): string {
@@ -80,14 +81,19 @@ async function trovaEmailTitolare(
 }
 
 /**
- * Notifiche email per un appuntamento appena creato (Fase 6, Gruppo B-bis
- * #1 di PIANO.md: "nessuna notifica email, né per il titolare né per il
+ * Notifiche di un appuntamento appena creato (Fase 6, Gruppo B-bis #1 di
+ * PIANO.md: "nessuna notifica email, né per il titolare né per il
  * cliente... priorità alta, manca qualcosa che ogni concorrente verificato
- * ha"). Due email indipendenti:
- *  - al titolare: SEMPRE, per ogni prenotazione (è l'unico che deve sapere
- *    che è arrivata, a prescindere dal canale).
- *  - al cliente: SOLO se ha lasciato un'email (oggi raccolta solo nel
- *    flusso pubblico, vedi FlussoPrenotazione.tsx).
+ * ha"; canale SMS aggiunto in Fase 5+SMS, 14/09/2026). Due notifiche
+ * indipendenti:
+ *  - al titolare: SEMPRE via email, per ogni prenotazione (è l'unico che
+ *    deve sapere che è arrivata, a prescindere dal canale; ha sempre
+ *    un'email, essendo il suo account Supabase Auth -- nessun fallback SMS
+ *    necessario qui).
+ *  - al cliente: via email se l'ha lasciata (oggi raccolta solo nel flusso
+ *    pubblico, vedi FlussoPrenotazione.tsx); altrimenti via SMS SE il piano
+ *    del tenant lo include (Pro/Enterprise, vedi pianoHaSms in piani.ts) --
+ *    MAI entrambi i canali allo stesso cliente.
  *
  * Chiamata da dentro `creaAppuntamentoTenant`, l'unica funzione che crea
  * appuntamenti per tutti e quattro i canali (dashboard, AI, pubblico
@@ -99,9 +105,15 @@ async function trovaEmailTitolare(
  * deve MAI far sembrare fallita una prenotazione già scritta con successo.
  */
 export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntamentoId: string): Promise<void> {
-  // Se Gabriel non ha ancora configurato Mailjet, non ha senso interrogare
-  // il database per niente -- niente latenza aggiunta alla prenotazione.
-  if (!process.env.MJ_APIKEY_PUBLIC || !process.env.MJ_APIKEY_PRIVATE) return;
+  // Se Gabriel non ha configurato NÉ Mailjet NÉ Skebby, non ha senso
+  // interrogare il database per niente -- niente latenza aggiunta alla
+  // prenotazione. Basta uno dei due canali per proseguire: l'email al
+  // titolare potrebbe comunque fallire più sotto (mai bloccante), e il
+  // cliente potrebbe finire sull'uno o sull'altro canale a seconda che
+  // abbia lasciato un'email.
+  const emailConfigurata = !!(process.env.MJ_APIKEY_PUBLIC && process.env.MJ_APIKEY_PRIVATE);
+  const smsConfigurata = !!(process.env.SKEBBY_EMAIL && process.env.SKEBBY_PASSWORD);
+  if (!emailConfigurata && !smsConfigurata) return;
 
   try {
     const admin = creaClientAdmin();
@@ -109,7 +121,7 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
     const [{ data: appuntamento }, fusoOrario] = await Promise.all([
       admin
         .from("appuntamenti")
-        .select("inizio, note, clienti(nome, email), servizi(nome), operatori(nome), tenants(nome)")
+        .select("inizio, note, clienti(nome, email, telefono), servizi(nome), operatori(nome), tenants(nome, piano)")
         .eq("id", appuntamentoId)
         .eq("tenant_id", tenantId)
         .single(),
@@ -121,10 +133,10 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
     // o array a seconda della cardinalità dedotta -- qui sono tutte 1:1
     // (foreign key su appuntamenti), normalizziamo per sicurezza.
     const uno = <T>(v: unknown): T | null => (Array.isArray(v) ? ((v[0] as T) ?? null) : (v as T | null));
-    const cliente = uno<{ nome: string | null; email: string | null }>(appuntamento.clienti);
+    const cliente = uno<{ nome: string | null; email: string | null; telefono: string | null }>(appuntamento.clienti);
     const servizio = uno<{ nome: string }>(appuntamento.servizi);
     const operatore = uno<{ nome: string }>(appuntamento.operatori);
-    const tenant = uno<{ nome: string }>(appuntamento.tenants);
+    const tenant = uno<{ nome: string; piano: string }>(appuntamento.tenants);
 
     const nomeTenant = tenant?.nome ?? "Salone AI";
     const nomeServizio = servizio?.nome ?? "servizio";
@@ -173,6 +185,16 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
           ${rigaGestisci}
         `,
       });
+    } else if (cliente?.telefono) {
+      // Fallback SMS (Fase 5+SMS, 14/09/2026): SOLO quando il cliente non
+      // ha lasciato un'email -- `inviaSmsSeInclusoNelPiano` ricontrolla
+      // comunque il piano e la quota, questo `else if` è solo per non fare
+      // la chiamata quando è già certamente inutile (piano senza SMS, testo
+      // semplice: niente link, un SMS non supporta HTML e un URL nudo
+      // aumenta il rischio phishing).
+      const rigaOperatoreSms = nomeOperatore ? ` con ${nomeOperatore}` : "";
+      const messaggioSms = `${nomeTenant}: prenotazione confermata per ${nomeServizio}${rigaOperatoreSms}, ${quando}.`;
+      await inviaSmsSeInclusoNelPiano(admin, tenantId, tenant?.piano ?? "", cliente.telefono, messaggioSms);
     }
   } catch (errore) {
     console.error("[email] Errore inviando le notifiche di nuovo appuntamento:", errore);

@@ -13,6 +13,7 @@ import {
 } from "@/lib/promemoria";
 import { inviaEmail } from "@/lib/email/mailjet.server";
 import { escapeHtml, formattaOrario, urlBaseSito } from "@/lib/email/notifiche.server";
+import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
 
 type ClientAdmin = ReturnType<typeof creaClientAdmin>;
 
@@ -65,7 +66,7 @@ async function avvisaAppuntamentiImminenti(admin: ClientAdmin, tenant: TenantCon
   const { data: righe } = await admin
     .from("appuntamenti")
     .select(
-      "id, inizio, stato, clienti(nome, email), servizi(nome), promemoria_appuntamento_inviati(regola_id)"
+      "id, inizio, stato, clienti(nome, email, telefono), servizi(nome), promemoria_appuntamento_inviati(regola_id)"
     )
     .eq("tenant_id", tenant.id)
     .eq("stato", "confermato")
@@ -80,7 +81,7 @@ async function avvisaAppuntamentiImminenti(admin: ClientAdmin, tenant: TenantCon
   }
   const perId = new Map<string, RigaEstesa>();
   for (const r of righe) {
-    const cliente = uno<{ nome: string | null; email: string | null }>(r.clienti);
+    const cliente = uno<{ nome: string | null; email: string | null; telefono: string | null }>(r.clienti);
     const servizio = uno<{ nome: string }>(r.servizi);
     const righeInviate = (r.promemoria_appuntamento_inviati ?? []) as { regola_id: string }[];
     perId.set(r.id, {
@@ -88,6 +89,7 @@ async function avvisaAppuntamentiImminenti(admin: ClientAdmin, tenant: TenantCon
       inizio: new Date(r.inizio),
       stato: r.stato,
       clienteEmail: cliente?.email ?? null,
+      clienteTelefono: cliente?.telefono ?? null,
       clienteNome: cliente?.nome ?? null,
       servizioNome: servizio?.nome ?? null,
       tenantPiano: tenant.piano,
@@ -144,17 +146,41 @@ async function avvisaAppuntamentiImminenti(admin: ClientAdmin, tenant: TenantCon
         ? `<p><a href="${base}/gestisci/${appuntamento.id}">Gestisci o cancella la prenotazione</a></p>`
         : "";
 
-      const inviato = await inviaEmail({
-        a: appuntamento.clienteEmail!,
-        oggetto: `Promemoria: il tuo appuntamento da ${tenant.nome}`,
-        nomeMittente: tenant.nome,
-        html: `
-          <p>Ciao ${escapeHtml(appuntamento.clienteNome ?? "")},</p>
-          <p>ti ricordiamo il tuo appuntamento da <strong>${escapeHtml(tenant.nome)}</strong>${rigaServizio}.</p>
-          <p>Quando: ${quando}</p>
-          ${rigaGestisci}
-        `,
-      });
+      // Canale: email se il cliente l'ha lasciata, altrimenti SMS (SOLO se
+      // il piano lo include -- inviaSmsSeInclusoNelPiano ricontrolla
+      // comunque, ma a questo punto è già garantito da
+      // appuntamentiDaAvvisarePerRegola, che non lascia passare un
+      // appuntamento senza email E senza telefono+SMS). MAI entrambi i
+      // canali sullo stesso cliente (deciso con Gabriel il 14/09/2026).
+      let inviato: boolean;
+      if (appuntamento.clienteEmail) {
+        inviato = await inviaEmail({
+          a: appuntamento.clienteEmail,
+          oggetto: `Promemoria: il tuo appuntamento da ${tenant.nome}`,
+          nomeMittente: tenant.nome,
+          html: `
+            <p>Ciao ${escapeHtml(appuntamento.clienteNome ?? "")},</p>
+            <p>ti ricordiamo il tuo appuntamento da <strong>${escapeHtml(tenant.nome)}</strong>${rigaServizio}.</p>
+            <p>Quando: ${quando}</p>
+            ${rigaGestisci}
+          `,
+        });
+      } else if (appuntamento.clienteTelefono) {
+        // Testo semplice, niente link (un SMS non supporta HTML, e un URL
+        // nudo in un SMS aumenta il rischio che venga scambiato per
+        // phishing -- meglio restare essenziali).
+        const rigaServizioSms = appuntamento.servizioNome ? ` per ${appuntamento.servizioNome}` : "";
+        const messaggioSms = `${tenant.nome}: ti ricordiamo il tuo appuntamento${rigaServizioSms} il ${quando}.`;
+        inviato = await inviaSmsSeInclusoNelPiano(
+          admin,
+          tenant.id,
+          tenant.piano,
+          appuntamento.clienteTelefono,
+          messaggioSms
+        );
+      } else {
+        inviato = false;
+      }
       if (inviato) inviati += 1;
     }
   }
@@ -172,9 +198,13 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
   const [{ data: clientiGrezzi }, { data: righeAppuntamenti }] = await Promise.all([
     admin
       .from("clienti")
-      .select("id, nome, email, promemoria_inattivita_inviato_at")
+      .select("id, nome, email, telefono, promemoria_inattivita_inviato_at")
       .eq("tenant_id", tenant.id)
-      .not("email", "is", null),
+      // Un modo di contattarlo, dei due: email O telefono (il fallback SMS
+      // viene ri-gated da clientiDaAvvisarePerInattivita in base al piano,
+      // vedi pianoHaSms -- qui si filtra solo per non caricare clienti
+      // senza NESSUN recapito, che comunque non riceverebbero mai nulla).
+      .or("email.not.is.null,telefono.not.is.null"),
     admin.from("appuntamenti").select("cliente_id, inizio, stato").eq("tenant_id", tenant.id).not("cliente_id", "is", null),
   ]);
 
@@ -202,6 +232,7 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
       id: c.id,
       nome: c.nome,
       email: c.email,
+      telefono: c.telefono,
       tenantPiano: tenant.piano,
       promemoriaInattivitaInviatoAt: c.promemoria_inattivita_inviato_at
         ? new Date(c.promemoria_inattivita_inviato_at)
@@ -243,16 +274,28 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
       .maybeSingle();
     if (!aggiornato) continue;
 
-    const inviato = await inviaEmail({
-      a: cliente.email!,
-      oggetto: `Ti aspettiamo da ${tenant.nome}`,
-      nomeMittente: tenant.nome,
-      html: `
-        <p>Ciao ${escapeHtml(cliente.nome ?? "")},</p>
-        <p>è passato un po' dal tuo ultimo appuntamento da <strong>${escapeHtml(tenant.nome)}</strong> -- ti aspettiamo!</p>
-        ${rigaPrenota}
-      `,
-    });
+    // Stesso principio email-o-SMS del reminder pre-appuntamento sopra:
+    // MAI entrambi, SMS solo se il piano lo include (già garantito da
+    // clientiDaAvvisarePerInattivita, ricontrollato comunque da
+    // inviaSmsSeInclusoNelPiano).
+    let inviato: boolean;
+    if (cliente.email) {
+      inviato = await inviaEmail({
+        a: cliente.email,
+        oggetto: `Ti aspettiamo da ${tenant.nome}`,
+        nomeMittente: tenant.nome,
+        html: `
+          <p>Ciao ${escapeHtml(cliente.nome ?? "")},</p>
+          <p>è passato un po' dal tuo ultimo appuntamento da <strong>${escapeHtml(tenant.nome)}</strong> -- ti aspettiamo!</p>
+          ${rigaPrenota}
+        `,
+      });
+    } else if (cliente.telefono) {
+      const messaggioSms = `${tenant.nome}: e' passato un po' dal tuo ultimo appuntamento -- ti aspettiamo!`;
+      inviato = await inviaSmsSeInclusoNelPiano(admin, tenant.id, tenant.piano, cliente.telefono, messaggioSms);
+    } else {
+      inviato = false;
+    }
     if (inviato) inviati += 1;
   }
   return inviati;

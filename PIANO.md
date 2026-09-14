@@ -241,13 +241,11 @@ sono nella loro Fase con `[x]`.
 2. Assistente AI su WhatsApp (Pro) -- bloccato dall'App Review Meta, task in
    `docs/embedded-signup-whatsapp.md` + Fase 2 (bloccante prima di vendere Pro, ma dipendenza
    esterna non nel nostro controllo).
-3. SMS (Pro) -- nuovo task in Fase 6 aggiunto oggi (bloccante prima di vendere Pro), **zero
-   codice/provider prima d'oggi, non tracciato da nessuna parte finché non l'ho trovato in
-   questo giro**.
+3. ~~SMS (Pro)~~ **CODICE FATTO 14/09/2026** -- vedi Fase 6 (canale di fallback via Skebby,
+   insieme al nuovo prezzo per operatore su Pro deciso nella stessa conversazione).
 4. ~~Analytics / "andamento nel tempo" (Growth)~~ **CODICE FATTO 14/09/2026** -- vedi Fase 3.
-5. Promemoria automatici (Growth, e usati nel calcolo ROI di `ImpattoEconomico.tsx`) -- task in
-   Fase 6, aggiornato oggi per collegarlo esplicitamente a questa promessa e al fatto che è usato
-   come argomento di vendita diretto (bloccante prima di vendere Growth).
+5. ~~Promemoria automatici (Growth, e usati nel calcolo ROI di `ImpattoEconomico.tsx`)~~ **CODICE
+   FATTO 14/09/2026** -- vedi Fase 6.
 6. Multi-sede e ruoli avanzati (Enterprise) -- task in Fase 5 (bloccante prima di vendere
    Enterprise).
 7. App installabile/PWA (elencata sia come funzione generale in `Funzionalita.tsx` sia come voce
@@ -762,14 +760,25 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       tenant avrà migliaia di appuntamenti storici. `tsc`/`eslint`/`vitest` (216/216)/`build`
       puliti di nuovo dopo questo giro. Nessuna nuova migrazione richiesta (solo riordino di
       query/logica e una stringa HTML in più).
-- [ ] **SMS -- BLOCCANTE prima di aprire pagamenti veri sul piano Pro** (trovato stesso giro,
-      13/09/2026): `Prezzi.tsx` elenca "SMS" come voce inclusa da Pro in su, e `Funzionalita.tsx`
-      la descrive esplicitamente ("Promemoria e conferme anche senza WhatsApp o smartphone") --
-      **zero codice, zero provider collegato** (nessun Twilio o equivalente in nessuna parte del
-      progetto). Nessun cliente Pro reale ancora, ma va costruito prima di incassare su quel
-      piano: serve un provider SMS (es. Twilio, costo a consumo -- valutare margine sul prezzo
-      Pro prima di sceglierlo) collegato allo stesso motore di automazioni/promemoria del punto
-      sopra, non un sistema di invio separato.
+- [x] **SMS** (trovato 13/09/2026, CODICE FATTO 14/09/2026): `Prezzi.tsx` elenca "SMS" come voce
+      inclusa da Pro in su, e `Funzionalita.tsx` la descrive esplicitamente ("Promemoria e
+      conferme anche senza WhatsApp o smartphone"). Costruito come canale di FALLBACK (mai in
+      aggiunta all'email, solo in sua sostituzione quando il cliente non ha lasciato un
+      indirizzo) sia per la conferma di nuova prenotazione (`email/notifiche.server.ts`) sia per
+      ENTRAMBI i Promemoria automatici del punto sopra (`promemoria.ts`/`.server.ts`). Provider:
+      **Skebby** (scelto sopra Twilio dopo un confronto costi -- vedi DECISIONS.md 14/09/2026),
+      integrazione REST fail-open in `src/lib/sms/skebby.server.ts`, punto di ingresso unico
+      `inviaSmsSeInclusoNelPiano` (`sms/invio.server.ts`) che centralizza gate di piano
+      (`pianoHaSms`/`PIANI_CON_SMS`, pro+enterprise) e tetto mensile (`limiteMensileSms`, 100
+      SMS/operatore/mese, tracciato nella nuova tabella `sms_inviati`, migrazione applicata al
+      DB reale). Nella stessa conversazione, Gabriel ha chiesto di affrontare anche il prezzo per
+      operatore su Pro (un salone con più operatori genera più SMS ma pagava lo stesso fisso):
+      69,90€/mese ora includono 1 operatore, +20€/mese ciascuno oltre il primo (secondo Price
+      Stripe dedicato, sincronizzato automaticamente al checkout e quando gli operatori cambiano
+      dopo l'attivazione -- vedi `stripe/operatori.server.ts`). `vitest` (242/242)/`tsc`/`eslint`/
+      `build` puliti. **Ancora da fare, non bloccante**: Gabriel deve creare un account Skebby e
+      fornire `SKEBBY_EMAIL`/`SKEBBY_PASSWORD` prima che un SMS possa davvero partire (fail-open
+      nel frattempo, come per Mailjet).
 - [x] **Deposito/caparra anti-no-show** (nuovo task, mega-controllo competitor 12/09/2026,
       CODICE FATTO 13/09/2026): gap reale verificato in TUTTO il software italiano di categoria
       (Estetia, Calendix, Skedula, WeGest, CutApp -- nessuno lo offre), standard invece nei

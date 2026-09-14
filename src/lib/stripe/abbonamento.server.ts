@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
-import { pianoPerPriceId } from "./piani";
+import { pianoPerPriceId, type PianoPagante } from "./piani";
 
 /**
  * Traduce lo status di una Subscription Stripe nel vocabolario già presente
@@ -44,8 +44,16 @@ export function statoAbbonamentoDaStripe(status: Stripe.Subscription.Status): st
  * admin/service_role: qui non c'è un utente loggato dietro la richiesta.
  */
 export async function sincronizzaAbbonamento(supabase: SupabaseClient, subscription: Stripe.Subscription) {
-  const priceId = subscription.items.data[0]?.price.id;
-  const piano = priceId ? pianoPerPriceId(priceId) : null;
+  // Da quando Pro può avere un secondo line item ("operatore extra", vedi
+  // priceIdOperatoreExtraPro in piani.ts, Fase 5+SMS 14/09/2026), leggere solo
+  // items.data[0] non basta più: Stripe non garantisce che il Price base sia
+  // il primo dell'array. Si cerca in TUTTI gli item quello che corrisponde a
+  // un piano riconosciuto -- l'item dell'operatore extra non è mai in
+  // pianoPerPriceId, quindi non può mai essere scambiato per un piano.
+  const piano =
+    subscription.items.data
+      .map((item): PianoPagante | null => pianoPerPriceId(item.price.id))
+      .find((p): p is PianoPagante => p !== null) ?? null;
   const stato = statoAbbonamentoDaStripe(subscription.status);
 
   // Un abbonamento cancellato/scaduto riporta il tenant a Free -- mai

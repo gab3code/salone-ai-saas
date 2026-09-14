@@ -1439,3 +1439,117 @@ differenza del vecchio log delle 14:43 (precedente al fix) che mostrava ancora l
 sull'enum. Indizio forte che il fix funziona, ma manca ancora la conferma finale: Gabriel deve
 controllare la propria casella (`gabrielmazzucchelli3@gmail.com`, anche spam) per le due email
 di quel test specifico.
+
+---
+
+## 2026-09-14 — SMS su Pro: da "100/mese fisso" a "100/operatore/mese + 20€/mese per operatore
+extra su Pro", dopo aver corretto un errore di ragionamento sui costi
+
+**Punto di partenza**: dopo la verifica dal vivo della prenotazione pubblica (vedi sezione sopra
+in PROJECT_STATUS.md), Gabriel ha scelto di lavorare sull'SMS del piano Pro (`Prezzi.tsx` lo
+elenca da tempo tra le voci di Pro, mai costruito davvero -- stesso "controllo promesse" che ha
+già fatto emergere Analytics/Promemoria il 13-14/09/2026).
+
+**Falsa pista corretta prima di procedere -- "usiamo WhatsApp che è gratis"**: proposta di
+Gabriel, verificata con una ricerca invece di accettata per buon senso. WhatsApp Business
+Platform (Meta) ha rimosso la soglia gratuita di conversazioni a novembre 2024 -- le "utility
+message" (promemoria) sono gratuite SOLO dentro una finestra di 24h aperta dal CLIENTE che
+scrive per primo; un promemoria iniziato dal salone non rientra mai in quella finestra, quindi
+non è mai gratis nella pratica. Riferimenti di prezzo trovati (nessuna tariffa Italia confermata
+nella documentazione ufficiale al momento della ricerca): UK ~$0,02/messaggio, Germania
+€0,1131/messaggio categoria marketing. Indipendentemente dal costo, il canale WhatsApp è oggi
+comunque bloccato in attesa della business verification Meta (vedi
+`docs/embedded-signup-whatsapp.md`) e non copre comunque il caso d'uso originale dell'SMS
+(clienti senza WhatsApp/smartphone) -- due ragioni indipendenti per cui non è un sostituto.
+
+**Errore di ragionamento mio, corretto da Gabriel**: prima proposta di quota, 100 SMS/mese totali
+per tenant Pro, ricalcata dal pattern della quota AI (`QUOTA_MENSILE_MESSAGGI_PER_PIANO` in
+`ai/limiti.ts`). Gabriel ha fatto notare correttamente che un salone Pro reale manda "molti più
+di 100 messaggi al mese" -- e aveva ragione: quel pattern assume un costo marginale quasi zero
+per messaggio (vero per Claude Haiku, un centesimo di dollaro a conversazione), mentre l'SMS
+costa soldi VERI per messaggio (Skebby: €0,075-0,098/SMS a seconda del volume; Twilio:
+$0,0927/SMS + $45/mese per un numero dedicato). Applicare lo stesso pattern di quota a un canale
+con un'economia dei costi completamente diversa era l'errore -- corretto ricalcolando volumi
+realistici (150-600+ SMS/mese per un salone Pro attivo, dato che Pro non ha nessun tetto di
+prenotazioni mensili) invece di riusare un numero pensato per un costo diverso.
+
+**La vera domanda sollevata da Gabriel -- il prezzo dovrebbe scalare con gli operatori**:
+un salone con più operatori genera più appuntamenti (quindi più SMS a chi non ha lasciato
+un'email) ma pagava lo stesso 69,90€/mese fisso di un salone con un solo operatore --
+un'asimmetria reale tra chi genera il volume/costo e chi lo paga. Gabriel ha esplicitamente
+scelto di affrontare SUBITO il prezzo per operatore (ho proposto in alternativa di scalare solo
+la QUOTA SMS per ora, rimandando il prezzo a quando esistesse un cliente Pro multi-operatore
+reale -- Gabriel ha respinto esplicitamente questa via di mezzo: "No, voglio affrontare subito
+il prezzo per operatore").
+
+**Decisione finale, con Gabriel via domande pre-filtrate**:
+1. **Prezzo**: Pro resta 69,90€/mese ma include solo il PRIMO operatore; ogni operatore
+   aggiuntivo costa **20€/mese** in più (scelto sopra la mia proposta di 15€/mese -- margine più
+   ampio per assorbire il costo SMS reale e il rischio di stima ancora prudente sui volumi).
+   Implementato come un SECONDO Price/Product Stripe ("Pro - Operatore extra",
+   `price_1UFYAXCTPsGON8WAVPINXkXj` in TEST, `STRIPE_PRICE_PRO_OPERATORE_EXTRA`), non una fascia
+   di quantità sullo stesso Price di Pro: concettualmente due cose diverse (abbonamento base +
+   add-on quantificabile) e più chiaro sulla ricevuta Stripe del cliente.
+2. **Quota SMS**: 100 SMS/operatore/mese (non più un numero fisso) -- scala con lo stesso
+   contatore di operatori del prezzo, mantenendo il margine per operatore costante invece di
+   restringersi mano a mano che un salone cresce. Prima stima prudente, dichiarata come tale nel
+   codice (`limiteMensileSms` in `piani.ts`) -- una riga sola da cambiare quando ci sarà volume
+   reale (oggi zero clienti Pro reali).
+3. **Provider SMS**: **Skebby** scelto sopra Twilio -- prezzo per SMS comparabile o migliore
+   (€0,075-0,098 contro $0,0927), nessun canone mensile per un numero dedicato (Twilio: +$45/mese
+   per un prefisso mobile italiano, alternativa Sender ID alfanumerico non confermata in
+   documentazione), fatturazione in EUR (irrilevante il tasso di cambio USD/EUR per un prodotto
+   e un mercato italiano), API REST semplice senza SDK da installare (`GET /token` con Basic Auth
+   -> token persistente `USER_KEY;ACCESS_TOKEN`, poi `POST /sms` con quegli header).
+
+**Implementazione (14/09/2026, stessa sessione)**:
+- `src/lib/stripe/piani.ts`: `priceIdOperatoreExtraPro()`, stesso pattern di `priceIdPerPiano`.
+- `src/app/api/stripe/checkout/route.ts`: secondo line item aggiunto al checkout iniziale se il
+  tenant ha già più di un operatore al momento di passare a Pro (upgrade da un piano precedente,
+  non il caso comune "appena registrato" ma comunque possibile).
+- `src/lib/stripe/operatori.server.ts` (nuovo): `sincronizzaQuantitaOperatoriStripe`, chiamata
+  da `creaOperatore`/`eliminaOperatore` (`dashboard/configura/azioni.ts`) DOPO la scrittura su
+  Supabase -- aggiorna/aggiunge/rimuove il line item "operatore extra" sull'abbonamento Stripe
+  esistente con proration. Fail-open totale: un problema di fatturazione non deve mai impedire
+  di creare/eliminare un operatore vero (stesso principio di `inviaEmail`).
+- `src/lib/stripe/abbonamento.server.ts` (`sincronizzaAbbonamento`): bug potenziale prevenuto
+  prima che accadesse mai in produzione -- leggeva solo `items.data[0]` per riconoscere il
+  piano, che con 2 line item su Pro avrebbe potuto leggere l'item sbagliato (Stripe non
+  garantisce l'ordine dell'array). Corretto per cercare in TUTTI gli item quello riconosciuto.
+- `src/lib/piani.ts`: `pianoHaSms`/`PIANI_CON_SMS` (pro, enterprise) e `limiteMensileSms(piano,
+  numeroOperatori)`.
+- `src/lib/sms/skebby.server.ts` (nuovo): `inviaSms`, fail-open per design come
+  `mailjet.server.ts` -- mai lancia, ritorna `false` su credenziali mancanti/errore Skebby/
+  eccezione di rete. Un solo retry su 401 con un token fresco (mai un loop). Normalizza un
+  numero italiano senza prefisso internazionale assumendo +39 (prodotto italiano-only oggi).
+- `src/lib/sms/limiti.server.ts` + `src/lib/sms/invio.server.ts` (nuovi): punto di ingresso
+  UNICO `inviaSmsSeInclusoNelPiano`, usato da `notifiche.server.ts` e `promemoria.server.ts` --
+  centralizza gate di piano, tetto mensile (query su `sms_inviati`, nuova tabella, migrazione
+  `sms_inviati`/0018) e tracciamento (solo degli invii RIUSCITI).
+- `src/lib/promemoria.ts` + `.server.ts`: sia il reminder pre-appuntamento sia il follow-up
+  clienti inattivi ora accettano il fallback SMS quando il cliente non ha email, ricontrollando
+  `pianoHaSms` nella logica pura (mai fidarsi che il chiamante l'abbia già filtrato).
+- `src/lib/email/notifiche.server.ts`: stesso fallback per la conferma di nuova prenotazione al
+  cliente (il titolare riceve sempre e solo email, ha sempre un indirizzo essendo il suo account
+  Supabase Auth).
+- `Prezzi.tsx`: aggiunta la nota "1 operatore incluso, +20€/mese ciascuno in più" sotto il
+  prezzo di Pro -- senza, "€69,90/mese" da solo sarebbe una promessa diversa da quella che il
+  checkout applica davvero (stesso principio del controllo promesse del 13-14/09/2026).
+- `.env.example`: `STRIPE_PRICE_PRO_OPERATORE_EXTRA`, `SKEBBY_EMAIL`, `SKEBBY_PASSWORD`.
+
+**Da fare ancora, non bloccante per il codice**: Gabriel deve creare un account Skebby e fornire
+`SKEBBY_EMAIL`/`SKEBBY_PASSWORD` prima che gli SMS possano davvero partire (fail-open nel
+frattempo: nessuna prenotazione si rompe, semplicemente nessun SMS parte finché mancano). Nessun
+cliente Pro reale oggi -- prezzo, quota e provider sono la miglior stima motivata possibile ora,
+esplicitamente dichiarata come rivedibile nel codice e in questo documento.
+
+**Verifica**: `npx vitest run` (242/242, tutti verdi, inclusi i nuovi test per
+`sincronizzaAbbonamento` multi-item, `pianoHaSms`/`limiteMensileSms`, `inviaSms`/Skebby,
+`inviaSmsSeInclusoNelPiano`, e il fallback SMS nei Promemoria/nelle notifiche di nuovo
+appuntamento), `tsc --noEmit` pulito, `eslint` pulito sui file toccati (gli errori residui in
+`StreamText.tsx`/`ApprovalCard.tsx`/`Flowchart.tsx`/`PromptBar.tsx`/`RecordsTable.tsx`/
+`metriche.ts` sono preesistenti, non toccati in questo giro), `next build` pulito. Env var
+`STRIPE_PRICE_PRO_OPERATORE_EXTRA` aggiunta su Vercel (Production) e migrazione `sms_inviati`
+applicata al progetto Supabase reale (`weeaggiqovnmtovdjzxy`) direttamente da Claude, con
+accesso concesso da Gabriel al proprio browser Chrome autenticato ("ti ho dato l'accesso a
+stripe su chrome, fai tu").

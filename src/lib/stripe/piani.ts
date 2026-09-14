@@ -52,6 +52,23 @@ export function priceIdPerPiano(piano: PianoPagante): string {
   }
 }
 
+/**
+ * Price ID del secondo line item su Pro: "operatore extra" (Fase 5+SMS,
+ * deciso con Gabriel il 14/09/2026 -- vedi DECISIONS.md per il ragionamento
+ * completo sul perché il costo SMS reale per operatore ha reso necessario
+ * far pagare di più i saloni Pro con più operatori). 69,90€/mese includono
+ * 1 operatore, ognuno oltre il primo costa 20€/mese in più. Prodotto/Price
+ * separato dal Price base di Pro (non una fascia di quantità sullo stesso
+ * Price) apposta: sono concettualmente due cose diverse (abbonamento base +
+ * add-on quantificabile), e Stripe fattura più chiaramente così sulla
+ * ricevuta del cliente. Usata SOLO per Pro -- Starter/Growth/Enterprise non
+ * hanno operatori a pagamento extra (Starter/Growth: operatori illimitati
+ * già nel prezzo base, vedi Prezzi.tsx; Enterprise: a preventivo).
+ */
+export function priceIdOperatoreExtraPro(): string {
+  return priceIdDaEnv(process.env.STRIPE_PRICE_PRO_OPERATORE_EXTRA, "STRIPE_PRICE_PRO_OPERATORE_EXTRA");
+}
+
 // Trial prima del primo addebito, SOLO su Growth (decisione con Gabriel
 // dell'11/09/2026, ristretta il 12/09/2026 -- prima copriva anche Pro):
 // far provare l'assistente vero prima di pagare, non un trial "a copertura"

@@ -81,4 +81,30 @@ describe("sincronizzaAbbonamento", () => {
 
     expect(supabase.registro.update).toEqual([{ tabella: "tenants", payload: { stato_abbonamento: "scaduto" } }]);
   });
+
+  it("un abbonamento Pro con 2 line item (base + operatore extra) riconosce il piano anche se il Price base NON è il primo dell'array", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { update: [{ data: null, error: null }] },
+    });
+
+    await sincronizzaAbbonamento(
+      supabase,
+      subscriptionFinta({
+        status: "active",
+        items: {
+          data: [
+            // Il primo item è l'add-on "operatore extra" -- Stripe non
+            // garantisce un ordine, e price_operatore_extra_test non è
+            // mappato in pianoPerPriceId apposta.
+            { price: { id: "price_operatore_extra_test" }, quantity: 2 },
+            { price: { id: "price_pro_test" }, quantity: 1 },
+          ],
+        } as never,
+      })
+    );
+
+    expect(supabase.registro.update).toEqual([
+      { tabella: "tenants", payload: { stato_abbonamento: "attivo", piano: "pro" } },
+    ]);
+  });
 });

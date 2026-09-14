@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import type Stripe from "stripe";
 import { creaClientServer } from "@/lib/supabase/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { creaClientStripe } from "@/lib/stripe/server";
-import { pianoEPagante, priceIdPerPiano, giorniDiProva } from "@/lib/stripe/piani";
+import { pianoEPagante, priceIdPerPiano, priceIdOperatoreExtraPro, giorniDiProva } from "@/lib/stripe/piani";
 
 /**
  * Crea una Checkout Session Stripe per il tenant dell'utente loggato
@@ -75,10 +76,31 @@ export async function POST(request: NextRequest) {
   const origin = request.nextUrl.origin;
   const trialDays = giorniDiProva(piano);
 
+  // Pro: 69,90€/mese includono 1 operatore, ognuno oltre il primo costa
+  // 20€/mese in più (deciso con Gabriel il 14/09/2026, vedi DECISIONS.md) --
+  // secondo line item aggiunto SOLO se il salone ha già più di un operatore
+  // configurato al momento del checkout (tipicamente 0 se sta ancora
+  // facendo l'onboarding, ma un tenant che passa a Pro da un altro piano
+  // può già averne). `count` conta sul client ADMIN (non RLS-limitato,
+  // stesso client già in uso qui sopra per leggere/scrivere il tenant).
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+    { price: priceIdPerPiano(piano), quantity: 1 },
+  ];
+  if (piano === "pro") {
+    const { count } = await admin
+      .from("operatori")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenant.id);
+    const operatoriExtra = Math.max(0, (count ?? 0) - 1);
+    if (operatoriExtra > 0) {
+      lineItems.push({ price: priceIdOperatoreExtraPro(), quantity: operatoriExtra });
+    }
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: stripeCustomerId,
-    line_items: [{ price: priceIdPerPiano(piano), quantity: 1 }],
+    line_items: lineItems,
     success_url: `${origin}/dashboard?checkout=successo`,
     cancel_url: `${origin}/#prezzi`,
     client_reference_id: tenant.id,
