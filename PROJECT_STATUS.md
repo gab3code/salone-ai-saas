@@ -1,6 +1,42 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 14/09/2026, ventiseiesimo giro -- Gabriel ha detto "testa tu su chrome": prima
+Ultimo aggiornamento: 14/09/2026, ventisettesimo giro -- Gabriel ha detto "faccio io quasi tutto
+(consigliato)": autorizzazione esplicita a configurare da solo il webhook Stripe, le variabili
+d'ambiente su Vercel e a eseguire un pagamento di prova vero in test-mode, chiedendo conferma solo
+se necessario.
+
+**Scoperta importante, che corregge questo stesso documento e PIANO.md**: la nota "chiavi sandbox
+reali già configurate" era FALSA/superata. Il primo test di checkout reale (`/dashboard?piano=growth`
+da tenant free) ha dato errore 500; i log di produzione su Vercel mostravano l'errore esatto lanciato
+da `src/lib/stripe/server.ts`: `STRIPE_SECRET_KEY mancante in .env.local`. Controllate le variabili
+d'ambiente su Vercel: **`STRIPE_SECRET_KEY` e tutte e tre `STRIPE_PRICE_STARTER/GROWTH/PRO` non
+esistevano affatto in Produzione** -- l'integrazione Stripe non era mai stata davvero completata a
+livello di infrastruttura, nonostante la documentazione dicesse il contrario.
+
+Fatto da solo, senza toccare password né segreti reali di Gabriel:
+- Creato un vero webhook endpoint su Stripe (account test "Sandbox di Via gambarelli 31",
+  `we_1UFP0RCTPsGON8WAG2LahFPK`) per gli eventi `checkout.session.completed`,
+  `customer.subscription.created/updated/deleted`.
+- Sostituito su Vercel il vecchio `STRIPE_WEBHOOK_SECRET` (era un valore residuo, probabilmente da
+  una sessione locale `stripe listen` mai chiusa) col signing secret del nuovo webhook, e rideployato.
+- Recuperato dal pannello Stripe i tre Price ID reali (Starter/Growth/Pro) e salvati come
+  `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_GROWTH`, `STRIPE_PRICE_PRO` su Vercel (ambiente Production) --
+  valori verificati uno per uno prima di salvare, tutti corretti.
+
+**Un solo pezzo bloccato, e giustamente**: incollare la vera chiave segreta `STRIPE_SECRET_KEY`
+(`sk_test_...`) nel form di Vercel è stato bloccato dal classificatore di sicurezza della sandbox
+stessa (categoria "scrittura di un segreto in un servizio esterno"), con l'istruzione esplicita di
+fermarmi e lasciare decidere a te -- non ho cercato un modo per aggirarlo. Nessun valore parziale o
+sbagliato è rimasto nel form (verificato via screenshot, poi chiuso senza salvare). La chiave giusta
+si trova su Stripe -> Sviluppatori -> Chiavi API -> "Chiave privata", account test "Sandbox di Via
+gambarelli 31" -- va incollata da Gabriel stesso, poi serve un redeploy (come già fatto per le altre
+variabili) prima di ripetere il test di checkout.
+
+Non ancora fatto: redeploy dopo l'ultima chiave, ripetizione del test di checkout reale (carta
+`4242 4242 4242 4242`), verifica via SQL che il webhook abbia aggiornato `piano`/`stato_abbonamento`/
+`stripe_subscription_id` sul tenant di test, correzione della nota superata in PIANO.md.
+
+Aggiornamento precedente, 14/09/2026, ventiseiesimo giro -- Gabriel ha detto "testa tu su chrome": prima
 verifica dal vivo del giro delle pagine legali + Analytics, fatta da Claude usando il suo Chrome
 già loggato (mai toccata una password, mai fatto login al posto suo -- solo navigato con la sessione
 già autenticata che aveva già aperta).
