@@ -28,10 +28,12 @@ principio "dipendente AI, non gestionale" (CLAUDE.md punto 2bis) -- ogni funzion
 giudica su quanto lavoro manuale toglie al professionista, non solo su quanto è bella. L'ordine
 reale delle fasi è:
 
-- **Fase 0 = Gruppo A qui sotto** (già fatto ma non ancora verificato dal vivo -- pagamento
-  Stripe reale, pagamento caparra reale, mittente Mailjet, `CRON_SECRET` su Vercel, test Google
-  Calendar, decisione Apple/iCloud). Zero codice nuovo, ma blocca la vendita a chiunque finché
-  resta aperto -- va chiuso PRIMA di qualunque fase nuova sotto.
+- **Fase 0 = Gruppo A qui sotto** (già fatto ma non ancora verificato dal vivo). **Chiuso finora
+  dal vivo, 14/09/2026**: pagamento Stripe reale, pagamento caparra reale, mittente Mailjet +
+  promemoria automatico (email ricevuta per davvero da Gabriel). **Ancora aperto**: SMS
+  (credenziali Skebby non ancora impostate, serve un account Skebby personale di Gabriel), test
+  Google Calendar dal vivo, decisione Apple/iCloud. Zero codice nuovo, ma blocca la vendita a
+  chiunque finché resta aperto -- va chiuso PRIMA di qualunque fase nuova sotto.
 - **Fase 1 = contatto automatico del cliente in lista d'attesa** (oggi il match è automatico ma
   avvisa solo il titolare, che deve contattare il cliente a mano -- vedi Gruppo B punto 3 e
   Fase 6 sotto): unico gap competitivo reale rimasto contro Calendix.
@@ -91,8 +93,11 @@ mappati -- resta valido, non riscritto da zero.
    dettaglio completo): iscrizione, cancellazione, match automatico, banner e "segna risolto"
    tutti confermati funzionanti in un browser vero. Nello stesso giro trovato e corretto un bug
    critico che bloccava ogni prenotazione pubblica diretta (vedi DECISIONS.md).
-9. **Validare un mittente su Mailjet e impostare `MJ_APIKEY_PUBLIC`/`MJ_APIKEY_PRIVATE`/
-   `MAILJET_FROM_EMAIL`** (nuovo, 13/09/2026, provider deciso lo stesso giorno -- avevi già un
+9. ~~**Validare un mittente su Mailjet e impostare `MJ_APIKEY_PUBLIC`/`MJ_APIKEY_PRIVATE`/
+   `MAILJET_FROM_EMAIL`**~~ **VERIFICATO DAL VIVO 14/09/2026**: email di promemoria automatico
+   inviata dal cron reale e ricevuta per davvero da Gabriel nella sua casella (vedi Fase 6 e
+   DECISIONS.md) -- il mittente è validato e le chiavi funzionano in produzione, non solo nei
+   test automatici. (nuovo, 13/09/2026, provider deciso lo stesso giorno -- avevi già un
    account Mailjet con una subaccount key dedicata al progetto, e a piano gratis ha il doppio
    dei volumi di Resend, vedi DECISIONS.md): il codice delle notifiche email è scritto e
    verificato (`tsc`/`eslint`/`vitest`/`build` puliti, 11 test dedicati) ma senza le due chiavi
@@ -813,6 +818,14 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       tenant avrà migliaia di appuntamenti storici. `tsc`/`eslint`/`vitest` (216/216)/`build`
       puliti di nuovo dopo questo giro. Nessuna nuova migrazione richiesta (solo riordino di
       query/logica e una stringa HTML in più).
+      **VERIFICATO DAL VIVO 14/09/2026** (vedi DECISIONS.md): prenotato un appuntamento reale
+      dentro la finestra 24-48h su un tenant Growth, rilanciato manualmente `/api/cron/promemoria`
+      da Vercel invece di aspettare le 08:00 -- riga scritta in `promemoria_appuntamento_inviati`,
+      log Vercel puliti (200, nessun errore reale), ed email di promemoria **ricevuta per davvero**
+      da Gabriel nella sua casella. Reminder pre-appuntamento chiuso end-to-end, non solo a
+      livello di test automatici. Follow-up clienti inattivi resta verificato solo a livello di
+      test automatici (nessun cliente "inattivo da 60 giorni" disponibile nei tenant di prova per
+      un giro dal vivo).
 - [x] **SMS** (trovato 13/09/2026, CODICE FATTO 14/09/2026): `Prezzi.tsx` elenca "SMS" come voce
       inclusa da Pro in su, e `Funzionalita.tsx` la descrive esplicitamente ("Promemoria e
       conferme anche senza WhatsApp o smartphone"). Costruito come canale di FALLBACK (mai in

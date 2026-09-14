@@ -1825,3 +1825,68 @@ test Google Calendar, decisione Apple/iCloud.
 **Verifica**: nessuna modifica di codice, solo verifica dal vivo + query dirette sul DB reale.
 `tenants.caparra_attiva` per il tenant di prova resta `true` (lasciato attivo, è un tenant di
 test di Gabriel, nessun rischio).
+
+---
+
+## 2026-09-14 — Fase 0, secondo item chiuso dal vivo: promemoria automatico pre-appuntamento
+## confermato end-to-end (finestra 24-48h, scoperta e superata una trappola del test stesso)
+
+Continuazione dello stesso giro sopra, sempre senza intervento di Gabriel.
+
+**Prima prova, fallita per un errore di progettazione del TEST, non del prodotto**: prenotato un
+appuntamento reale su `/s/salone-ad2fec99` ("Salone Test Fase1", piano Growth) per il giorno
+dopo (15/09 10:00 Italia). Letta `src/lib/promemoria.ts` PRIMA di dare per scontato l'esito: la
+regola attiva sul tenant (`regole_promemoria`, `ore_preavviso: 24`) apre una finestra di
+esattamente 24 ore che scorre insieme a "adesso" (`[adesso+24h, adesso+48h)`, per il motivo
+spiegato nel commento del file -- il cron gira una sola volta al giorno sul piano Hobby, quindi
+la finestra dev'essere larga quanto il periodo tra due esecuzioni o mancherebbe sistematicamente
+metà degli orari possibili). Calcolato a mano che l'appuntamento prenotato cadeva già FUORI da
+quella finestra nel momento stesso in cui è stato creato (troppo vicino, meno di 24h da "adesso"
+al momento del test) -- non un bug, un test impostato male. Lasciato l'appuntamento così com'è
+(reale, confermato, innocuo) invece di cancellarlo, e non gli arriverà mai un promemoria da
+questa regola: atteso e corretto.
+
+**Seconda prova, corretta**: calcolato l'orario giusto PRIMA di prenotare (mercoledì 16/09 11:00
+Italia, comodamente dentro la finestra 24-48h rispetto al momento del test), prenotato dal vivo
+sullo stesso tenant, poi rilanciato subito il cron `/api/cron/promemoria` dal pulsante "Run" di
+Vercel invece di aspettare l'esecuzione delle 08:00.
+
+**Confermato nel database reale**: nuova riga in `promemoria_appuntamento_inviati` (id
+`63d35d68-...`) per quell'appuntamento e quella regola, con timestamp coincidente col click su
+"Run" -- il "lucchetto" anti-doppio-invio (insert PRIMA di mandare l'email, commentato in
+`promemoria.server.ts`) ha funzionato come progettato. Log Vercel della stessa esecuzione:
+risposta 200, 440ms, un solo log a livello "Error" che è in realtà un `DeprecationWarning` di
+Node su `url.parse()` (rumore innocuo di una dipendenza, non un errore funzionale) -- nessun
+`console.error` reale del modulo promemoria.
+
+**Consegna email -- CONFERMATA, con una nota per il futuro**: inizialmente non verificabile da
+qui (Mailjet non risultava loggato nel browser di Gabriel, a differenza di Stripe/Vercel/
+Supabase/GitHub) -- non essendo autorizzato a inserire credenziali per suo conto, segnalato a
+Gabriel invece di insistere. Gabriel ha fatto l'accesso lui stesso; la dashboard Mailjet
+("Primary account") mostrava comunque "0/6.000 email sent" e "No message found" nelle ultime
+24h -- probabile mismatch tra l'account/vista che si vede loggandosi normalmente e la
+**subaccount API key** dedicata al progetto (vedi commento in `mailjet.server.ts`: "Gabriel
+aveva già un account Mailjet con una subaccount API key dedicata a questo progetto"), le cui
+statistiche potrebbero non comparire nella dashboard dell'account principale senza selezionare
+esplicitamente quel subaccount. Non approfondito ora (non bloccante). **Conferma reale e
+definitiva arrivata direttamente da Gabriel**: l'email di promemoria è arrivata davvero nella
+sua casella (`gabrielmazzucchelli3@gmail.com`). Promemoria automatici pre-appuntamento chiusi:
+funzionano end-to-end, database + log + consegna reale tutti confermati.
+
+**Incidente minore nello stesso giro, corretto subito**: un mio click con `tabId` impostato per
+errore nel campo sbagliato di una chiamata `browser_batch` è atterrato sulla tab Stripe invece
+che su quella Mailjet, aprendo (senza inserire né inviare alcun dato) il flusso di attivazione
+di un account Stripe REALE e diverso di Gabriel (`acct_1UAhSLFxgndozmpW`, "Attiva il tuo
+account" -- non l'account sandbox/test del progetto, `acct_1UAhSYCTPsGON8WA`). Accortomi subito
+dal titolo/URL della tab cambiati inaspettatamente, ho chiuso quella tab senza compilare né
+confermare nulla. Nessun dato reale toccato, ma nota di attenzione per il futuro: verificare
+sempre il campo `tabId` di ogni azione nei batch multi-tab, specialmente quando più tab restano
+aperte contemporaneamente su servizi diversi.
+
+**Ancora aperto in Fase 0**: SMS mai inviato (`sms_inviati` a zero righe, credenziali Skebby non
+ancora impostate -- richiede che Gabriel crei l'account personalmente), test Google Calendar dal
+vivo, decisione Apple/iCloud.
+
+**Verifica**: nessuna modifica di codice, solo verifica dal vivo + query dirette sul DB reale +
+lettura del codice per capire la finestra prima di ripetere il test in modo corretto + conferma
+diretta di Gabriel sulla consegna reale.
