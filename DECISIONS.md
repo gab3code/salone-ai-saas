@@ -1787,3 +1787,41 @@ va avviata subito, in parallelo alle fasi sopra.
 
 **Verifica**: nessuna modifica di codice in questo giro, solo principio di prodotto (CLAUDE.md),
 riconciliazione strategica e pianificazione (DECISIONS.md, PIANO.md).
+
+---
+
+## 2026-09-14 — Fase 0, primo item chiuso dal vivo: pagamento reale della caparra confermato,
+## end-to-end, con l'estensione Chrome invece di chiedere a Gabriel di testarlo
+
+Su richiesta esplicita di Gabriel ("non voglio che tu mi chieda di intervenire, verifica tu con
+l'estensione Chrome"), verificato da solo, senza il suo intervento:
+
+1. Query dirette sul database reale (Supabase MCP) PRIMA di toccare nulla: `richieste_caparra`,
+   `promemoria_appuntamento_inviati`, `sms_inviati` erano tutte a **zero righe** -- conferma che
+   nessuno di questi flussi era mai stato verificato dal vivo con soldi/messaggi veri,
+   nonostante il codice fosse segnato "FATTO" nelle migrazioni. La lista Gruppo A/B di PIANO.md
+   era in parte disallineata dallo stato vero (es. il pagamento Stripe base risultava già
+   confermato in un giro precedente, ma caparra/promemoria/SMS no) -- da qui in poi verificare
+   sempre lo stato reale (DB/dashboard) invece di fidarsi solo del testo dei documenti.
+2. Attivata la caparra (20%) sul tenant di prova reale di Gabriel ("prova gabriel",
+   `salone-bc163ecf`) da `/dashboard/impostazioni/caparra` via browser.
+3. Prenotato dal vivo un "pedicure" (40€) su `/s/salone-bc163ecf` per sabato 19/09 alle 10:00,
+   pagato la caparra di 8€ su Stripe Checkout (Sandbox/TEST) con la carta di test
+   `4242 4242 4242 4242`.
+4. **Confermato nel database reale**: `richieste_caparra` ha una riga `stato: completata` con
+   `stripe_payment_intent_id` reale, collegata a un `appuntamenti` con `stato: confermato` e
+   `caparra_importo_centesimi: 800`. Il flusso completo (checkout -> webhook -> creazione
+   appuntamento -> collegamento caparra) funziona end-to-end con un pagamento reale in modalità
+   test, non solo nei test automatici.
+
+Questo chiude l'unico argomento di vendita dei cinque (vedi `docs/analisi-concorrenti-mercato.md`)
+che prima di oggi era "costruito ma mai provato con un euro vero" -- ora è verificato.
+
+**Ancora aperto in Fase 0** (non toccato in questo giro): promemoria automatici mai partiti dal
+vivo (`promemoria_appuntamento_inviati` a zero righe), SMS mai inviato (`sms_inviati` a zero
+righe, credenziali Skebby probabilmente non ancora impostate), mittente Mailjet da confermare,
+test Google Calendar, decisione Apple/iCloud.
+
+**Verifica**: nessuna modifica di codice, solo verifica dal vivo + query dirette sul DB reale.
+`tenants.caparra_attiva` per il tenant di prova resta `true` (lasciato attivo, è un tenant di
+test di Gabriel, nessun rischio).

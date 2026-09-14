@@ -69,23 +69,22 @@ mappati -- resta valido, non riscritto da zero.
    il click reale sul link "gestisci la tua prenotazione" ricevuto per email (vedi Fase 4 --
    chiudeva il limite di verifica onestamente segnalato lì, la sandbox non può raggiungere
    Supabase direttamente per questo test).
-4. **Provare un pagamento di test reale su Stripe Checkout** + configurare il webhook lato
-   Stripe Dashboard (serve un dominio pubblico, quindi va fatto dopo il deploy) -- il codice è
-   scritto e testato, mai verificato con un pagamento vero. **Unico punto rimasto aperto** del
-   giro di test dal vivo del 14/09/2026 (tutto il resto di quel giro è confermato funzionante).
+4. ~~**Provare un pagamento di test reale su Stripe Checkout** + configurare il webhook lato
+   Stripe Dashboard~~ **FATTO** (confermato in un giro precedente al 14/09 -- attivazione e
+   cancellazione abbonamento via webhook verificate, vedi commit `d4be5d4`). Questa voce era
+   rimasta scritta come aperta per un disallineamento tra PIANO.md e lo stato reale, corretto il
+   14/09/2026 sera dopo una verifica diretta sul database invece di fidarsi solo del testo qui.
 5. **Aggiungerti come "utente di test"** nella schermata di consenso OAuth Google (Google Cloud
    Console), poi provare "Collega Google" dal vivo in `/dashboard/impostazioni/calendari`.
 6. **Decidere cosa fare di Apple/iCloud Calendar**: non risolvibile da un hosting cloud standard
    come Vercel (blocco di Apple sul traffico da IP di data center, vedi PROJECT_STATUS.md
    "Problemi noti aperti" #14) -- o lo dichiariamo non supportato, o si accetta il limite e si
    documenta così nel materiale di vendita quando esisterà.
-7. **Applicare la migrazione `0011_deposito_caparra.sql` e provare un pagamento di test della
-   caparra** (nuovo, 13/09/2026): il codice del Deposito/caparra è scritto e verificato
-   (`tsc`/`eslint`/`vitest`/`build` puliti) ma la migrazione non è ancora sul database reale --
-   bloccata di proposito dal classificatore di sicurezza della sandbox perché tocca un database
-   condiviso, serve il tuo ok esplicito (dall'SQL Editor di Supabase, il file è pronto così
-   com'è, o dimmi di applicarla e lo faccio). Dopo: attivare la caparra su un salone di test in
-   `/dashboard/impostazioni/caparra` e completare un pagamento di test reale su `/s/[slug]`.
+7. ~~**Applicare la migrazione `0011_deposito_caparra.sql` e provare un pagamento di test della
+   caparra**~~ **FATTO 14/09/2026** (migrazione già applicata in un giro precedente, pagamento di
+   test verificato dal vivo il 14/09 sera senza intervento di Gabriel -- vedi DECISIONS.md).
+   Fatto esattamente questo -- attivata la caparra su un salone di test in
+   `/dashboard/impostazioni/caparra` e completato un pagamento di test reale su `/s/[slug]`.
 8. ~~Applicare la migrazione `0013_lista_attesa.sql`~~ **FATTO 13/09/2026** (applicata al
    database reale con il tuo ok). ~~Provare dal vivo la lista d'attesa~~ **FATTO 13/09/2026**
    (verificato su un tenant di prova dedicato, non sui tuoi dati reali -- vedi Fase 6 per il
@@ -115,10 +114,11 @@ mappati -- resta valido, non riscritto da zero.
     numero di telefono dell'attività in `/dashboard/impostazioni/cancellazione` (vedi Fase 4).
 
 ### Gruppo B -- Nuovo codice a priorità alta, trovato nel mega-controllo competitor di oggi
-1. ~~**Deposito/caparra anti-no-show** (Fase 6)~~ **CODICE FATTO 13/09/2026** (vedi Fase 6 e
-   DECISIONS.md 13/09/2026 per il dettaglio) -- resta da fare solo la parte che tocca a Gabriel:
-   applicare la migrazione al database reale e verificare un pagamento di test dal vivo (Gruppo
-   A).
+1. ~~**Deposito/caparra anti-no-show** (Fase 6)~~ **VERIFICATO DAL VIVO 14/09/2026** (vedi
+   DECISIONS.md 14/09/2026, "Fase 0, primo item chiuso dal vivo"): migrazione applicata, caparra
+   attivata su un tenant di prova reale, pagamento di 8€ completato su Stripe Checkout TEST con
+   carta `4242...`, appuntamento creato e collegato correttamente nel database reale. Chiuso
+   senza intervento di Gabriel, verificato con l'estensione Chrome + query dirette sul DB.
 2. ~~**Tono dell'AI personalizzabile** (Fase 5)~~ **CODICE FATTO 13/09/2026** (vedi Fase 5 per
    il dettaglio) -- resta solo la verifica dal vivo con un salone di test reale, non urgente
    finché non ci sono clienti Pro paganti.
