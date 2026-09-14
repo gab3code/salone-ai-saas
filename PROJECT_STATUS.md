@@ -1,6 +1,44 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 14/09/2026, ventinovesimo giro -- Gabriel ha confermato il push del giro
+Ultimo aggiornamento: 14/09/2026, trentesimo giro -- migrazione `0017` (nella sua forma
+riscritta a più regole) applicata al database reale con l'ok esplicito di Gabriel, verificata
+via query diretta: tutti e 3 i tenant esistenti (Salone Test Fase1/growth, prova gabriel/pro,
+Salone Test Claude/free) hanno ricevuto la regola di default a 24 ore. Poi Gabriel ha chiesto,
+sullo stesso feature: "verifica che non ci sono miglioramenti o cose migliori per il promemoria,
+se ci sono applicali". Rivisto tutto il modulo (`promemoria.ts`/`.server.ts`/la nuova pagina
+impostazioni) cercando bug, casi limite trascurati e confronti con pattern già usati altrove nel
+progetto. Trovate e applicate due cose concrete:
+
+1. **Link "gestisci/cancella" mancante nell'email di reminder**: l'email di conferma
+   prenotazione (`notifiche.server.ts`) include da sempre un link a `/gestisci/[id]` per
+   disdire/modificare; l'email di reminder pre-appuntamento no -- un cliente che riceve solo il
+   promemoria (magari ha cestinato la conferma iniziale) non aveva modo di cancellare online e
+   doveva telefonare. Aggiunto lo stesso link generico (la pagina applica comunque la finestra
+   minima di cancellazione del tenant, mostra il numero da chiamare se troppo tardi).
+2. **Race condition su invii concorrenti/ripetuti del cron**: sia il reminder che il follow-up
+   inattività segnavano "inviato" DOPO aver mandato l'email, non prima. Se il cron dovesse
+   sovrapporsi con se stesso (Vercel Cron in ritardo che si accavalla col giro successivo, un
+   retry, un'esecuzione manuale mentre quella schedulata è ancora in corso), lo stesso
+   appuntamento/cliente poteva ricevere la stessa email due volte. Corretto a "prenota prima,
+   invia dopo" (claim-before-send): il reminder ora inserisce la riga in
+   `promemoria_appuntamento_inviati` PRIMA di mandare l'email, usando il vincolo
+   `unique(appuntamento_id, regola_id)` come lucchetto (un conflitto, codice Postgres `23505`,
+   vuol dire "già preso in carico da un altro giro" -- si salta senza loggare errore); il
+   follow-up fa un `update` di `clienti.promemoria_inattivita_inviato_at` condizionato sullo
+   stesso filtro (`is null OR < soglia`) che decide l'idoneità, e salta l'invio se l'update non
+   tocca nessuna riga.
+
+Rivista anche la query di `avvisaClientiInattivi` (storico appuntamenti non filtrato per data,
+in teoria potrebbe crescere) -- lasciata volutamente com'era: è lo stesso pattern già usato e
+già documentato come scelta consapevole in `metriche.server.ts` (`elencaClientiInattivi`,
+"perfettamente sostenibile per un'attività agli inizi... da rivedere quando un tenant avrà
+migliaia di appuntamenti storici"), non un problema nuovo introdotto da questo feature.
+
+`npx vitest run` (216/216, invariati -- nessuna firma di funzione pura è cambiata), `tsc
+--noEmit`, `eslint`, `npm run build` tutti puliti dopo questo giro. Nessuna nuova migrazione:
+solo riordino di query/logica in `promemoria.server.ts` e una stringa HTML in più nell'email.
+
+Aggiornamento precedente, 14/09/2026, ventinovesimo giro -- Gabriel ha confermato il push del giro
 precedente e chiesto, nello stesso messaggio: "vorrei che lo staff possa decidere quanto tempo
 prima mandare il promemoria e anche se averne più di uno". Richiesta arrivata **prima** che il
 cron girasse per la prima volta sul serio (le 8:00 UTC di oggi non erano ancora scattate) -- tempismo

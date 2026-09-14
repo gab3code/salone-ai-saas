@@ -5,6 +5,7 @@ import { PIANI_CON_PROMEMORIA } from "@/lib/piani";
 import {
   appuntamentiDaAvvisarePerRegola,
   clientiDaAvvisarePerInattivita,
+  GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA,
   LARGHEZZA_FINESTRA_ORE,
   type AppuntamentoPerPromemoria,
   type ClientePerPromemoriaInattivita,
@@ -95,13 +96,53 @@ async function avvisaAppuntamentiImminenti(admin: ClientAdmin, tenant: TenantCon
   }
   const tutti = [...perId.values()];
 
+  const base = await urlBaseSito();
+
   let inviati = 0;
   for (const regola of regole) {
     const daAvvisare = appuntamentiDaAvvisarePerRegola(tutti, regola, adesso);
     for (const ridotto of daAvvisare) {
       const appuntamento = perId.get(ridotto.id)!;
+
+      // "Prenota" PRIMA di mandare l'email, non dopo: l'unique
+      // (appuntamento_id, regola_id) della tabella (migrazione 0017) fa da
+      // lucchetto. Se un secondo giro del cron (Vercel Cron in ritardo che
+      // sovrappone il successivo, un retry, un'esecuzione manuale mentre
+      // quella schedulata è ancora in corso) arrivasse qui in parallelo,
+      // solo uno dei due riesce a inserire la riga -- l'altro riceve un
+      // conflitto (codice 23505) e salta l'invio invece di mandare la
+      // stessa email due volte. Segnato comunque come "avvisato" anche se
+      // l'invio vero e proprio dovesse poi fallire (stesso fail-open del
+      // resto del modulo email): un problema di consegna non deve bloccare
+      // gli invii successivi, e un nuovo tentativo domani non sarebbe
+      // comunque più possibile per questa stessa regola (l'appuntamento
+      // sarebbe uscito dalla sua finestra).
+      const { error: erroreClaim } = await admin
+        .from("promemoria_appuntamento_inviati")
+        .insert({ appuntamento_id: appuntamento.id, regola_id: regola.id });
+      if (erroreClaim) {
+        if (erroreClaim.code !== "23505") {
+          console.error(
+            `[promemoria] Errore segnando l'invio per l'appuntamento ${appuntamento.id}/regola ${regola.id}:`,
+            erroreClaim
+          );
+        }
+        continue; // già preso in carico (da un altro giro) o errore reale -- non rischiare un doppio invio
+      }
+      appuntamento.regoleGiaInviate.add(regola.id);
+
       const quando = formattaOrario(appuntamento.inizio, tenant.fuso_orario);
       const rigaServizio = appuntamento.servizioNome ? ` per ${escapeHtml(appuntamento.servizioNome)}` : "";
+      // Stesso link "gestisci/cancella" dell'email di conferma prenotazione
+      // (notifiche.server.ts) -- un cliente che riceve il promemoria deve
+      // poter cancellare da lì senza dover chiamare, non solo chi riceve la
+      // conferma iniziale. La pagina applica comunque la finestra minima di
+      // cancellazione del tenant (ore_minime_cancellazione): se il
+      // promemoria arriva troppo a ridosso, mostra il numero da chiamare
+      // invece del pulsante, non un errore.
+      const rigaGestisci = base
+        ? `<p><a href="${base}/gestisci/${appuntamento.id}">Gestisci o cancella la prenotazione</a></p>`
+        : "";
 
       const inviato = await inviaEmail({
         a: appuntamento.clienteEmail!,
@@ -111,22 +152,10 @@ async function avvisaAppuntamentiImminenti(admin: ClientAdmin, tenant: TenantCon
           <p>Ciao ${escapeHtml(appuntamento.clienteNome ?? "")},</p>
           <p>ti ricordiamo il tuo appuntamento da <strong>${escapeHtml(tenant.nome)}</strong>${rigaServizio}.</p>
           <p>Quando: ${quando}</p>
+          ${rigaGestisci}
         `,
       });
       if (inviato) inviati += 1;
-
-      // Segnato come "avvisato" per QUESTA regola a prescindere dall'esito
-      // dell'invio -- stesso fail-open del resto del modulo email: un
-      // problema di consegna non deve bloccare gli invii successivi (né di
-      // altri appuntamenti, né delle altre regole), e un nuovo tentativo
-      // domani non sarebbe comunque più possibile per questa stessa regola
-      // (l'appuntamento sarebbe uscito dalla sua finestra).
-      await admin
-        .from("promemoria_appuntamento_inviati")
-        .insert({ appuntamento_id: appuntamento.id, regola_id: regola.id });
-      // Anche in memoria, per non farlo rientrare se un'altra regola con
-      // finestra sovrapposta lo rivalutasse più avanti in questo stesso giro.
-      appuntamento.regoleGiaInviate.add(regola.id);
     }
   }
   return inviati;
@@ -188,9 +217,32 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
     ? `<p><a href="${base}/s/${tenant.slug}">Prenota il tuo prossimo appuntamento</a></p>`
     : "";
 
+  // Stessa soglia usata dalla funzione pura (GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA) per
+  // vincolare l'update qui sotto -- unica fonte del numero di giorni, solo ricalcolata come data.
+  const sogliaRipetizioneIso = new Date(
+    adesso.getTime() - GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA * 24 * 60 * 60 * 1000
+  ).toISOString();
+
   let inviati = 0;
   for (const ridotto of daAvvisare) {
     const cliente = perId.get(ridotto.id)!;
+
+    // "Prenota" PRIMA di mandare l'email, con lo stesso principio
+    // dell'insert-lucchetto del reminder pre-appuntamento sopra: l'update è
+    // vincolato dallo stesso `where` che decide l'idoneità (mai avvisato, o
+    // avvisato più di N giorni fa). Se una seconda esecuzione concorrente
+    // avesse già aggiornato questo cliente nel frattempo, l'update qui
+    // sotto non tocca nessuna riga (`data` torna vuoto) e si salta l'invio
+    // invece di mandare due email quasi in contemporanea.
+    const { data: aggiornato } = await admin
+      .from("clienti")
+      .update({ promemoria_inattivita_inviato_at: adesso.toISOString() })
+      .eq("id", cliente.id)
+      .or(`promemoria_inattivita_inviato_at.is.null,promemoria_inattivita_inviato_at.lt.${sogliaRipetizioneIso}`)
+      .select("id")
+      .maybeSingle();
+    if (!aggiornato) continue;
+
     const inviato = await inviaEmail({
       a: cliente.email!,
       oggetto: `Ti aspettiamo da ${tenant.nome}`,
@@ -202,11 +254,6 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
       `,
     });
     if (inviato) inviati += 1;
-
-    await admin
-      .from("clienti")
-      .update({ promemoria_inattivita_inviato_at: adesso.toISOString() })
-      .eq("id", cliente.id);
   }
   return inviati;
 }

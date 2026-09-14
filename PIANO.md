@@ -726,10 +726,29 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       scatti in tempo). Ogni tenant esistente riceve una regola di default a 24 ore (stesso
       comportamento di prima, zero configurazione richiesta), e ogni nuovo tenant che si registra
       da qui in avanti pure (aggiunto al trigger di provisioning automatico,
-      `gestisci_nuovo_utente`). `tsc`/`eslint`/`vitest` (216/216)/`build` puliti. **Non ancora
-      verificato dal vivo**: `CRON_SECRET` è impostato su Vercel (fatto da Gabriel), ma la
-      migrazione `0017_promemoria_automatici.sql` non è ancora stata applicata al database reale
-      (serve il suo via libera, come per ogni migrazione) -- vedi PROJECT_STATUS.md.
+      `gestisci_nuovo_utente`). `tsc`/`eslint`/`vitest` (216/216)/`build` puliti. `CRON_SECRET`
+      impostato su Vercel (fatto da Gabriel) e migrazione `0017_promemoria_automatici.sql`
+      applicata al database reale (con l'ok esplicito di Gabriel) -- verificata via query diretta:
+      tutti e 3 i tenant esistenti hanno ricevuto la regola di default a 24 ore. **Giro di revisione
+      stesso giorno, richiesto da Gabriel**: "verifica che non ci sono miglioramenti [...] se ci
+      sono applicali". Trovate e applicate due cose: (1) il reminder pre-appuntamento non aveva il
+      link "gestisci/cancella la prenotazione" che invece l'email di conferma prenotazione ha
+      sempre avuto (`notifiche.server.ts`) -- aggiunto, stesso link generico verso
+      `/gestisci/[id]`. (2) entrambe le email (reminder e follow-up inattività) segnavano
+      l'invio DOPO aver mandato l'email, non prima -- corretto a "prenota prima, invia dopo"
+      (claim-before-send): il reminder inserisce la riga in `promemoria_appuntamento_inviati`
+      PRIMA di mandare l'email, usando il vincolo `unique(appuntamento_id, regola_id)` come
+      lucchetto (un conflitto, codice Postgres 23505, vuol dire "già in carico da un altro giro",
+      si salta senza errore); il follow-up fa un `update` condizionato sullo stesso filtro che
+      decide l'idoneità e salta l'invio se zero righe vengono toccate. In entrambi i casi evita
+      email doppie se il cron dovesse sovrapporsi con se stesso (ritardo di Vercel Cron, retry,
+      esecuzione manuale mentre quella schedulata è ancora in corso). Rivista anche la query
+      dell'inattività (`avvisaClientiInattivi`, storico non filtrato per data) -- lasciata
+      volutamente com'era: stesso pattern già usato e documentato in `metriche.server.ts`
+      (`elencaClientiInattivi`), corretto per i volumi attuali, da rivedere insieme quando un
+      tenant avrà migliaia di appuntamenti storici. `tsc`/`eslint`/`vitest` (216/216)/`build`
+      puliti di nuovo dopo questo giro. Nessuna nuova migrazione richiesta (solo riordino di
+      query/logica e una stringa HTML in più).
 - [ ] **SMS -- BLOCCANTE prima di aprire pagamenti veri sul piano Pro** (trovato stesso giro,
       13/09/2026): `Prezzi.tsx` elenca "SMS" come voce inclusa da Pro in su, e `Funzionalita.tsx`
       la descrive esplicitamente ("Promemoria e conferme anche senza WhatsApp o smartphone") --
