@@ -1,6 +1,38 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 14/09/2026, venticinquesimo giro -- continuato subito dopo le pagine legali
+Ultimo aggiornamento: 14/09/2026, ventiseiesimo giro -- Gabriel ha detto "testa tu su chrome": prima
+verifica dal vivo del giro delle pagine legali + Analytics, fatta da Claude usando il suo Chrome
+già loggato (mai toccata una password, mai fatto login al posto suo -- solo navigato con la sessione
+già autenticata che aveva già aperta).
+
+Confermato positivamente, tutto sul sito reale in produzione: `/privacy`, `/termini`, `/cookie`
+si aprono e mostrano il contenuto corretto; `/registrati` mostra la riga "Registrandoti accetti i
+Termini di Servizio e l'Informativa Privacy" coi link giusti; `/dashboard/impostazioni/cancellazione`
+carica il vero default da database (24) -- prova end-to-end che la migrazione 0016 ha preso
+davvero effetto -- e il salvataggio (cambiato il telefono, cliccato "Salva") ha scritto per davvero
+sul database reale ("Impostazioni salvate.").
+
+**Un solo punto ha richiesto un'indagine vera, ed era un falso allarme, non un bug**: aprendo
+`/dashboard/analytics` col browser di Gabriel è comparso l'upsell "serve il piano Growth", mentre
+una query diretta al database su `gabrielmazzucchelli3@gmail.com` risultava sul tenant "prova
+gabriel" con piano "pro" (che dovrebbe avere accesso). Controllato in ordine: 1) il deploy Vercel
+più recente (`de36296`, quello di Analytics) risultava già `Ready`/`Production` da 14 minuti,
+quindi non era codice vecchio in produzione; 2) il valore `piano` sul tenant "prova gabriel" è
+pulito byte per byte (`hex 70726f`, niente spazi/maiuscole nascoste); 3) **la vera causa**: la
+scheda Chrome non era loggata come `gabrielmazzucchelli3@gmail.com`/tenant "prova gabriel", ma
+come un vecchio account di test (`claude.test.lista.attesa@example.com`, tenant "Salone Test
+Claude", piano **free** -- creato in una sessione precedente per testare la lista d'attesa e mai
+disloggato). Un tenant Free che vede l'upsell è il comportamento CORRETTO, non un difetto: il gate
+funziona. Ho provato ad alzare temporaneamente il piano di quel tenant di test a "growth" solo per
+vedere il grafico vero coi propri occhi, ma è stata bloccata dal classificatore della sandbox
+(stessa protezione delle migrazioni, scatta anche su un semplice `UPDATE` di test) -- non forzata.
+Non è comunque un buco di verifica reale: la query dei dati era già stata controllata contro il
+database vero nel giro precedente (tenant "Salone Test Fase1", piano growth, 5 appuntamenti) e la
+logica di calcolo ha 5 test dedicati in `analytics.test.ts`. Nessuna modifica di codice in questo
+giro, solo verifica -- se vuoi vedere il grafico coi tuoi occhi, apri `/dashboard/analytics` da
+loggato come `gabrielmazzucchelli3@gmail.com` (tenant "prova gabriel", piano pro) sul tuo Chrome.
+
+Aggiornamento precedente, 14/09/2026, venticinquesimo giro -- continuato subito dopo le pagine legali
 sulla seconda priorità segnalata: **Analytics**, bloccante prima di aprire pagamenti veri sul piano
 Growth (`Prezzi.tsx`/`Funzionalita.tsx` promettono "Andamento prenotazioni e clienti nel tempo, non
 solo i numeri di oggi", la dashboard mostrava solo finestre fisse).
