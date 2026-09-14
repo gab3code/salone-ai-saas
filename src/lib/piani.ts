@@ -98,7 +98,7 @@ export function pianoHaSms(piano: string): boolean {
  * fissa troppo bassa -- 100 SMS/mese in totale non regge un salone Pro
  * davvero attivo, che ha prenotazioni illimitate: vedi DECISIONS.md per il
  * confronto costi Skebby/Twilio/WhatsApp e per come si è arrivati alla
- * scelta "69,90€ include 1 operatore, +20€/mese ciascuno oltre il primo" in
+ * scelta "il prezzo base include 1 operatore, +20€/mese ciascuno oltre il primo" in
  * priceIdOperatoreExtraPro, stripe/piani.ts). Un salone con più operatori
  * gestisce più appuntamenti e quindi manda più SMS a chi non ha lasciato
  * un'email, e paga già di più su Stripe per quegli operatori extra --

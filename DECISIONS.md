@@ -1553,3 +1553,100 @@ appuntamento), `tsc --noEmit` pulito, `eslint` pulito sui file toccati (gli erro
 applicata al progetto Supabase reale (`weeaggiqovnmtovdjzxy`) direttamente da Claude, con
 accesso concesso da Gabriel al proprio browser Chrome autenticato ("ti ho dato l'accesso a
 stripe su chrome, fai tu").
+
+## 2026-09-14 — Valutato il passaggio da Skebby a Brevo per l'SMS: confermato Skebby
+
+**Perché si è riaperta la domanda**: nella stessa giornata, discutendo la rielaborazione di
+prezzi/margini/abbonamenti (vedi sezione precedente), Gabriel ha chiesto se convenisse usare
+Brevo al posto di Skebby per l'SMS. Prima idea (da fonti secondarie, non verificate): Brevo
+~€0,043-0,05/SMS, quindi più economico di Skebby (€0,075-0,098). Gabriel ha inizialmente detto
+"meglio brevo quindi? allora facciamolo", poi mi ha dato accesso al suo account Brevo reale via
+estensione Chrome per verificare i costi veri prima di scrivere codice ("usalo tu con
+l'estensione crhome se serve").
+
+**Verifica fatta nell'account Brevo reale di Gabriel (Consumi e piano -> Acquista crediti,
+calcolatore prezzi)**: prezzo confermato **0,0434 €/SMS verso l'Italia**, pay-as-you-go puro,
+nessun canone fisso, stesso tasso a 100 e a 5.000 SMS/mese (nessuno sconto volume osservato in
+quel range). Più economico di Skebby, confermando la prima stima.
+
+**Il problema scoperto, non nella prima analisi**: la pagina ufficiale Brevo "Linee guida e
+restrizioni specifiche per Paese per i messaggi SMS" e il flusso in-app "Richiedi ID mittente"
+(`app.brevo.com/sms-compliance/*`, aperto e ispezionato ma NON inviato) stabiliscono che per
+l'Italia, per regolamento AGCOM:
+- i mittenti alfanumerici internazionali (es. "SaloneAI" come mittente) sono VIETATI;
+- l'unico mittente numerico ammesso è un **Numero Lungo Virtuale (LVN)** italiano
+  (+39xxxxxxxxxx), **da acquistare da Brevo**;
+- a differenza della sezione Francia (che specifica esplicitamente "gli SMS transazionali non
+  sono soggetti a queste regole"), la sezione Italia non ha questa esenzione -- quindi il
+  vincolo sembra valere anche per SMS transazionali (conferme/promemoria), non solo marketing;
+- il costo dell'LVN non è pubblicato da nessuna parte: si scopre solo aprendo una pratica di
+  verifica manuale (nome azienda, sito, prova del marchio, volumi stimati, messaggio di
+  esempio), con tempi di approvazione non garantiti.
+
+**Decisione, con Gabriel via domanda pre-filtrata**: restare su **Skebby**, non passare a
+Brevo. Motivazione: l'SMS è solo un canale di fallback a basso volume (tetto 100/operatore/mese,
+uso reale atteso molto più basso), quindi il risparmio per-SMS di Brevo (0,043€ contro ~0,085€
+medio Skebby) vale pochi euro al mese anche nel caso peggiore di quota piena. Contro questo
+risparmio minimo ci sono: un costo LVN sconosciuto scopribile solo dopo una pratica di verifica
+con esito e tempi incerti, più il lavoro di reintegrazione (nuovo modulo, nuovi test, rimozione
+di codice Skebby già scritto/testato/distribuito). Skebby, essendo un aggregatore italiano, ha
+già la conformità AGCOM inclusa nel suo prezzo per SMS -- è probabilmente proprio per questo che
+costa di più del prezzo "internazionale" di base di Brevo. Nessun codice toccato da questa
+decisione: `src/lib/sms/skebby.server.ts` e tutta la Fase 2 SMS restano invariati.
+
+## 2026-09-14 — Quota AI per operatore su Pro + anti-abuso lato cliente
+
+**Quota AI scalata per operatore (coerenza con la quota SMS)**: stesso ragionamento della quota
+SMS (sezione precedente) applicato alla quota mensile di messaggi AI (`limiteMensileMessaggi` in
+`src/lib/ai/limiti.ts`) -- decisione presa insieme a Gabriel discutendo la rielaborazione di
+prezzi/margini: visto che il prezzo di Pro ora scala per operatore (+20€/mese ciascuno oltre il
+primo), è coerente che la quota AI (il cui costo reale, per quanto basso a conversazione, cresce
+comunque con più operatori/più traffico) scali allo stesso modo invece di restare fissa a
+3000 messaggi/mese indipendentemente da quanti operatori il salone ha. Growth resta
+DELIBERATAMENTE fisso (1000/mese, nessuno scaling): il suo prezzo (39,90€) non scala per
+operatore, quindi non avrebbe senso far scalare la quota senza far scalare il prezzo che la
+copre. Enterprise resta illimitato. Implementato come secondo parametro opzionale di
+`limiteMensileMessaggi(piano, numeroOperatori = 1)`, stesso pattern di `limiteMensileSms` --
+`src/app/api/chat/[slug]/route.ts` interroga il conteggio operatori SOLO per Pro (nessuna query
+in più per Growth/Enterprise, dove non cambierebbe comunque il risultato).
+
+**Anti-abuso lato cliente (richiesta esplicita di Gabriel)**: "l'ai deve avere un anti abuso da
+parte del cliente, ad esempio clienti che scrivono cose che non centrano, o scrivono troppo".
+Due difese distinte, entrambe controllate PRIMA di chiamare il modello (nessun costo Anthropic
+per un turno bloccato qui, stesso principio dell'anti-burst/quota mensile già esistenti):
+
+1. **"Scrivono troppo"**: tetto di 40 messaggi CLIENTE per singola conversazione
+   (`LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE` in `limiti.ts`) -- diverso e molto più basso
+   della quota mensile per tenant (condivisa tra tutti i clienti). Oltre questa soglia una
+   conversazione non sta più prenotando qualcosa di reale, meglio passarla a un operatore.
+   Calcolato dallo storico già caricato in memoria (`caricaMessaggi`), nessuna query aggiuntiva.
+2. **"Scrivono cose che non centrano"**: non esiste un modo deterministico di giudicare "è in
+   tema" senza un altro giro di AI (costoso e aggirabile) -- usato invece un proxy
+   comportamentale, il numero di turni CONSECUTIVI in cui l'assistente risponde senza mai usare
+   uno strumento (`elenca_servizi`, `verifica_disponibilita`, ecc.). Una vera conversazione di
+   prenotazione chiama quasi sempre uno strumento entro pochi turni; una lunga sequenza di
+   risposte solo testuali è il segnale di chiacchiere fuori tema (o di un tentativo di far
+   "ragionare" il modello su qualcos'altro). Soglia 3 turni consecutivi
+   (`LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI`). Contatore persistito su
+   `conversazioni.turni_senza_tool_consecutivi` (migrazione 0019, applicata al progetto Supabase
+   reale), azzerato ad ogni turno che invece usa almeno uno strumento -- non poteva essere
+   ricostruito al volo dallo storico perché `messaggi` non registra se un turno ha usato
+   strumenti, solo ruolo+contenuto.
+
+Quando una delle due soglie scatta: il messaggio del cliente viene comunque salvato (l'operatore
+deve poterlo leggere per riprendere il filo), ma NON arriva mai al modello -- risposta fissa
+("Ti metto in contatto con un operatore per proseguire.") e conversazione marcata
+`passata_a_operatore`, stessa via già usata dallo strumento `trasferisci_a_operatore` esistente.
+
+**Implementazione**: `RisultatoConversazione` (agente.ts) ha un nuovo campo `usoStrumenti:
+boolean` (true se il turno ha usato almeno uno strumento in una qualunque delle sue iterazioni
+di tool-calling); `conversazione.server.ts` ha `aggiornaTurniSenzaStrumenti` (fail-open, come
+`inviaEmail`/`inviaSms` -- un problema qui è solo una difesa mancante per un turno, non deve mai
+rompere una risposta già riuscita) e `ottieniOCreaConversazione` ora restituisce anche
+`turniSenzaToolConsecutivi`. Migrazione `0019_anti_abuso_ai.sql` (colonna nuova, default 0,
+nessun impatto sulle conversazioni esistenti).
+
+**Verifica**: `npx vitest run` (251/251, inclusi i nuovi test per `limiteMensileMessaggi` con
+scaling per operatore, `usoStrumenti` in agente.test.ts, e i nuovi
+`conversazione.server.test.ts`), `tsc --noEmit` pulito, `eslint` pulito sui file toccati,
+`next build` pulito. Migrazione applicata al progetto Supabase reale (`weeaggiqovnmtovdjzxy`).

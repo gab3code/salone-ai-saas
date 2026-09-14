@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { risolviTenantIdDaSlug } from "@/lib/ai/tools";
 import { rispondiConversazione } from "@/lib/ai/agente";
-import { ottieniOCreaConversazione, caricaMessaggi, salvaMessaggio, segnaPassataAOperatore } from "@/lib/ai/conversazione.server";
+import {
+  ottieniOCreaConversazione,
+  caricaMessaggi,
+  salvaMessaggio,
+  segnaPassataAOperatore,
+  aggiornaTurniSenzaStrumenti,
+} from "@/lib/ai/conversazione.server";
 import {
   pianoHaAccessoAIChatWeb,
   pianoHaTonoPersonalizzato,
   limiteMensileMessaggi,
   INTERVALLO_MINIMO_MS_TRA_MESSAGGI,
+  LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE,
+  LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI,
 } from "@/lib/ai/limiti";
 import type { StileTonoAI } from "@/lib/ai/agente";
 import { contaMessaggiClienteQuestoMese, ultimoMessaggioTroppoRecente } from "@/lib/ai/limiti.server";
@@ -84,7 +92,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
     const usatiQuestoMese = await contaMessaggiClienteQuestoMese(supabase, tenantId);
-    if (usatiQuestoMese >= limiteMensileMessaggi(tenant.piano)) {
+    // Numero operatori solo per Pro (unico piano la cui quota scala con
+    // essi, vedi limiti.ts) -- niente query in più per Growth/Enterprise,
+    // dove il conteggio non cambierebbe comunque il risultato.
+    const numeroOperatori =
+      tenant.piano === "pro"
+        ? ((await supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId)).count ?? 0)
+        : 1;
+    if (usatiQuestoMese >= limiteMensileMessaggi(tenant.piano, numeroOperatori)) {
       return NextResponse.json(
         { errore: "Questa attività ha raggiunto il limite mensile di messaggi AI. Contattala direttamente per prenotare." },
         { status: 429 }
@@ -92,6 +107,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const storico = await caricaMessaggi(supabase, conversazione.id);
+
+    // Anti-abuso lato cliente (14/09/2026, vedi limiti.ts e DECISIONS.md):
+    // controllato PRIMA di chiamare il modello, come le difese sopra --
+    // niente costo Anthropic per un turno che finisce comunque passato a un
+    // operatore. Il messaggio del cliente viene comunque salvato (l'operatore
+    // deve poterlo leggere), solo non arriva mai all'AI.
+    const messaggiClienteConversazione = storico.filter((m) => m.ruolo === "cliente").length + 1;
+    const troppiMessaggi = messaggiClienteConversazione > LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE;
+    const troppiTurniSenzaStrumenti =
+      conversazione.turniSenzaToolConsecutivi >= LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI;
+
+    if (troppiMessaggi || troppiTurniSenzaStrumenti) {
+      await salvaMessaggio(supabase, conversazione.id, "cliente", messaggio);
+      const rispostaAntiAbuso = "Ti metto in contatto con un operatore per proseguire.";
+      await salvaMessaggio(supabase, conversazione.id, "assistente", rispostaAntiAbuso);
+      await segnaPassataAOperatore(supabase, conversazione.id);
+      return NextResponse.json({ risposta: rispostaAntiAbuso, trasferitoAUmano: true });
+    }
 
     await salvaMessaggio(supabase, conversazione.id, "cliente", messaggio);
 
@@ -129,6 +162,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (risultato.trasferitoAUmano) {
       await segnaPassataAOperatore(supabase, conversazione.id);
     }
+    // Aggiorna il contatore anti-abuso DOPO la risposta (fail-open, non
+    // deve mai far fallire un turno riuscito -- vedi conversazione.server.ts).
+    await aggiornaTurniSenzaStrumenti(
+      supabase,
+      conversazione.id,
+      risultato.usoStrumenti,
+      conversazione.turniSenzaToolConsecutivi
+    );
 
     return NextResponse.json({ risposta: risultato.rispostaTesto, trasferitoAUmano: risultato.trasferitoAUmano });
   } catch (errore) {

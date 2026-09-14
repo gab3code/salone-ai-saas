@@ -79,8 +79,9 @@ export async function creaOperatore(formData: FormData) {
   const { error } = await supabase.from("operatori").insert({ tenant_id: tenantId, nome });
   if (error) return { errore: `Errore creando l'operatore: ${error.message}` };
 
-  // Su Pro il prezzo scala con gli operatori (69,90€ include il primo, poi
-  // 20€/mese ciascuno, vedi priceIdOperatoreExtraPro in stripe/piani.ts) --
+  // Su Pro il prezzo scala con gli operatori (il prezzo base include il
+  // primo, poi 20€/mese ciascuno, vedi priceIdOperatoreExtraPro in
+  // stripe/piani.ts) --
   // DOPO che la scrittura sopra è già andata a buon fine, mai prima (fail-open,
   // vedi il docblock della funzione).
   await sincronizzaQuantitaOperatoriStripe(supabase, tenantId);

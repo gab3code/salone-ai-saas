@@ -16,14 +16,22 @@ import type { MessaggioConversazione } from "./agente";
  * migrazione 0006 proprio per questo).
  */
 
+export interface Conversazione {
+  id: string;
+  stato: string;
+  // Contatore anti-abuso (migrazione 0019, default 0 per ogni conversazione
+  // nuova) -- vedi LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI in limiti.ts.
+  turniSenzaToolConsecutivi: number;
+}
+
 export async function ottieniOCreaConversazione(
   supabase: SupabaseClient,
   tenantId: string,
   identificatoreSessione: string
-): Promise<{ id: string; stato: string }> {
+): Promise<Conversazione> {
   const { data: esistente } = await supabase
     .from("conversazioni")
-    .select("id, stato")
+    .select("id, stato, turni_senza_tool_consecutivi")
     .eq("tenant_id", tenantId)
     .eq("identificatore_sessione", identificatoreSessione)
     .eq("stato", "aperta")
@@ -31,15 +39,25 @@ export async function ottieniOCreaConversazione(
     .limit(1)
     .maybeSingle();
 
-  if (esistente) return esistente;
+  if (esistente) {
+    return {
+      id: esistente.id,
+      stato: esistente.stato,
+      turniSenzaToolConsecutivi: esistente.turni_senza_tool_consecutivi ?? 0,
+    };
+  }
 
   const { data: nuova, error } = await supabase
     .from("conversazioni")
     .insert({ tenant_id: tenantId, canale: "web", identificatore_sessione: identificatoreSessione })
-    .select("id, stato")
+    .select("id, stato, turni_senza_tool_consecutivi")
     .single();
   if (error) throw new Error(`Errore creando la conversazione: ${error.message}`);
-  return nuova;
+  return {
+    id: nuova.id,
+    stato: nuova.stato,
+    turniSenzaToolConsecutivi: nuova.turni_senza_tool_consecutivi ?? 0,
+  };
 }
 
 export async function caricaMessaggi(
@@ -72,4 +90,27 @@ export async function segnaPassataAOperatore(supabase: SupabaseClient, conversaz
     .update({ stato: "passata_a_operatore" })
     .eq("id", conversazioneId);
   if (error) throw new Error(`Errore aggiornando lo stato della conversazione: ${error.message}`);
+}
+
+/**
+ * Aggiorna il contatore anti-abuso dopo un turno in cui il modello È STATO
+ * chiamato (vedi limiti.ts): azzerato se il turno ha usato almeno uno
+ * strumento, incrementato di uno altrimenti. Fail-open (logga e non
+ * rilancia, stesso principio di `inviaEmail`/`inviaSms`): un problema qui è
+ * solo una difesa anti-abuso che manca per un turno, non deve mai rompere
+ * una conversazione reale il cui scopo principale (rispondere al cliente)
+ * è già riuscito.
+ */
+export async function aggiornaTurniSenzaStrumenti(
+  supabase: SupabaseClient,
+  conversazioneId: string,
+  usoStrumenti: boolean,
+  valoreAttuale: number
+): Promise<void> {
+  const nuovoValore = usoStrumenti ? 0 : valoreAttuale + 1;
+  const { error } = await supabase
+    .from("conversazioni")
+    .update({ turni_senza_tool_consecutivi: nuovoValore })
+    .eq("id", conversazioneId);
+  if (error) console.error("Errore aggiornando il contatore anti-abuso:", conversazioneId, error);
 }

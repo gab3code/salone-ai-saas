@@ -5,6 +5,8 @@ import {
   pianoHaTonoPersonalizzato,
   limiteMensileMessaggi,
   INTERVALLO_MINIMO_MS_TRA_MESSAGGI,
+  LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE,
+  LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI,
 } from "./limiti";
 
 describe("limiti di piano per la chat AI", () => {
@@ -46,8 +48,28 @@ describe("limiti di piano per la chat AI", () => {
     expect(limiteMensileMessaggi("enterprise")).toBe(Infinity);
   });
 
+  it("la quota di Pro scala per operatore (stesso pattern della quota SMS)", () => {
+    const base = limiteMensileMessaggi("pro");
+    expect(limiteMensileMessaggi("pro", 1)).toBe(base);
+    expect(limiteMensileMessaggi("pro", 0)).toBe(base); // mai sotto la quota di un solo operatore
+    expect(limiteMensileMessaggi("pro", 3)).toBe(base * 3);
+  });
+
+  it("growth ed enterprise NON scalano per operatore (prezzo piatto/illimitato)", () => {
+    expect(limiteMensileMessaggi("growth", 5)).toBe(limiteMensileMessaggi("growth", 1));
+    expect(limiteMensileMessaggi("enterprise", 5)).toBe(Infinity);
+  });
+
   it("l'intervallo anti-burst è positivo e ragionevole (non zero, non minuti)", () => {
     expect(INTERVALLO_MINIMO_MS_TRA_MESSAGGI).toBeGreaterThan(0);
     expect(INTERVALLO_MINIMO_MS_TRA_MESSAGGI).toBeLessThan(10_000);
+  });
+
+  it("anti-abuso lato cliente: soglie positive e ragionevoli (14/09/2026)", () => {
+    expect(LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE).toBeGreaterThan(0);
+    expect(LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI).toBeGreaterThan(0);
+    // La soglia per singola conversazione deve restare ben sotto la quota
+    // mensile per tenant, altrimenti non protegge da nulla in pratica.
+    expect(LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE).toBeLessThan(limiteMensileMessaggi("growth"));
   });
 });

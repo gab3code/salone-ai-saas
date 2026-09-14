@@ -1,6 +1,42 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 14/09/2026, trentaduesimo giro -- costruito da zero l'SMS come canale di
+Ultimo aggiornamento: 14/09/2026, trentatreesimo giro -- rielaborazione di prezzi, margini e
+abbonamenti su richiesta esplicita di Gabriel ("dobbiamo rielaborare prezzi margini e
+abbonamenti e capire qual'è la soluzione migliore"). Quattro decisioni concrete, tutte in
+DECISIONS.md con il ragionamento completo:
+
+1. **Brevo valutato e scartato per l'SMS**: verificato dal vivo nell'account Brevo reale di
+   Gabriel (autorizzato: "usalo tu con l'estensione crhome se serve") un prezzo migliore di
+   Skebby (0,0434€/SMS Italia contro ~0,085€ medio), ma scoperto un vincolo AGCOM non
+   preventivato -- l'Italia richiede un Numero Lungo Virtuale acquistato da Brevo (i mittenti
+   alfanumerici sono vietati per legge), il cui costo non è pubblico e si scopre solo con una
+   pratica di verifica manuale. Deciso di restare su **Skebby** (già in produzione, zero
+   sorprese) -- il risparmio per-SMS non giustifica il rischio su un canale a basso volume.
+2. **Quota AI scalata per operatore su Pro**, stesso pattern della quota SMS (`limiteMensileMessaggi`
+   in `src/lib/ai/limiti.ts`, ora accetta `numeroOperatori`) -- coerenza con il prezzo di Pro che
+   già scala per operatore.
+3. **Anti-abuso lato cliente sulla chat AI** (richiesta esplicita di Gabriel: clienti che
+   scrivono cose fuori tema o troppo): tetto di 40 messaggi cliente per conversazione + un
+   contatore di turni consecutivi senza uso di strumenti (soglia 3, proxy comportamentale per
+   "fuori tema" -- `conversazioni.turni_senza_tool_consecutivi`, migrazione 0019, applicata al DB
+   reale). Entrambe le difese bloccano PRIMA di chiamare il modello, zero costo Anthropic per un
+   turno rifiutato.
+4. **Prezzo base di Pro portato da 69,90€ a 89,90€/mese** (pareggia il prezzo del piano
+   equivalente di Estetia -- scelto da Gabriel tra 3 opzioni proposte, con margine worst-case
+   ricalcolato da ~5% a ~25%). Nuovo Price creato su Stripe (`price_1UFZHfCTPsGON8WAeRQLMmOX`,
+   il vecchio 69,90€ archiviato) e `STRIPE_PRICE_PRO` aggiornata su Vercel, entrambi fatti
+   direttamente da Claude sul browser/pannello reali di Gabriel. In cambio, tre "vantaggi seri"
+   aggiunti alla lista di Pro in `Prezzi.tsx` (scelti da Gabriel: Automazioni extra/promemoria
+   compleanno, Supporto prioritario, Report/analytics avanzati) -- **impegno di prodotto, NESSUNA
+   delle tre esiste ancora in codice**, tracciate come nuovi task 9/10/11 nel Gruppo E di
+   PIANO.md da costruire prima di aprire i pagamenti veri (stesso principio già seguito per
+   WhatsApp quando era ancora bloccato: il sito descrive il prodotto al lancio, non lo stato di
+   oggi, ma resta un impegno concreto).
+
+`npx vitest run` (251/251, 9 nuovi/modificati rispetto al giro precedente), `tsc --noEmit`,
+`eslint`, `npm run build` tutti puliti.
+
+Aggiornamento precedente, 14/09/2026, trentaduesimo giro -- costruito da zero l'SMS come canale di
 fallback sul piano Pro (mai in aggiunta all'email, solo in sua sostituzione quando il cliente non
 ha lasciato un indirizzo), insieme al prezzo per operatore su Pro che Gabriel ha chiesto di
 affrontare nella stessa conversazione. Vedi DECISIONS.md ("SMS su Pro...") per il ragionamento

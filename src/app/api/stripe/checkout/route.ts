@@ -76,8 +76,9 @@ export async function POST(request: NextRequest) {
   const origin = request.nextUrl.origin;
   const trialDays = giorniDiProva(piano);
 
-  // Pro: 69,90€/mese includono 1 operatore, ognuno oltre il primo costa
-  // 20€/mese in più (deciso con Gabriel il 14/09/2026, vedi DECISIONS.md) --
+  // Pro: il prezzo base include 1 operatore, ognuno oltre il primo costa
+  // 20€/mese in più (deciso con Gabriel il 14/09/2026, prezzo base rivisto
+  // il 14/09/2026, vedi DECISIONS.md) --
   // secondo line item aggiunto SOLO se il salone ha già più di un operatore
   // configurato al momento del checkout (tipicamente 0 se sta ancora
   // facendo l'onboarding, ma un tenant che passa a Pro da un altro piano

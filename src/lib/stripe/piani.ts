@@ -56,7 +56,7 @@ export function priceIdPerPiano(piano: PianoPagante): string {
  * Price ID del secondo line item su Pro: "operatore extra" (Fase 5+SMS,
  * deciso con Gabriel il 14/09/2026 -- vedi DECISIONS.md per il ragionamento
  * completo sul perché il costo SMS reale per operatore ha reso necessario
- * far pagare di più i saloni Pro con più operatori). 69,90€/mese includono
+ * far pagare di più i saloni Pro con più operatori). Il prezzo base include
  * 1 operatore, ognuno oltre il primo costa 20€/mese in più. Prodotto/Price
  * separato dal Price base di Pro (non una fascia di quantità sullo stesso
  * Price) apposta: sono concettualmente due cose diverse (abbonamento base +

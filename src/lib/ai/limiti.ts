@@ -50,11 +50,51 @@ const QUOTA_MENSILE_MESSAGGI_PER_PIANO: Record<string, number> = {
   enterprise: Infinity,
 };
 
-export function limiteMensileMessaggi(piano: string): number {
-  return QUOTA_MENSILE_MESSAGGI_PER_PIANO[piano] ?? 0;
+// Quota AI per Pro scalata per operatore (decisione 14/09/2026, vedi
+// DECISIONS.md -- stesso ragionamento e stesso pattern di
+// `limiteMensileSms` in `piani.ts`): un salone Pro con più operatori genera
+// più conversazioni/prenotazioni, ed essendo anche il prezzo di Pro ora
+// scalato per operatore (+20€/mese ciascuno oltre il primo), è coerente che
+// anche la quota AI cresca di pari passo invece di restare fissa mentre il
+// salone cresce e il costo Anthropic con lui. Growth resta volutamente
+// FISSO indipendentemente dal numero di operatori: il suo prezzo (39,90€)
+// non scala per operatore, quindi non avrebbe senso far scalare la quota
+// senza far scalare il prezzo che la copre -- Growth non ha comunque un
+// tetto sul numero di operatori, solo un prezzo piatto.
+export function limiteMensileMessaggi(piano: string, numeroOperatori: number = 1): number {
+  const base = QUOTA_MENSILE_MESSAGGI_PER_PIANO[piano] ?? 0;
+  if (piano === "pro" && Number.isFinite(base)) {
+    return base * Math.max(1, numeroOperatori);
+  }
+  return base;
 }
 
 // Anti-burst: un vero cliente non manda due messaggi a meno di 2 secondi di
 // distanza scrivendo a mano su una tastiera -- una cadenza più fitta è quasi
 // certamente uno script, non una persona.
 export const INTERVALLO_MINIMO_MS_TRA_MESSAGGI = 2000;
+
+// Anti-abuso lato CLIENTE (decisione 14/09/2026, richiesta esplicita di
+// Gabriel: "l'ai deve avere un anti abuso da parte del cliente, ad esempio
+// clienti che scrivono cose che non centrano, o scrivono troppo"). Due
+// difese distinte e complementari, entrambe controllate PRIMA di chiamare
+// il modello in route.ts (stesso principio della quota mensile/anti-burst
+// sopra -- un turno bloccato qui non genera alcun costo Anthropic):
+//
+// 1. "Scrivono troppo": tetto sui messaggi CLIENTE della singola
+//    conversazione -- diverso dalla quota mensile per tenant sopra (quella
+//    è condivisa tra tutti i clienti del tenant ed è molto più alta). Oltre
+//    questa soglia una conversazione non sta più prenotando qualcosa di
+//    reale, sta solo consumando quota: meglio passarla a un operatore.
+// 2. "Scrivono cose che non centrano": non esiste un modo deterministico di
+//    giudicare "è in tema" senza un altro giro di AI (costoso e
+//    aggirabile), quindi si usa un proxy comportamentale -- una vera
+//    conversazione di prenotazione chiama quasi sempre uno strumento
+//    (elenca_servizi, verifica_disponibilita, ecc.) entro pochi turni. Una
+//    sequenza di risposte SOLO testuali, senza mai uno strumento, è il
+//    segnale che il cliente sta chiacchierando fuori tema (o cercando di
+//    far "ragionare" il modello su qualcos'altro). Il contatore vive su
+//    `conversazioni.turni_senza_tool_consecutivi` (si azzera ad ogni turno
+//    che invece usa almeno uno strumento) -- vedi conversazione.server.ts.
+export const LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE = 40;
+export const LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI = 3;

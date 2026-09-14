@@ -32,7 +32,7 @@ describe("rispondiConversazione", () => {
     const create = vi.fn().mockResolvedValue(testoFinale("Ciao! Come posso aiutarti?"));
     const risultato = await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
 
-    expect(risultato).toEqual({ rispostaTesto: "Ciao! Come posso aiutarti?", trasferitoAUmano: false });
+    expect(risultato).toEqual({ rispostaTesto: "Ciao! Come posso aiutarti?", trasferitoAUmano: false, usoStrumenti: false });
     expect(create).toHaveBeenCalledTimes(1);
   });
 
@@ -50,6 +50,7 @@ describe("rispondiConversazione", () => {
     );
 
     expect(risultato.trasferitoAUmano).toBe(true);
+    expect(risultato.usoStrumenti).toBe(true);
     expect(risultato.rispostaTesto).toBe("Ti metto in contatto con un operatore.");
     expect(create).toHaveBeenCalledTimes(2);
 
@@ -68,9 +69,16 @@ describe("rispondiConversazione", () => {
     const risultato = await rispondiConversazione([], "...", ctx, { messages: { create } } as ClienteAnthropic);
 
     expect(risultato.trasferitoAUmano).toBe(true);
+    expect(risultato.usoStrumenti).toBe(true);
     expect(risultato.rispostaTesto).toMatch(/operatore/i);
     // Si ferma al limite di sicurezza, non chiama il modello all'infinito.
     expect(create.mock.calls.length).toBeLessThanOrEqual(8);
+  });
+
+  it("usoStrumenti resta false su una risposta di puro testo (proxy anti-abuso, vedi limiti.ts)", async () => {
+    const create = vi.fn().mockResolvedValue(testoFinale("Certo, il salone chiude alle 19."));
+    const risultato = await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
+    expect(risultato.usoStrumenti).toBe(false);
   });
 
   it("include lo storico della conversazione nella richiesta, non solo l'ultimo messaggio", async () => {

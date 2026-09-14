@@ -1,0 +1,14 @@
+-- Anti-abuso lato cliente per la chat AI (Fase 5+pricing, 14/09/2026 --
+-- richiesto esplicitamente da Gabriel: "l'ai deve avere un anti abuso da
+-- parte del cliente, ad esempio clienti che scrivono cose che non centrano,
+-- o scrivono troppo"). Vedi DECISIONS.md per il ragionamento completo.
+--
+-- Contatore dei turni CONSECUTIVI in cui l'assistente ha risposto senza
+-- usare nessuno strumento (elenca_servizi, verifica_disponibilita, ecc.):
+-- una vera conversazione di prenotazione chiama quasi sempre uno strumento
+-- entro pochi turni, quindi una lunga sequenza di risposte solo testuali è
+-- un proxy ragionevole per "il cliente sta scrivendo cose fuori tema" (mai
+-- perfetto, ma non richiede un altro giro di AI per giudicare, che sarebbe
+-- sia costoso sia aggirabile). Si azzera ad ogni turno che invece usa
+-- almeno uno strumento -- vedi src/lib/ai/conversazione.server.ts.
+alter table conversazioni add column turni_senza_tool_consecutivi integer not null default 0;

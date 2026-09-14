@@ -46,6 +46,11 @@ export interface MessaggioConversazione {
 export interface RisultatoConversazione {
   rispostaTesto: string;
   trasferitoAUmano: boolean;
+  // true se in QUESTO turno (anche su più iterazioni del loop di
+  // tool-calling) è stato usato almeno uno strumento reale -- usato da chi
+  // chiama (route.ts) come proxy anti-abuso per "questo scambio riguardava
+  // davvero una prenotazione", vedi limiti.ts e DECISIONS.md 14/09/2026.
+  usoStrumenti: boolean;
 }
 
 const GIORNI_SETTIMANA_IT = [
@@ -158,6 +163,7 @@ export async function rispondiConversazione(
   ];
 
   let trasferitoAUmano = false;
+  let usoStrumenti = false;
 
   for (let iterazione = 0; iterazione < MAX_ITERAZIONI_TOOL; iterazione++) {
     const risposta = await clientAnthropic.messages.create({
@@ -178,8 +184,10 @@ export async function rispondiConversazione(
         .map((blocco) => blocco.text)
         .join("\n")
         .trim();
-      return { rispostaTesto: testo || "Non sono riuscito a formulare una risposta.", trasferitoAUmano };
+      return { rispostaTesto: testo || "Non sono riuscito a formulare una risposta.", trasferitoAUmano, usoStrumenti };
     }
+
+    usoStrumenti = true;
 
     // Il modello vuole usare uno o più strumenti: eseguili DAVVERO (mai
     // simulare un risultato) e restituiscigli l'esito prima di continuare.
@@ -204,5 +212,6 @@ export async function rispondiConversazione(
     rispostaTesto:
       "Mi scuso, sto avendo difficoltà a completare questa richiesta. Ti metto in contatto con un operatore.",
     trasferitoAUmano: true,
+    usoStrumenti: true, // per finire qui ogni iterazione ha per forza usato uno strumento
   };
 }

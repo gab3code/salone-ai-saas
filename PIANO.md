@@ -254,6 +254,27 @@ sono nella loro Fase con `[x]`.
    degli altri bloccanti sopra, non solo un "nice to have" generico.
 8. ~~"1 operatore" sul piano Free~~ **CODICE FATTO 13/09/2026** -- vedi Fase 5 (`limiteOperatori`
    in `piani.ts`, applicato in `creaOperatore`).
+9. **Automazioni extra / promemoria di compleanno (Pro)** -- aggiunta 14/09/2026 (rielaborazione
+   prezzi/margini, prezzo Pro portato a 89,90€ in cambio di "vantaggi seri" scelti da Gabriel,
+   vedi DECISIONS.md). La tabella `automazioni` (migrazione 0001) ha già un `tipo = 'compleanno'`
+   previsto ma mai implementato -- serve: colonna data di nascita su `clienti` (raccolta
+   opzionale, non oggi richiesta da nessun form), un cron giornaliero che trova i compleanni del
+   giorno per tenant Pro/Enterprise e manda email/SMS con `inviaSmsSeInclusoNelPiano`/
+   `inviaEmail` (stesso pattern di `promemoria.server.ts`), e un modo per il titolare di
+   attivare/disattivare/personalizzare il messaggio (probabilmente in
+   `/dashboard/impostazioni/promemoria`, stessa pagina dei promemoria esistenti).
+10. **Supporto prioritario (Pro)** -- aggiunta 14/09/2026. Diverso dagli altri due: non è
+    codice, è un impegno di processo (rispondere prima ai ticket/email di un cliente Pro). Da
+    decidere con Gabriel COME distinguere un cliente Pro quando scrive (probabilmente: chiedere
+    sempre l'email del salone, che identifica il piano nel nostro DB) prima di poter dire questa
+    promessa onestamente mantenuta -- oggi non c'è nemmeno un canale di supporto strutturato
+    (solo email diretta a Gabriel).
+11. **Report/analytics avanzati (Pro)** -- aggiunta 14/09/2026. Da scoprire con Gabriel COSA
+    significa in concreto oltre l'Analytics già incluso da Growth (`pianoHaAnalytics` in
+    `piani.ts`, vedi Fase 3): candidati discussi solo a livello di idea, non ancora scelti --
+    un report mensile via email, un confronto periodo-su-periodo, un export dati più ampio
+    dell'attuale `/dashboard/clienti/export` (oggi export clienti, non metriche). Nessun codice
+    scritto: la voce è stata aggiunta al sito come impegno di lancio, non come funzione pronta.
 
 **Promesse verificate e già vere oggi** (nessuna azione, elencate solo per completezza
 dell'audit): pagina di prenotazione pubblica self-service 24/7 anche su Free; calendario unico

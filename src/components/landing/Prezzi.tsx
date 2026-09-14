@@ -32,15 +32,32 @@ import { LiquidMetal } from "./LiquidMetal";
  *    aggiornato allo stesso modo.
  *
  * Aggiornamento 14/09/2026 (Fase 5+SMS) -- il prezzo di Pro non è più fisso:
- * 69,90€/mese includono 1 operatore, ognuno oltre il primo costa 20€/mese in
+ * il prezzo base include 1 operatore, ognuno oltre il primo costa 20€/mese in
  * più (deciso con Gabriel dopo aver introdotto l'SMS come canale di
  * fallback -- il costo Skebby reale scala con quanti appuntamenti/promemoria
  * un salone genera, che scala a sua volta con gli operatori, vedi
  * DECISIONS.md e priceIdOperatoreExtraPro in stripe/piani.ts). `notaPrezzo`
- * sotto rende esplicita questa condizione, altrimenti "€69,90/mese" letto da
+ * sotto rende esplicita questa condizione, altrimenti "€xx,90/mese" letto da
  * solo sarebbe una promessa scritta diversa da quella che il checkout
  * applica davvero (stesso principio del controllo promesse del sito del
  * 13/09/2026 che ha portato a `limiteOperatori`/`pianoHaAnalytics`/ecc.).
+ *
+ * Aggiornamento 14/09/2026 (rielaborazione prezzi/margini) -- prezzo base di
+ * Pro portato da €69,90 a €89,90/mese (pareggia il prezzo del piano
+ * equivalente di Estetia, vedi DECISIONS.md "Struttura piani e prezzi":
+ * scelto sopra due alternative più morbide perché il margine worst-case a
+ * 69,90€ era sceso a ~5% dopo aver messo a fuoco il costo reale della quota
+ * AI+SMS piena). Prezzo Stripe aggiornato (nuovo Price, il vecchio 69,90€
+ * archiviato -- Stripe non permette di modificare l'importo di un Price
+ * esistente). In cambio del prezzo più alto, Gabriel ha esplicitamente
+ * chiesto "vantaggi seri": tre voci aggiunte alla lista di Pro
+ * (Automazioni extra, Supporto prioritario, Report/analytics avanzati),
+ * scelte da Gabriel tra le opzioni proposte -- **impegno di prodotto ancora
+ * da costruire in codice** (nessuna delle tre esiste oggi), stesso principio
+ * già seguito per WhatsApp/SMS/tono AI quando erano ancora da costruire
+ * (commento più sopra: "il sito descrive il prodotto al lancio, non lo
+ * stato di oggi" -- corretto qui perché nessun pagamento reale è ancora
+ * live, vedi PIANO.md per il checklist di cosa manca prima di aprirli).
  */
 const PIANI = [
   {
@@ -76,10 +93,18 @@ const PIANI = [
   },
   {
     nome: "Pro",
-    prezzo: "€69,90",
+    prezzo: "€89,90",
     periodo: "/mese",
     descrizione: "Anche su WhatsApp.",
-    voci: ["Tutto di Growth", "Assistente AI su WhatsApp", "SMS", "Tono dell'AI personalizzabile"],
+    voci: [
+      "Tutto di Growth",
+      "Assistente AI su WhatsApp",
+      "SMS",
+      "Tono dell'AI personalizzabile",
+      "Automazioni extra (promemoria di compleanno)",
+      "Supporto prioritario",
+      "Report e analytics avanzati",
+    ],
     consigliato: false,
     // Vedi il commento sopra PIANI (aggiornamento 14/09/2026): il prezzo
     // include 1 operatore, non è più tutto compreso a prescindere da quanti
