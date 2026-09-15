@@ -3,7 +3,9 @@ import { creaClientAdmin } from "@/lib/supabase/admin";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { cancellazioneOnlineConsentita, messaggioCancellazioneBloccata } from "@/lib/finestra-cancellazione";
+import { motivoBloccoSpostamento, messaggioSpostamentoBloccato } from "@/lib/finestra-spostamento";
 import { ModuloCancellazione } from "./ModuloCancellazione";
+import { ModuloSpostamento } from "./ModuloSpostamento";
 
 /**
  * Pagina pubblica "gestisci la tua prenotazione" (PIANO.md Fase 4, link
@@ -11,12 +13,11 @@ import { ModuloCancellazione } from "./ModuloCancellazione";
  * commento di sicurezza in azioni.ts). Come `/s/[slug]`, pensata per un
  * visitatore anonimo: client admin, mai un client autenticato.
  *
- * Solo CANCELLAZIONE per ora, non "sposta": riprogrammare richiede un vero
- * selettore di slot liberi (la stessa UI del flusso di prenotazione
- * pubblica), lavoro a parte non incluso in questo giro -- onestamente
- * segnalato, non taciuto. Un cliente che vuole spostare l'appuntamento
- * cancella qui e ne crea uno nuovo da `/s/[slug]`, oppure contatta il
- * salone direttamente.
+ * Cancellazione + spostamento ("sposta", Fase 4, richiesta di Gabriel il
+ * 15/09/2026, aggiunto dopo aver verificato dal vivo che le fasi precedenti
+ * fossero solide): stesso modello di sicurezza per entrambe (nessun login),
+ * stessa finestra minima di ore, ma un tetto separato di massimo 1
+ * spostamento per lo spostamento -- vedi src/lib/finestra-spostamento.ts.
  */
 export const metadata: Metadata = { title: "Gestisci la tua prenotazione" };
 
@@ -31,7 +32,7 @@ export default async function PaginaGestisciPrenotazione({
   const { data: appuntamento } = await supabase
     .from("appuntamenti")
     .select(
-      "id, inizio, stato, tenant_id, tenants(nome, telefono, ore_minime_cancellazione), servizi(nome), operatori(nome), clienti(nome)"
+      "id, inizio, stato, tenant_id, spostamenti_effettuati, tenants(nome, telefono, ore_minime_cancellazione), servizi(nome), operatori(nome), clienti(nome)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -73,6 +74,22 @@ export default async function PaginaGestisciPrenotazione({
     ? messaggioCancellazioneBloccata(tenant.ore_minime_cancellazione, tenant.nome, tenant.telefono)
     : null;
 
+  // Stesso ragionamento per lo spostamento (finestra-spostamento.ts), con in
+  // più il tetto di massimo 1 spostamento -- entrambi i motivi di blocco
+  // condividono lo stesso messaggio, calcolato una sola volta qui.
+  const motivoSpostamentoBloccato =
+    tenant && appuntamento.stato !== "cancellato"
+      ? motivoBloccoSpostamento(
+          new Date(appuntamento.inizio),
+          tenant.ore_minime_cancellazione,
+          appuntamento.spostamenti_effettuati
+        )
+      : null;
+  const messaggioSpostamentoBloccatoTesto =
+    tenant && motivoSpostamentoBloccato
+      ? messaggioSpostamentoBloccato(motivoSpostamentoBloccato, tenant.ore_minime_cancellazione, tenant.nome, tenant.telefono)
+      : null;
+
   return (
     <Cornice>
       <h1 className="text-lg font-semibold text-zinc-900">La tua prenotazione</h1>
@@ -95,7 +112,12 @@ export default async function PaginaGestisciPrenotazione({
         <dd>{appuntamento.stato === "cancellato" ? "Cancellata" : "Confermata"}</dd>
       </dl>
 
-      <div className="mt-6">
+      <div className="mt-6 flex flex-col gap-3">
+        <ModuloSpostamento
+          appuntamentoId={id}
+          giaCancellata={appuntamento.stato === "cancellato"}
+          messaggioBloccato={messaggioSpostamentoBloccatoTesto}
+        />
         <ModuloCancellazione
           appuntamentoId={id}
           giaCancellata={appuntamento.stato === "cancellato"}

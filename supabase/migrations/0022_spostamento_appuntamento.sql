@@ -1,0 +1,15 @@
+-- Spostamento self-service dell'appuntamento (Fase 4, richiesta di Gabriel
+-- il 15/09/2026): un cliente può spostare la propria prenotazione dal link
+-- "gestisci la tua prenotazione" ricevuto via email, con lo stesso limite
+-- anti-abuso scelto insieme a Gabriel -- stessa finestra minima di ore già
+-- usata per la cancellazione (tenants.ore_minime_cancellazione, nessuna
+-- nuova colonna serve per quella parte) più un tetto di massimo 1
+-- spostamento per appuntamento, tracciato qui.
+--
+-- Contatore, non un booleano: un booleano "gia_spostato" avrebbe la stessa
+-- espressività per il limite attuale (1), ma un contatore costa zero in più
+-- e non richiede una nuova migrazione se in futuro il limite dovesse
+-- cambiare a "massimo 2", ecc. Default 0 per tutte le righe esistenti
+-- (nessun appuntamento passato è mai stato "spostato" da questa funzione,
+-- che non esisteva ancora).
+alter table appuntamenti add column spostamenti_effettuati integer not null default 0;

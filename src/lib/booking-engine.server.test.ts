@@ -856,6 +856,53 @@ describe("modificaAppuntamentoTenant", () => {
       errore: "Questo slot è appena stato occupato da un altro appuntamento. Scegli un altro orario.",
     });
   });
+
+  it("senza incrementaSpostamentiEffettuati non tocca il contatore (dashboard/AI, Fase 4)", async () => {
+    const supabase = creaSupabaseFinto({
+      appuntamenti: {
+        select: [
+          { data: { servizio_id: SERVIZIO_ID, spostamenti_effettuati: 0 }, error: null },
+          { data: [], error: null },
+        ],
+        update: [{ data: null, error: null }],
+      },
+      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      operatori: { select: [rispostaOperatoreValido()] },
+      operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
+      tenants: { select: [rispostaTenantFuso(), rispostaTenantFuso()] },
+    });
+    const risultato = await modificaAppuntamentoTenant(supabase, TENANT_ID, APPUNTAMENTO_ID, {
+      operatoreId: OPERATORE_ID,
+      inizio: INIZIO_PSEUDO,
+    });
+    expect(risultato).toEqual({ ok: true });
+    const scrittura = supabase.registro.update[0] as { payload: Record<string, unknown> };
+    expect(scrittura.payload.spostamenti_effettuati).toBeUndefined();
+  });
+
+  it("con incrementaSpostamentiEffettuati incrementa il contatore esistente (spostamento self-service, Fase 4)", async () => {
+    const supabase = creaSupabaseFinto({
+      appuntamenti: {
+        select: [
+          { data: { servizio_id: SERVIZIO_ID, spostamenti_effettuati: 0 }, error: null },
+          { data: [], error: null },
+        ],
+        update: [{ data: null, error: null }],
+      },
+      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      operatori: { select: [rispostaOperatoreValido()] },
+      operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
+      tenants: { select: [rispostaTenantFuso(), rispostaTenantFuso()] },
+    });
+    const risultato = await modificaAppuntamentoTenant(supabase, TENANT_ID, APPUNTAMENTO_ID, {
+      operatoreId: OPERATORE_ID,
+      inizio: INIZIO_PSEUDO,
+      incrementaSpostamentiEffettuati: true,
+    });
+    expect(risultato).toEqual({ ok: true });
+    const scrittura = supabase.registro.update[0] as { payload: Record<string, unknown> };
+    expect(scrittura.payload.spostamenti_effettuati).toBe(1);
+  });
 });
 
 describe("cancellaAppuntamentoTenant", () => {

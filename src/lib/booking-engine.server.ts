@@ -772,6 +772,15 @@ export async function creaAppuntamentoTenant(
 export interface ModificaAppuntamentoParams {
   operatoreId: string;
   inizio: Date;
+  // Solo per lo spostamento self-service del cliente (gestisci/[id]/azioni.ts,
+  // Fase 4): incrementa `spostamenti_effettuati`, il contatore usato dal
+  // limite anti-abuso "massimo 1 spostamento online" (vedi
+  // finestra-spostamento.ts). Di proposito un flag esplicito e non il
+  // comportamento di default: dashboard e AI possono spostare un
+  // appuntamento tutte le volte che serve (è il titolare/l'AI per suo conto
+  // a deciderlo, non un cliente anonimo da un link), quindi NON devono mai
+  // consumare il tetto pensato solo per l'abuso lato cliente.
+  incrementaSpostamentiEffettuati?: boolean;
 }
 
 export async function modificaAppuntamentoTenant(
@@ -782,7 +791,7 @@ export async function modificaAppuntamentoTenant(
 ): Promise<RisultatoScrittura> {
   const { data: appuntamentoAttuale } = await supabase
     .from("appuntamenti")
-    .select("servizio_id")
+    .select("servizio_id, spostamenti_effettuati")
     .eq("id", appuntamentoId)
     .eq("tenant_id", tenantId)
     .single();
@@ -828,6 +837,9 @@ export async function modificaAppuntamentoTenant(
       operatore_id: params.operatoreId,
       inizio: pseudoUtcAReale(params.inizio, fusoOrario).toISOString(),
       fine: pseudoUtcAReale(fine, fusoOrario).toISOString(),
+      ...(params.incrementaSpostamentiEffettuati
+        ? { spostamenti_effettuati: (appuntamentoAttuale.spostamenti_effettuati ?? 0) + 1 }
+        : {}),
     })
     .eq("id", appuntamentoId)
     .eq("tenant_id", tenantId);

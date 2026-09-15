@@ -183,8 +183,10 @@ reale delle fasi è:
   vero, non etichetta generica), bozza applicata correttamente, interfaccia normale al posto del
   wizard dopo l'apply, dati persistiti giusti in tutte le sezioni. Tenant di prova ripulito da
   Supabase dopo il test.
-- **Fase 4 = riprogrammazione cliente self-service + promemoria di compleanno** (vedi Gruppo
-  B-bis e la lista "cosa manca ancora" più sotto per il dettaglio di ciascuna).
+- **Fase 4 = riprogrammazione cliente self-service + promemoria di compleanno**. Riprogrammazione:
+  **CODICE FATTO 15/09/2026**, non ancora verificata dal vivo (serve il deploy) -- vedi Gruppo
+  B-bis per il dettaglio. Promemoria di compleanno: rimandato a dopo il lancio (richiesta esplicita
+  di Gabriel, vedi DECISIONS.md 15/09/2026).
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni
   AI cliente-salone -- vincolo legale reale (Salone AI è processore di dati per conto del
   titolare, non proprietario di quella conversazione), dettaglio in CLAUDE.md punto 21 e
@@ -876,9 +878,10 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       esistente. Link aggiunto nell'email di conferma cliente (`notifiche.server.ts`), con
       `NEXT_PUBLIC_SITE_URL` o fallback sugli header della richiesta, omesso del tutto se
       nessuno dei due è disponibile (mai un link rotto). 2 nuovi test in
-      `notifiche.server.test.ts`. **"Sposta" (riprogrammare) NON incluso**: richiede un vero
+      `notifiche.server.test.ts`. ~~**"Sposta" (riprogrammare) NON incluso**: richiede un vero
       selettore di slot liberi (la stessa UI del flusso di prenotazione pubblica) -- lavoro a
-      parte, non "contenuto" come la sola cancellazione. **Verifica dal vivo limitata dalla
+      parte, non "contenuto" come la sola cancellazione.~~ **"Sposta" -- vedi voce dedicata più
+      sotto per il dettaglio, CODICE FATTO 15/09/2026.** **Verifica dal vivo limitata dalla
       sandbox**: `tsc`/`eslint`/`vitest` (178/178)/`build` puliti, e la query è verificata
       correttamente contro il database reale via SQL diretto (join risolti, dati completi per un
       appuntamento di test vero) -- ma un `curl` alla pagina vera dal server dev locale di questa
@@ -902,6 +905,22 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       applicata al database reale il 14/09/2026 (primo tentativo bloccato dal classificatore di
       sicurezza della sandbox, riprovato su richiesta esplicita di Gabriel -- vedi Gruppo A punto
       10). `tsc`/`eslint`/`vitest` (193/193, +15 da questo giro)/`build` puliti.
+- [x] **Gestione della prenotazione lato cliente -- "Sposta" (riprogrammare)** -- **CODICE FATTO
+      15/09/2026** (vedi DECISIONS.md, "Fase 4: spostamento self-service"): completa il punto
+      sopra, bottone `ModuloSpostamento.tsx` sopra il modulo di cancellazione su `/gestisci/[id]`,
+      stesso modello di sicurezza (nessun login), stesso operatore/servizio dell'appuntamento
+      originale -- il cliente sceglie solo un nuovo giorno/orario, non un nuovo trattamento. Riusa
+      `trovaSlotEStatoGiornoTenant`/`modificaAppuntamentoTenant` (punto 9 di CLAUDE.md, stessa
+      ricerca/scrittura di dashboard/AI/pubblico). Anti-abuso (scelta di Gabriel del 14/09/2026,
+      tra le opzioni proposte) = stessa finestra minima di ore della cancellazione
+      (`ore_minime_cancellazione`, riusata direttamente non riscritta) + massimo 1 spostamento per
+      appuntamento (nuovo contatore `appuntamenti.spostamenti_effettuati`, migrazione `0022`,
+      applicata al database reale via `execute_sql` dopo che `apply_migration` è stato bloccato dal
+      classificatore, stesso limite già noto). 10 test nuovi in `finestra-spostamento.test.ts` + 2
+      in `booking-engine.server.test.ts` (433/433 totali), `tsc`/`eslint`/`build` puliti. **Non
+      ancora verificato dal vivo**: serve il deploy del codice di questo giro, poi provare il
+      flusso reale (cercare un orario, confermare, verificare che un secondo tentativo venga
+      correttamente bloccato) su un tenant di test dedicato già preparato in Supabase.
 - [x] **Condividi la tua pagina (link + QR code)** -- **CODICE FATTO 15/09/2026** (richiesta
       esplicita di Gabriel: "serve un modo per condividere il link del proprio negozio sui siti
       come Google o sulla pagina Instagram"). Prima di oggi la dashboard mostrava lo slug come
