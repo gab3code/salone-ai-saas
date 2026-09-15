@@ -2430,3 +2430,46 @@ guardarlo con occhi umani, non solo dati testuali come per la chat) -- da contro
 posizionamento regga anche su schermo piccolo (il pannello della chat aperta usa già
 `calc(100vw-2rem)` per lo stesso motivo, il fumetto ha una larghezza massima fissa più stretta ma
 va comunque controllato dal vivo).
+
+---
+
+## 2026-09-15 — Suggerimento del widget rivisto dopo il primo giro dal vivo di Gabriel: via il
+## pallino e la X, deve far scoprire l'AI senza spingere a usarla
+
+**Contesto**: Gabriel ha pushato il bundle 45 e provato il suggerimento sul sito vero. Riscontro:
+funziona ma "è bruttino", e soprattutto ha chiarito un vincolo di business che cambia l'obiettivo
+del punto precedente -- **ogni prenotazione fatta tramite l'AI ha un costo in più per il titolare**
+(chiamate al modello) rispetto a una prenotazione manuale sul form. L'obiettivo quindi non è
+incoraggiare il cliente a usare la chat, ma solo fargli scoprire che esiste ed è disponibile per
+qualunque domanda -- il contrario di quello che un pallino animato + un elemento da chiudere
+attivamente comunicano (entrambi dicono "guardami, interagisci con me").
+
+Fatto delle domande mirate invece di indovinare (richiesta esplicita di Gabriel). Risposte:
+- Stile: via bene l'idea di un fumetto (non un'etichetta statica permanente o niente del tutto),
+  ma senza nulla che "costringa il cliente a cliccarlo" -- deve comparire e sparire da solo.
+- Tono: "una via di mezzo" tra invitante e neutro -- non un'esclamazione di vendita, ma nemmeno
+  un annuncio arido.
+- Pulsante: resta solo l'icona, nessuna etichetta fissa (confermato quanto già proposto).
+
+**Modifica** (`ChatWidgetPubblico.tsx`):
+- Tolto il pallino verde animato (`animate-ping`) sul pulsante -- l'unico indizio resta il fumetto
+  stesso, non un elemento permanente che richiama l'attenzione ad ogni sguardo sulla pagina.
+- Tolta la X per chiuderlo: ora compare 1,5s dopo il caricamento con una dissolvenza in entrata,
+  resta visibile 7 secondi, e sparisce da solo con una dissolvenza in uscita (300ms) -- zero azioni
+  richieste al cliente, resta comunque cliccabile per chi vuole aprire la chat da lì (un'opzione
+  in più, non un obbligo).
+- Testo riscritto in tono "via di mezzo": da "Puoi prenotare subito qui, oppure chiedimi..."
+  (imperativo, prenotazione per prima) a "Sai che qui puoi anche chiedermi [...], o prenotare
+  direttamente in chat." (un'informazione in più che si scopre, non un invito a cliccare).
+- Sfondo ambra tenue invece di bianco (Gabriel: "va bene l'emoji ed i colori vivaci", quindi non
+  reso tutto neutro/grigio -- solo tolto ciò che obbligava all'azione).
+
+**Verifica**: nessun test automatico nuovo (comportamento temporizzato/visivo, non logica di
+dominio -- gli unici test sensati sarebbero sull'effetto dei timer, già indirettamente coperti dal
+fatto che il componente compila e non lancia eccezioni; il resto si verifica guardandolo). `npx
+vitest run` -> 305/305 verdi (nessuna regressione); `npx tsc --noEmit` -> pulito; `npx eslint` ->
+pulito; `npm run build` -> production build riuscita.
+
+**Non ancora fatto**: verifica visiva dal vivo di questa versione rivista (richiede deploy) --
+controllare che la dissolvenza sia fluida e che il tono del testo sembri giusto anche letto da un
+cliente vero, non solo da chi lo ha scritto.

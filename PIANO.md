@@ -99,10 +99,16 @@ reale delle fasi è:
   **Suggerimento iniziale sul widget (richiesta di Gabriel 15/09/2026)**: un visitatore non ha modo
   di sapere, guardando la sola icona della chat, che può sia prenotare sia chiedere qualunque cosa
   sull'attività. Aggiunto un fumetto che appare 1,5s dopo il caricamento (una sola volta per
-  browser, testo diverso se il tenant ha o no la knowledge base della Fase 2) + un pallino verde
-  animato sul pulsante finché non viene notato/chiuso. Nuovo campo `haInformazioniAttivita` in
-  `ProfiloPubblico` per calibrare il testo. `tsc`/`eslint`/`vitest` (305/305)/`build` puliti.
-  **Ancora da fare**: verifica visiva dal vivo dopo il deploy (posizionamento su schermo piccolo).
+  browser, testo diverso se il tenant ha o no la knowledge base della Fase 2). Nuovo campo
+  `haInformazioniAttivita` in `ProfiloPubblico` per calibrare il testo.
+
+  **Rivisto lo stesso giorno dopo il primo giro dal vivo di Gabriel**: tolto il pallino animato e
+  la X per chiuderlo -- vincolo di business chiarito da Gabriel, ogni prenotazione fatta in chat ha
+  un costo AI in più per il titolare, quindi l'obiettivo è far scoprire l'AI, non incoraggiarla
+  attivamente. Ora il fumetto compare e sparisce da solo con una dissolvenza (nessuna azione
+  richiesta), tono del testo "via di mezzo" invece che invitante ("Sai che qui puoi anche
+  chiedermi..." invece di "Puoi prenotare subito qui..."). `tsc`/`eslint`/`vitest` (305/305)/
+  `build` puliti. **Ancora da fare**: verifica visiva dal vivo dopo questo secondo deploy.
 
   **Backlog UI, esplicitamente rimandato da Gabriel a una fase di rifinitura**: il "thinking orbs"
   (indicatore di caricamento della chat) compare ma non è animato.
