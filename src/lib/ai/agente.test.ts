@@ -368,4 +368,27 @@ describe("rispondiConversazione", () => {
       expect(create).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("pulizia del markdown residuo (trovato dal vivo 15/09/2026: elenco con trattini su \"che servizi offrite?\")", () => {
+    it("toglie trattini ed elenchi puntati dalla risposta finale, mantenendo gli a capo", async () => {
+      const create = vi
+        .fn()
+        .mockResolvedValue(
+          testoFinale("Offriamo due servizi:\n\n- Manicure\n- Pedicure\n\nVuoi prenotarne uno?")
+        );
+
+      const risultato = await rispondiConversazione([], "Che servizi offrite?", ctx, {
+        messages: { create },
+      } as ClienteAnthropic);
+
+      expect(risultato.rispostaTesto).toBe("Offriamo due servizi:\n\nManicure\nPedicure\n\nVuoi prenotarne uno?");
+    });
+
+    it("toglie grassetto e corsivo dalla risposta finale", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("**Manicure** disponibile: è il nostro servizio più richiesto"));
+      const risultato = await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
+
+      expect(risultato.rispostaTesto).toBe("Manicure disponibile: è il nostro servizio più richiesto");
+    });
+  });
 });

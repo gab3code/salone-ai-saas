@@ -2,6 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { STRUMENTI_AI, eseguiStrumento, type ContestoStrumento, type NomeStrumento } from "./tools";
 import { trovaIncongruenzaPrezzoDurata, type ServizioReale } from "./verifica-numeri";
+import { pulisciMarkdown } from "./pulisci-markdown";
 
 /**
  * Il loop vero e proprio (Task #66): MESSAGGIO -> AI -> intent/contesto ->
@@ -135,7 +136,7 @@ REGOLE ASSOLUTE, non negoziabili:
 6. Se la richiesta è ambigua, chiedi UNA domanda chiara per volta -- non elencare troppe opzioni insieme.
 7. Se non riesci a risolvere la richiesta, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare (reclami, casi eccezionali, richieste fuori dal tuo ambito), usa trasferisci_a_operatore e chiudi la conversazione con cortesia.
 8. Se verifica_disponibilita non trova nessuno slot adatto, non limitarti a dire che non c'è disponibilità: proponi di iscrivere il cliente alla lista d'attesa con aggiungi_lista_attesa (ti serve almeno il telefono), spiegando che lo contatterete voi se si libera un posto.
-9. Scrivi sempre in testo semplice, MAI markdown (niente **grassetto**, _corsivo_, elenchi puntati con "-"/"*", titoli con "#", ecc.): il widget di chat mostra il testo così com'è, senza interpretarlo, e i simboli markdown comparirebbero letteralmente al cliente.
+9. Scrivi sempre in testo semplice, MAI markdown (niente **grassetto**, _corsivo_, elenchi puntati con "-"/"*", titoli con "#", ecc.): il widget di chat mostra il testo così com'è, senza interpretarlo, e i simboli markdown comparirebbero letteralmente al cliente. Se devi indicare più informazioni (es. più servizi con i loro prezzi), scrivile su righe separate andando a capo, oppure in una frase scorrevole -- mai con un trattino o un asterisco davanti a ogni voce.
 10. ${DESCRIZIONE_TONO[stileTono]}${regolaInfoAttivita}
 
 Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è ottenibile con uno strumento, di' onestamente che non lo sai o proponi di passare a un operatore, invece di inventare una risposta plausibile.${
@@ -270,20 +271,29 @@ export async function rispondiConversazione(
     );
 
     if (blocchiToolUse.length === 0) {
-      const testo = risposta.content
+      const testoGrezzo = risposta.content
         .filter((blocco): blocco is Anthropic.TextBlock => blocco.type === "text")
         .map((blocco) => blocco.text)
         .join("\n")
         .trim();
+      // pulisciMarkdown PRIMA di correggiSeIncongruente (così la verifica
+      // prezzo/durata lavora sul testo pulito) e di nuovo DOPO (il giro di
+      // autocorrezione richiama lo stesso modello con lo stesso system
+      // prompt, quindi può reintrodurre markdown allo stesso modo -- il
+      // fallback deterministico non ne contiene mai, la seconda passata è a
+      // costo zero in quel caso).
+      const testo = testoGrezzo ? pulisciMarkdown(testoGrezzo) : testoGrezzo;
       const testoFinale = testo
-        ? await correggiSeIncongruente(
-            testo,
-            ctx,
-            messages,
-            risposta.content,
-            clientAnthropic,
-            costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita),
-            strumentiDisponibili as unknown as Anthropic.Tool[]
+        ? pulisciMarkdown(
+            await correggiSeIncongruente(
+              testo,
+              ctx,
+              messages,
+              risposta.content,
+              clientAnthropic,
+              costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita),
+              strumentiDisponibili as unknown as Anthropic.Tool[]
+            )
           )
         : testo;
       return { rispostaTesto: testoFinale || "Non sono riuscito a formulare una risposta.", trasferitoAUmano, usoStrumenti };

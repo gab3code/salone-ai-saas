@@ -109,8 +109,13 @@ export default function ChatWidgetPubblico({ slug, nomeAttivita }: { slug: strin
             )}
             {messaggi.map((m, i) => (
               <div key={i} className={`flex ${m.ruolo === "cliente" ? "justify-end" : "justify-start"}`}>
+                {/* whitespace-pre-wrap: senza questa classe il browser collassa gli
+                   a capo reali del modello in un'unica riga -- trovato dal vivo
+                   15/09/2026, vedi DECISIONS.md ("Che servizi offrite?" diventava
+                   un unico paragrafo illeggibile anche se il testo dell'AI aveva
+                   già gli a capo giusti). */}
                 <p
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                  className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
                     m.ruolo === "cliente" ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-900"
                   }`}
                 >

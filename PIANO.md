@@ -69,9 +69,10 @@ reale delle fasi è:
   numero dichiarato dall'AI contro il dato reale prima di mandarlo al cliente, tenta un giro di
   autocorrezione col modello, e se anche quello fallisce genera la frase direttamente dal codice
   (garantita corretta). Scelta di Gabriel: restare su Haiku (costo) invece di cambiare modello.
-  `tsc`/`eslint`/`vitest` (291/291)/`build` puliti. **Ancora da fare**: verificare dal vivo che
-  questa rete di sicurezza elimini davvero il problema (richiede deploy), poi continuare gli altri
-  scenari di test elencati da Gabriel (i 14 scenari, non tutti ancora coperti).
+  `tsc`/`eslint`/`vitest` (291/291)/`build` puliti. **Verificato dal vivo 15/09/2026 dopo il
+  deploy**: 3 conversazioni pulite su 3 corrette (prima 2/3) -- il rafforzamento del prompt ha già
+  coperto la stragrande maggioranza dei casi, la rete di sicurezza di codice resta la garanzia per
+  i residui (non ancora osservata scattare dal vivo, coperta dai test di integrazione).
 
   **Feedback diretto di Gabriel il 15/09/2026 (con trascrizione reale) -- CORRETTO 15/09/2026**: le
   risposte di `info_attivita` a una domanda generica come "dammi informazioni aggiuntive" erano un
@@ -81,6 +82,18 @@ reale delle fasi è:
   regola 11 del system prompt (vedi DECISIONS.md) per rispondere in modo selettivo a quanto
   effettivamente chiesto invece di recitare tutto il risultato dello strumento. `tsc`/`eslint`/
   `vitest` (292/292)/`build` puliti. **Ancora da fare**: verifica dal vivo dopo il deploy.
+
+  **Terzo bug trovato durante la verifica dal vivo del 15/09/2026 -- CORRETTO lo stesso giorno**: su
+  "che servizi offrite?" la risposta arrivava come un unico paragrafo illeggibile con trattini in
+  mezzo ("Offriamo due servizi: - Manicure... - Pedicure..."). Due cause distinte: (1) il widget
+  (`ChatWidgetPubblico.tsx`) non preservava gli a capo reali del modello (mancava
+  `whitespace-pre-wrap`, li collassava in un'unica riga); (2) il modello continuava a scrivere
+  elenchi puntati con trattini nonostante la regola 9 lo vieti esplicitamente -- non è la prima
+  volta che il solo prompt non basta su questo (vedi il precedente fix sugli asterischi letterali
+  più sotto in questo stesso file). Aggiunto `src/lib/ai/pulisci-markdown.ts` (rete di sicurezza
+  deterministica, stesso principio di `verifica-numeri.ts`) che ripulisce grassetto/corsivo/titoli/
+  elenchi puntati dalla risposta finale prima di mandarla al cliente. `tsc`/`eslint`/`vitest`
+  (303/303)/`build` puliti. **Ancora da fare**: verifica dal vivo dopo il deploy.
 
   **Backlog UI, esplicitamente rimandato da Gabriel a una fase di rifinitura**: il "thinking orbs"
   (indicatore di caricamento della chat) compare ma non è animato.

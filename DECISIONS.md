@@ -2321,3 +2321,63 @@ divieto di chiudere sempre con la prenotazione). `npx vitest run` -> 292/292 ver
 **Non ancora fatto**: nessuna verifica dal vivo (richiede deploy) -- da riprovare esattamente lo
 stesso scenario ("dammi informazioni aggiuntive" su una conversazione pulita) per confermare che la
 risposta sia ora breve e naturale invece che un elenco completo.
+
+---
+
+## 2026-09-15 — Verifica dal vivo dei due fix precedenti + terzo bug trovato: il markdown
+## dell'AI arriva letteralmente al cliente perché il widget non va a capo
+
+**Contesto**: Gabriel ha confermato il push dei commit `241fc13` (rete di sicurezza sui prezzi) e
+`b33aefe` (regola 11 selettiva), entrambi su Vercel in produzione ("Ready") in 1-3 minuti. Verifica
+dal vivo:
+
+1. **Scenario prezzo** ("Quanto costa la pedicure?" -> "e la manicure?"), ripetuto su 3
+   conversazioni pulite (`localStorage.clear()` prima di ognuna): **3 corrette su 3** ("La manicure
+   costa 25 euro e dura 30 minuti."), contro il 2/3 di prima del fix di codice. Nessuna delle tre
+   ha avuto bisogno del giro di autocorrezione o del fallback deterministico (il testo del modello
+   era già corretto ogni volta) -- consistente con l'aspettativa che il rafforzamento del prompt
+   avesse già ridotto parecchio il problema, con la rete di sicurezza di codice come garanzia per i
+   casi residui, non ancora osservata scattare dal vivo ma coperta dai test di integrazione.
+
+2. Gabriel ha chiesto di testare anche domande più generiche tipo "che servizi offrite?", perché
+   nei suoi test precedenti "non rispondeva giusto". Riprodotto 2 volte su 2: i DATI erano corretti
+   (manicure 25€/30min, pedicure 40€/30min), ma la risposta arrivava come un unico paragrafo
+   illeggibile con trattini in mezzo: "Offriamo due servizi: - Manicure: 30 minuti a 25 euro -
+   Pedicure: 30 minuti a 40 euro Sei interessato a uno di questi?". Controllato il `textContent`
+   reale del messaggio via devtools: il modello aveva scritto correttamente un elenco puntato su
+   più righe (`"Offriamo due servizi:\n\n- Manicure: ...\n- Pedicure: ...\n\nVuoi prenotarne
+   uno?"`), con tanto di trattini -- **due bug distinti, non uno**:
+   - **Bug del widget** (`ChatWidgetPubblico.tsx`): il paragrafo che mostra ogni messaggio non ha
+     `whitespace-pre-wrap`, quindi il browser collassa qualunque "\n" reale in uno spazio --
+     qualsiasi risposta multi-riga dell'AI, anche senza markdown, diventerebbe comunque un unico
+     blocco illeggibile.
+   - **Bug del modello**: nonostante la regola 9 vieti esplicitamente "elenchi puntati con
+     "-"/"*"", il modello li scrive comunque -- non è la prima volta (vedi PIANO.md, un precedente
+     bug sugli asterischi letterali era già stato "risolto" aggiungendo la stessa regola 9), quindi
+     il solo prompt non è una garanzia sufficiente su qualcosa che il cliente vede sempre, stesso
+     ragionamento già fatto per i prezzi.
+
+**Modifica**:
+- `src/app/s/[slug]/ChatWidgetPubblico.tsx`: aggiunta la classe `whitespace-pre-wrap` al paragrafo
+  del messaggio -- ora gli a capo reali del modello vengono mostrati, non collassati.
+- Nuovo modulo `src/lib/ai/pulisci-markdown.ts`, funzione pura `pulisciMarkdown(testo)`: rimuove
+  grassetto (`**`/`__`), corsivo (`*`/`_`), titoli (`#`) ed elenchi puntati (`-`/`*`/`•` a inizio
+  riga) mantenendo il testo e gli a capo -- non riformula né riscrive nulla, quindi non può
+  introdurre un'altra invenzione. Cablata in `agente.ts` sulla risposta finale, sia PRIMA di
+  `correggiSeIncongruente` (così la verifica prezzo/durata lavora sul testo già pulito) sia DOPO
+  (il giro di autocorrezione richiama lo stesso modello con lo stesso system prompt, quindi può
+  reintrodurre markdown allo stesso modo del primo tentativo).
+- Rafforzata anche la regola 9 del system prompt (difesa in profondità, non l'unica difesa questa
+  volta): ora dice esplicitamente di usare righe separate o una frase scorrevole per più
+  informazioni, mai un trattino o un asterisco davanti a ogni voce.
+
+**Verifica**: nuovo file `pulisci-markdown.test.ts` (9 test: grassetto, corsivo, titoli, elenchi
+puntati con trattino/asterisco/pallino unicode, un trattino usato come normale punteggiatura non
+viene toccato, righe vuote multiple compresse, testo semplice invariato) + 2 test di integrazione
+in `agente.test.ts` che verificano l'intera pipeline. `npx vitest run` -> 303/303 verdi (26 file);
+`npx tsc --noEmit` -> pulito; `npx eslint` sui file toccati -> pulito; `npm run build` -> production
+build riuscita.
+
+**Non ancora fatto**: nessuna verifica dal vivo di questo terzo fix (richiede deploy) -- da
+riprovare "che servizi offrite?" e altre domande che elencano più voci per confermare che il
+widget ora vada a capo correttamente e che non compaiano più simboli markdown letterali.
