@@ -108,7 +108,21 @@ reale delle fasi è:
   attivamente. Ora il fumetto compare e sparisce da solo con una dissolvenza (nessuna azione
   richiesta), tono del testo "via di mezzo" invece che invitante ("Sai che qui puoi anche
   chiedermi..." invece di "Puoi prenotare subito qui..."). `tsc`/`eslint`/`vitest` (305/305)/
-  `build` puliti. **Ancora da fare**: verifica visiva dal vivo dopo questo secondo deploy.
+  `build` puliti.
+
+  **Rifinito lo stesso giorno, verificato visivamente prima del deploy (screenshot locali, non solo
+  codice) per richiesta esplicita di Gabriel**: click sul fumetto ora lo chiude e basta (non apre
+  più la chat per sbaglio); il saluto 👋 è diventato un'etichetta rotonda che sbuca dall'angolo in
+  alto a sinistra del fumetto invece di stare inline nel testo; testo di apertura più diretto
+  ("Qui puoi chiedermi..."). In parallelo Gabriel ha trovato dal vivo, sul suo telefono, due bug
+  nella chat aperta (non nel fumetto): l'input dei messaggi faceva zoommare Safari su iOS al focus
+  (font sotto i 16px, portato a `text-base`) e il pannello non era centrato sullo schermo (un tetto
+  fisso di larghezza rompeva la simmetria dei margini su schermi >368px, quindi su quasi ogni
+  telefono -- ora la larghezza segue sempre la viewport sotto il breakpoint `sm`). Aggiunto anche
+  un leggero sfondo sfocato (`backdrop-blur-sm`) dietro il pannello quando la chat è aperta, con
+  tap fuori per chiuderla. `tsc`/`eslint`/`vitest` (305/305)/`build` puliti, verifica visiva locale
+  su desktop e su emulazione di telefoni reali (iPhone SE/13, Pixel 7) -- vedi DECISIONS.md per il
+  dettaglio tecnico. **Ancora da fare**: conferma visiva di Gabriel sul sito vero dopo il deploy.
 
   **Backlog UI, esplicitamente rimandato da Gabriel a una fase di rifinitura**: il "thinking orbs"
   (indicatore di caricamento della chat) compare ma non è animato.

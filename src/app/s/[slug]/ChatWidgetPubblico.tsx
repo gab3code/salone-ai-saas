@@ -84,6 +84,12 @@ export default function ChatWidgetPubblico({
   const [suggerimentoVisibile, setSuggerimentoVisibile] = useState(false); // classe per la dissolvenza in entrata/uscita
   const idSessioneRef = useRef<string>("");
   const fineListaRef = useRef<HTMLDivElement>(null);
+  const timerSuggerimentoRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  function pulisciTimerSuggerimento() {
+    timerSuggerimentoRef.current.forEach(clearTimeout);
+    timerSuggerimentoRef.current = [];
+  }
 
   useEffect(() => {
     idSessioneRef.current = ottieniIdentificatoreSessione(slug);
@@ -98,8 +104,7 @@ export default function ChatWidgetPubblico({
     const RITARDO_COMPARSA = 1500;
     const DURATA_VISIBILE = 7000;
     const DURATA_DISSOLVENZA = 300;
-    const timer: ReturnType<typeof setTimeout>[] = [];
-    timer.push(
+    timerSuggerimentoRef.current.push(
       setTimeout(() => {
         setSuggerimentoMontato(true);
         // un frame dopo il mount, per far partire davvero la transizione
@@ -107,19 +112,34 @@ export default function ChatWidgetPubblico({
         requestAnimationFrame(() => setSuggerimentoVisibile(true));
       }, RITARDO_COMPARSA)
     );
-    timer.push(setTimeout(() => setSuggerimentoVisibile(false), RITARDO_COMPARSA + DURATA_VISIBILE));
-    timer.push(
+    timerSuggerimentoRef.current.push(setTimeout(() => setSuggerimentoVisibile(false), RITARDO_COMPARSA + DURATA_VISIBILE));
+    timerSuggerimentoRef.current.push(
       setTimeout(() => {
         setSuggerimentoMontato(false);
         segnaSuggerimentoVisto(slug); // sparito da solo: non deve ricomparire in questo browser
       }, RITARDO_COMPARSA + DURATA_VISIBILE + DURATA_DISSOLVENZA)
     );
-    return () => timer.forEach(clearTimeout);
+    return pulisciTimerSuggerimento;
   }, [slug]);
+
+  /**
+   * Un click sul fumetto lo chiude e basta -- NON apre la chat (richiesta di
+   * Gabriel 15/09/2026: il fumetto deve solo far scoprire che l'AI c'è, chi
+   * vuole usarla deve comunque schiacciare il pulsante vero, altrimenti un
+   * click "distratto" per liberarsi del fumetto aprirebbe la chat per
+   * sbaglio).
+   */
+  function chiudiSuggerimento() {
+    pulisciTimerSuggerimento();
+    setSuggerimentoVisibile(false);
+    segnaSuggerimentoVisto(slug);
+    timerSuggerimentoRef.current.push(setTimeout(() => setSuggerimentoMontato(false), 300));
+  }
 
   function apriChat() {
     setAperto(true);
     if (suggerimentoMontato) {
+      pulisciTimerSuggerimento();
       setSuggerimentoVisibile(false);
       setSuggerimentoMontato(false);
       segnaSuggerimentoVisto(slug);
@@ -155,117 +175,154 @@ export default function ChatWidgetPubblico({
   }
 
   return (
-    <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-3 sm:right-6 sm:bottom-6">
+    <>
+      {/* Sfondo leggermente sfocato dietro il pannello quando la chat è
+         aperta (richiesta di Gabriel 15/09/2026, "per apparire più carino") --
+         z-40, sotto il widget (z-50) ma sopra il resto della pagina. Un tap
+         fuori dal pannello chiude la chat, comportamento standard per un
+         overlay di questo tipo. */}
       {aperto && (
-        <div className="flex h-[28rem] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl">
-          <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-            <div>
-              <p className="text-sm font-medium text-zinc-900">Chiedi a {nomeAttivita}</p>
-              <p className="text-xs text-zinc-400">Risposta immediata, prenota anche da qui</p>
+        <div
+          className="fixed inset-0 z-40 bg-black/10 backdrop-blur-sm"
+          aria-hidden="true"
+          onClick={() => setAperto(false)}
+        />
+      )}
+      <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-3 sm:right-6 sm:bottom-6">
+        {aperto && (
+          // Larghezza: su mobile riempie lo spazio fino a un margine di 1rem per
+          // lato (calc(100vw-2rem)) invece di un min() con un tetto fisso in
+          // rem -- con il tetto fisso, su quasi ogni telefono reale (>368px di
+          // larghezza) il pannello smette di seguire la viewport e i margini
+          // sinistro/destro si sbilanciano, perché il contenitore è ancorato
+          // solo a destra (right-4/right-6) e la larghezza non "consuma" più
+          // tutto lo spazio disponibile in modo simmetrico. Trovato dal vivo da
+          // Gabriel 15/09/2026 (pannello non centrato su telefono), vedi
+          // DECISIONS.md. Dal breakpoint sm in su resta la larghezza fissa di
+          // prima (22rem), dove il margine asimmetrico è trascurabile e un
+          // pannello troppo largo su schermi grandi non serve.
+          <div className="flex h-[28rem] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl sm:w-[22rem]">
+            <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-zinc-900">Chiedi a {nomeAttivita}</p>
+                <p className="text-xs text-zinc-400">Risposta immediata, prenota anche da qui</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Chiudi chat"
+                onClick={() => setAperto(false)}
+                className="flex size-7 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <button
-              type="button"
-              aria-label="Chiudi chat"
-              onClick={() => setAperto(false)}
-              className="flex size-7 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
 
-          <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
-            {messaggi.length === 0 && (
-              <p className="text-sm text-zinc-400">
-                Scrivi qui per chiedere orari, prezzi o prenotare -- ti rispondo subito.
+            <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
+              {messaggi.length === 0 && (
+                <p className="text-sm text-zinc-400">
+                  Scrivi qui per chiedere orari, prezzi o prenotare -- ti rispondo subito.
+                </p>
+              )}
+              {messaggi.map((m, i) => (
+                <div key={i} className={`flex ${m.ruolo === "cliente" ? "justify-end" : "justify-start"}`}>
+                  {/* whitespace-pre-wrap: senza questa classe il browser collassa gli
+                     a capo reali del modello in un'unica riga -- trovato dal vivo
+                     15/09/2026, vedi DECISIONS.md ("Che servizi offrite?" diventava
+                     un unico paragrafo illeggibile anche se il testo dell'AI aveva
+                     già gli a capo giusti). */}
+                  <p
+                    className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
+                      m.ruolo === "cliente" ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-900"
+                    }`}
+                  >
+                    {m.contenuto}
+                  </p>
+                </div>
+              ))}
+              {inCorso && <p className="text-sm text-zinc-400">Sta scrivendo...</p>}
+              <div ref={fineListaRef} />
+            </div>
+
+            {trasferito && (
+              <p className="mx-3 mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                La conversazione è stata passata a un operatore umano.
               </p>
             )}
-            {messaggi.map((m, i) => (
-              <div key={i} className={`flex ${m.ruolo === "cliente" ? "justify-end" : "justify-start"}`}>
-                {/* whitespace-pre-wrap: senza questa classe il browser collassa gli
-                   a capo reali del modello in un'unica riga -- trovato dal vivo
-                   15/09/2026, vedi DECISIONS.md ("Che servizi offrite?" diventava
-                   un unico paragrafo illeggibile anche se il testo dell'AI aveva
-                   già gli a capo giusti). */}
-                <p
-                  className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
-                    m.ruolo === "cliente" ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-900"
-                  }`}
-                >
-                  {m.contenuto}
-                </p>
-              </div>
-            ))}
-            {inCorso && <p className="text-sm text-zinc-400">Sta scrivendo...</p>}
-            <div ref={fineListaRef} />
-          </div>
+            {errore && <p className="mx-3 mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{errore}</p>}
 
-          {trasferito && (
-            <p className="mx-3 mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              La conversazione è stata passata a un operatore umano.
-            </p>
-          )}
-          {errore && <p className="mx-3 mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{errore}</p>}
-
-          <form
-            className="flex gap-2 border-t border-zinc-100 p-2.5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              inviaMessaggio();
-            }}
-          >
-            <input
-              type="text"
-              value={bozza}
-              onChange={(e) => setBozza(e.target.value)}
-              placeholder="Scrivi un messaggio..."
-              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-              disabled={inCorso}
-            />
-            <button
-              type="submit"
-              disabled={inCorso || !bozza.trim()}
-              className="rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white disabled:opacity-40"
+            <form
+              className="flex gap-2 border-t border-zinc-100 p-2.5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                inviaMessaggio();
+              }}
             >
-              Invia
-            </button>
-          </form>
-        </div>
-      )}
+              {/* text-base (16px), non text-sm (14px): sotto i 16px Safari su
+                 iOS ingrandisce automaticamente la pagina quando l'input
+                 riceve il focus da tastiera -- l'effetto "zoom e si bugga"
+                 segnalato da Gabriel dal vivo 15/09/2026, vedi DECISIONS.md. */}
+              <input
+                type="text"
+                value={bozza}
+                onChange={(e) => setBozza(e.target.value)}
+                placeholder="Scrivi un messaggio..."
+                className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-base"
+                disabled={inCorso}
+              />
+              <button
+                type="submit"
+                disabled={inCorso || !bozza.trim()}
+                className="rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white disabled:opacity-40"
+              >
+                Invia
+              </button>
+            </form>
+          </div>
+        )}
 
-      {!aperto && suggerimentoMontato && (
-        // Compare e sparisce da solo (nessuna X, nessun pallino): deve far
-        // scoprire che l'AI risponde anche a domande, non insistere per
-        // farla usare -- vedi il commento sopra suggerimentoGiaVisto.
+        {!aperto && suggerimentoMontato && (
+          // Compare e sparisce da solo (nessuna X, nessun pallino): deve far
+          // scoprire che l'AI risponde anche a domande, non insistere per
+          // farla usare -- vedi il commento sopra suggerimentoGiaVisto. Un
+          // click lo chiude e basta (non apre la chat): chi vuole usarla deve
+          // comunque schiacciare il pulsante vero, vedi chiudiSuggerimento.
+          <button
+            type="button"
+            onClick={chiudiSuggerimento}
+            className={`relative max-w-[16rem] rounded-2xl border border-amber-200 bg-amber-50 px-4 pt-4 pb-3 pl-5 text-left text-sm leading-relaxed text-amber-900 shadow-xl transition-all duration-300 ${
+              suggerimentoVisibile ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+            }`}
+          >
+            {/* saluto come etichetta nell'angolo, non più inline nel testo */}
+            <span className="absolute -top-3 -left-3 flex size-7 items-center justify-center rounded-full bg-white text-base shadow-md ring-1 ring-amber-200">
+              👋
+            </span>
+            {/* piccola "coda" che punta verso il pulsante, per farlo leggere come un fumetto invece di una card che galleggia lì per caso */}
+            <span className="pointer-events-none absolute -bottom-1.5 right-6 size-3 rotate-45 border-b border-r border-amber-200 bg-amber-50" />
+            Qui puoi chiedermi{" "}
+            {haInformazioniAttivita ? "qualcosa sull'attività" : "orari e prezzi"}, o prenotare direttamente in chat.
+          </button>
+        )}
+
         <button
           type="button"
-          onClick={apriChat}
-          className={`max-w-[15rem] rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900 shadow-xl transition-all duration-300 ${
-            suggerimentoVisibile ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-          }`}
+          onClick={() => (aperto ? setAperto(false) : apriChat())}
+          aria-label={aperto ? "Chiudi chat" : "Apri chat"}
+          className="flex size-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-transform hover:scale-105"
         >
-          👋 Sai che qui puoi anche chiedermi{" "}
-          {haInformazioniAttivita ? "informazioni sull'attività" : "orari e prezzi"}, o prenotare direttamente in chat.
+          {aperto ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            </svg>
+          )}
         </button>
-      )}
-
-      <button
-        type="button"
-        onClick={() => (aperto ? setAperto(false) : apriChat())}
-        aria-label={aperto ? "Chiudi chat" : "Apri chat"}
-        className="flex size-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-transform hover:scale-105"
-      >
-        {aperto ? (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        ) : (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-          </svg>
-        )}
-      </button>
-    </div>
+      </div>
+    </>
   );
 }

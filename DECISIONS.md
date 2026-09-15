@@ -2473,3 +2473,72 @@ pulito; `npm run build` -> production build riuscita.
 **Non ancora fatto**: verifica visiva dal vivo di questa versione rivista (richiede deploy) --
 controllare che la dissolvenza sia fluida e che il tono del testo sembri giusto anche letto da un
 cliente vero, non solo da chi lo ha scritto.
+
+---
+
+## 2026-09-15 — Rifinitura del suggerimento (click che non apre più la chat, saluto spostato in
+## etichetta) + due bug mobile trovati dal vivo da Gabriel (zoom sull'input, pannello non centrato)
+## + sfondo sfocato dietro la chat aperta
+
+**Contesto**: prima di far pushare a Gabriel il giro precedente, lui ha chiesto esplicitamente due
+cose: (1) che un click sul fumetto lo faccia solo sparire, senza aprire la chat (altrimenti un
+click "distratto" per liberarsene aprirebbe la chat per sbaglio), e (2) che il posizionamento e
+l'estetica fossero verificati prima da me, non da lui. Poco dopo ha anche chiesto di spostare il
+saluto 👋 in un'etichetta nell'angolo in alto a sinistra invece che inline nel testo, e di
+riscrivere l'apertura della frase in modo più curato. A verifica in corso, Gabriel ha poi
+segnalato dal vivo, sul suo telefono, due bug distinti nella chat aperta (non nel fumetto): (a)
+toccare il campo di testo per scrivere fa "zoommare e bug{are}" la pagina, e (b) il riquadro della
+chat non è centrato tra i due bordi dello schermo. Ha infine chiesto un leggero blur sullo sfondo
+dietro il pannello aperto "per apparire più carino".
+
+**Modifica** (`ChatWidgetPubblico.tsx`):
+- **Click sul fumetto = solo dismiss**: introdotta `chiudiSuggerimento()`, separata da `apriChat()`
+  -- ferma i timer, fa sparire il fumetto con dissolvenza e lo segna come visto, ma NON chiama
+  `setAperto(true)`. Il bottone del fumetto ora chiama questa funzione invece di `apriChat`; solo
+  il pulsante rotondo vero apre la chat.
+- **Saluto in etichetta d'angolo**: il 👋 è uscito dal testo ed è diventato uno `<span>` assoluto
+  (`-top-3 -left-3`, cerchio bianco con ombra) che "sbuca" dall'angolo in alto a sinistra del
+  fumetto, con il padding del fumetto (`pt-4 pb-3 pl-5`) adattato per non farlo sovrapporre al
+  testo. Frase di apertura riscritta da "Sai che qui puoi anche chiedermi..." a "Qui puoi
+  chiedermi...", più diretta e meno macchinosa.
+- **Bug zoom su iOS (input)**: il campo `<input>` del messaggio usava `text-sm` (14px). Sotto i
+  16px, Safari su iOS ingrandisce automaticamente la pagina quando l'input riceve il focus da
+  tastiera -- è l'effetto "zoom e si bugga" descritto da Gabriel. Portato a `text-base` (16px),
+  la soglia minima sotto cui iOS non zooma più.
+- **Bug pannello non centrato su telefono**: la larghezza del pannello aperto era
+  `w-[min(22rem,calc(100vw-2rem))]`. Il tetto fisso di 22rem (352px) entra in gioco su quasi ogni
+  telefono reale (>368px di larghezza schermo), e da lì in poi la larghezza smette di seguire la
+  viewport mentre il contenitore resta ancorato solo a destra (`right-4`) -- il margine sinistro
+  cresce con lo schermo mentre quello destro resta fisso a 16px, risultato asimmetrico. Cambiato in
+  `w-[calc(100vw-2rem)] sm:w-[22rem]`: sotto il breakpoint `sm` (640px) la larghezza è sempre
+  "viewport meno 2rem", che con un contenitore ancorato a destra di 16px produce margini uguali
+  (16px) su entrambi i lati per costruzione; dal breakpoint `sm` in su torna la larghezza fissa di
+  prima (dove l'asimmetria è trascurabile su schermi grandi).
+- **Sfondo sfocato**: aggiunto un overlay `fixed inset-0 z-40 bg-black/10 backdrop-blur-sm`,
+  renderizzato solo quando `aperto` è vero, sotto il widget (`z-50`) ma sopra il resto della
+  pagina. Un tap fuori dal pannello chiude la chat (`onClick` sull'overlay chiama `setAperto(false)`),
+  comportamento standard per un overlay di questo tipo e non richiesto esplicitamente ma coerente
+  con l'aspetto "da modale" che il blur gli dà.
+
+**Metodo di verifica (nuovo precedente utile)**: il bug del pannello non centrato ha rivelato un
+tranello nella tecnica di QA visiva locale usata in questa sessione (pagina temporanea +
+`playwright-core` + Chromium, vedi la voce precedente): un primo giro di misurazione con un
+normale `page = await browser.newPage({ viewport: {...} })` (senza emulazione di un dispositivo
+reale) mostrava margini asimmetrici (1px/31px) anche DOPO la correzione del CSS. Causa: il progetto
+ha `scrollbar-gutter: stable` su `html` (per non far "saltare" il layout desktop quando compare una
+scrollbar verticale) -- Chromium headless in modalità "desktop" riserva comunque quello spazio nel
+calcolo di `100vw` anche senza mostrare una scrollbar visibile, mentre un telefono vero (scrollbar
+overlay, non riservata) non lo fa mai. Rifatta la misura con `playwright-core`'s `devices["iPhone
+13"]` (e SE, Pixel 7) invece di una viewport generica: margini tornano 16px/16px su tutti e tre --
+confermato che il bug era reale (dovuto al `min()` con tetto fisso) ma la MISURA del fix va sempre
+fatta con emulazione di un device reale, non con una finestra headless generica ridimensionata,
+altrimenti il rumore della scrollbar-gutter desktop falsa il risultato.
+
+**Verifica**: `npx vitest run` -> 305/305 verdi (nessuna regressione, nessun test nuovo --
+comportamento visivo/di layout, non logica di dominio); `npx tsc --noEmit` -> pulito; `npx eslint`
+sul file -> pulito; `npm run build` -> production build riuscita. Verifica visiva locale (pagina
+temporanea + Chromium, mai committata): fumetto e pannello controllati su desktop e su
+`devices["iPhone SE/13"]`/Pixel 7 di `playwright-core`, sia con `haInformazioniAttivita` `true` che
+`false` (testo più lungo, per controllare che non tagli dentro il `max-w-[16rem]` del fumetto);
+click sul fumetto ri-verificato non aprire la chat; click fuori dal pannello aperto verificato
+chiuderlo; font-size dell'input verificato a 16px via `getComputedStyle`.
