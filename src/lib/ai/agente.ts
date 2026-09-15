@@ -101,7 +101,8 @@ function costruisciSystemPrompt(
   nomeAttivita: string,
   adesso: Date,
   stileTono: StileTonoAI = "professionale",
-  notaTono?: string | null
+  notaTono?: string | null,
+  haInformazioniAttivita: boolean = false
 ): string {
   // Verificato dal vivo (Task #66): senza questa data il modello non inventa
   // un giorno a caso (bene), ma la chiede al cliente per calcolare "domani" --
@@ -112,7 +113,15 @@ function costruisciSystemPrompt(
   const dataOggi = adesso.toISOString().slice(0, 10);
   const giornoSettimana = GIORNI_SETTIMANA_IT[adesso.getUTCDay()];
 
-  return `Sei l'assistente alla prenotazione di "${nomeAttivita}", disponibile tramite chat sulla pagina pubblica dell'attività.
+  const apertura = haInformazioniAttivita
+    ? `Sei il/la receptionist digitale di "${nomeAttivita}", disponibile tramite chat sulla pagina pubblica dell'attività: aiuti i clienti sia con domande generali sull'attività sia con la prenotazione.`
+    : `Sei l'assistente alla prenotazione di "${nomeAttivita}", disponibile tramite chat sulla pagina pubblica dell'attività.`;
+
+  const regolaInfoAttivita = haInformazioniAttivita
+    ? `\n11. Per domande generali sull'attività che non riguardano direttamente un servizio, un prezzo, una durata o un orario (es. parcheggio, metodi di pagamento, politica di cancellazione, o qualunque altra domanda sull'attività), usa lo strumento info_attivita. Rispondi SOLO con quello che restituisce: se l'informazione richiesta non compare nel risultato (campo assente o vuoto), di' onestamente che non hai quel dettaglio e invita il cliente a contattare direttamente l'attività (usa il contatto diretto se presente nel risultato) -- non inventarla mai. Rispondi alle domande informative in modo naturale e sintetico, come farebbe una persona vera alla reception: non proporre una prenotazione dopo ogni singola risposta, solo quando ha senso nel flusso della conversazione.`
+    : "";
+
+  return `${apertura}
 
 Contesto attuale: oggi è ${giornoSettimana} ${dataOggi} (formato YYYY-MM-DD). Usa SEMPRE questa data per calcolare "oggi", "domani", "dopodomani", giorni della settimana, ecc. Non chiederla mai al cliente e non presumerne una diversa.
 
@@ -126,7 +135,7 @@ REGOLE ASSOLUTE, non negoziabili:
 7. Se non riesci a risolvere la richiesta, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare (reclami, casi eccezionali, richieste fuori dal tuo ambito), usa trasferisci_a_operatore e chiudi la conversazione con cortesia.
 8. Se verifica_disponibilita non trova nessuno slot adatto, non limitarti a dire che non c'è disponibilità: proponi di iscrivere il cliente alla lista d'attesa con aggiungi_lista_attesa (ti serve almeno il telefono), spiegando che lo contatterete voi se si libera un posto.
 9. Scrivi sempre in testo semplice, MAI markdown (niente **grassetto**, _corsivo_, elenchi puntati con "-"/"*", titoli con "#", ecc.): il widget di chat mostra il testo così com'è, senza interpretarlo, e i simboli markdown comparirebbero letteralmente al cliente.
-10. ${DESCRIZIONE_TONO[stileTono]}
+10. ${DESCRIZIONE_TONO[stileTono]}${regolaInfoAttivita}
 
 Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è ottenibile con uno strumento, di' onestamente che non lo sai o proponi di passare a un operatore, invece di inventare una risposta plausibile.${
     notaTono
@@ -148,7 +157,12 @@ Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è
 export async function rispondiConversazione(
   storico: MessaggioConversazione[],
   messaggioNuovo: string,
-  ctx: ContestoStrumento & { nomeAttivita: string; tonoAi?: StileTonoAI; tonoAiNota?: string | null },
+  ctx: ContestoStrumento & {
+    nomeAttivita: string;
+    tonoAi?: StileTonoAI;
+    tonoAiNota?: string | null;
+    haInformazioniAttivita?: boolean;
+  },
   clientAnthropic: ClienteAnthropic = ottieniClientPredefinito(),
   adesso: Date = new Date()
 ): Promise<RisultatoConversazione> {
@@ -165,12 +179,22 @@ export async function rispondiConversazione(
   let trasferitoAUmano = false;
   let usoStrumenti = false;
 
+  // Il tool info_attivita esiste solo per i tenant con la knowledge base
+  // dell'AI receptionist (Pro/Enterprise, `pianoHaKnowledgeBaseAi` in
+  // piani.ts, gate applicato da chi chiama questa funzione) -- un tenant
+  // Growth mantiene la chat AI transazionale di oggi, ma il modello non deve
+  // nemmeno vedere l'esistenza di questo strumento, altrimenti potrebbe
+  // provare a chiamarlo comunque.
+  const strumentiDisponibili = ctx.haInformazioniAttivita
+    ? STRUMENTI_AI
+    : STRUMENTI_AI.filter((s) => s.name !== "info_attivita");
+
   for (let iterazione = 0; iterazione < MAX_ITERAZIONI_TOOL; iterazione++) {
     const risposta = await clientAnthropic.messages.create({
       model: MODELLO,
       max_tokens: 1024,
-      system: costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota),
-      tools: STRUMENTI_AI as unknown as Anthropic.Tool[],
+      system: costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita),
+      tools: strumentiDisponibili as unknown as Anthropic.Tool[],
       messages,
     });
 

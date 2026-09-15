@@ -38,20 +38,37 @@ reale delle fasi è:
   personale di Gabriel -- vedi DECISIONS.md per il perché non posso crearlo/impostarlo io). Zero
   codice nuovo per questo ultimo punto, ma blocca la vendita a chiunque finché resta aperto -- va
   chiuso PRIMA di qualunque fase nuova sotto.
-- **Fase 1 = contatto automatico (opzionale) del cliente in lista d'attesa** -- **CODICE FATTO
-  14/09/2026** (vedi DECISIONS.md per il dettaglio completo): un solo toggle per tenant in
-  Dashboard -> Impostazioni -> "Contatto automatico lista d'attesa" (default `manuale`, Growth in
-  su), che quando attivo fa scrivere subito Salone AI al cliente (email, SMS di fallback quando
-  Skebby sarà configurato) invece di lasciare il contatto al titolare. `tsc`/`eslint`/`vitest`
-  (265/265)/`build` puliti. **Non ancora fatto**: applicare la migrazione
-  `0020_lista_attesa_contatto_automatico.sql` al database reale (serve l'ok di Gabriel) e
-  verificare dal vivo (attivare il toggle su un tenant di prova, cancellare un appuntamento con un
-  candidato in coda, controllare che l'email parta davvero).
-- **Fase 2 = onboarding AI-assisted**: descrizione testuale della propria attività → bozza
+- **Fase 1 = contatto automatico (opzionale) del cliente in lista d'attesa** -- **FATTO e
+  VERIFICATO 14-15/09/2026** (vedi DECISIONS.md per il dettaglio completo): un solo toggle per
+  tenant in Dashboard -> Impostazioni -> "Contatto automatico lista d'attesa" (default `manuale`,
+  Growth in su), che quando attivo fa scrivere subito Salone AI al cliente (email, SMS di
+  fallback quando Skebby sarà configurato) invece di lasciare il contatto al titolare.
+  `tsc`/`eslint`/`vitest` (265/265)/`build` puliti, migrazione `0020_lista_attesa_contatto_automatico.sql`
+  applicata al database reale con l'ok di Gabriel.
+- **Fase 2 = AI receptionist conversazionale + knowledge base dell'attività** -- **CODICE FATTO E
+  VERIFICATO 15/09/2026** (vedi DECISIONS.md per il dettaglio completo), richiesta esplicita di
+  Gabriel il 15/09/2026: l'AI in chat pubblica ora ha uno strumento dedicato (`info_attivita`,
+  visibile solo ai piani Pro/Enterprise) per rispondere anche a domande informative generali
+  (descrizione, indirizzo, parcheggio, metodi di pagamento, policy di cancellazione, FAQ libere) e
+  non solo a quelle transazionali di prima -- obiettivo farla sentire come una vera receptionist,
+  non "un gestionale con un chatbot che prenota". Decisioni prese con Gabriel prima di scrivere
+  codice: campi strutturati (descrizione, indirizzo, parcheggio, metodi di pagamento, policy di
+  cancellazione riusata da dove già esiste) + una FAQ libera per il resto; riservata a
+  Pro/Enterprise (non allo stesso gate della chat AI base); se un'informazione manca, l'AI lo
+  dichiara onestamente e invita a contattare l'attività (mai un trasferimento automatico a un
+  operatore per questo). `tsc`/`eslint`/`vitest` (276/276)/`build` puliti. **Ancora da fare**:
+  applicare la migrazione `0021_knowledge_base_attivita.sql` al database reale (serve l'ok di
+  Gabriel) e verificare dal vivo la qualità conversazionale reale (i 14 scenari elencati da
+  Gabriel, non copribili dai soli test automatici).
+- **Fase 3 = onboarding AI-assisted**: descrizione testuale della propria attività → bozza
   generata dall'AI → compilata sui form di `/dashboard/configura` che esistono già, il
-  titolare conferma/corregge invece di partire da campi vuoti. Non ancora una voce di questo
-  documento prima di oggi -- nuovo task, priorità alta.
-- **Fase 3 = riprogrammazione cliente self-service + promemoria di compleanno** (vedi Gruppo
+  titolare conferma/corregge invece di partire da campi vuoti. **Nota per quando ci arriviamo
+  (richiesta esplicita di Gabriel il 15/09/2026)**: questa stessa bozza generata dall'AI deve
+  compilare ANCHE i campi della knowledge base della Fase 2 sopra (descrizione, parcheggio,
+  metodi di pagamento, eventuali FAQ), non solo orari/operatori/servizi -- un solo giro di
+  onboarding per tutto, zero dati duplicati da far scrivere due volte al titolare. Non ancora una
+  voce di questo documento prima del 14/09/2026 -- nuovo task, priorità alta.
+- **Fase 4 = riprogrammazione cliente self-service + promemoria di compleanno** (vedi Gruppo
   B-bis e la lista "cosa manca ancora" più sotto per il dettaglio di ciascuna).
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni
   AI cliente-salone -- vincolo legale reale (Salone AI è processore di dati per conto del

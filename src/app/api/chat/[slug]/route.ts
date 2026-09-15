@@ -17,6 +17,7 @@ import {
   LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE,
   LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI,
 } from "@/lib/ai/limiti";
+import { pianoHaKnowledgeBaseAi } from "@/lib/piani";
 import type { StileTonoAI } from "@/lib/ai/agente";
 import { contaMessaggiClienteQuestoMese, ultimoMessaggioTroppoRecente } from "@/lib/ai/limiti.server";
 import { FUSO_ORARIO_PREDEFINITO, realeAPseudoUtc } from "@/lib/fuso-orario";
@@ -144,6 +145,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const tonoAi = pianoHaTonoPersonalizzato(tenant?.piano ?? "") ? (tenant?.tono_ai as StileTonoAI) : undefined;
     const tonoAiNota = pianoHaTonoPersonalizzato(tenant?.piano ?? "") ? tenant?.tono_ai_nota : undefined;
 
+    // Knowledge base dell'AI receptionist (Fase 2, Pro/Enterprise -- vedi
+    // `pianoHaKnowledgeBaseAi` in piani.ts): gate NUOVO E INDIPENDENTE da
+    // quello della chat AI base sopra e da quello del tono personalizzato --
+    // un tenant Growth mantiene la chat AI transazionale di oggi, ma NON la
+    // capacità informativa. Nessun dato salvato da ricontrollare qui (a
+    // differenza di tonoAi/tonoAiNota): il gate è puro, ricalcolato ad ogni
+    // richiesta dal piano corrente.
+    const haInformazioniAttivita = pianoHaKnowledgeBaseAi(tenant?.piano ?? "");
+
     const risultato = await rispondiConversazione(
       storico,
       messaggio,
@@ -153,6 +163,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         nomeAttivita: tenant?.nome ?? "l'attività",
         tonoAi,
         tonoAiNota,
+        haInformazioniAttivita,
       },
       undefined, // client Anthropic di default (parametro 5° è "adesso", non va confuso)
       adessoPseudo

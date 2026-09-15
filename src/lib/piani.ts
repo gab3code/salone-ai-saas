@@ -134,3 +134,23 @@ export function limiteMensileSms(piano: string, numeroOperatori: number): number
   if (!pianoHaSms(piano)) return 0;
   return SMS_MENSILI_PER_OPERATORE * Math.max(1, numeroOperatori);
 }
+
+/**
+ * Gate di piano per la Knowledge base dell'AI receptionist (Fase 2, deciso
+ * con Gabriel il 15/09/2026): oltre alla chat AI transazionale già inclusa
+ * da Growth in su (`pianoHaAccessoAIChatWeb` in `ai/limiti.ts`), Pro ed
+ * Enterprise possono configurare informazioni generali sull'attività
+ * (descrizione, parcheggio, metodi di pagamento, policy di cancellazione,
+ * FAQ libere) che l'AI usa per rispondere a domande non transazionali --
+ * leva di upsell rispetto alla chat base già inclusa da Growth. Gate NUOVO E
+ * INDIPENDENTE (non lo stesso di `pianoHaTonoPersonalizzato`/`pianoHaSms` in
+ * `ai/limiti.ts`, anche se i piani coincidono oggi): un tenant Growth
+ * mantiene la chat AI transazionale di oggi, ma NON la capacità informativa.
+ * Stesso stile di `PIANI_CON_LISTA_ATTESA_AUTOMATICA` sopra -- Set
+ * indipendente apposta, un domani potrebbe divergere.
+ */
+export const PIANI_CON_KNOWLEDGE_BASE_AI = new Set(["pro", "enterprise"]);
+
+export function pianoHaKnowledgeBaseAi(piano: string): boolean {
+  return PIANI_CON_KNOWLEDGE_BASE_AI.has(piano);
+}

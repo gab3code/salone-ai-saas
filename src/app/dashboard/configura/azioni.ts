@@ -55,6 +55,10 @@ export async function creaOperatore(formData: FormData) {
   const nome = String(formData.get("nome") || "").trim();
   if (!nome) return { errore: "Il nome dell'operatore è obbligatorio." };
 
+  // Bio/specializzazione opzionale (Fase 2, migrazione 0021): letta anche
+  // dallo strumento AI `elenca_operatori` (src/lib/ai/tools.ts).
+  const descrizione = String(formData.get("descrizione") || "").trim().slice(0, 500) || null;
+
   // "1 operatore" sul piano Free (Fase 5 di PIANO.md, trovato 13/09/2026):
   // pubblicizzato in Prezzi.tsx ma mai applicato tecnicamente finché
   // limiteOperatori non esisteva -- stesso principio del tetto mensile di
@@ -76,7 +80,7 @@ export async function creaOperatore(formData: FormData) {
     }
   }
 
-  const { error } = await supabase.from("operatori").insert({ tenant_id: tenantId, nome });
+  const { error } = await supabase.from("operatori").insert({ tenant_id: tenantId, nome, descrizione });
   if (error) return { errore: `Errore creando l'operatore: ${error.message}` };
 
   // Su Pro il prezzo scala con gli operatori (il prezzo base include il

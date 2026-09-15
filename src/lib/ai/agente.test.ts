@@ -183,4 +183,55 @@ describe("rispondiConversazione", () => {
       expect(create.mock.calls[0][0].system).not.toMatch(/Indicazione aggiuntiva/);
     });
   });
+
+  describe("knowledge base dell'AI receptionist (Fase 2, Pro/Enterprise)", () => {
+    it("con ctx.haInformazioniAttivita assente, info_attivita NON compare tra i tool passati al modello", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
+      await rispondiConversazione([], "Avete parcheggio?", ctx, { messages: { create } } as ClienteAnthropic);
+
+      const nomiTool = create.mock.calls[0][0].tools.map((t: { name: string }) => t.name);
+      expect(nomiTool).not.toContain("info_attivita");
+    });
+
+    it("con ctx.haInformazioniAttivita: false, info_attivita NON compare tra i tool passati al modello", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
+      await rispondiConversazione(
+        [],
+        "Avete parcheggio?",
+        { ...ctx, haInformazioniAttivita: false },
+        { messages: { create } } as ClienteAnthropic
+      );
+
+      const nomiTool = create.mock.calls[0][0].tools.map((t: { name: string }) => t.name);
+      expect(nomiTool).not.toContain("info_attivita");
+    });
+
+    it("con ctx.haInformazioniAttivita: true, info_attivita COMPARE tra i tool passati al modello", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
+      await rispondiConversazione(
+        [],
+        "Avete parcheggio?",
+        { ...ctx, haInformazioniAttivita: true },
+        { messages: { create } } as ClienteAnthropic
+      );
+
+      const nomiTool = create.mock.calls[0][0].tools.map((t: { name: string }) => t.name);
+      expect(nomiTool).toContain("info_attivita");
+    });
+
+    it("il system prompt menziona info_attivita solo quando haInformazioniAttivita è true", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
+
+      await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
+      expect(create.mock.calls[0][0].system).not.toContain("info_attivita");
+
+      await rispondiConversazione(
+        [],
+        "Ciao",
+        { ...ctx, haInformazioniAttivita: true },
+        { messages: { create } } as ClienteAnthropic
+      );
+      expect(create.mock.calls[1][0].system).toContain("info_attivita");
+    });
+  });
 });

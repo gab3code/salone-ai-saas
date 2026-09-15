@@ -91,7 +91,8 @@ export const STRUMENTI_AI = [
   },
   {
     name: "elenca_operatori",
-    description: "Elenca gli operatori/professionisti attivi in questa attività.",
+    description:
+      "Elenca gli operatori/professionisti attivi in questa attività, con un'eventuale descrizione/specializzazione se il titolare l'ha configurata.",
     input_schema: { type: "object", properties: {}, required: [] },
   },
   {
@@ -190,6 +191,12 @@ export const STRUMENTI_AI = [
     },
   },
   {
+    name: "info_attivita",
+    description:
+      "Restituisce informazioni generali sull'attività non legate a un servizio specifico: descrizione, indirizzo, parcheggio, metodi di pagamento, politica di cancellazione, un contatto diretto, e le domande frequenti (FAQ) configurate dal titolare. Usalo per domande come 'avete parcheggio?', 'accettate carte?', 'come funziona la cancellazione?', o qualunque altra domanda generale sull'attività -- servizi/prezzi/durate/orari/disponibilità hanno i loro strumenti dedicati, non usare questo per quelli. Se un campo del risultato è assente o vuoto, quell'informazione non è disponibile: dillo onestamente, non inventarla.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
     name: "trasferisci_a_operatore",
     description:
       "Passa la conversazione a un operatore umano -- usalo quando la richiesta è ambigua oltre quanto puoi risolvere, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare da solo.",
@@ -280,7 +287,7 @@ async function eseguiStrumentoInterno(
     case "elenca_operatori": {
       const { data, error } = await supabase
         .from("operatori")
-        .select("id, nome, ruolo")
+        .select("id, nome, ruolo, descrizione")
         .eq("tenant_id", tenantId)
         .eq("attivo", true)
         .order("nome");
@@ -472,6 +479,27 @@ async function eseguiStrumentoInterno(
       });
       if (!risultato.ok) return { errore: risultato.errore };
       return { iscritto: true };
+    }
+
+    case "info_attivita": {
+      const [{ data: tenant }, { data: faqGrezze }] = await Promise.all([
+        supabase
+          .from("tenants")
+          .select("descrizione, indirizzo, parcheggio, metodi_pagamento, ore_minime_cancellazione, telefono")
+          .eq("id", tenantId)
+          .single(),
+        supabase.from("faq_attivita").select("domanda, risposta").eq("tenant_id", tenantId).order("created_at"),
+      ]);
+      if (!tenant) return { errore: "Informazioni non disponibili." };
+      return {
+        descrizione: tenant.descrizione,
+        indirizzo: tenant.indirizzo,
+        parcheggio: tenant.parcheggio,
+        metodi_pagamento: tenant.metodi_pagamento,
+        politica_cancellazione: `Le cancellazioni sono possibili gratuitamente fino a ${tenant.ore_minime_cancellazione} ore prima dell'appuntamento; oltre questo termine il cliente deve contattare direttamente l'attività${tenant.telefono ? ` (${tenant.telefono})` : ""}.`,
+        contatto_diretto: tenant.telefono ?? null,
+        domande_frequenti: (faqGrezze ?? []).map((f) => ({ domanda: f.domanda, risposta: f.risposta })),
+      };
     }
 
     case "trasferisci_a_operatore": {

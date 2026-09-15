@@ -4,6 +4,7 @@ import {
   limiteMensileSms,
   limiteOperatori,
   pianoHaAnalytics,
+  pianoHaKnowledgeBaseAi,
   pianoHaListaAttesaAutomatica,
   pianoHaSms,
 } from "./piani";
@@ -106,5 +107,23 @@ describe("limiteMensileSms", () => {
 
   it("pro con più operatori scala linearmente: 100 SMS/operatore/mese", () => {
     expect(limiteMensileSms("pro", 3)).toBe(300);
+  });
+});
+
+describe("pianoHaKnowledgeBaseAi", () => {
+  it("pro ed enterprise hanno accesso alla knowledge base dell'AI receptionist", () => {
+    for (const piano of ["pro", "enterprise"]) {
+      expect(pianoHaKnowledgeBaseAi(piano)).toBe(true);
+    }
+  });
+
+  it("free, starter e growth non hanno accesso -- un tenant Growth mantiene la chat AI transazionale ma non la capacità informativa", () => {
+    for (const piano of ["free", "starter", "growth"]) {
+      expect(pianoHaKnowledgeBaseAi(piano)).toBe(false);
+    }
+  });
+
+  it("un piano sconosciuto/malformato non ha accesso -- fail-closed, stesso principio di pianoHaAnalytics", () => {
+    expect(pianoHaKnowledgeBaseAi("qualcosa-di-strano")).toBe(false);
   });
 });

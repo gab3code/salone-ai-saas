@@ -2058,3 +2058,110 @@ Gabriel, stesso principio già seguito per ogni migrazione precedente) -- nessun
 browser quindi ancora possibile. Nessuna verifica dal vivo dell'invio email reale per questo
 flusso specifico (il codice riusa `inviaEmail`/`inviaSmsSeInclusoNelPiano`, già verificati dal
 vivo altrove in questa stessa giornata per i promemoria).
+
+---
+
+## 2026-09-15 — Fase 2 costruita: AI receptionist conversazionale + knowledge base dell'attività
+
+**Contesto**: subito dopo l'ok di Gabriel ad applicare la migrazione della Fase 1 ("vai, per la
+fase 2 aspetta, prima voglio chiederti una cosa"), Gabriel ha inviato una richiesta lunga e
+dettagliata: l'AI in chat pubblica (`/s/[slug]`) oggi risponde SOLO a domande transazionali
+(servizi, prezzi, durate, disponibilità, prenotazioni/modifiche/cancellazioni) tramite gli
+strumenti di `src/lib/ai/tools.ts`, ma deve diventare un vero "receptionist digitale" capace
+anche di rispondere a domande informative sull'attività (descrizione, prezzi/durate già coperti,
+orari, indirizzo, parcheggio, metodi di pagamento, policy di cancellazione, informazioni
+sull'operatore, FAQ, qualunque altra cosa il titolare configuri) mantenendo contesto di
+conversazione, senza forzare ogni scambio verso una prenotazione, e -- vincolo esplicito,
+ripetuto più volte -- **senza mai inventare un'informazione assente**: se un dato non è in
+knowledge base, l'AI deve dichiararlo onestamente e invitare a contattare l'attività, mai
+indovinare. Gabriel ha chiesto esplicitamente di non limitarmi alle sue idee: analizzare prima
+l'intera architettura AI/dati/sicurezza esistente e integrare la soluzione nel sistema già in
+uso, non crearne uno parallelo -- "NON duplicare dati se possiamo riutilizzare quelli già
+presenti" -- e di non rompere nulla di ciò che già funziona (prenotazione, modifica,
+cancellazione, tutti gli strumenti esistenti).
+
+Prima di scrivere una riga di codice, Gabriel ha posto una domanda di sequenza: questa richiesta
+va dentro la Fase 2 già pianificata (onboarding AI-assisted) o è un lavoro a parte? Dopo una
+ricerca dedicata sull'architettura reale (nessuna knowledge base esistente; colonne
+`tenants.descrizione`/`indirizzo` già presenti ma mai lette da nessuno strumento AI; policy di
+cancellazione mai esposta in chat; zero strumenti informativi), la mia raccomandazione è stata di
+**non** unirla all'onboarding: costruire prima il modello dati della knowledge base come Fase 2 a
+sé, e spostare l'attuale Fase 2 (onboarding AI-assisted) a Fase 3 -- così l'onboarding, quando
+verrà costruito, popolerà da subito anche questi campi invece di richiedere una seconda
+migrazione più avanti. Gabriel ha approvato ("via"). Poste altre quattro domande mirate (via
+`AskUserQuestion`) prima di procedere.
+
+**Decisioni di Gabriel, vincolanti per l'implementazione**:
+1. **Campi strutturati per le cose comuni + una FAQ libera per il resto**, non un unico blob di
+   testo libero e non solo FAQ -- descrizione, indirizzo (riusati, erano colonne morte),
+   parcheggio e metodi di pagamento (nuovi), policy di cancellazione riusata da
+   `tenants.ore_minime_cancellazione` (già esistente dalla migrazione 0016, un solo dato mai
+   duplicato), più una tabella `faq_attivita` libera per tutto il resto.
+2. **Riservata a un piano superiore** (Pro/Enterprise), non allo stesso gate della chat AI base
+   (Growth in su) -- una deviazione esplicita rispetto alla mia opzione raccomandata (stesso gate
+   della chat base): scelta di prodotto/prezzo di Gabriel, non mia. Gate nuovo e indipendente
+   (`PIANI_CON_KNOWLEDGE_BASE_AI`/`pianoHaKnowledgeBaseAi` in `piani.ts`), stesso principio già
+   applicato per gli altri gate del progetto -- un tenant Growth mantiene la chat AI
+   transazionale di oggi ma non la capacità informativa.
+3. **Se un'informazione manca, l'AI lo dichiara onestamente e invita a contattare l'attività** --
+   mai un trasferimento automatico a un operatore solo per questo (il trasferimento resta per i
+   casi già esistenti).
+4. **Chi scrive i contenuti**: per ora solo il titolare, manualmente, nessuna bozza generata
+   dall'AI in questa fase -- ma Gabriel ha chiesto esplicitamente di annotare che, quando si
+   arriverà alla Fase 3 (onboarding AI-assisted), la bozza generata dall'AI dovrà popolare ANCHE
+   questi campi della knowledge base, non solo orari/operatori/servizi (annotato in PIANO.md
+   prima di iniziare a scrivere codice, per non perderlo).
+
+**Modifiche** (implementate da una sub-agente con uno spec dettagliato a livello di codice --
+firme di funzione esatte, snippet esatti da inserire, riferimenti file:riga esatti -- dopo una mia
+ricerca diretta sull'architettura reale; poi riviste file per file da me prima di fidarmene,
+stesso schema già usato per la Fase 1 e per il fix della lista d'attesa):
+- `supabase/migrations/0021_knowledge_base_attivita.sql`: `tenants.parcheggio`/`metodi_pagamento`
+  (`text` nullable), `operatori.descrizione` (bio/specializzazione opzionale, letta anche da
+  `elenca_operatori`), nuova tabella `faq_attivita` (`domanda`/`risposta`, RLS isolata per tenant,
+  grant a `authenticated` e `service_role` -- lo strumento AI legge dal widget pubblico dove non
+  esiste nessun utente Supabase autenticato, stesso pattern di `lista_attesa`/`regole_promemoria`).
+- `src/lib/piani.ts`: `PIANI_CON_KNOWLEDGE_BASE_AI`/`pianoHaKnowledgeBaseAi`.
+- `src/lib/ai/tools.ts`: nuovo strumento `info_attivita` (nessun parametro, restituisce
+  descrizione/indirizzo/parcheggio/metodi di pagamento/politica di cancellazione
+  (composta da `ore_minime_cancellazione` + `telefono`)/contatto diretto/FAQ -- ogni campo assente
+  torna `null`, mai un placeholder inventato dal codice); `elenca_operatori` esteso con
+  `descrizione`.
+- `src/lib/ai/agente.ts`: **prima introduzione nel progetto di visibilità degli strumenti
+  condizionata dal piano** -- finora `STRUMENTI_AI` veniva sempre passato per intero al modello,
+  ora `info_attivita` è filtrato via (`strumentiDisponibili`) quando `ctx.haInformazioniAttivita`
+  non è `true`, così un tenant senza accesso non può ottenere lo strumento nemmeno se un cliente
+  lo chiedesse esplicitamente in chat. Apertura del system prompt e una nuova "regola 11"
+  (usa `info_attivita` per le domande generali, rispondi SOLO da quello che restituisce, dichiara
+  onestamente un'informazione mancante, non riproporre la prenotazione dopo ogni risposta
+  informativa) compaiono solo quando il flag è `true` -- percorso di default (`false`) identico
+  carattere per carattere a prima, zero regressioni.
+- `src/app/api/chat/[slug]/route.ts`: `haInformazioniAttivita` ricalcolato ad ogni richiesta dal
+  piano corrente (mai dal dato salvato), stesso principio già seguito per `tonoAi`/`tonoAiNota`.
+- Nuova pagina `Dashboard -> Impostazioni -> Informazioni per l'AI (receptionist)`: campi
+  strutturati (textarea) + gestione FAQ (aggiungi/rimuovi, tetto di 40 per tenant, domanda
+  ≤300/risposta ≤1000 caratteri), gate di piano ricontrollato lato server in ogni azione prima di
+  scrivere (stesso principio di `aggiornaTonoAi`), upsell verso Pro per chi non ha accesso.
+  Aggiunto anche un campo opzionale "descrizione/specializzazione" nel form operatori esistente
+  (`dashboard/configura`) -- input a riga singola invece di una textarea, per restare coerente con
+  lo stile compatto già usato in quel form (nessuna textarea esisteva lì, e il form non ha
+  comunque una funzione di modifica, solo creazione/eliminazione).
+
+**Verifica**: rieseguiti io stesso dopo la revisione riga per riga di tutti i file toccati -- `npx
+vitest run` -> 276/276 verdi (24 file, 11 nuovi test: gate di piano in `piani.test.ts`, filtraggio
+degli strumenti + regola 11 nel system prompt in `agente.test.ts`, `info_attivita` (campi pieni,
+tutti i campi opzionali nulli/nessuna FAQ, tenant non trovato) + `elenca_operatori` con
+descrizione in `tools.test.ts`); `npx tsc --noEmit` -> pulito; `npx eslint` sui file toccati ->
+pulito; `npm run build` -> production build riuscita, `/dashboard/impostazioni/informazioni-attivita`
+presente tra le route generate. Corretta durante la revisione anche un'etichetta cosmetica
+lasciata dalla sub-agente ("Fase 7", numerazione del vecchio spec a 33 punti) in tutti i commenti
+toccati da questo lavoro, uniformata a "Fase 2" per coerenza con la numerazione attuale di
+PIANO.md -- nessun impatto funzionale.
+
+**Non ancora fatto**: la migrazione non è ancora applicata al database reale (serve l'ok di
+Gabriel). Nessuna verifica dal vivo della qualità conversazionale reale (i 14 scenari di test
+elencati da Gabriel -- domanda informativa semplice, transizione informativo->prenotazione e
+viceversa, follow-up ambigui tipo "e quello da 90?", ecc.): i test automatici verificano il
+cablaggio (visibilità dello strumento, dati corretti, nessuna invenzione a livello di codice), non
+il comportamento qualitativo del modello reale, che richiede una verifica dal vivo contro un
+tenant Pro/Enterprise reale dopo l'applicazione della migrazione.

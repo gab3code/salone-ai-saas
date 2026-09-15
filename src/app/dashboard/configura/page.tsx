@@ -32,7 +32,7 @@ interface OrarioRiga {
 /**
  * Onboarding minimo: orari, operatori, servizi (Fase 1). Volutamente
  * spartano nella grafica -- vedi PIANO.md, la passata di design vera arriva
- * in Fase 7 quando tutto il funnel funziona davvero. Server Component puro:
+ * in una fase successiva quando tutto il funnel funziona davvero. Server Component puro:
  * ogni azione è un submit di form che rilegge i dati dal database, niente
  * stato client da tenere sincronizzato a mano.
  */
@@ -43,7 +43,7 @@ export default async function PaginaConfigura() {
 
   const [orariRes, operatoriRes, serviziRes, opServiziRes] = await Promise.all([
     supabase.from("orari_apertura").select("*").eq("tenant_id", tenantId),
-    supabase.from("operatori").select("id, nome").eq("tenant_id", tenantId).order("nome"),
+    supabase.from("operatori").select("id, nome, descrizione").eq("tenant_id", tenantId).order("nome"),
     supabase
       .from("servizi")
       .select("id, nome, durata_minuti, prezzo_centesimi")
@@ -144,7 +144,10 @@ export default async function PaginaConfigura() {
         <ul className="mt-3 flex flex-col gap-2 text-sm">
           {operatori.map((o) => (
             <li key={o.id} className="flex items-center gap-3">
-              <span className="min-w-40">{o.nome}</span>
+              <span className="min-w-40">
+                {o.nome}
+                {o.descrizione && <span className="ml-2 text-xs text-zinc-500">{o.descrizione}</span>}
+              </span>
               <form
                 action={async () => {
                   "use server";
@@ -166,7 +169,7 @@ export default async function PaginaConfigura() {
             "use server";
             await creaOperatore(formData);
           }}
-          className="mt-3 flex items-end gap-2"
+          className="mt-3 flex flex-wrap items-end gap-2"
         >
           <div className="flex flex-col gap-1">
             <label htmlFor="nome_operatore" className="text-xs text-zinc-500">
@@ -177,6 +180,17 @@ export default async function PaginaConfigura() {
               name="nome"
               required
               className="rounded border border-zinc-300 px-2 py-1 text-sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="descrizione_operatore" className="text-xs text-zinc-500">
+              Descrizione/specializzazione (opzionale)
+            </label>
+            <input
+              id="descrizione_operatore"
+              name="descrizione"
+              maxLength={500}
+              className="w-64 rounded border border-zinc-300 px-2 py-1 text-sm"
             />
           </div>
           <button type="submit" className="rounded border border-zinc-300 px-3 py-1.5 text-sm">

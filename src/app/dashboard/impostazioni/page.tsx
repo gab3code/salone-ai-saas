@@ -62,6 +62,9 @@ export default async function PaginaImpostazioni() {
       <a href="/dashboard/impostazioni/cancellazione" className="text-sm underline">
         Cancellazione online
       </a>
+      <a href="/dashboard/impostazioni/informazioni-attivita" className="text-sm underline">
+        Informazioni per l&apos;AI (receptionist)
+      </a>
     </div>
   );
 }
