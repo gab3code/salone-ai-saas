@@ -1,7 +1,36 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { creaSupabaseFinto } from "@/test/supabase-finto";
+
+// Isola eseguiStrumento dalla logica interna di avvio pagamento caparra
+// (già testata a fondo in src/lib/stripe/caparra.server.test.ts, inclusi i
+// controlli di conflitto e la creazione della Checkout Session vera) -- qui
+// interessa SOLO che crea_prenotazione si comporti bene in base a cosa
+// restituisce questo modulo: che diramazione prenda, quali campi passi,
+// come gestisca gli errori. Stesso principio già seguito per
+// creaAppuntamentoTenant (mai duplicato, mai ri-testato qui).
+vi.mock("@/lib/stripe/caparra.server", () => ({
+  caricaImportoCaparraServizio: vi.fn(),
+  avviaPagamentoCaparraTenant: vi.fn(),
+}));
+import { caricaImportoCaparraServizio, avviaPagamentoCaparraTenant } from "@/lib/stripe/caparra.server";
+
+// Solo creaAppuntamentoTenant mockata (il resto del modulo resta reale, es.
+// parsaOrarioLocale che eseguiStrumento usa direttamente) -- serve per
+// verificare che il ramo "nessuna caparra" di crea_prenotazione chiami
+// ancora la normale creazione dell'appuntamento, senza dover fornire tutto
+// il fixture Supabase che creaAppuntamentoTenant si aspetterebbe (già
+// coperto a fondo in booking-engine.server.test.ts).
+vi.mock("@/lib/booking-engine.server", async (importOriginal) => {
+  const reale = await importOriginal<typeof import("@/lib/booking-engine.server")>();
+  return { ...reale, creaAppuntamentoTenant: vi.fn() };
+});
+import { creaAppuntamentoTenant } from "@/lib/booking-engine.server";
 import { eseguiStrumento, type ContestoStrumento } from "./tools";
+
+const caricaImportoCaparraServizioFinto = vi.mocked(caricaImportoCaparraServizio);
+const avviaPagamentoCaparraTenantFinto = vi.mocked(avviaPagamentoCaparraTenant);
+const creaAppuntamentoTenantFinto = vi.mocked(creaAppuntamentoTenant);
 
 // Un client fittizio che fa fallire il test se un percorso di validazione
 // arriva davvero a interrogare il database -- ogni caso qui sotto deve
@@ -264,5 +293,104 @@ describe("eseguiStrumento -- elenca_operatori include la descrizione (Fase 2)", 
         { id: "op-2", nome: "Anna", ruolo: "Colorista", descrizione: null },
       ],
     });
+  });
+});
+
+describe("eseguiStrumento -- crea_prenotazione con caparra attiva (bug trovato dal vivo il 15/09/2026: l'AI confermava senza pagamento)", () => {
+  const SERVIZIO_ID = "44444444-4444-4444-4444-444444444444";
+  const OPERATORE_ID = "55555555-5555-5555-5555-555555555555";
+  const INPUT_VALIDO = {
+    servizio_id: SERVIZIO_ID,
+    operatore_id: OPERATORE_ID,
+    inizio: "2026-09-19T12:00",
+    cliente_nome: "Mario Rossi",
+    cliente_telefono: "3331234567",
+  };
+  const CTX_CON_SLUG: ContestoStrumento = {
+    supabase: supabaseNonDovrebbeEssereChiamato,
+    tenantId: TENANT_ID,
+    slug: "salone-test",
+    origin: "https://esempio.it",
+  };
+
+  // Le mock queue (mockResolvedValueOnce) sono FIFO condivise tra i test di
+  // questo file: senza un reset esplicito, un valore non consumato da un
+  // test (es. perché l'asserzione fallisce prima) resterebbe in coda e
+  // sporcherebbe il test successivo con un risultato inatteso.
+  beforeEach(() => {
+    caricaImportoCaparraServizioFinto.mockReset();
+    avviaPagamentoCaparraTenantFinto.mockReset();
+    creaAppuntamentoTenantFinto.mockReset();
+  });
+
+  it("se il servizio richiede una caparra, NON crea la prenotazione: avvia il pagamento e lo segnala", async () => {
+    caricaImportoCaparraServizioFinto.mockResolvedValueOnce(500); // 5,00€
+    avviaPagamentoCaparraTenantFinto.mockResolvedValueOnce({
+      ok: true,
+      checkoutUrl: "https://checkout.stripe.com/sess_test",
+      importoCentesimi: 500,
+    });
+
+    const risultato = await eseguiStrumento("crea_prenotazione", INPUT_VALIDO, CTX_CON_SLUG);
+
+    expect(risultato).toEqual({
+      richiede_pagamento: true,
+      url_pagamento: "https://checkout.stripe.com/sess_test",
+      importo_caparra_euro: 5,
+    });
+    // Il punto centrale del bug: creaAppuntamentoTenant non va MAI chiamata
+    // in questo ramo, altrimenti la prenotazione risulterebbe comunque
+    // confermata senza che il cliente abbia pagato.
+    expect(creaAppuntamentoTenantFinto).not.toHaveBeenCalled();
+    expect(avviaPagamentoCaparraTenantFinto).toHaveBeenCalledWith(
+      expect.anything(), // il client supabase: identità non rilevante qui, testata a fondo altrove
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        slug: "salone-test",
+        origin: "https://esempio.it",
+        servizioId: SERVIZIO_ID,
+        operatoreId: OPERATORE_ID,
+        clienteTelefono: "3331234567",
+        clienteNome: "Mario Rossi",
+      })
+    );
+  });
+
+  it("se manca slug/origin nel contesto (non dovrebbe mai succedere in produzione), errore esplicito invece di procedere alla cieca", async () => {
+    caricaImportoCaparraServizioFinto.mockResolvedValueOnce(500);
+
+    const risultato = await eseguiStrumento("crea_prenotazione", INPUT_VALIDO, ctx); // ctx SENZA slug/origin
+
+    expect(risultato.errore).toBeDefined();
+    expect(avviaPagamentoCaparraTenantFinto).not.toHaveBeenCalled();
+    expect(creaAppuntamentoTenantFinto).not.toHaveBeenCalled();
+  });
+
+  it("se l'avvio del pagamento fallisce (es. conflitto d'orario), lo strumento propaga l'errore, mai una prenotazione fasulla", async () => {
+    caricaImportoCaparraServizioFinto.mockResolvedValueOnce(500);
+    avviaPagamentoCaparraTenantFinto.mockResolvedValueOnce({
+      ok: false,
+      errore: "Questo operatore ha già un appuntamento in quell'orario. Scegli un altro slot.",
+    });
+
+    const risultato = await eseguiStrumento("crea_prenotazione", INPUT_VALIDO, CTX_CON_SLUG);
+
+    expect(risultato).toEqual({ errore: "Questo operatore ha già un appuntamento in quell'orario. Scegli un altro slot." });
+    expect(creaAppuntamentoTenantFinto).not.toHaveBeenCalled();
+  });
+
+  it("se il servizio NON richiede caparra, il comportamento resta invariato: crea la prenotazione direttamente", async () => {
+    caricaImportoCaparraServizioFinto.mockResolvedValueOnce(0);
+    creaAppuntamentoTenantFinto.mockResolvedValueOnce({ ok: true, appuntamentoId: "appt-1" });
+
+    const risultato = await eseguiStrumento("crea_prenotazione", INPUT_VALIDO, CTX_CON_SLUG);
+
+    expect(risultato).toEqual({ creato: true, appuntamento_id: "appt-1" });
+    expect(avviaPagamentoCaparraTenantFinto).not.toHaveBeenCalled();
+    expect(creaAppuntamentoTenantFinto).toHaveBeenCalledWith(
+      expect.anything(),
+      TENANT_ID,
+      expect.objectContaining({ creatoDa: "ai" })
+    );
   });
 });

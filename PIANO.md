@@ -231,6 +231,13 @@ mappati -- resta valido, non riscritto da zero.
 3. ~~**Lista d'attesa automatica alla cancellazione** (Fase 6)~~ **CODICE FATTO 13/09/2026** (vedi
    Fase 6 per il dettaglio) -- resta da fare solo la parte che tocca a Gabriel: applicare la
    migrazione al database reale (Gruppo A).
+4. ~~**Bug grave trovato dal vivo 15/09/2026: la caparra (punto 1 sopra) valeva SOLO per il form
+   pubblico, l'AI la bypassava del tutto**~~ **CODICE FATTO 15/09/2026** (vedi DECISIONS.md
+   15/09/2026 per il dettaglio completo): `crea_prenotazione` ora controlla la caparra prima di
+   confermare, tramite una logica di pagamento condivisa col form (`src/lib/stripe/caparra.server.ts`)
+   -- se richiesta, l'AI condivide il link di pagamento in chat invece di confermare subito, la
+   prenotazione vera nasce solo al pagamento come nel form. Resta da verificare dal vivo dopo il
+   deploy (pagamento Stripe TEST completo tramite la chat AI, non solo tramite il form).
 
 ### Gruppo B-bis -- Altre funzioni che mancano davvero, trovate in un secondo giro (12/09/2026)
 

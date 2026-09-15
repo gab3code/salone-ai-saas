@@ -10,6 +10,7 @@ import {
 } from "@/lib/booking-engine.server";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
+import { caricaImportoCaparraServizio, avviaPagamentoCaparraTenant } from "@/lib/stripe/caparra.server";
 
 /**
  * Strumenti che l'AI receptionist (Fase 2) usa per agire sul booking engine
@@ -37,6 +38,17 @@ import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 export interface ContestoStrumento {
   supabase: SupabaseClient;
   tenantId: string;
+  // Necessari SOLO a crea_prenotazione quando l'attività richiede una
+  // caparra (Fase 6, bug trovato dal vivo il 15/09/2026: l'AI creava la
+  // prenotazione confermata bypassando completamente la caparra, a
+  // differenza del form pubblico manuale in azioni.ts) -- servono per
+  // costruire l'URL della Stripe Checkout Session (success/cancel), risolti
+  // da chi chiama (route.ts) dalla richiesta HTTP in corso, mai indovinati
+  // qui. Opzionali per non forzare ogni altro chiamante/test a fornirli
+  // quando non servono (praticamente tutti gli altri strumenti, e anche
+  // crea_prenotazione per i tenant senza caparra attiva).
+  slug?: string;
+  origin?: string;
 }
 
 /**
@@ -133,7 +145,7 @@ export const STRUMENTI_AI = [
   {
     name: "crea_prenotazione",
     description:
-      "Crea una prenotazione reale sul calendario, dopo aver verificato la disponibilità con verifica_disponibilita. Se il cliente non esiste ancora, viene creato automaticamente dal telefono.",
+      "Crea una prenotazione reale sul calendario, dopo aver verificato la disponibilità con verifica_disponibilita. Se il cliente non esiste ancora, viene creato automaticamente dal telefono. Se questa attività richiede una caparra per confermare (non tutte la richiedono), lo strumento NON crea la prenotazione subito: restituisce invece richiede_pagamento=true con un url_pagamento e l'importo in euro -- la prenotazione vera si conferma da sola automaticamente al pagamento, non richiamare questo strumento dopo aver condiviso il link.",
     input_schema: {
       type: "object",
       properties: {
@@ -399,6 +411,50 @@ async function eseguiStrumentoInterno(
       }
       const inizioData = parsaOrarioLocale(inizio);
       if (!inizioData) return { errore: "inizio non valido, usa il formato YYYY-MM-DDTHH:MM." };
+
+      // Gate caparra (Fase 6, bug trovato dal vivo il 15/09/2026, vedi
+      // DECISIONS.md): PRIMA di creare qualunque cosa, controlla se questa
+      // attività la richiede per questo servizio -- se sì, NON confermare
+      // mai direttamente, stesso comportamento del form pubblico manuale
+      // (src/app/s/[slug]/azioni.ts, prenotaPubblico) tramite la stessa
+      // funzione condivisa (src/lib/stripe/caparra.server.ts): un'unica
+      // fonte di verità, l'AI non deve avere una scappatoia che il form non
+      // ha.
+      const importoCaparra = await caricaImportoCaparraServizio(supabase, tenantId, servizio_id);
+      if (importoCaparra > 0) {
+        if (!ctx.slug || !ctx.origin) {
+          // Non dovrebbe mai succedere in produzione (route.ts li passa
+          // sempre) -- se succede, meglio un errore esplicito che lasciare
+          // che l'AI catturi un'eccezione o, peggio, confermi comunque senza
+          // pagamento.
+          console.error(
+            "crea_prenotazione: caparra richiesta ma slug/origin mancanti nel ContestoStrumento (tenant",
+            tenantId,
+            ")"
+          );
+          return {
+            errore:
+              "Impossibile avviare il pagamento della caparra in questo momento. Riprova, e se il problema persiste passa la conversazione a un operatore.",
+          };
+        }
+        const risultatoCaparra = await avviaPagamentoCaparraTenant(supabase, {
+          tenantId,
+          slug: ctx.slug,
+          origin: ctx.origin,
+          servizioId: servizio_id,
+          operatoreId: operatore_id,
+          inizio: inizioData,
+          inizioIso: inizio,
+          clienteNome: typeof cliente_nome === "string" ? cliente_nome : undefined,
+          clienteTelefono: cliente_telefono,
+        });
+        if (!risultatoCaparra.ok) return { errore: risultatoCaparra.errore };
+        return {
+          richiede_pagamento: true,
+          url_pagamento: risultatoCaparra.checkoutUrl,
+          importo_caparra_euro: risultatoCaparra.importoCentesimi / 100,
+        };
+      }
 
       const risultato = await creaAppuntamentoTenant(supabase, tenantId, {
         servizioId: servizio_id,

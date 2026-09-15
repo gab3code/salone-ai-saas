@@ -2246,6 +2246,29 @@ l'11/09/2026 via MCP diretto).
     ha ancora il traffico perché due persone scelgano lo stesso slot nella stessa finestra di
     pochi minuti -- da rivedere se diventa un problema reale.
 
+17. ~~**Il tool AI `crea_prenotazione` bypassava completamente la caparra (15/09/2026)**~~
+    **RISOLTO 15/09/2026**: trovato dal vivo durante il test completo richiesto da Gabriel --
+    prenotando via chat AI su un tenant con caparra attiva, l'AI confermava subito la
+    prenotazione ("Fatto! La tua prenotazione è confermata...") senza mai menzionare un
+    pagamento, e l'appuntamento veniva creato `confermato` nel database senza nessuna riga
+    collegata in `richieste_caparra`. Causa: solo il form pubblico manuale
+    (`src/app/s/[slug]/azioni.ts`) conosceva la caparra, il tool AI (`src/lib/ai/tools.ts`)
+    chiamava `creaAppuntamentoTenant` direttamente. Estratta la logica di avvio pagamento in un
+    modulo condiviso (`src/lib/stripe/caparra.server.ts`, `avviaPagamentoCaparraTenant` +
+    `caricaImportoCaparraServizio`), usato ora da entrambi i canali: `crea_prenotazione`
+    controlla la caparra PRIMA di scrivere, e se richiesta genera la Stripe Checkout Session e
+    restituisce `richiede_pagamento`/`url_pagamento`/`importo_caparra_euro` invece di confermare
+    -- il system prompt istruisce l'AI a condividere il link e a non dire mai "confermata" finché
+    il pagamento (e quindi il webhook) non ha creato davvero l'appuntamento. Vedi DECISIONS.md
+    15/09/2026 per il dettaglio tecnico completo.
+
+    **Limite residuo, minore, non bloccante**: quando il webhook completa il pagamento
+    (`completaPagamentoCaparra` in `src/app/api/stripe/webhook/route.ts`) crea sempre
+    l'appuntamento con `creato_da: "pubblico"`, anche se la richiesta caparra è nata da una
+    conversazione AI -- richiederebbe una colonna `creato_da` su `richieste_caparra` (migrazione
+    DDL, serve l'ok esplicito di Gabriel) per essere precisa fino in fondo nello storico cliente.
+    Non tocca la protezione anti-no-show in sé, solo l'attribuzione del canale nelle statistiche.
+
 ## Mappa dei file principali
 
 - `src/lib/booking-engine.ts` — motore di disponibilità puro (nessuna query DB), 16 test.

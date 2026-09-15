@@ -2586,3 +2586,99 @@ toccati -> pulito; `npm run build` -> production build riuscita.
 **Non ancora fatto**: verifica dal vivo che l'errore specifico segnalato da Gabriel non si ripresenti
 (richiede altre conversazioni reali con domande simili -- non è verificabile a colpo sicuro con un
 solo test, la natura del problema è probabilistica).
+
+---
+
+## 2026-09-15 — Bug grave trovato dal vivo: l'AI bypassava completamente la caparra --
+## risolto unificando la logica di pagamento tra form pubblico e tool AI
+
+**Contesto**: durante il test completo richiesto da Gabriel ("test completo e pesante... booking
+engine senza ai, con ai, eliminazione, google calendar"), ho prenotato via chat AI una Manicure
+sul tenant `salone-bc163ecf` (Pro, `caparra_attiva=true`). L'AI ha risposto "Fatto! La tua
+prenotazione è confermata: Manicure, Sabato 19 settembre alle 12:00... Prezzo: 25 euro" senza mai
+menzionare un pagamento. Verifica su Supabase: l'appuntamento (`674bb6d6-...`) era stato scritto
+con `stato: confermato`, `creato_da: ai`, e `richieste_caparra` non aveva nessuna riga collegata --
+cioè un cliente poteva prenotare gratis su un salone che aveva attivato la caparra apposta per
+proteggersi dai no-show, semplicemente passando dalla chat invece che dal form.
+
+**Causa**: la caparra era implementata SOLO in `src/app/s/[slug]/azioni.ts` (`prenotaPubblico`,
+il form manuale pubblico) -- controllava `caparra_attiva` e, se vera, rifiutava la conferma
+diretta obbligando a passare da `avviaPagamentoCaparra` (Stripe Checkout). Il tool AI
+`crea_prenotazione` (`src/lib/ai/tools.ts`) non conosceva affatto questo concetto: chiamava
+`creaAppuntamentoTenant` direttamente, che scrive sempre `stato: "confermato"` a prescindere da
+`creatoDa`. Due canali di prenotazione, una sola protezione -- esattamente il tipo di
+disallineamento che il punto 9 di CLAUDE.md ("un'unica fonte di verità, mai due booking engine
+separati") vuole evitare, qui successo perché la caparra è stata aggiunta il 13/09 SOLO al layer
+del form pubblico, senza toccare il layer AI.
+
+**Decisione con Gabriel**: tre opzioni proposte (1. l'AI genera lei stessa il link di pagamento e
+lo condivide in chat; 2. l'AI rifiuta e rimanda al form pubblico; 3. crea comunque l'appuntamento
+ma in uno stato "in attesa di pagamento"). Gabriel ha scelto la 1, con una condizione esplicita:
+"deve essere piu comodo del prenotare manualmente" -- cioè zero passaggi in più per il cliente
+rispetto a prenotare a voce con l'AI, nessuna uscita dalla chat verso il form.
+
+**Fix**: estratta la logica di avvio pagamento caparra (calcolo importo, controllo conflitto,
+creazione Stripe Checkout Session, riga `richieste_caparra`) dal form pubblico in un modulo
+condiviso nuovo, `src/lib/stripe/caparra.server.ts`:
+- `caricaImportoCaparraServizio(supabase, tenantId, servizioId)`: quanto costa la caparra per
+  questo servizio (0 = nessuna caparra richiesta) -- controllo leggero usato PRIMA di decidere
+  quale ramo prendere.
+- `avviaPagamentoCaparraTenant(supabase, params, stripe?)`: la logica completa (carica
+  tenant+servizio, ricontrolla l'importo, verifica conflitto sullo slot con
+  `verificaConflittoTenant` -- non far pagare per uno slot già occupato -- crea la Checkout
+  Session Stripe in modalità "payment", inserisce la riga `richieste_caparra` in stato
+  `in_attesa`). `stripe` iniettabile per i test, stesso principio di `clientAnthropic` in
+  `agente.ts`.
+
+`src/app/s/[slug]/azioni.ts` (`prenotaPubblico`/`avviaPagamentoCaparra`) ora chiama questi due
+export invece di duplicare la logica -- **unica fonte di verità anche per il pagamento, non solo
+per la scrittura dell'appuntamento**.
+
+`src/lib/ai/tools.ts` (`crea_prenotazione`): dopo aver validato input/uuid/orario come prima, PRIMA
+di chiamare `creaAppuntamentoTenant` controlla `caricaImportoCaparraServizio`. Se >0, chiama
+`avviaPagamentoCaparraTenant` (con `slug`/`origin` presi dal nuovo `ContestoStrumento`, risolti da
+`route.ts` dalla richiesta HTTP in corso -- mai indovinati) e restituisce all'AI
+`{ richiede_pagamento: true, url_pagamento, importo_caparra_euro }` invece di
+`{ creato: true, appuntamento_id }`. Se l'attività non richiede caparra per questo servizio, il
+comportamento è invariato (crea direttamente, come prima). `ContestoStrumento.slug`/`.origin` sono
+opzionali (quasi nessun altro strumento/test ne ha bisogno) ma se mancassero quando servono davvero
+(non dovrebbe mai succedere in produzione, `route.ts` li passa sempre) lo strumento restituisce un
+errore esplicito invece di procedere alla cieca o lanciare un'eccezione non gestita.
+
+**System prompt** (`agente.ts`, `costruisciSystemPrompt`): nuova regola assoluta n. 4 (le regole
+successive rinumerate di conseguenza, 5-12, e la regola condizionale `info_attivita` da 12 a 13) --
+istruisce che un risultato di `crea_prenotazione` con `richiede_pagamento: true` NON è una
+prenotazione confermata: l'AI deve dire l'importo esatto, condividere `url_pagamento`, spiegare che
+la conferma è automatica al pagamento, e MAI dire "prenotazione confermata" finché il risultato non
+ha `creato: true`. Aggiornata anche la descrizione dello strumento `crea_prenotazione` nello schema
+per lo stesso motivo (l'AI deve sapere che questo esito è possibile prima ancora di leggerlo).
+
+**Limite onestamente segnalato, non risolto ora**: il webhook (`completaPagamentoCaparra` in
+`src/app/api/stripe/webhook/route.ts`) crea l'appuntamento con `creatoDa: "pubblico"` a prescindere
+da quale canale abbia avviato il pagamento -- non distingue "richiesta caparra nata da conversazione
+AI" da "nata dal form manuale". Sistemarlo del tutto richiederebbe una colonna `creato_da` su
+`richieste_caparra` (migrazione DDL) propagata fino al webhook: cambiamento di schema, quindi serve
+l'ok esplicito di Gabriel prima di applicarlo al database reale (regola permanente di questo
+progetto) -- non bloccante per la sicurezza/correttezza del fix (la caparra viene comunque
+richiesta e verificata correttamente), tocca solo l'attribuzione del canale nelle statistiche dello
+storico cliente. Segnalato a Gabriel, in attesa di priorità.
+
+**Verifica**: 2 nuove describe in `tools.test.ts` (4 test: il ramo caparra non chiama mai
+`creaAppuntamentoTenant`, propaga correttamente un errore di `avviaPagamentoCaparraTenant` -- es.
+conflitto -- invece di confermare comunque, restituisce un errore esplicito se `slug`/`origin`
+mancano nel contesto invece di procedere, e il ramo senza caparra resta invariato) con
+`avviaPagamentoCaparraTenant`/`caricaImportoCaparraServizio` mockate (già testate a fondo altrove,
+stesso principio già seguito per `creaAppuntamentoTenant`); 9 nuovi test in un file nuovo
+`caparra.server.test.ts` (calcolo importo, Checkout Session creata con i parametri giusti, fallback
+"Cliente" quando l'AI non ha ancora il nome, nessuna Checkout Session se l'importo è 0, nessuna
+Checkout Session se lo slot risulta già occupato -- verificato che `stripe.checkout.sessions.create`
+non viene mai chiamata in quei due casi, errore esplicito se Stripe non ritorna un url). `npx vitest
+run` -> 320/320 verdi; `npx tsc --noEmit` -> pulito; `npx eslint` sui file toccati -> pulito;
+`npm run build` -> production build riuscita.
+
+**Non ancora fatto**: verifica dal vivo sul sito vero dopo il deploy -- prenotazione via chat AI su
+un tenant con caparra attiva deve mostrare il link di pagamento invece di confermare subito, il
+pagamento Stripe TEST deve completare la prenotazione vera tramite webhook, e un tentativo senza
+pagare non deve mai lasciare un appuntamento confermato nel calendario. Da fare come parte del test
+completo più ampio richiesto da Gabriel, insieme alla verifica che l'AI non compaia affatto per i
+piani senza accesso (Free/Starter).

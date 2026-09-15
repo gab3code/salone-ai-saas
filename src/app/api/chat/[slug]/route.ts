@@ -154,12 +154,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // richiesta dal piano corrente.
     const haInformazioniAttivita = pianoHaKnowledgeBaseAi(tenant?.piano ?? "");
 
+    // slug/origin passati al contesto SOLO per il tool crea_prenotazione,
+    // per l'eventuale Stripe Checkout Session di una caparra (vedi
+    // src/lib/stripe/caparra.server.ts e DECISIONS.md 15/09/2026) -- stesso
+    // modo di risolvere l'origine già usato in azioni.ts (avviaPagamentoCaparra),
+    // non `request.nextUrl.origin` diretto, per coerenza con quel codice.
+    const proto = request.headers.get("x-forwarded-proto") ?? "https";
+    const host = request.headers.get("host");
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || (host ? `${proto}://${host}` : undefined);
+
     const risultato = await rispondiConversazione(
       storico,
       messaggio,
       {
         supabase,
         tenantId,
+        slug,
+        origin,
         nomeAttivita: tenant?.nome ?? "l'attività",
         tonoAi,
         tonoAiNota,

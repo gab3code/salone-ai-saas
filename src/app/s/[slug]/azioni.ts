@@ -6,14 +6,12 @@ import { risolviTenantIdDaSlug } from "@/lib/ai/tools";
 import {
   trovaSlotEStatoGiornoTenant,
   creaAppuntamentoTenant,
-  verificaConflittoTenant,
   parsaOrarioLocale,
   aggiungiListaAttesaTenant,
 } from "@/lib/booking-engine.server";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
-import { creaClientStripe } from "@/lib/stripe/server";
-import { calcolaImportoCaparraCentesimi, type ConfigCaparra } from "@/lib/stripe/caparra";
+import { caricaImportoCaparraServizio, avviaPagamentoCaparraTenant } from "@/lib/stripe/caparra.server";
 import { campoTrappolaCompilato, formPubblicoCompilatoTroppoVeloce } from "@/lib/anti-bot";
 
 /**
@@ -126,31 +124,6 @@ export interface DatiPrenotazionePubblica {
 }
 
 /**
- * Carica configurazione caparra del tenant + prezzo del servizio scelto, e
- * calcola l'importo -- usata sia dalla guardia in `prenotaPubblico` sia da
- * `avviaPagamentoCaparra`, un solo punto che legge queste due righe invece
- * di duplicarlo.
- */
-async function caricaImportoCaparra(
-  supabase: ReturnType<typeof creaClientAdmin>,
-  tenantId: string,
-  servizioId: string
-): Promise<number> {
-  const [tenantRes, servizioRes] = await Promise.all([
-    supabase.from("tenants").select("caparra_attiva, caparra_tipo, caparra_valore").eq("id", tenantId).single(),
-    supabase.from("servizi").select("prezzo_centesimi").eq("id", servizioId).eq("tenant_id", tenantId).single(),
-  ]);
-  if (!tenantRes.data || !servizioRes.data) return 0;
-
-  const config: ConfigCaparra = {
-    attiva: tenantRes.data.caparra_attiva,
-    tipo: tenantRes.data.caparra_tipo,
-    valore: tenantRes.data.caparra_valore,
-  };
-  return calcolaImportoCaparraCentesimi(config, servizioRes.data.prezzo_centesimi);
-}
-
-/**
  * Crea la prenotazione scelta dal cliente sulla pagina pubblica -- SOLO per
  * i tenant che non richiedono una caparra. Se il tenant la richiede per
  * questo servizio, rifiuta e indirizza al flusso di pagamento
@@ -198,7 +171,7 @@ export async function prenotaPubblico(
   const tenantId = await risolviTenantIdDaSlug(supabase, slug);
   if (!tenantId) return { ok: false, errore: "Attività non trovata." };
 
-  const importoCaparra = await caricaImportoCaparra(supabase, tenantId, dati.servizioId);
+  const importoCaparra = await caricaImportoCaparraServizio(supabase, tenantId, dati.servizioId);
   if (importoCaparra > 0) {
     return {
       ok: false,
@@ -266,100 +239,30 @@ export async function avviaPagamentoCaparra(
   const tenantId = await risolviTenantIdDaSlug(supabase, slug);
   if (!tenantId) return { ok: false, errore: "Attività non trovata." };
 
-  const [tenantRes, servizioRes] = await Promise.all([
-    supabase.from("tenants").select("nome, caparra_attiva, caparra_tipo, caparra_valore").eq("id", tenantId).single(),
-    supabase.from("servizi").select("nome, prezzo_centesimi").eq("id", dati.servizioId).eq("tenant_id", tenantId).single(),
-  ]);
-  if (!tenantRes.data) return { ok: false, errore: "Attività non trovata." };
-  if (!servizioRes.data) return { ok: false, errore: "Servizio non trovato." };
-
-  const config: ConfigCaparra = {
-    attiva: tenantRes.data.caparra_attiva,
-    tipo: tenantRes.data.caparra_tipo,
-    valore: tenantRes.data.caparra_valore,
-  };
-  const importoCentesimi = calcolaImportoCaparraCentesimi(config, servizioRes.data.prezzo_centesimi);
-  if (importoCentesimi <= 0) {
-    return {
-      ok: false,
-      errore: "Nessuna caparra richiesta per questa prenotazione: usa la conferma diretta.",
-    };
-  }
-
-  // Doppio controllo di conflitto PRIMA di far pagare: non è la difesa
-  // finale (lo slot non resta bloccato durante il pagamento, vedi la nota
-  // nella migrazione), ma evita di far pagare qualcuno per uno slot già
-  // occupato nel caso più comune e prevedibile.
-  const { data: servizioDurata } = await supabase
-    .from("servizi")
-    .select("durata_minuti")
-    .eq("id", dati.servizioId)
-    .single();
-  if (servizioDurata) {
-    const fine = new Date(inizio.getTime() + servizioDurata.durata_minuti * 60_000);
-    const conflitto = await verificaConflittoTenant(supabase, tenantId, {
-      inizio,
-      fine,
-      operatoreId: dati.operatoreId,
-    });
-    if (conflitto) {
-      return {
-        ok: false,
-        errore: "Questo operatore ha già un appuntamento in quell'orario. Scegli un altro slot.",
-      };
-    }
-  }
-
   const intestazioni = await headers();
   const proto = intestazioni.get("x-forwarded-proto") ?? "https";
   const host = intestazioni.get("host");
   const origin = process.env.NEXT_PUBLIC_SITE_URL || (host ? `${proto}://${host}` : null);
   if (!origin) return { ok: false, errore: "Impossibile determinare l'indirizzo del sito, riprova." };
 
-  const stripe = creaClientStripe();
-
-  // Sessione creata PRIMA della riga in richieste_caparra perché serve il
-  // suo id come chiave univoca della riga -- l'ordine inverso (riga prima,
-  // poi sessione con l'id della riga nei metadata) funzionerebbe anche, ma
-  // qui è la Checkout Session stessa la chiave che il webhook userà per
-  // ritrovare la riga (`stripe_checkout_session_id`).
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    line_items: [
-      {
-        price_data: {
-          currency: "eur",
-          product_data: {
-            name: `Caparra -- ${servizioRes.data.nome} da ${tenantRes.data.nome}`,
-          },
-          unit_amount: importoCentesimi,
-        },
-        quantity: 1,
-      },
-    ],
-    success_url: `${origin}/s/${slug}?caparra=successo#prenota`,
-    cancel_url: `${origin}/s/${slug}?caparra=annullata#prenota`,
-    metadata: { tipo: "caparra", tenant_id: tenantId },
+  // Logica di calcolo importo + conflitto + Stripe Checkout + riga
+  // richieste_caparra ora condivisa con il tool AI crea_prenotazione (vedi
+  // src/lib/stripe/caparra.server.ts) -- unica fonte di verità, mai due
+  // implementazioni che potrebbero disallinearsi.
+  const risultato = await avviaPagamentoCaparraTenant(supabase, {
+    tenantId,
+    slug,
+    origin,
+    servizioId: dati.servizioId,
+    operatoreId: dati.operatoreId,
+    inizio,
+    inizioIso: dati.inizioIso,
+    clienteNome,
+    clienteTelefono,
+    clienteEmail,
   });
-  if (!session.url) return { ok: false, errore: "Stripe non ha restituito un URL di pagamento." };
-
-  const { error: erroreInsert } = await supabase.from("richieste_caparra").insert({
-    tenant_id: tenantId,
-    servizio_id: dati.servizioId,
-    operatore_id: dati.operatoreId,
-    inizio_iso: dati.inizioIso,
-    cliente_nome: clienteNome,
-    cliente_telefono: clienteTelefono,
-    cliente_email: clienteEmail ?? null,
-    importo_centesimi: importoCentesimi,
-    stripe_checkout_session_id: session.id,
-    stato: "in_attesa",
-  });
-  if (erroreInsert) {
-    return { ok: false, errore: `Errore avviando il pagamento: ${erroreInsert.message}` };
-  }
-
-  return { ok: true, checkoutUrl: session.url };
+  if (!risultato.ok) return { ok: false, errore: risultato.errore };
+  return { ok: true, checkoutUrl: risultato.checkoutUrl };
 }
 
 export interface DatiListaAttesaPubblica {
