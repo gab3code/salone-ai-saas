@@ -3,9 +3,29 @@ import {
   tabellaGiorniSettimana,
   trovaIncongruenzaGiornoSettimana,
   correggiGiornoSettimanaNelTesto,
+  nomeGiornoSettimana,
 } from "./giorni-settimana";
 
 const MARTEDI_15_SETTEMBRE_2026 = new Date("2026-09-15T10:00:00Z");
+
+describe("nomeGiornoSettimana", () => {
+  it("riproduce dal vivo il 15/09/2026 (Gruppo B #5, DECISIONS.md): 20 settembre 2026 è domenica, non sabato", () => {
+    // Trovato live: l'AI ha chiamato verifica_disponibilita per "domenica 20
+    // settembre" ma ha risposto "chiusi" -- segno che internamente ha
+    // interrogato una data diversa (19, sabato, davvero chiuso) pur scrivendo
+    // il nome/data corretti nel testo finale. Questa funzione dà al tool un
+    // dato pronto da restituire all'AI così non deve più calcolarlo da sola.
+    expect(nomeGiornoSettimana(new Date("2026-09-20T00:00:00Z"))).toBe("domenica");
+    expect(nomeGiornoSettimana(new Date("2026-09-19T00:00:00Z"))).toBe("sabato");
+  });
+
+  it("copre tutti e 7 i giorni della settimana", () => {
+    const attesi = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
+    for (let i = 0; i < 7; i++) {
+      expect(nomeGiornoSettimana(new Date(Date.UTC(2026, 8, 13 + i)))).toBe(attesi[i]); // 13/09/2026 è domenica
+    }
+  });
+});
 
 describe("tabellaGiorniSettimana", () => {
   it("una riga per ciascuno dei 7 giorni della settimana, in ordine lunedì..domenica", () => {

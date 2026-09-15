@@ -11,6 +11,7 @@ import {
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { caricaImportoCaparraServizio, avviaPagamentoCaparraTenant } from "@/lib/stripe/caparra.server";
+import { nomeGiornoSettimana } from "@/lib/ai/giorni-settimana";
 
 /**
  * Strumenti che l'AI receptionist (Fase 2) usa per agire sul booking engine
@@ -115,7 +116,7 @@ export const STRUMENTI_AI = [
   {
     name: "verifica_disponibilita",
     description:
-      "Verifica gli slot orari REALMENTE disponibili per uno o più servizi (consecutivi) in una data, opzionalmente per un operatore specifico. Chiamalo sempre prima di proporre un orario al cliente: non inventare mai una disponibilità. Il risultato include giorno_chiuso: se true, l'attività è semplicemente chiusa quel giorno (nessuno slot esisterà mai lì, anche in futuro) -- diverso da un giorno aperto ma senza slot liberi, dove invece ha senso proporre la lista d'attesa (vedi aggiungi_lista_attesa).",
+      "Verifica gli slot orari REALMENTE disponibili per uno o più servizi (consecutivi) in una data, opzionalmente per un operatore specifico. Chiamalo sempre prima di proporre un orario al cliente: non inventare mai una disponibilità. Il risultato include giorno_chiuso: se true, l'attività è semplicemente chiusa quel giorno (nessuno slot esisterà mai lì, anche in futuro) -- diverso da un giorno aperto ma senza slot liberi, dove invece ha senso proporre la lista d'attesa (vedi aggiungi_lista_attesa). Il risultato include anche giorno_settimana_richiesto: il vero nome del giorno della settimana per la data passata. USA SEMPRE ESATTAMENTE questo valore quando dici al cliente che giorno hai controllato (es. 'chiusi domenica 20 settembre') -- non ricalcolarlo tu, è facile sbagliare a mente quale giorno della settimana cade su una data e questo causerebbe una risposta falsa rispetto agli orari reali.",
     input_schema: {
       type: "object",
       properties: {
@@ -347,6 +348,7 @@ async function eseguiStrumentoInterno(
           operatore_id: s.operatoreId,
         })),
         giorno_chiuso: giornoChiuso,
+        giorno_settimana_richiesto: nomeGiornoSettimana(data),
       };
     }
 

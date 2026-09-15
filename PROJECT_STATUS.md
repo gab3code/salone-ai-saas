@@ -1,6 +1,35 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 15/09/2026, quarantesimo giro -- Gabriel ha chiesto un onboarding vero, non
+Ultimo aggiornamento: 15/09/2026, quarantunesimo giro -- Gabriel è uscito per alcune ore con
+istruzione esplicita di lavorare in autonomia: chiudere la verifica di Fase 1-2-3 e preparare il
+terreno per la Fase 4, facendo domande prima di partire. Fatte 3 domande (promemoria compleanno,
+anti-abuso dello spostamento, ordine Fase 4) e ricevute le risposte (promemoria compleanno
+rimandato a dopo il lancio; anti-abuso spostamento = stessa finestra ore della cancellazione + max
+1 spostamento per appuntamento; Fase 4 solo dopo aver verificato che 1-2-3 siano davvero solide).
+Eseguite le verifiche dal vivo rimaste in sospeso: **Gruppo B #4 (caparra via chat AI)**, confermato
+che la prenotazione nasce solo al pagamento riuscito, mai prima, sia lato DB (`richieste_caparra`
+poi `appuntamenti`) sia lato conversazione; **Gruppo B #5 (lista d'attesa su giorno chiuso)**,
+confermato che l'AI rifiuta esplicitamente di proporre la lista d'attesa quando il giorno è
+davvero chiuso (nessuna riga creata in `lista_attesa`); **sample-check verbi pronominali**
+(regola di system prompt aggiunta in una sessione precedente dopo "Interessa a te" invece di "Ti
+interessa"): nessuna ricorrenza trovata in diverse conversazioni mirate, ma resta una mitigazione
+probabilistica, non una garanzia. **Trovato lungo il percorso un nuovo buco, più sottile, nello
+stesso punto del giorno-della-settimana già affrontato in un giro precedente** (`d8e61ef`): la
+difesa esistente (`trovaIncongruenzaGiornoSettimana`) controlla solo che il TESTO finale sia
+internamente coerente, ma non che il modello abbia davvero interrogato `verifica_disponibilita`
+con la data giusta -- riprodotto dal vivo sul tenant "prova gabriel" (l'AI ha detto due volte,
+in conversazioni fresche separate, "chiusi domenica 20 settembre" quando il 20 è in realtà aperto
+e vuoto, segno che internamente ha controllato il 19, sabato, che è davvero chiuso). **Fix**: il
+tool `verifica_disponibilita` ora restituisce anche `giorno_settimana_richiesto`, il vero nome del
+giorno per la data effettivamente passata (nuova funzione `nomeGiornoSettimana` in
+`giorni-settimana.ts`), con l'istruzione esplicita di copiarlo invece di ricalcolarlo -- scelta
+deliberata di dare al modello un dato pronto piuttosto che costruire un controllo incrociato
+tool-call/testo più invasivo dentro `agente.ts` (costo/beneficio, vedi DECISIONS.md). 3 nuovi test
+mirati (421/421 totali, 35 file), `tsc`/`eslint`/`npm run build` puliti. **Non ancora verificato
+dal vivo in produzione**: serve prima il deploy di questo fix. Tenant di test ("Test Caparra AI")
+già ripulito da Supabase. Dettaglio completo in DECISIONS.md, sezione "15/09/2026, lavoro autonomo".
+
+Aggiornamento precedente, 15/09/2026, quarantesimo giro -- Gabriel ha chiesto un onboarding vero, non
 una sola casella di testo: "una vera e propria onboarding con delle domande, chiuse o aperte... e
 con l'aiuto dell'AI setta tutto il negozio". Scelta con lui (unica domanda diretta, non una
 discussione) una sequenza fissa di 3 passi (chi lavora qui, orari, servizi) invece di una
@@ -2467,6 +2496,14 @@ l'11/09/2026 via MCP diretto).
       direttamente il nome del giorno sbagliato nel testo. 16 test nuovi in
       `giorni-settimana.test.ts` più verifica dal vivo contro il vero modello (non nella suite
       committata). Vedi DECISIONS.md 15/09/2026 per il dettaglio completo.
+      **Buco più sottile trovato più tardi lo stesso giorno (lavoro autonomo, vedi giro
+      quarantunesimo sopra)**: quella rete di sicurezza controlla solo che il TESTO finale sia
+      coerente con se stesso, non che il modello abbia interrogato `verifica_disponibilita` con
+      la data giusta -- riprodotto dal vivo due volte sul tenant "prova gabriel" ("chiusi domenica
+      20 settembre" quando il 20 è aperto e libero). Fix: il tool ora restituisce anche
+      `giorno_settimana_richiesto` (nome vero del giorno per la data passata) da copiare invece di
+      ricalcolare. Non ancora verificato dal vivo in produzione (serve il deploy). Vedi
+      DECISIONS.md, sezione "15/09/2026, lavoro autonomo".
     - ~~**L'AI ha detto al cliente l'importo sbagliato della caparra**: "richiede una caparra di
       25 euro" quando l'importo vero è 5,00 €~~ **RISOLTO 15/09/2026**: stessa doppia difesa
       (prevenzione via istruzione nel prompt, già presente, + rete di sicurezza deterministica

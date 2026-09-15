@@ -361,7 +361,7 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
       { supabase, tenantId: TENANT_ID }
     );
 
-    expect(risultato).toEqual({ slot: [], giorno_chiuso: true });
+    expect(risultato).toEqual({ slot: [], giorno_chiuso: true, giorno_settimana_richiesto: "domenica" });
   });
 
   it("giorno aperto ma senza operatori compatibili: slot vuoto e giorno_chiuso false", async () => {
@@ -388,7 +388,32 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
       { supabase, tenantId: TENANT_ID }
     );
 
-    expect(risultato).toEqual({ slot: [], giorno_chiuso: false });
+    expect(risultato).toEqual({ slot: [], giorno_chiuso: false, giorno_settimana_richiesto: "domenica" });
+  });
+
+  it("restituisce giorno_settimana_richiesto calcolato dalla data passata, non da 'oggi' (bug trovato dal vivo 15/09/2026, vedi giorni-settimana.test.ts)", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [{ data: { fuso_orario: "Europe/Rome" }, error: null }] },
+      orari_apertura: {
+        select: [{ data: [{ giorno_settimana: 6, chiuso: true, apertura: null, chiusura: null, pausa_inizio: null, pausa_fine: null }], error: null }],
+      },
+      chiusure: { select: [{ data: [], error: null }] },
+      operatori: { select: [{ data: [], error: null }] },
+      operatori_servizi: { select: [{ data: [], error: null }] },
+      appuntamenti: { select: [{ data: [], error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+    });
+
+    // 2026-09-19 è un sabato (giorno_settimana 6) -- non va confuso con la
+    // domenica 20 dei due test sopra, esattamente il tipo di errore trovato
+    // dal vivo.
+    const risultato = await eseguiStrumento(
+      "verifica_disponibilita",
+      { servizio_ids: [SERVIZIO_ID], data: "2026-09-19" },
+      { supabase, tenantId: TENANT_ID }
+    );
+
+    expect(risultato).toEqual({ slot: [], giorno_chiuso: true, giorno_settimana_richiesto: "sabato" });
   });
 });
 

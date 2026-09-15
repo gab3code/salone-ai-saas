@@ -128,9 +128,11 @@ reale delle fasi è:
   "Ti interessa..."): aggiunta una regola dedicata nel system prompt sui verbi pronominali italiani
   (interessare, piacere, servire, ecc.), con l'esempio sbagliato/corretto specifico. Non è un bug
   deterministico come prezzo/durata o markdown -- riduce la frequenza dell'errore ma un'istruzione
-  nel prompt da sola non la azzera del tutto (vedi DECISIONS.md). **Ancora da fare**: verificare che
-  Gabriel non ci risegnali lo stesso tipo di errore -- se succede, il prossimo passo è un giro di
-  correzione col modello (come `correggiSeIncongruente`) o un cambio di modello per questo compito.
+  nel prompt da sola non la azzera del tutto (vedi DECISIONS.md). **Sample-check dal vivo fatto il
+  15/09/2026**: diverse conversazioni mirate a far emergere questi costrutti, nessuna ricorrenza
+  dell'errore trovata. Resta un problema probabilistico, non un fix deterministico: se Gabriel
+  segnala di nuovo lo stesso tipo di errore in futuro, il prossimo passo è un giro di correzione col
+  modello (come `correggiSeIncongruente`) o un cambio di modello per questo compito.
 
   **Backlog UI, esplicitamente rimandato da Gabriel a una fase di rifinitura**: il "thinking orbs"
   (indicatore di caricamento della chat) compare ma non è animato.
@@ -275,14 +277,29 @@ mappati -- resta valido, non riscritto da zero.
    15/09/2026 per il dettaglio completo): `crea_prenotazione` ora controlla la caparra prima di
    confermare, tramite una logica di pagamento condivisa col form (`src/lib/stripe/caparra.server.ts`)
    -- se richiesta, l'AI condivide il link di pagamento in chat invece di confermare subito, la
-   prenotazione vera nasce solo al pagamento come nel form. Resta da verificare dal vivo dopo il
-   deploy (pagamento Stripe TEST completo tramite la chat AI, non solo tramite il form).
+   prenotazione vera nasce solo al pagamento come nel form. **VERIFICATO DAL VIVO 15/09/2026**
+   (vedi DECISIONS.md, sezione "lavoro autonomo"): tenant di prova, prenotazione via chat AI
+   pubblica, pagamento Stripe TEST completato con `4242...`, confermato via query diretta che
+   l'appuntamento nasce solo dopo il pagamento (prima solo una `richieste_caparra` in attesa).
 5. ~~**Bug trovato dal vivo 15/09/2026, stesso giro di test: l'AI proponeva la lista d'attesa anche
    per un giorno di chiusura settimanale**~~ **CODICE FATTO 15/09/2026** (vedi DECISIONS.md
    15/09/2026 per il dettaglio completo): `verifica_disponibilita` ora usa
    `trovaSlotEStatoGiornoTenant` e restituisce `giorno_chiuso`, il system prompt distingue chiuso da
    pieno, e `aggiungiListaAttesaTenant` rifiuta lato server una `data_preferita` su un giorno chiuso
-   per qualunque canale (dashboard/AI/pubblico). Resta da verificare dal vivo dopo il deploy.
+   per qualunque canale (dashboard/AI/pubblico). **VERIFICATO DAL VIVO 15/09/2026** (vedi
+   DECISIONS.md, sezione "lavoro autonomo"): l'AI distingue correttamente "chiuso" da "pieno" e
+   rifiuta esplicitamente di iscrivere in lista d'attesa su un giorno di chiusura, confermato anche
+   via query diretta (nessuna riga scritta).
+7. **Bug NUOVO trovato dal vivo 15/09/2026 durante il sample-check dei verbi pronominali: l'AI
+   dichiarava chiuso un giorno che invece era aperto**, con testo internamente coerente (giorno e
+   data corrispondevano fra loro) ma falso rispetto agli orari reali -- diverso e più insidioso del
+   bug già noto su giorno/data testualmente incoerenti (`giorni-settimana.ts`), perché lì il
+   controllo esistente non trova nulla da correggere. **CODICE FATTO 15/09/2026** (vedi
+   DECISIONS.md per il dettaglio completo e l'ipotesi di causa): `verifica_disponibilita` ora
+   restituisce anche `giorno_settimana_richiesto` (il vero nome del giorno per la data
+   interrogata, calcolato dal codice) e lo strumento istruisce il modello a usarlo sempre invece di
+   ricalcolarlo. Test aggiunti, tutto pulito. **Resta da verificare dal vivo dopo il deploy** che il
+   problema non si ripresenti.
 6. ~~**Bug di isolamento multi-tenant trovato in audit notturno 15/09/2026 (non dal vivo): scrivere
    un appuntamento non verificava mai che l'operatore appartenesse al tenant giusto**~~ **CODICE
    FATTO 15/09/2026** (vedi DECISIONS.md 15/09/2026 per il dettaglio completo): nuova
@@ -1046,10 +1063,11 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       abbonamenti già esistente) al momento della prenotazione pubblica (`/s/[slug]`,
       `FlussoPrenotazione.tsx` + `avviaPagamentoCaparra` in `azioni.ts`), configurabile per
       tenant (attivo/disattivo, percentuale o importo fisso, `/dashboard/impostazioni/caparra`).
-      `tsc`/`eslint`/`vitest` (119/119)/`build` puliti. **Non ancora verificato dal vivo**:
-      migrazione `0011_deposito_caparra.sql` non applicata al database reale (serve l'ok di
-      Gabriel, vedi DECISIONS.md 13/09/2026) + nessun pagamento di test reale ancora fatto.
-      Vedere `docs/analisi-concorrenti-mercato.md`, sezione "AGGIORNAMENTO CRITICO", punto 3.
+      `tsc`/`eslint`/`vitest` (119/119)/`build` puliti. **VERIFICATO DAL VIVO 14/09/2026 (form
+      pubblico) e 15/09/2026 (anche via chat AI, vedi Gruppo B punto 4)**: migrazione applicata al
+      database reale, pagamenti Stripe TEST completati, appuntamento creato solo dopo il
+      pagamento su entrambi i canali. Vedere `docs/analisi-concorrenti-mercato.md`, sezione
+      "AGGIORNAMENTO CRITICO", punto 3.
 - [x] **Lista d'attesa automatica alla cancellazione** (vista su Calendix e CutApp, non su
       Estetia; CODICE FATTO 13/09/2026): tabella `lista_attesa`
       (tenant/servizio/operatore opzionale/cliente/data preferita opzionale, migrazione

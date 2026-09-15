@@ -3697,3 +3697,115 @@ percorsi non ancora coperti dal test precedente. Nessun bug trovato.
 
 Entrambi i tenant di prova ripuliti da Supabase a fine verifica (tabelle + `auth.users`), nessun
 residuo.
+
+## 15/09/2026, lavoro autonomo: verifica dal vivo caparra-via-AI, lista d'attesa giorno chiuso, sample-check verbi pronominali -- e un bug nuovo trovato e corretto
+
+Gabriel è andato via per alcune ore chiedendo di lavorare in autonomia, concludere le fasi già
+applicate (1-2-3) e preparare l'ambiente per la Fase 4, chiedendo prima tre chiarimenti (già
+risposti): promemoria di compleanno rimandato a dopo il lancio del sito, "sposta" con lo stesso
+vincolo ore minime della cancellazione + massimo 1 spostamento per appuntamento, e Fase 4 da
+iniziare solo se Fase 1-2-3 risultano davvero solide dopo la verifica.
+
+**Nota preliminare, registrazione**: il fallimento silenzioso di registrazione osservato nel giro
+precedente (punto 2 sopra) si è ripresentato una volta in apertura di sessione (tenant "Test
+Caparra AI" su una tab nuova, dopo aver eliminato via SQL un tenant di prova precedente senza
+prima fare logout dal browser) -- stesso sintomo, `/dashboard/configura` rimandava a `/accedi`
+senza errore visibile e nessuna riga creata in `auth.users`. Un secondo tentativo, identico al
+primo, è riuscito subito. Conclusione: non è un blocco permanente legato alla sessione stantia,
+ma un blip transitorio (stessa famiglia del "blip di rete/cold-start verso Supabase" già
+documentato altrove in questo file per `/s/[slug]`) -- non serve nessun logout esplicito, basta
+ritentare. Non è stato necessario indagare oltre.
+
+### Gruppo B #4 -- caparra via chat AI: verificato, funziona
+
+Tenant di prova "Test Caparra AI" (piano Pro impostato via SQL per sbloccare l'AI, caparra 20%
+attiva, un operatore "Marco" associato al servizio "Taglio uomo" 25€/30min, orari aperti tutti i
+giorni per non introdurre variabili nel test). Richiesta in chat pubblica ("vorrei prenotare un
+taglio uomo per domani alle 10:00... Luca Verdi... 3331234567"): l'AI ha condiviso il link di
+pagamento Stripe TEST invece di confermare subito, con il testo corretto ("Non appena il
+pagamento va a buon fine, la prenotazione si conferma automaticamente"). **Verificato via query
+diretta**: PRIMA del pagamento nessuna riga in `appuntamenti`, una riga in `richieste_caparra` con
+`stato='in_attesa'` e `appuntamento_id=null`. Pagamento completato su Stripe Checkout Sandbox con
+la carta test `4242 4242 4242 4242` → redirect a `?caparra=successo` con banner di conferma → **DOPO**
+il pagamento: `richieste_caparra.stato='completata'` con `appuntamento_id` valorizzato, e la riga
+corrispondente in `appuntamenti` esiste davvero con `stato='confermato'` e
+`caparra_stripe_payment_intent_id` popolato. Il fix del 15/09 (nota già in PIANO.md) funziona
+esattamente come progettato: **la prenotazione nasce solo al pagamento, mai prima**.
+
+### Gruppo B #5 -- lista d'attesa su giorno chiuso: verificato, funziona
+
+Stesso tenant, un giorno (giovedì) marcato chiuso via SQL apposta per il test. Tre verifiche in
+sequenza sulla stessa conversazione:
+1. Richiesta di prenotazione su un giorno chiuso → l'AI dice correttamente "l'attività è chiusa,
+   non è possibile prenotare per quel giorno" (non "pieno"), propone altre date, **non offre la
+   lista d'attesa**.
+2. Richiesta esplicita "mettimi comunque in lista d'attesa per quel giorno" → l'AI **rifiuta**
+   ("non ci sarà mai disponibilità lì"), propone di iscriversi per un altro giorno o omettere la
+   data. Confermato via query diretta: nessuna riga scritta in `lista_attesa`.
+
+Il fix per la distinzione chiuso/pieno (già in PIANO.md) è verificato end-to-end, non solo a
+livello di unit test.
+
+### Task #186 (sample-check verbi pronominali) -- nessun errore trovato, ma bug NUOVO scoperto per strada
+
+Diverse conversazioni mirate sul tenant "prova gabriel" per far emergere costrutti come
+"interessare/piacere/servire/andare bene". Frasi osservate, tutte corrette: "quale ti interessa?",
+"ti andrebbe bene", "quale giorno ti va?". **Nessuna ricorrenza dell'errore originale segnalato da
+Gabriel** ("Interessa a te" invece di "Ti interessa") in questo giro -- la regola di sistema
+sembra reggere, ma restando un problema probabilistico (non un fix deterministico) va comunque
+tenuto d'occhio nell'uso reale, non lo considero "chiuso" in senso stretto.
+
+**Per strada, però, è emerso un problema più serio**: chiedendo disponibilità su una sequenza di
+giorni via chat (giovedì 17, venerdì 18, sabato 19, lunedì 21 -- tutti effettivamente chiusi per
+questo tenant, che lavora solo la domenica 10-13), l'AI ha risposto "chiusi" **anche per domenica
+20 settembre**, che invece per `orari_apertura` è aperta (e senza nessun appuntamento a
+occuparla). Riprodotto una seconda volta in una conversazione completamente nuova (nessun
+"contagio" dalle risposte precedenti): stessa richiesta diretta "manicure per domenica 20
+settembre" → stessa risposta sbagliata "chiusi domenica 20 settembre".
+
+**Causa**: non è la stessa famiglia di bug già corretta e testata in `giorni-settimana.ts` (dove
+il modello scrive un giorno e una data testualmente incoerenti fra loro, es. "sabato 20" quando il
+20 è domenica) -- qui il testo finale è internamente coerente ("domenica" + "20" è una coppia
+valida) e la correzione esistente (`trovaIncongruenzaGiornoSettimana`, che controlla solo il
+testo) non ha nulla da correggere. Il sospetto, coerente con quanto già documentato lì ("su 6
+chiamate reali a Haiku 4.5 con la tabella già nel prompt, 1 ha comunque sbagliato"), è che il
+modello abbia calcolato a mente la data sbagliata per "domenica prossima" (quasi certamente il 19,
+sabato, che è davvero chiuso) e abbia chiamato `verifica_disponibilita` con quella, per poi scrivere
+comunque "domenica 20" nel testo finale pescando il nome giusto dalla tabella -- un disallineamento
+fra la data USATA per interrogare il calendario e quella DETTA al cliente, che nessun controllo
+esistente incrociava. `booking-engine.ts` (`giornoChiuso`, `calcolaSlotDisponibili`) e il tool
+stesso (`verifica_disponibilita` in `tools.ts`) sono stati riletti riga per riga: nessun bug lì,
+`data.getUTCDay()` sulla stringa passata calcola il giorno giusto -- il problema è a monte, nella
+scelta della data da parte del modello.
+
+**Correzione applicata**: `verifica_disponibilita` ora restituisce anche
+`giorno_settimana_richiesto`, il vero nome (italiano) del giorno della settimana per la data
+EFFETTIVAMENTE passata, calcolato deterministicamente (nuova funzione `nomeGiornoSettimana` in
+`giorni-settimana.ts`, stesso principio "un dato calcolato dal codice batte uno calcolato a mente
+dal modello" già usato per prezzi/durate/caparra). La descrizione dello strumento ora istruisce
+esplicitamente il modello a usare SEMPRE quel valore, mai un giorno ricalcolato, quando riferisce
+al cliente quale giorno ha controllato. Non è una garanzia assoluta (il modello potrebbe comunque
+ignorare l'istruzione), ma riduce il rischio: prima doveva ricordarsi da solo quale nome dare a una
+data che magari aveva già sbagliato a calcolare, ora ha il valore corretto pronto da copiare nello
+stesso turno in cui lo riceve. Non ho costruito un secondo giro di correzione post-hoc (come per
+prezzo/caparra/giorno-nel-testo) perché servirebbe correlare il tool_use effettivo col testo finale
+-- più invasivo, e la mitigazione preventiva (dare il dato giusto invece di lasciarlo indovinare)
+copre il caso reale trovato senza toccare il flusso di orchestrazione dei tool in `agente.ts`.
+Meglio riverificare dal vivo dopo il deploy e valutare se serve altro, piuttosto che costruire ora
+una seconda rete di sicurezza per un caso non ancora confermato ricorrente col fix minimo in
+campo.
+
+**Test**: 2 nuovi in `giorni-settimana.test.ts` per `nomeGiornoSettimana` (riproduce esattamente
+19→sabato/20→domenica, e tutti e 7 i giorni). 2 test esistenti in `tools.test.ts` aggiornati per il
+nuovo campo nel risultato, più 1 nuovo che verifica esplicitamente che `giorno_settimana_richiesto`
+segua la DATA passata (sabato 19) e non "oggi" o un valore fisso -- il tipo di errore che avrebbe
+lasciato passare il bug. Suite completa: `npx vitest run` (421/421, 35 file), `tsc --noEmit`, `eslint`,
+`npm run build` tutti puliti.
+
+**Non ancora fatto**: verifica dal vivo del fix in produzione (serve il deploy), e non ho ancora
+riprovato a sample-check ulteriori conversazioni per vedere se il problema si ripresenta anche con
+`giorno_settimana_richiesto` in campo -- ragionevole prima di dichiarare la Fase 2 definitivamente
+chiusa.
+
+Tenant di prova "Test Caparra AI" ripulito da Supabase (`tenants` in cascade + `auth.users`
+separato, confermato con query di verifica: zero righe rimaste in entrambe le tabelle).

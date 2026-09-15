@@ -25,6 +25,28 @@ const GIORNI_SETTIMANA_IT = ["domenica", "lunedì", "martedì", "mercoledì", "g
 // usata da Date.prototype.getUTCDay().
 const ORDINE_LETTURA_LUN_DOM = [1, 2, 3, 4, 5, 6, 0];
 
+/**
+ * Nome del giorno della settimana (in italiano) per una data, secondo lo
+ * stesso calcolo deterministico usato ovunque in questo file (getUTCDay --
+ * la data è sempre trattata come UTC, stessa semplificazione di fuso orario
+ * già usata altrove per il contesto dell'AI).
+ *
+ * Aggiunta il 15/09/2026 (vedi DECISIONS.md) dopo aver trovato dal vivo un
+ * buco nella rete di sicurezza esistente sopra: `trovaIncongruenzaGiornoSettimana`
+ * controlla solo che il TESTO finale sia internamente coerente ("domenica 20"
+ * è una coppia valida), ma non che il modello abbia interrogato
+ * `verifica_disponibilita` con la data GIUSTA per il giorno di cui sta
+ * parlando -- un modello può calcolare male "quale data è domenica prossima",
+ * chiamare lo strumento con la data sbagliata (es. sabato, chiuso), e poi
+ * scrivere una frase testualmente coerente ("chiusi domenica 20") ma falsa
+ * rispetto agli orari reali del tenant. Il tool stesso ora restituisce questo
+ * nome così il modello ha un dato pronto da copiare invece di doverlo
+ * ricalcolare una seconda volta (vedi verifica_disponibilita in tools.ts).
+ */
+export function nomeGiornoSettimana(data: Date): string {
+  return GIORNI_SETTIMANA_IT[data.getUTCDay()];
+}
+
 function dataIso(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
