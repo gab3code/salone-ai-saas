@@ -1,6 +1,15 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 15/09/2026, quarantatreesimo giro -- giro di sola pianificazione (nessun
+Ultimo aggiornamento: 16/09/2026, quarantaquattresimo giro -- dopo il push e deploy di Gabriel
+(commit `768e1b7` Fase 4 + `8805a7b` audit competitivo, confermati su `main` e in Produzione su
+Vercel), verificato dal vivo l'intero flusso di spostamento self-service sul tenant di test
+dedicato ("Test Sposta"): primo spostamento riuscito con messaggio di conferma corretto e
+`spostamenti_effettuati` passato da 0 a 1 (confermato via query diretta), secondo tentativo sulla
+pagina ricaricata correttamente bloccato dal tetto di 1 spostamento con il messaggio giusto al
+posto del bottone. **Fase 4 dichiarata chiusa**. Tenant di prova ripulito da Supabase. Dettaglio
+completo in DECISIONS.md, "16/09/2026 — Fase 4 verificato dal vivo, chiusa".
+
+Aggiornamento precedente, 15/09/2026, quarantatreesimo giro -- giro di sola pianificazione (nessun
 codice), richiesto da Gabriel dopo aver chiesto quante fasi mancassero: "rileggi tutti gli md e
 pianifica bene, capendo cosa avevamo stabilito per battere la concorrenza". Riletti per intero
 CLAUDE.md, PIANO.md, `docs/analisi-estetia.md`, `docs/analisi-concorrenti-mercato.md`,

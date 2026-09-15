@@ -3933,3 +3933,31 @@ a sé stante invece che citata solo dentro la card "Assistente AI" (puro copy).
 esplicitamente fuori scope; region EU di Supabase già verificata; pagine legali già fatte.
 Nessuna riscrittura di codice in questa voce -- solo pianificazione, PIANO.md aggiornato con
 Gruppo F e la nota sul conflitto Pro/compleanno.
+
+## 16/09/2026 — Fase 4 (spostamento self-service): verificato dal vivo, chiusa
+
+Dopo il push e deploy di Gabriel (commit `768e1b7` + `8805a7b`, confermati su `main` via GitHub e
+in Produzione su Vercel come deployment corrente), verificato l'intero flusso sul tenant di test
+già preparato ("Test Sposta", appuntamento del 18/09/2026 alle 11:00 con l'operatore Marco).
+
+**Primo spostamento**: cercata disponibilità per il 20/09/2026 dalla pagina `/gestisci/[id]`,
+scelto lo slot delle 14:00, confermato -- messaggio di successo mostrato subito
+("Appuntamento spostato: adesso è il 20/09/2026 alle 14:00"), stesso operatore/servizio
+invariati. Verificato anche via query diretta: `inizio` aggiornato a `2026-09-20 12:00:00+00`
+(14:00 locale, coerente col fuso Europe/Rome +2h di settembre), `spostamenti_effettuati` passato
+da 0 a 1, `stato` rimasto `confermato`.
+
+**Secondo tentativo, tetto anti-abuso**: ricaricata la pagina (nessuna cache stantia, richiesta
+fresca al server) -- il bottone "Sposta" non compare più, sostituito dal messaggio corretto
+("Questo appuntamento è già stato spostato una volta online: per un ulteriore cambio, contatta
+direttamente Test Sposta"), esattamente il motivo `gia_spostato` di `finestra-spostamento.ts`.
+Il blocco è quello mostrato in anteprima da `page.tsx` (il caso più semplice da verificare
+dal vivo senza dover forzare una scrittura bloccata lato server per vederne l'effetto reale --
+la stessa funzione pura è già coperta dai 10 test unitari per il ramo "richiesta comunque
+inviata").
+
+**Fase 4 dichiarata chiusa**: codice scritto, testato (433/433), deployato, verificato dal vivo
+end-to-end su entrambi i casi che contano (spostamento riuscito + tetto rispettato). Tenant "Test
+Sposta" ripulito da Supabase subito dopo (`delete from tenants`, cascade, nessuna riga
+`auth.users` associata perché creato via SQL diretto senza account -- confermato con una query di
+verifica: zero righe rimaste).

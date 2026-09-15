@@ -184,8 +184,8 @@ reale delle fasi è:
   wizard dopo l'apply, dati persistiti giusti in tutte le sezioni. Tenant di prova ripulito da
   Supabase dopo il test.
 - **Fase 4 = riprogrammazione cliente self-service + promemoria di compleanno**. Riprogrammazione:
-  **CODICE FATTO 15/09/2026**, non ancora verificata dal vivo (serve il deploy) -- vedi Gruppo
-  B-bis per il dettaglio. Promemoria di compleanno: rimandato a dopo il lancio (richiesta esplicita
+  **VERIFICATA DAL VIVO E CHIUSA 16/09/2026** -- vedi Gruppo B-bis per il dettaglio. Promemoria
+  di compleanno: rimandato a dopo il lancio (richiesta esplicita
   di Gabriel, vedi DECISIONS.md 15/09/2026).
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni
   AI cliente-salone -- vincolo legale reale (Salone AI è processore di dati per conto del
@@ -989,10 +989,14 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       appuntamento (nuovo contatore `appuntamenti.spostamenti_effettuati`, migrazione `0022`,
       applicata al database reale via `execute_sql` dopo che `apply_migration` è stato bloccato dal
       classificatore, stesso limite già noto). 10 test nuovi in `finestra-spostamento.test.ts` + 2
-      in `booking-engine.server.test.ts` (433/433 totali), `tsc`/`eslint`/`build` puliti. **Non
-      ancora verificato dal vivo**: serve il deploy del codice di questo giro, poi provare il
-      flusso reale (cercare un orario, confermare, verificare che un secondo tentativo venga
-      correttamente bloccato) su un tenant di test dedicato già preparato in Supabase.
+      in `booking-engine.server.test.ts` (433/433 totali), `tsc`/`eslint`/`build` puliti.
+      **VERIFICATO DAL VIVO 16/09/2026** dopo il push/deploy di Gabriel, su un tenant di test
+      dedicato ("Test Sposta"): primo spostamento riuscito (nuovo orario scelto, messaggio di
+      conferma corretto, `spostamenti_effettuati` passato da 0 a 1 verificato via query diretta);
+      secondo tentativo sulla stessa pagina ricaricata correttamente bloccato dal tetto di 1
+      spostamento, messaggio giusto mostrato al posto del bottone. **Fase 4 chiusa**. Tenant di
+      prova ripulito da Supabase. Dettaglio completo in DECISIONS.md, "16/09/2026 — Fase 4
+      verificato dal vivo, chiusa".
 - [x] **Condividi la tua pagina (link + QR code)** -- **CODICE FATTO 15/09/2026** (richiesta
       esplicita di Gabriel: "serve un modo per condividere il link del proprio negozio sui siti
       come Google o sulla pagina Instagram"). Prima di oggi la dashboard mostrava lo slug come
