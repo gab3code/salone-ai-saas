@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  trovaSlotDisponibiliTenant,
+  trovaSlotEStatoGiornoTenant,
   creaAppuntamentoTenant,
   modificaAppuntamentoTenant,
   cancellaAppuntamentoTenant,
@@ -115,7 +115,7 @@ export const STRUMENTI_AI = [
   {
     name: "verifica_disponibilita",
     description:
-      "Verifica gli slot orari REALMENTE disponibili per uno o più servizi (consecutivi) in una data, opzionalmente per un operatore specifico. Chiamalo sempre prima di proporre un orario al cliente: non inventare mai una disponibilità.",
+      "Verifica gli slot orari REALMENTE disponibili per uno o più servizi (consecutivi) in una data, opzionalmente per un operatore specifico. Chiamalo sempre prima di proporre un orario al cliente: non inventare mai una disponibilità. Il risultato include giorno_chiuso: se true, l'attività è semplicemente chiusa quel giorno (nessuno slot esisterà mai lì, anche in futuro) -- diverso da un giorno aperto ma senza slot liberi, dove invece ha senso proporre la lista d'attesa (vedi aggiungi_lista_attesa).",
     input_schema: {
       type: "object",
       properties: {
@@ -184,7 +184,7 @@ export const STRUMENTI_AI = [
   {
     name: "aggiungi_lista_attesa",
     description:
-      "Iscrive il cliente alla lista d'attesa per un servizio, da usare SOLO dopo che verifica_disponibilita non ha trovato nessuno slot per quello che il cliente chiedeva. Se in seguito si libera un posto adatto (es. per una cancellazione), il salone lo contatta -- non è una prenotazione, non blocca nessuno slot.",
+      "Iscrive il cliente alla lista d'attesa per un servizio, da usare SOLO dopo che verifica_disponibilita non ha trovato nessuno slot per quello che il cliente chiedeva E il giorno NON è giorno_chiuso. Se il giorno richiesto risulta chiuso (giorno_chiuso=true), non ha senso iscrivere in lista d'attesa per quella data precisa (l'attività non lavora mai quel giorno): di' al cliente che è chiuso quel giorno e proponi un'altra data, oppure iscrivilo alla lista d'attesa omettendo data_preferita (qualunque giorno andrà bene) o indicandone una diversa in cui l'attività è aperta. Se in seguito si libera un posto adatto (es. per una cancellazione), il salone lo contatta -- non è una prenotazione, non blocca nessuno slot.",
     input_schema: {
       type: "object",
       properties: {
@@ -335,7 +335,7 @@ async function eseguiStrumentoInterno(
       const data = new Date(`${dataStr}T00:00:00Z`);
       if (Number.isNaN(data.getTime())) return { errore: "Data non valida, usa il formato YYYY-MM-DD." };
 
-      const slot = await trovaSlotDisponibiliTenant(supabase, tenantId, {
+      const { slot, giornoChiuso } = await trovaSlotEStatoGiornoTenant(supabase, tenantId, {
         data,
         servizioIds: servizioIds as string[],
         operatoreId: typeof input.operatore_id === "string" ? input.operatore_id : undefined,
@@ -346,6 +346,7 @@ async function eseguiStrumentoInterno(
           fine: s.fine.toISOString(),
           operatore_id: s.operatoreId,
         })),
+        giorno_chiuso: giornoChiuso,
       };
     }
 

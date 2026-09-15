@@ -2749,3 +2749,57 @@ build riuscita.
 **Non ancora fatto**: riverificare dal vivo sul sito vero dopo questo secondo deploy che il link sia
 ora leggibile/cliccabile in chat e che l'AI chieda sempre il nome (su una conversazione DAVVERO
 nuova, non una riutilizzata per sbaglio come nel test precedente) prima di generare il pagamento.
+
+---
+
+## 2026-09-15 — Terzo bug trovato dal vivo nello stesso giro di test: l'AI proponeva la lista
+## d'attesa anche per un giorno in cui l'attività è semplicemente chiusa
+
+**Contesto**: proseguendo il test dal vivo del punto precedente su una conversazione DAVVERO nuova
+(`localStorage.clear()` per essere sicuri), ho chiesto una pedicure per domenica 20/09 alle 11:00 su
+`salone-bc163ecf`. L'AI ha risposto "non c'è disponibilità... potremmo anche iscriverti alla lista
+d'attesa". Gabriel, seguendo dal vivo, ha segnalato: "qui sbaglia, il 20 sono chiusi e non c'è pieno,
+non esiste lista d'attesa per quel giorno". Verificato su Supabase (`orari_apertura` per il tenant):
+`giorno_settimana=0` (domenica) ha `chiuso=true` -- il tenant di test è aperto SOLO il sabato. Gabriel
+ha confermato: nessuna cancellazione libererà mai uno slot in un giorno in cui il salone non lavora,
+quindi proporre la lista d'attesa lì non ha senso (diverso da un giorno aperto ma pieno, dove sì).
+
+**La cosa notevole**: questa esatta distinzione (chiuso vs pieno) era già stata risolta il 14/09/2026
+per il flusso di prenotazione PUBBLICO (vedi `trovaSlotEStatoGiornoTenant`/`giornoChiuso` in
+booking-engine.server.ts/.ts, con tanto di commento che descrive letteralmente questo bug). Il tool
+AI `verifica_disponibilita`, però, non era mai stato aggiornato per usare quella funzione: chiamava
+ancora `trovaSlotDisponibiliTenant`, la versione più vecchia che restituisce solo l'array di slot
+(vuoto sia se chiuso sia se pieno, indistinguibili), e la regola 9 del system prompt istruiva l'AI a
+proporre SEMPRE la lista d'attesa quando lo strumento non trovava nulla, senza eccezioni. Lo stesso
+identico bug UX del 14/09 sul canale pubblico, mai portato sul canale AI -- esattamente il tipo di
+"stessa logica non condivisa tra canali" già visto due volte in questa sessione con la caparra.
+
+**Fix** (difesa su tre livelli, non solo il prompt):
+1. `src/lib/ai/tools.ts`: `verifica_disponibilita` ora chiama `trovaSlotEStatoGiornoTenant` invece di
+   `trovaSlotDisponibiliTenant` e restituisce anche `giorno_chiuso` nel risultato. Descrizione dello
+   strumento aggiornata per spiegare il significato del campo.
+2. `src/lib/ai/agente.ts`: regola 9 riscritta -- se non c'è nessuno slot, guarda `giorno_chiuso` prima
+   di rispondere: `false` (aperto ma pieno) -> proponi la lista d'attesa come prima; `true` (chiuso)
+   -> di' al cliente che quel giorno l'attività è chiusa e proponi un'altra data, mai la lista
+   d'attesa per quella data precisa (può comunque iscriversi senza fissare una data, o su una data
+   diversa in cui il salone è aperto).
+3. **Difesa lato server**, non solo a livello di prompt/UI (lo stesso principio già applicato più
+   volte in questo progetto -- un modello linguistico può sempre sbagliare a seguire un'istruzione, o
+   un futuro sviluppatore del canale dashboard potrebbe reintrodurre lo stesso errore): aggiunto un
+   controllo dentro `aggiungiListaAttesaTenant` (booking-engine.server.ts, l'unica funzione di
+   scrittura condivisa da dashboard/AI/pubblico) che, quando è presente `data_preferita`, carica gli
+   orari di apertura e rifiuta esplicitamente l'iscrizione se quella data cade in un giorno marcato
+   chiuso -- vale per tutti e tre i canali, qualunque cosa la UI a monte lasci passare.
+
+**Verifica**: 4 nuovi test su `aggiungiListaAttesaTenant` (rifiuta su giorno chiuso, procede su
+giorno aperto, propaga un errore esplicito se il caricamento orari fallisce, nessuna query aggiuntiva
+se `data_preferita` è assente -- nessuna regressione sui test esistenti, nessuno dei quali la
+passava) + 2 nuovi test su `eseguiStrumento("verifica_disponibilita", ...)` che verificano
+l'inoltro corretto di `giorno_chiuso` (la logica sottostante è già testata a fondo su
+`trovaSlotEStatoGiornoTenant`, qui si verifica solo il collegamento). `npx vitest run` -> 328/328
+verdi; `npx tsc --noEmit` -> pulito; `npx eslint` sui file toccati -> pulito; `npm run build` ->
+production build riuscita.
+
+**Non ancora fatto**: riverificare dal vivo sul sito vero dopo il prossimo deploy che l'AI ora dica
+correttamente "chiuso quel giorno" invece di proporre la lista d'attesa per domenica 20/09 (o
+qualunque altro giorno di chiusura del tenant di test).

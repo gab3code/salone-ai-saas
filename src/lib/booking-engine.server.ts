@@ -988,6 +988,37 @@ export async function aggiungiListaAttesaTenant(
     };
   }
 
+  // Difesa in profondità (bug UX dal vivo 15/09/2026, vedi DECISIONS.md):
+  // una data_preferita che cade in un giorno di chiusura settimanale non ha
+  // senso in lista d'attesa -- nessuno slot si libererà mai lì, a differenza
+  // di un giorno aperto ma pieno. Le singole UI (widget AI, dashboard) sono
+  // già state istruite/vincolate a non proporlo, ma questo controllo qui è
+  // l'unica vera fonte di verità: vale per tutti e tre i canali
+  // (manuale/ai/pubblico) qualunque cosa la UI a monte lasci passare.
+  if (params.dataPreferitaYMD) {
+    const { data: orariRows, error: erroreOrari } = await supabase
+      .from("orari_apertura")
+      .select("giorno_settimana, chiuso, apertura, chiusura, pausa_inizio, pausa_fine")
+      .eq("tenant_id", tenantId);
+    if (erroreOrari) return { ok: false, errore: `Errore verificando gli orari: ${erroreOrari.message}` };
+
+    const orari: OrarioGiorno[] = (orariRows ?? []).map((r) => ({
+      giornoSettimana: r.giorno_settimana,
+      chiuso: r.chiuso,
+      apertura: troncaOra(r.apertura),
+      chiusura: troncaOra(r.chiusura),
+      pausaInizio: troncaOra(r.pausa_inizio),
+      pausaFine: troncaOra(r.pausa_fine),
+    }));
+    const dataPreferita = new Date(`${params.dataPreferitaYMD}T00:00:00Z`);
+    if (!Number.isNaN(dataPreferita.getTime()) && giornoChiuso(orari, dataPreferita)) {
+      return {
+        ok: false,
+        errore: "L'attività è chiusa in quel giorno della settimana: non ha senso mettersi in lista d'attesa per quella data precisa, nessuno slot si libererà mai lì. Scegli un'altra data (o lascia la data libera per essere ricontattati per qualunque giorno).",
+      };
+    }
+  }
+
   const { data: servizio } = await supabase
     .from("servizi")
     .select("id")

@@ -1090,4 +1090,81 @@ describe("aggiungiListaAttesaTenant", () => {
     });
     expect(risultato).toEqual({ ok: true, listaAttesaId: "attesa-1" });
   });
+
+  // Bug UX trovato dal vivo da Gabriel il 15/09/2026 (vedi DECISIONS.md):
+  // l'AI proponeva la lista d'attesa anche per un giorno in cui l'attività è
+  // semplicemente chiusa (nessuno slot si libererà mai lì). Difesa qui, non
+  // solo nel prompt/UI, così vale per tutti e tre i canali.
+  describe("data_preferita su un giorno di chiusura settimanale", () => {
+    // 2026-09-20 è una domenica (giorno_settimana 0).
+    const DOMENICA = "2026-09-20";
+
+    it("rifiuta l'iscrizione se data_preferita cade in un giorno marcato chiuso", async () => {
+      const supabase = creaSupabaseFinto({
+        servizi: { select: [{ data: { id: SERVIZIO_ID }, error: null }] },
+        orari_apertura: {
+          select: [{ data: [{ giorno_settimana: 0, chiuso: true, apertura: null, chiusura: null, pausa_inizio: null, pausa_fine: null }], error: null }],
+        },
+      });
+      const risultato = await aggiungiListaAttesaTenant(supabase, TENANT_ID, {
+        servizioId: SERVIZIO_ID,
+        clienteTelefono: "3331112222",
+        dataPreferitaYMD: DOMENICA,
+        creatoDa: "ai",
+      });
+      expect(risultato.ok).toBe(false);
+      if (!risultato.ok) expect(risultato.errore).toMatch(/chiusa in quel giorno/);
+      // Non deve nemmeno arrivare all'insert.
+      expect(supabase.registro.insert).toHaveLength(0);
+    });
+
+    it("procede normalmente se data_preferita cade in un giorno aperto", async () => {
+      const supabase = creaSupabaseFinto({
+        servizi: { select: [{ data: { id: SERVIZIO_ID }, error: null }] },
+        orari_apertura: {
+          select: [
+            {
+              data: [{ giorno_settimana: 0, chiuso: false, apertura: "09:00:00", chiusura: "19:00:00", pausa_inizio: null, pausa_fine: null }],
+              error: null,
+            },
+          ],
+        },
+        lista_attesa: { insert: [{ data: { id: "attesa-1" }, error: null }] },
+      });
+      const risultato = await aggiungiListaAttesaTenant(supabase, TENANT_ID, {
+        servizioId: SERVIZIO_ID,
+        clienteTelefono: "3331112222",
+        dataPreferitaYMD: DOMENICA,
+        creatoDa: "ai",
+      });
+      expect(risultato).toEqual({ ok: true, listaAttesaId: "attesa-1" });
+    });
+
+    it("propaga un errore esplicito se il caricamento degli orari fallisce", async () => {
+      const supabase = creaSupabaseFinto({
+        servizi: { select: [{ data: { id: SERVIZIO_ID }, error: null }] },
+        orari_apertura: { select: [{ data: null, error: { message: "timeout" } }] },
+      });
+      const risultato = await aggiungiListaAttesaTenant(supabase, TENANT_ID, {
+        servizioId: SERVIZIO_ID,
+        clienteTelefono: "3331112222",
+        dataPreferitaYMD: DOMENICA,
+        creatoDa: "ai",
+      });
+      expect(risultato).toEqual({ ok: false, errore: "Errore verificando gli orari: timeout" });
+    });
+
+    it("non interroga nemmeno gli orari se data_preferita non è specificata (nessuna regressione)", async () => {
+      const supabase = creaSupabaseFinto({
+        servizi: { select: [{ data: { id: SERVIZIO_ID }, error: null }] },
+        lista_attesa: { insert: [{ data: { id: "attesa-1" }, error: null }] },
+      });
+      const risultato = await aggiungiListaAttesaTenant(supabase, TENANT_ID, {
+        servizioId: SERVIZIO_ID,
+        clienteTelefono: "3331112222",
+        creatoDa: "ai",
+      });
+      expect(risultato).toEqual({ ok: true, listaAttesaId: "attesa-1" });
+    });
+  });
 });

@@ -332,6 +332,66 @@ describe("eseguiStrumento -- elenca_operatori include la descrizione (Fase 2)", 
   });
 });
 
+// Bug UX trovato dal vivo da Gabriel il 15/09/2026 (vedi DECISIONS.md): l'AI
+// proponeva la lista d'attesa anche per un giorno in cui l'attività è
+// semplicemente chiusa. La distinzione chiuso/pieno è già testata a fondo su
+// trovaSlotEStatoGiornoTenant in booking-engine.server.test.ts -- qui basta
+// verificare che eseguiStrumento inoltri davvero giorno_chiuso nel risultato
+// (il collegamento stesso, non la logica sottostante).
+describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 2, bug 15/09/2026)", () => {
+  const SERVIZIO_ID = "66666666-6666-6666-6666-666666666666";
+
+  it("giorno di chiusura settimanale: slot vuoto e giorno_chiuso true", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [{ data: { fuso_orario: "Europe/Rome" }, error: null }] },
+      orari_apertura: {
+        select: [{ data: [{ giorno_settimana: 0, chiuso: true, apertura: null, chiusura: null, pausa_inizio: null, pausa_fine: null }], error: null }],
+      },
+      chiusure: { select: [{ data: [], error: null }] },
+      operatori: { select: [{ data: [], error: null }] },
+      operatori_servizi: { select: [{ data: [], error: null }] },
+      appuntamenti: { select: [{ data: [], error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+    });
+
+    // 2026-09-20 è una domenica (giorno_settimana 0).
+    const risultato = await eseguiStrumento(
+      "verifica_disponibilita",
+      { servizio_ids: [SERVIZIO_ID], data: "2026-09-20" },
+      { supabase, tenantId: TENANT_ID }
+    );
+
+    expect(risultato).toEqual({ slot: [], giorno_chiuso: true });
+  });
+
+  it("giorno aperto ma senza operatori compatibili: slot vuoto e giorno_chiuso false", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [{ data: { fuso_orario: "Europe/Rome" }, error: null }] },
+      orari_apertura: {
+        select: [
+          {
+            data: [{ giorno_settimana: 0, chiuso: false, apertura: "09:00:00", chiusura: "19:00:00", pausa_inizio: null, pausa_fine: null }],
+            error: null,
+          },
+        ],
+      },
+      chiusure: { select: [{ data: [], error: null }] },
+      operatori: { select: [{ data: [], error: null }] },
+      operatori_servizi: { select: [{ data: [], error: null }] },
+      appuntamenti: { select: [{ data: [], error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+    });
+
+    const risultato = await eseguiStrumento(
+      "verifica_disponibilita",
+      { servizio_ids: [SERVIZIO_ID], data: "2026-09-20" },
+      { supabase, tenantId: TENANT_ID }
+    );
+
+    expect(risultato).toEqual({ slot: [], giorno_chiuso: false });
+  });
+});
+
 describe("eseguiStrumento -- crea_prenotazione con caparra attiva (bug trovato dal vivo il 15/09/2026: l'AI confermava senza pagamento)", () => {
   const SERVIZIO_ID = "44444444-4444-4444-4444-444444444444";
   const OPERATORE_ID = "55555555-5555-5555-5555-555555555555";

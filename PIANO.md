@@ -238,6 +238,12 @@ mappati -- resta valido, non riscritto da zero.
    -- se richiesta, l'AI condivide il link di pagamento in chat invece di confermare subito, la
    prenotazione vera nasce solo al pagamento come nel form. Resta da verificare dal vivo dopo il
    deploy (pagamento Stripe TEST completo tramite la chat AI, non solo tramite il form).
+5. ~~**Bug trovato dal vivo 15/09/2026, stesso giro di test: l'AI proponeva la lista d'attesa anche
+   per un giorno di chiusura settimanale**~~ **CODICE FATTO 15/09/2026** (vedi DECISIONS.md
+   15/09/2026 per il dettaglio completo): `verifica_disponibilita` ora usa
+   `trovaSlotEStatoGiornoTenant` e restituisce `giorno_chiuso`, il system prompt distingue chiuso da
+   pieno, e `aggiungiListaAttesaTenant` rifiuta lato server una `data_preferita` su un giorno chiuso
+   per qualunque canale (dashboard/AI/pubblico). Resta da verificare dal vivo dopo il deploy.
 
 ### Gruppo B-bis -- Altre funzioni che mancano davvero, trovate in un secondo giro (12/09/2026)
 

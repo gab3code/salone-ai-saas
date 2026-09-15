@@ -2268,6 +2268,18 @@ l'11/09/2026 via MCP diretto).
     conversazione AI -- richiederebbe una colonna `creato_da` su `richieste_caparra` (migrazione
     DDL, serve l'ok esplicito di Gabriel) per essere precisa fino in fondo nello storico cliente.
     Non tocca la protezione anti-no-show in sé, solo l'attribuzione del canale nelle statistiche.
+18. ~~**Il tool AI proponeva la lista d'attesa anche per un giorno di chiusura settimanale
+    (15/09/2026)**~~ **RISOLTO 15/09/2026**: trovato dal vivo continuando lo stesso test completo
+    -- chiedendo una pedicure di domenica su un tenant aperto solo il sabato, l'AI rispondeva "non
+    c'è disponibilità" e proponeva comunque di iscriversi alla lista d'attesa, che per un giorno di
+    chiusura non ha senso (nessuna cancellazione libererà mai uno slot lì). Stesso identico bug UX
+    già risolto il 14/09/2026 per il flusso pubblico (`trovaSlotEStatoGiornoTenant`/`giornoChiuso`
+    in booking-engine.server.ts/.ts), mai portato sul canale AI: `verifica_disponibilita` chiamava
+    ancora la versione più vecchia che non distingue chiuso da pieno. Fix su tre livelli: il tool
+    ora usa `trovaSlotEStatoGiornoTenant` e restituisce `giorno_chiuso`, la regola 9 del system
+    prompt distingue i due casi, e `aggiungiListaAttesaTenant` (condivisa da dashboard/AI/pubblico)
+    ora rifiuta lato server una `data_preferita` che cade in un giorno marcato chiuso, qualunque
+    canale la mandi. Vedi DECISIONS.md 15/09/2026 per il dettaglio tecnico completo.
 
 ## Mappa dei file principali
 
