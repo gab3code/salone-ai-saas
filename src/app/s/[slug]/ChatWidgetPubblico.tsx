@@ -37,14 +37,58 @@ const REGEX_URL = /(https?:\/\/[^\s]+)/g;
 // dentro l'href e/o dentro l'etichetta cliccabile.
 const REGEX_PUNTEGGIATURA_FINALE = /[.,;:!?)\]}'"]+$/;
 
-function formattaTestoConLink(testo: string): ReactNode[] {
+// Numeri di telefono italiani (richiesta di Gabriel 15/09/2026, stesso giro
+// del fix "chiama il negozio": ora che l'AI invita sempre a chiamare, il
+// numero scritto in chiaro dev'essere cliccabile e blu come un link, non
+// testo semplice da ricopiare a mano su un altro telefono). Riconosce solo
+// i due prefissi reali dei numeri italiani -- fisso (0xx...) o cellulare
+// (3xx...), con o senza prefisso internazionale +39 -- apposta invece di
+// "qualunque sequenza di cifre", altrimenti si rischia di trasformare in
+// link anche date (15/09/2026) o prezzi (150.00 - 200.00) che condividono
+// gli stessi separatori. `(?<!\d)`/`(?!\d)` evitano di agganciare solo un
+// pezzo di un numero più lungo (o di due numeri scritti vicini).
+const REGEX_TELEFONO =
+  /(?<!\d)((?:\+39[\s]?)?(?:0\d{1,3}[\s./-]?\d{5,8}|3\d{2}[\s./-]?\d{6,7}))(?!\d)/g;
+
+/**
+ * Applica REGEX_TELEFONO a un pezzo di testo che NON è già un URL (vedi
+ * formattaTestoConLink) e trasforma ogni numero trovato in un link
+ * `tel:` -- blu, sottolineato, stesso stile del link generico -- che mostra
+ * il numero così com'è scritto dall'AI ma chiama con solo cifre e "+"
+ * nell'href (uno `tel:02 99999999` con spazi funziona quasi ovunque, ma
+ * ripulirlo costa nulla ed evita sorprese su client più permalosi).
+ */
+function formattaTelefoni(testo: string, chiavePrefisso: string): ReactNode[] {
+  const pezzi = testo.split(REGEX_TELEFONO);
+  const risultato: ReactNode[] = [];
+  pezzi.forEach((pezzo, j) => {
+    if (j % 2 === 0) {
+      if (pezzo) risultato.push(pezzo);
+      return;
+    }
+    risultato.push(
+      <a
+        key={`${chiavePrefisso}-tel-${j}`}
+        href={`tel:${pezzo.replace(/[^\d+]/g, "")}`}
+        className="font-medium text-blue-600 underline underline-offset-2"
+      >
+        {pezzo}
+      </a>
+    );
+  });
+  return risultato;
+}
+
+// Esportata solo per il test unitario (formattaTestoConLink.test.tsx) --
+// resta comunque un dettaglio interno del widget, non è usata altrove.
+export function formattaTestoConLink(testo: string): ReactNode[] {
   const pezzi = testo.split(REGEX_URL);
   const risultato: ReactNode[] = [];
   pezzi.forEach((pezzo, i) => {
     // Le catture di `split` con un gruppo finiscono sempre agli indici
     // dispari -- questo pezzo è quindi sempre un URL, mai testo normale.
     if (i % 2 === 0) {
-      if (pezzo) risultato.push(pezzo);
+      if (pezzo) risultato.push(...formattaTelefoni(pezzo, `${i}`));
       return;
     }
     const coda = pezzo.match(REGEX_PUNTEGGIATURA_FINALE)?.[0] ?? "";

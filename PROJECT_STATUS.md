@@ -1,7 +1,19 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 15/09/2026, trentacinquesimo giro -- Fase 3 verificata dal vivo nel browser
-vero (panello "Compila con l'AI": descrizione libera -> bozza -> applicata -> confermato in
+Ultimo aggiornamento: 15/09/2026, trentaseiesimo giro -- il fix del giro precedente ("passaggio a
+operatore" sostituito da "chiama il negozio") è stato verificato dal vivo dopo il deploy: stesso
+reclamo di prova sul tenant "prova gabriel", la risposta ora è "Ti invito a contattare l'attività
+al 02 99999999..." -- nessuna menzione di operatore, confermato in produzione. Nello stesso giro,
+Gabriel ha chiesto di rendere blu e cliccabili anche i numeri di telefono scritti in chat (i link
+lo erano già): fatto con una regex mirata ai due prefissi reali di un numero italiano (fisso `0...`
+o cellulare `3...`, con o senza `+39`) applicata solo al testo che non è già un URL -- una regex
+più permissiva avrebbe scambiato date o intervalli di prezzo per numeri di telefono. Primo test di
+un componente React del progetto (nessun rendering DOM, solo ispezione della struttura ritornata).
+408/408 test, `tsc`/`eslint`/`npm run build` puliti. **Non ancora verificato dal vivo** (in attesa
+del prossimo pull+push di Gabriel). Dettaglio completo in DECISIONS.md.
+
+Aggiornamento precedente, 15/09/2026, trentacinquesimo giro -- Fase 3 verificata dal vivo nel
+browser vero (panello "Compila con l'AI": descrizione libera -> bozza -> applicata -> confermato in
 `/dashboard/configura`, `/dashboard/impostazioni/cancellazione` e sulla pagina pubblica che i dati
 ci sono davvero, incluso il telefono del tenant NON cancellato dall'apply). Fase 3 chiusa.
 
@@ -18,8 +30,8 @@ con Gabriel (tra tre opzioni proposte): invece di costruire un sistema di notifi
 esiste, **l'AI invita sempre a chiamare il negozio direttamente**, col numero configurato quando
 c'è. Corretto anche il bug delle conversazioni che non scadono mai (nuova soglia di inattività di
 3 ore). 401/401 test, `tsc`/`eslint`/`npm run build` puliti, verificato dal vivo contro il modello
-Anthropic reale su 3 scenari. **Non ancora deployato** (scritto dopo l'ultimo push di Gabriel) --
-consegnato in questo stesso giro, in attesa di pull+push. Dettaglio completo in DECISIONS.md.
+Anthropic reale su 3 scenari. Deployato e verificato dal vivo nel giro successivo (vedi sopra).
+Dettaglio completo in DECISIONS.md.
 
 Aggiornamento precedente, 15/09/2026, trentaquattresimo giro -- Fase 3 di PIANO.md (onboarding
 AI-assisted): il titolare descrive la propria attività in linguaggio naturale, l'AI ne estrae una

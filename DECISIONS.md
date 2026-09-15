@@ -3391,14 +3391,45 @@ contesto), aggiornato/esteso `conversazione.server.test.ts` (nuovo test: una con
 "aperta" ma con l'ultimo messaggio di 4 ore fa non viene riusata, se ne crea una pulita). Suite
 completa: `npx vitest run` (401/401), `tsc --noEmit`, `eslint`, `npm run build` tutti puliti.
 
-**Ancora aperto, onestamente non fatto**: questo fix NON è ancora deployato (scritto in sandbox
-dopo il push di Gabriel per la Fase 3, consegna via bundle come sempre più sotto) -- provato dal
-vivo sul sito vero PRIMA di consegnarlo (stesso reclamo di prova sul tenant "prova gabriel") per
-capire se serviva davvero, e infatti ha mostrato ancora la vecchia risposta ("sei stato messo in
-contatto con un operatore, ti seguiranno"), come atteso dato che il codice vero vive solo qui.
-Verifica dal vivo nel browser di QUESTO fix (testo "chiama il negozio" + la correzione della
-staleness, quest'ultima verificabile solo aspettando 3 ore reali per riprodurre la condizione)
-programmata per dopo il prossimo push di Gabriel. Le due vecchie conversazioni "avvelenate" (quelle
-che hanno causato il bug segnalato da Gabriel) restano nel database con lo stato vecchio: non
-tolte a mano, diventeranno comunque irrilevanti da sole (nessuna query futura le ripescherà più,
-la soglia di 3 ore le rende invisibili).
+**Aggiornamento 15/09/2026, dopo il push di Gabriel del fix**: verificato dal vivo nel browser vero
+(tab nuova, stesso tenant "prova gabriel", stesso identico messaggio di reclamo usato nel test
+"prima"). La risposta ora è: "Ti invito a contattare l'attività al 02 99999999 per esporre la tua
+problematica: il titolare sarà in grado di ascoltarti completamente e di gestire la questione nel
+modo migliore." -- nessuna menzione di operatore, numero corretto del tenant incluso. Fix
+confermato in produzione, non solo nei test/nel test contro il modello reale. Non ancora verificato
+(e non verificabile senza aspettare 3 ore reali): la correzione della staleness della conversazione
+-- resta un limite noto, non un rischio bloccante (nel peggiore dei casi il vecchio bug si
+ripresenterebbe su una singola sessione molto vecchia, non su tutte). Le due vecchie conversazioni
+"avvelenate" restano nel database con lo stato vecchio, per le stesse ragioni già dette: diventano
+irrilevanti da sole, non serve toccarle a mano.
+
+## 2026-09-15 — Numeri di telefono cliccabili in chat (blu, come i link)
+
+**Richiesta di Gabriel**, arrivata a metà della verifica dal vivo del fix precedente: "i numeri di
+telefono e i link fai che siano cliccabili e blu sulla chat". I link erano già gestiti da tempo
+(`formattaTestoConLink`, introdotta per il link di pagamento Stripe illeggibile) -- mancavano solo
+i numeri di telefono, diventati più rilevanti proprio perché il fix di oggi fa sì che l'AI inviti
+sempre a chiamare il negozio.
+
+**Implementazione**: nuova `REGEX_TELEFONO` in `ChatWidgetPubblico.tsx`, applicata SOLO ai pezzi di
+testo che non sono già un URL (il testo viene prima diviso da `REGEX_URL`, poi ogni pezzo non-link
+passa per `formattaTelefoni`). Riconosce solo i due prefissi reali di un numero italiano -- fisso
+(`0...`) o cellulare (`3...`), con o senza `+39` -- con separatori spazio/punto/trattino tra i
+gruppi di cifre, invece di "qualunque sequenza di cifre": una regex più permissiva avrebbe
+trasformato in link anche date (`15/09/2026`) o intervalli di prezzo (`150.00 - 200.00`), che
+condividono gli stessi caratteri. Il numero mostrato resta esattamente come scritto dall'AI (es.
+"02 99999999"), l'`href` è un `tel:` con solo cifre e l'eventuale `+` (es. `tel:0299999999`).
+Stesso stile visivo del link generico (blu, sottolineato).
+
+**Test**: nuovo `ChatWidgetPubblico.test.tsx` (primo test di un componente React nel progetto --
+nessun rendering DOM necessario, il progetto non ha `@testing-library/react`: si ispeziona
+direttamente la struttura ritornata da `formattaTestoConLink`, che è già un semplice array di
+stringhe ed elementi React). 7 casi: numero fisso con spazi, cellulare con `+39`, separatori a
+punto/trattino, una data NON scambiata per numero, un intervallo di prezzo NON scambiato per
+numero, link e telefono nello stesso messaggio riconosciuti entrambi, testo senza numeri/link
+invariato. Suite completa: `npx vitest run` (408/408), `tsc --noEmit`, `eslint`, `npm run build`
+tutti puliti.
+
+**Ancora aperto**: non ancora verificato dal vivo nel browser vero (il deploy di questo giro deve
+ancora arrivare a Gabriel) -- verifica programmata per dopo il prossimo push, stesso schema usato
+finora.
