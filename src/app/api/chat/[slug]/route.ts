@@ -64,7 +64,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("nome, piano, fuso_orario, tono_ai, tono_ai_nota")
+    .select("nome, piano, fuso_orario, tono_ai, tono_ai_nota, telefono")
     .eq("id", tenantId)
     .single();
 
@@ -121,7 +121,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (troppiMessaggi || troppiTurniSenzaStrumenti) {
       await salvaMessaggio(supabase, conversazione.id, "cliente", messaggio);
-      const rispostaAntiAbuso = "Ti metto in contatto con un operatore per proseguire.";
+      // Mai promettere un passaggio a un operatore che oggi non avvisa
+      // davvero nessuno (15/09/2026, vedi DECISIONS.md) -- si invita a
+      // chiamare direttamente, col numero se il tenant lo ha configurato.
+      const rispostaAntiAbuso = tenant.telefono
+        ? `Non riesco a risponderti oltre da qui: chiamaci direttamente al ${tenant.telefono} e ti aiutiamo subito.`
+        : "Non riesco a risponderti oltre da qui: contatta l'attività direttamente per proseguire.";
       await salvaMessaggio(supabase, conversazione.id, "assistente", rispostaAntiAbuso);
       await segnaPassataAOperatore(supabase, conversazione.id);
       return NextResponse.json({ risposta: rispostaAntiAbuso, trasferitoAUmano: true });
@@ -175,6 +180,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         tonoAi,
         tonoAiNota,
         haInformazioniAttivita,
+        telefono: tenant?.telefono ?? null,
       },
       undefined, // client Anthropic di default (parametro 5° è "adesso", non va confuso)
       adessoPseudo

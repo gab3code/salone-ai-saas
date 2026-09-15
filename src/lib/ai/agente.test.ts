@@ -70,9 +70,23 @@ describe("rispondiConversazione", () => {
 
     expect(risultato.trasferitoAUmano).toBe(true);
     expect(risultato.usoStrumenti).toBe(true);
-    expect(risultato.rispostaTesto).toMatch(/operatore/i);
+    // Mai promettere un passaggio a un operatore che oggi non avvisa nessuno
+    // (15/09/2026, vedi DECISIONS.md) -- senza un telefono configurato nel
+    // contesto di test, invita solo a contattare l'attività direttamente.
+    expect(risultato.rispostaTesto).toMatch(/contattare l'attività direttamente/i);
+    expect(risultato.rispostaTesto).not.toMatch(/operatore/i);
     // Si ferma al limite di sicurezza, non chiama il modello all'infinito.
     expect(create.mock.calls.length).toBeLessThanOrEqual(8);
+  });
+
+  it("invita a chiamare il numero del tenant, quando configurato, invece del generico 'contatta l'attività'", async () => {
+    const create = vi.fn().mockResolvedValue(usoStrumento("trasferisci_a_operatore", { motivo: "loop" }));
+
+    const risultato = await rispondiConversazione([], "...", { ...ctx, telefono: "02 99999999" }, {
+      messages: { create },
+    } as ClienteAnthropic);
+
+    expect(risultato.rispostaTesto).toMatch(/02 99999999/);
   });
 
   it("usoStrumenti resta false su una risposta di puro testo (proxy anti-abuso, vedi limiti.ts)", async () => {

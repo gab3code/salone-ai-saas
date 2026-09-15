@@ -148,10 +148,12 @@ reale delle fasi è:
   (`PannelloOnboardingAI.tsx`, revisione/esclusione riga per riga prima di applicare, mai un
   salvataggio automatico). 35 test nuovi (15+8+12), `tsc`/`eslint`/`npm run build` puliti, e verifica dal
   vivo contro il modello Anthropic reale su 4 scenari (completo, prezzo mancante non inventato,
-  testo fuori tema, gate di piano rispettato) -- tutti corretti. **Ancora da fare prima di
-  chiudere la fase**: verifica end-to-end nel browser vero (click reale sul pannello, dati che
-  arrivano davvero in tabella) possibile solo dopo che Gabriel fa push e Vercel rideploya --
-  non ancora fatta, non un dettaglio da saltare.
+  testo fuori tema, gate di piano rispettato) -- tutti corretti. **FATTO e verificato dal vivo nel
+  browser vero il 15/09/2026** dopo il deploy di Gabriel: descrizione libera -> bozza corretta
+  (orario domenica, un servizio nuovo con durata/prezzo, finestra di cancellazione) -> applicata
+  -> confermato in `/dashboard/configura` e `/dashboard/impostazioni/cancellazione` che i dati ci
+  sono davvero, incluso il telefono del tenant NON cancellato dall'apply (la guardia funziona).
+  Fase 3 chiusa.
 - **Fase 4 = riprogrammazione cliente self-service + promemoria di compleanno** (vedi Gruppo
   B-bis e la lista "cosa manca ancora" più sotto per il dettaglio di ciascuna).
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni

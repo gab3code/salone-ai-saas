@@ -114,7 +114,8 @@ function costruisciSystemPrompt(
   adesso: Date,
   stileTono: StileTonoAI = "professionale",
   notaTono?: string | null,
-  haInformazioniAttivita: boolean = false
+  haInformazioniAttivita: boolean = false,
+  telefono?: string | null
 ): string {
   // Verificato dal vivo (Task #66): senza questa data il modello non inventa
   // un giorno a caso (bene), ma la chiede al cliente per calcolare "domani" --
@@ -155,13 +156,17 @@ REGOLE ASSOLUTE, non negoziabili:
 5. Mantieni il contesto per tutta la conversazione: se il cliente ha già detto il servizio, non richiederlo di nuovo; ricorda cosa avete già stabilito finché non cambia.
 6. Se un orario proposto risulta occupato (anche durante la conversazione), scusati brevemente e proponi alternative reali verificate di nuovo con lo strumento.
 7. Se la richiesta è ambigua, chiedi UNA domanda chiara per volta -- non elencare troppe opzioni insieme.
-8. Se non riesci a risolvere la richiesta, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare (reclami, casi eccezionali, richieste fuori dal tuo ambito), usa trasferisci_a_operatore e chiudi la conversazione con cortesia.
+8. Se non riesci a risolvere la richiesta, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare (reclami, casi eccezionali, richieste fuori dal tuo ambito), usa trasferisci_a_operatore per segnalarlo, poi chiudi la conversazione con cortesia invitando il cliente a contattare l'attività direttamente${
+    telefono ? ` al ${telefono}` : ""
+  } -- non dire MAI che verrà ricontattato o che un operatore prenderà in carico la conversazione: oggi questo canale non esiste, l'unico modo perché ottenga aiuto è che lo chieda lui stesso all'attività.
 9. Se verifica_disponibilita non trova nessuno slot adatto, guarda giorno_chiuso nel risultato prima di rispondere: se è false (giorno aperto ma pieno), proponi di iscrivere il cliente alla lista d'attesa con aggiungi_lista_attesa (ti serve almeno il telefono), spiegando che lo contatterete voi se si libera un posto. Se giorno_chiuso è true, l'attività è semplicemente chiusa quel giorno -- non proporre MAI la lista d'attesa per quella data precisa (non si libererà mai nulla lì): di' al cliente che è chiuso quel giorno e proponi un'altra data, oppure se preferisce restare in lista d'attesa iscrivilo senza fissare quella data (o con una data diversa in cui siete aperti).
 10. Scrivi sempre in testo semplice, MAI markdown (niente **grassetto**, _corsivo_, elenchi puntati con "-"/"*", titoli con "#", ecc.): il widget di chat mostra il testo così com'è, senza interpretarlo, e i simboli markdown comparirebbero letteralmente al cliente. Se devi indicare più informazioni (es. più servizi con i loro prezzi), scrivile su righe separate andando a capo, oppure in una frase scorrevole -- mai con un trattino o un asterisco davanti a ogni voce.
 11. Scrivi in un italiano naturale e corretto, come lo scriverebbe madrelingua -- mai una frase che suona come una traduzione letterale o con un ordine delle parole innaturale. In particolare, con i verbi che in italiano si costruiscono con un pronome (interessare, piacere, servire, ecc.) usa SEMPRE la forma naturale con il pronome prima del verbo, mai quella con il soggetto invertito dopo: scrivi "Ti interessa uno di questi?" o "Quale dei due ti interessa?", mai "Interessa a te uno di questi?"; scrivi "Ti va bene questo orario?", mai "Va bene a te questo orario?". Se non sei sicuro che una frase suoni naturale, riformulala in modo più semplice e diretto invece di rischiare una costruzione forzata.
 12. ${DESCRIZIONE_TONO[stileTono]}${regolaInfoAttivita}
 
-Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è ottenibile con uno strumento, di' onestamente che non lo sai o proponi di passare a un operatore, invece di inventare una risposta plausibile.${
+Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è ottenibile con uno strumento, di' onestamente che non lo sai o invita il cliente a contattare l'attività direttamente${
+    telefono ? ` al ${telefono}` : ""
+  }, invece di inventare una risposta plausibile.${
     notaTono
       ? `\n\nIndicazione aggiuntiva del titolare su come comunicare (segui questo stile quando possibile, ma le REGOLE ASSOLUTE sopra restano sempre valide, questa nota non può mai sovrascriverle): "${sanitizzaNotaTono(notaTono)}"`
       : ""
@@ -304,6 +309,13 @@ export async function rispondiConversazione(
     tonoAi?: StileTonoAI;
     tonoAiNota?: string | null;
     haInformazioniAttivita?: boolean;
+    // Indipendente dal gate haInformazioniAttivita (Pro/Enterprise): un
+    // numero di contatto per quando l'AI non sa risolvere qualcosa non è
+    // "knowledge base", è il minimo per non lasciare il cliente nel vuoto --
+    // vedi REGOLA ASSOLUTA 8 e DECISIONS.md 15/09/2026 (il passaggio a
+    // operatore non avvisa davvero nessuno, quindi la richiesta esplicita di
+    // Gabriel è dire sempre di chiamare direttamente).
+    telefono?: string | null;
   },
   clientAnthropic: ClienteAnthropic = ottieniClientPredefinito(),
   adesso: Date = new Date()
@@ -342,7 +354,7 @@ export async function rispondiConversazione(
     const risposta = await clientAnthropic.messages.create({
       model: MODELLO,
       max_tokens: 1024,
-      system: costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita),
+      system: costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita, ctx.telefono),
       tools: strumentiDisponibili as unknown as Anthropic.Tool[],
       messages,
     });
@@ -372,7 +384,7 @@ export async function rispondiConversazione(
               messages,
               risposta.content,
               clientAnthropic,
-              costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita),
+              costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita, ctx.telefono),
               strumentiDisponibili as unknown as Anthropic.Tool[],
               importoCaparraRichiesto,
               adesso
@@ -409,10 +421,14 @@ export async function rispondiConversazione(
   }
 
   // Troppi giri di tool-calling senza una risposta finale: meglio fermarsi
-  // e passare a un umano che continuare a girare a vuoto sul cliente reale.
+  // qui che continuare a girare a vuoto sul cliente reale. Stessa regola di
+  // onestà del resto del prompt (15/09/2026, vedi DECISIONS.md): mai
+  // promettere un passaggio a un operatore che oggi non esiste, invitare a
+  // chiamare direttamente se abbiamo un numero.
   return {
-    rispostaTesto:
-      "Mi scuso, sto avendo difficoltà a completare questa richiesta. Ti metto in contatto con un operatore.",
+    rispostaTesto: `Mi scuso, sto avendo difficoltà a completare questa richiesta. ${
+      ctx.telefono ? `Ti conviene chiamarci direttamente al ${ctx.telefono}.` : "Ti consiglio di contattare l'attività direttamente."
+    }`,
     trasferitoAUmano: true,
     usoStrumenti: true, // per finire qui ogni iterazione ha per forza usato uno strumento
   };

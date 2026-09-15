@@ -8,11 +8,31 @@ describe("ottieniOCreaConversazione", () => {
       conversazioni: {
         select: [{ data: { id: "conv-1", stato: "aperta", turni_senza_tool_consecutivi: 2 }, error: null }],
       },
+      // Nessun messaggio ancora per questa conversazione (creata ma non
+      // ancora usata in questo test) -- conversazioneTroppoVecchia la tratta
+      // come non vecchia (vedi conversazione.server.ts), quindi viene riusata.
+      messaggi: { select: [{ data: null, error: null }] },
     });
 
     const conversazione = await ottieniOCreaConversazione(supabase, "tenant-1", "sessione-1");
 
     expect(conversazione).toEqual({ id: "conv-1", stato: "aperta", turniSenzaToolConsecutivi: 2 });
+  });
+
+  it("tratta come nuova una conversazione 'aperta' ma inattiva da troppo tempo (15/09/2026)", async () => {
+    const unMessaggioVecchio = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(); // 4 ore fa
+    const supabase = creaSupabaseFinto({
+      conversazioni: {
+        select: [{ data: { id: "conv-vecchia", stato: "aperta", turni_senza_tool_consecutivi: 3 }, error: null }],
+        insert: [{ data: { id: "conv-nuova", stato: "aperta", turni_senza_tool_consecutivi: 0 }, error: null }],
+      },
+      messaggi: { select: [{ data: { created_at: unMessaggioVecchio }, error: null }] },
+    });
+
+    const conversazione = await ottieniOCreaConversazione(supabase, "tenant-1", "sessione-vecchia");
+
+    // Non riusa conv-vecchia (col contatore anti-abuso già a 3): ne crea una pulita.
+    expect(conversazione).toEqual({ id: "conv-nuova", stato: "aperta", turniSenzaToolConsecutivi: 0 });
   });
 
   it("una conversazione appena creata parte da turniSenzaToolConsecutivi 0", async () => {

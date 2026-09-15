@@ -3302,3 +3302,103 @@ ancora deployato (sandbox senza credenziali di push, consegna via bundle come se
 verifica dal vivo via estensione Chrome richiede il sito vero raggiungibile dal browser di
 Gabriel -- non questo sandbox. Programmata per subito dopo che Gabriel fa push e Vercel
 rideploya, da fare da me stesso (CLAUDE.md punto 27bis), non da fargli confermare lui.
+
+**Aggiornamento 15/09/2026, dopo il push di Gabriel**: verificato da me stesso nel browser vero
+(estensione Chrome sulla sessione già autenticata di Gabriel, mai toccata una password) su
+`salone-ai-saas.vercel.app/dashboard/configura`, tenant "prova gabriel": descrizione libera
+("Facciamo anche massaggi rilassanti, 50 minuti, 45 euro. Siamo aperti anche la domenica dalle 10
+alle 13. Accettiamo cancellazioni fino a 12 ore prima.") -> bozza generata corretta (nessun campo
+inventato: niente operatori proposti, il servizio esistente non toccato) -> applicata -> confermato
+che: orario di domenica ora 10:00-13:00 in `/dashboard/configura`, "Massaggi rilassanti · 50 min ·
+45.00€" compare nella lista servizi E nella pagina pubblica `/s/salone-bc163ecf`, finestra di
+cancellazione a 12 ore in `/dashboard/impostazioni/cancellazione` **col numero di telefono del
+tenant intatto** (la guardia anti-cancellazione-silenziosa in `onboarding-ai-azioni.ts`, vedi sopra,
+funziona anche in produzione, non solo nei test). Unico comportamento da segnalare, non un bug:
+il nuovo servizio non risulta associato all'operatore "Gabriel" già esistente (limite noto della
+v1 -- una bozza associa solo operatori/servizi che propone lei stessa nello stesso giro, mai una
+riga già in database -- va associato a mano una volta, un clic in "Chi eroga quale servizio").
+Fase 3 chiusa.
+
+---
+
+## 2026-09-15 — "Passaggio a operatore" trovato dal vivo da Gabriel: bug vero + un vicolo cieco di prodotto, non solo un dato mancante
+
+**Segnalazione di Gabriel**: chiedendo "dove si trova il parcheggio" alla chat pubblica ha
+ricevuto "Ti metto in contatto con un operatore per proseguire" invece della risposta vera. Due
+domande, entrambe verificate sul database di produzione prima di rispondere invece che a naso:
+era solo un'informazione mancante, o un bug? E quando l'AI dice che passa a un operatore umano,
+dove lo vede davvero un umano?
+
+**Trovato (bug confermato, non dato mancante)**: nella stessa conversazione con lo stesso
+tenant, la stessa identica domanda aveva ricevuto la risposta corretta più volte lo stesso
+giorno (parcheggio configurato e funzionante). Il caso specifico segnalato da Gabriel non è mai
+arrivato al modello: è scattato l'anti-abuso automatico (`LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI`
+in `limiti.ts`), non una scelta dell'AI -- confermato dal timestamp (risposta dopo 0,4 secondi,
+contro i 3-4 secondi reali di una vera chiamata ad Anthropic nelle altre conversazioni riuscite) e
+dal testo esatto (la frase fissa dell'anti-abuso in `route.ts`, non generata dal modello). **Causa
+radice**: una conversazione "aperta" non scade mai da sola. L'identificatore di sessione che ha
+mandato quel messaggio aveva una riga vecchia di 9 ore (verosimilmente da un mio test precedente)
+con il contatore anti-abuso già a 3 -- qualunque messaggio nuovo su quella sessione, anche
+legittimo, veniva quindi bloccato subito, senza mai chiamare il modello.
+
+**Trovato (vicolo cieco di prodotto, non solo bug)**: cercato in tutta la dashboard e nel codice
+dov'è che un operatore umano vede una conversazione passata a lui (`stato: passata_a_operatore`)
+-- nessuna pagina la mostra, nessuna notifica (email/SMS) avvisa il titolare. Lo stato viene
+scritto nel database ma non lo vede mai nessuno: oggi "ti metto in contatto con un operatore" è
+una promessa che non si avvera mai.
+
+**Deciso con Gabriel** (opzioni proposte: costruire una notifica vera allo staff / rendere la
+scelta configurabile per titolare / sostituire sempre con "chiama il negozio" -- consigliata
+l'ultima): **sempre "chiama il negozio"**. Motivazione della raccomandazione: costruire un vero
+sistema di notifica allo staff (dashboard + email/SMS) è lavoro sostanzioso su un'infrastruttura
+che oggi non esiste per niente, per un prodotto con titolari che gestiscono 1-2 persone e budget
+di sviluppo quasi zero (vedi profilo di Gabriel) -- un numero di telefono che il cliente può
+chiamare SUBITO è più affidabile e immediato di un "ticket" che aspetta che qualcuno lo controlli.
+
+**Cosa è cambiato**:
+- `src/lib/ai/limiti.ts`: nuova costante `SOGLIA_INATTIVITA_NUOVA_CONVERSAZIONE_MS` (3 ore).
+- `src/lib/ai/conversazione.server.ts`: `ottieniOCreaConversazione` non riusa più una
+  conversazione "aperta" la cui ultima attività (ultimo messaggio, non `created_at`/`updated_at`
+  della riga -- quelli non si aggiornano ad ogni scrittura di stato) risale a più della soglia --
+  ne crea una pulita invece, la vecchia resta nel database ma non più ripescata.
+- `src/lib/ai/agente.ts`: nuovo parametro `telefono` (indipendente dal gate della knowledge base
+  Pro/Enterprise -- un numero per "chiamaci se non so aiutarti" non è una funzionalità a
+  pagamento) propagato al system prompt. REGOLA ASSOLUTA 8 e la frase di chiusura del prompt
+  riscritte per invitare sempre a contattare l'attività direttamente (col numero se disponibile),
+  mai promettere un operatore che ricontatta. Anche il messaggio di fallback quando il loop di
+  tool-calling si esaurisce (`MAX_ITERAZIONI_TOOL`) segue la stessa regola.
+- `src/lib/ai/tools.ts`: descrizione dello strumento `trasferisci_a_operatore` riscritta per
+  chiarire (al modello stesso) che non avvisa davvero nessuno, resta solo un segnale interno.
+- `src/app/api/chat/[slug]/route.ts`: seleziona anche `tenants.telefono`, lo passa al contesto, e
+  il messaggio fisso dell'anti-abuso ("troppi messaggi"/"troppi turni senza strumenti") ora invita
+  a chiamare invece di promettere un passaggio a operatore.
+- Lo strumento `trasferisci_a_operatore` e lo stato `passata_a_operatore` RESTANO (utili come
+  segnale interno/statistica per Gabriel su quante conversazioni l'AI non riesce a gestire) --
+  solo il testo mostrato al cliente cambia. Verificato dal vivo che il modello spesso risponde
+  "chiama il numero" senza nemmeno chiamare questo strumento (lo ha già in testa dal system
+  prompt): `trasferitoAUmano` sarà quindi meno frequente di prima, un compromesso onesto tra
+  correttezza della risposta al cliente e affidabilità del contatore per le statistiche.
+
+**Verifica dal vivo contro il modello Anthropic reale** (script poi cancellato, prassi consueta),
+3 scenari (reclamo con telefono configurato, stesso reclamo senza telefono, richiesta esplicita di
+parlare con una persona): in tutti e tre l'AI ha invitato a chiamare (col numero quando presente,
+un invito generico a contattare l'attività quando assente), mai una promessa di richiamata.
+
+**Test**: aggiornato `agente.test.ts` (il test del limite di sicurezza sul loop di tool-calling
+non cerca più la parola "operatore" nella risposta, verifica invece "contattare l'attività
+direttamente" + un nuovo test che conferma l'inserimento del numero quando presente nel
+contesto), aggiornato/esteso `conversazione.server.test.ts` (nuovo test: una conversazione
+"aperta" ma con l'ultimo messaggio di 4 ore fa non viene riusata, se ne crea una pulita). Suite
+completa: `npx vitest run` (401/401), `tsc --noEmit`, `eslint`, `npm run build` tutti puliti.
+
+**Ancora aperto, onestamente non fatto**: questo fix NON è ancora deployato (scritto in sandbox
+dopo il push di Gabriel per la Fase 3, consegna via bundle come sempre più sotto) -- provato dal
+vivo sul sito vero PRIMA di consegnarlo (stesso reclamo di prova sul tenant "prova gabriel") per
+capire se serviva davvero, e infatti ha mostrato ancora la vecchia risposta ("sei stato messo in
+contatto con un operatore, ti seguiranno"), come atteso dato che il codice vero vive solo qui.
+Verifica dal vivo nel browser di QUESTO fix (testo "chiama il negozio" + la correzione della
+staleness, quest'ultima verificabile solo aspettando 3 ore reali per riprodurre la condizione)
+programmata per dopo il prossimo push di Gabriel. Le due vecchie conversazioni "avvelenate" (quelle
+che hanno causato il bug segnalato da Gabriel) restano nel database con lo stato vecchio: non
+tolte a mano, diventeranno comunque irrilevanti da sole (nessuna query futura le ripescherà più,
+la soglia di 3 ore le rende invisibili).

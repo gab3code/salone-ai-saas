@@ -105,3 +105,15 @@ export const INTERVALLO_MINIMO_MS_TRA_MESSAGGI = 2000;
 //    che invece usa almeno uno strumento) -- vedi conversazione.server.ts.
 export const LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE = 15;
 export const LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI = 3;
+
+// Trovato dal vivo il 15/09/2026 (vedi DECISIONS.md): una conversazione
+// "aperta" non scade mai da sola, quindi lo stesso identificatore_sessione
+// che torna ore/giorni dopo ripesca la riga vecchia con il SUO contatore
+// anti-abuso -- un contatore già a 3 per turni non collegati a questo nuovo
+// messaggio blocca subito anche una domanda legittima e la manda dritta
+// all'anti-abuso, senza nemmeno chiamare il modello (visto dal vivo:
+// "dove si trova il parcheggio" su una conversazione ripescata da 9 ore
+// prima). Oltre questa soglia di inattività, `ottieniOCreaConversazione`
+// tratta la sessione come nuova invece di riusare quella vecchia (che resta
+// comunque nel database, semplicemente non più ripescata).
+export const SOGLIA_INATTIVITA_NUOVA_CONVERSAZIONE_MS = 3 * 60 * 60 * 1000; // 3 ore

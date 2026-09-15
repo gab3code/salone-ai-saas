@@ -1,6 +1,27 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 15/09/2026, trentaquattresimo giro -- Fase 3 di PIANO.md (onboarding
+Ultimo aggiornamento: 15/09/2026, trentacinquesimo giro -- Fase 3 verificata dal vivo nel browser
+vero (panello "Compila con l'AI": descrizione libera -> bozza -> applicata -> confermato in
+`/dashboard/configura`, `/dashboard/impostazioni/cancellazione` e sulla pagina pubblica che i dati
+ci sono davvero, incluso il telefono del tenant NON cancellato dall'apply). Fase 3 chiusa.
+
+Nello stesso giro, Gabriel ha segnalato dal vivo un problema vero mentre provava il sito:
+chiedendo "dove si trova il parcheggio" alla chat pubblica ha ricevuto "Ti metto in contatto con
+un operatore" invece della risposta -- e ha giustamente chiesto se fosse un bug o un dato
+mancante, e dove un operatore umano vedrebbe mai questa segnalazione. Verificato sul database di
+produzione (non a naso): **bug confermato** (stessa domanda, stesso tenant, risposta corretta
+altre volte lo stesso giorno -- il caso segnalato non è mai arrivato al modello, bloccato da un
+contatore anti-abuso "avvelenato" da una conversazione vecchia di 9 ore mai scaduta) **più un
+vicolo cieco di prodotto reale**: nessuna pagina della dashboard, nessuna email/SMS avvisa mai un
+operatore umano quando l'AI dice di passarlo a lui -- oggi quella frase non porta a nulla. Deciso
+con Gabriel (tra tre opzioni proposte): invece di costruire un sistema di notifica che oggi non
+esiste, **l'AI invita sempre a chiamare il negozio direttamente**, col numero configurato quando
+c'è. Corretto anche il bug delle conversazioni che non scadono mai (nuova soglia di inattività di
+3 ore). 401/401 test, `tsc`/`eslint`/`npm run build` puliti, verificato dal vivo contro il modello
+Anthropic reale su 3 scenari. **Non ancora deployato** (scritto dopo l'ultimo push di Gabriel) --
+consegnato in questo stesso giro, in attesa di pull+push. Dettaglio completo in DECISIONS.md.
+
+Aggiornamento precedente, 15/09/2026, trentaquattresimo giro -- Fase 3 di PIANO.md (onboarding
 AI-assisted): il titolare descrive la propria attività in linguaggio naturale, l'AI ne estrae una
 bozza (orari, operatori, servizi, e se il piano lo include anche informazioni attività/FAQ), il
 titolare la rivede riga per riga (può escludere/correggere ogni voce) prima di applicarla sui

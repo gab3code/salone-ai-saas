@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MessaggioConversazione } from "./agente";
+import { SOGLIA_INATTIVITA_NUOVA_CONVERSAZIONE_MS } from "./limiti";
 
 /**
  * Persistenza della conversazione (punto 8 di CLAUDE.md: "l'AI deve
@@ -39,7 +40,14 @@ export async function ottieniOCreaConversazione(
     .limit(1)
     .maybeSingle();
 
-  if (esistente) {
+  // Riusata SOLO se ancora "fresca" (vedi SOGLIA_INATTIVITA_NUOVA_CONVERSAZIONE_MS
+  // in limiti.ts, trovato dal vivo 15/09/2026): un identificatore_sessione che
+  // torna dopo ore/giorni non deve ripescare il contatore anti-abuso di una
+  // conversazione morta, altrimenti un messaggio nuovo e legittimo può essere
+  // bloccato subito da turni non collegati a lui. La riga vecchia resta nel
+  // database così com'è (semplicemente non più ripescata: la nuova sotto avrà
+  // un created_at più recente e vincerà sempre l'ORDER BY di questa query).
+  if (esistente && !(await conversazioneTroppoVecchia(supabase, esistente.id))) {
     return {
       id: esistente.id,
       stato: esistente.stato,
@@ -58,6 +66,31 @@ export async function ottieniOCreaConversazione(
     stato: nuova.stato,
     turniSenzaToolConsecutivi: nuova.turni_senza_tool_consecutivi ?? 0,
   };
+}
+
+/**
+ * "Vecchia" = l'ultima attività (ultimo messaggio, o la creazione stessa se
+ * non ne ha ancora nessuno) risale a più di SOGLIA_INATTIVITA_NUOVA_CONVERSAZIONE_MS
+ * fa. Guarda l'ultimo MESSAGGIO, non `created_at`/`updated_at` della
+ * conversazione (quest'ultimo non viene aggiornato dalle scritture di stato
+ * come segnaPassataAOperatore/aggiornaTurniSenzaStrumenti): una conversazione
+ * creata ore fa ma ancora attiva ogni pochi minuti non deve essere spezzata.
+ * Fail-safe sull'errore: se non riesco a leggere l'ultimo messaggio, meglio
+ * trattarla come vecchia (si crea una nuova conversazione pulita) che
+ * rischiare di riusare un contatore anti-abuso di cui non so l'età reale.
+ */
+async function conversazioneTroppoVecchia(supabase: SupabaseClient, conversazioneId: string): Promise<boolean> {
+  const { data: ultimoMessaggio, error } = await supabase
+    .from("messaggi")
+    .select("created_at")
+    .eq("conversazione_id", conversazioneId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return true;
+  if (!ultimoMessaggio) return false; // conversazione appena creata, nessun messaggio ancora: mai "vecchia"
+  const eta = Date.now() - new Date(ultimoMessaggio.created_at).getTime();
+  return eta > SOGLIA_INATTIVITA_NUOVA_CONVERSAZIONE_MS;
 }
 
 export async function caricaMessaggi(
