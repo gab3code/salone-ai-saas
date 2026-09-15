@@ -233,6 +233,22 @@ describe("rispondiConversazione", () => {
       );
       expect(create.mock.calls[1][0].system).toContain("info_attivita");
     });
+
+    it("la regola su info_attivita istruisce a rispondere in modo selettivo, non a recitare tutto il risultato (trovato dal vivo 15/09/2026: risposta a 'wall of text')", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
+      await rispondiConversazione(
+        [],
+        "Ciao",
+        { ...ctx, haInformazioniAttivita: true },
+        { messages: { create } } as ClienteAnthropic
+      );
+
+      const system = create.mock.calls[0][0].system as string;
+      expect(system).toMatch(/non significa che tu debba riportarli tutti/);
+      expect(system).toMatch(/domanda è generica/);
+      expect(system).toMatch(/Non citare mai una FAQ che il cliente non ha chiesto/);
+      expect(system).toMatch(/Non chiudere automaticamente ogni risposta informativa con una proposta di prenotazione/);
+    });
   });
 
   describe("rete di sicurezza sui prezzi/durate (trovato dal vivo 15/09/2026, vedi verifica-numeri.ts)", () => {

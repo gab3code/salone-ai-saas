@@ -2277,3 +2277,47 @@ deploy). Da ripetere lo stesso scenario di follow-up più volte dopo il deploy p
 conferma empirica che il cliente non veda più MAI un numero sbagliato -- il fallback deterministico
 lo garantisce in teoria, ma dato quanto si è rivelato insidioso questo bug vale la pena
 confermarlo dal vivo prima di considerarlo definitivamente chiuso.
+
+---
+
+## 2026-09-15 — Fix: l'AI riversava tutta la knowledge base in un unico messaggio su una domanda
+## generica ("wall of text")
+
+**Contesto**: mentre ero a metà della rete di sicurezza sui prezzi (voce precedente), Gabriel ha
+segnalato con una trascrizione reale sua un secondo problema, distinto, sulla stessa Fase 2: a
+"dammi informazioni aggiuntive" l'AI ha risposto con un unico messaggio che elenca in fila
+descrizione, indirizzo, parcheggio, metodi di pagamento, l'intera policy di cancellazione, una FAQ
+che il cliente non aveva chiesto ("Una curiosità: sì, la manicure semipermanente è inclusa..."), e
+il giorno di chiusura -- per poi chiudere comunque con "Vuoi prenotare una manicure o una
+pedicure". Esattamente il "gestionale con un chatbot" che la Fase 2 doveva evitare (vedi apertura
+della voce del 15/09/2026 su Fase 2 più sopra), non una vera receptionist che risponde al punto e
+lascia parlare il cliente.
+
+**Causa**: `info_attivita` (in `tools.ts`) restituisce sempre TUTTI i campi configurati in un
+colpo solo -- corretto e voluto, un solo giro invece di sette strumenti diversi. Ma la regola 11
+del system prompt diceva "Rispondi SOLO con quello che restituisce", pensata per vietare
+invenzioni oltre al risultato dello strumento -- il modello l'ha letta (ragionevolmente) come "()
+riporta tutto quello che lo strumento ti ha dato", non come "non aggiungere nulla oltre a quello
+che ti ha dato". Su una domanda generica come "dammi informazioni aggiuntive", dove ogni campo
+sembra potenzialmente pertinente, il risultato è la recita integrale del risultato dello strumento.
+
+**Modifica**: riscritta la regola 11 in `costruisciSystemPrompt` (`src/lib/ai/agente.ts`): ora dice
+esplicitamente che il risultato dello strumento contiene sempre tutti i campi insieme ma questo
+NON significa doverli riportare tutti -- va scelto solo ciò che risponde a quanto il cliente ha
+effettivamente chiesto; su una domanda generica va data una risposta breve e naturale (es. solo la
+descrizione) lasciando che sia il cliente a chiedere di più; non va mai citata una FAQ non
+richiesta; e la proposta di prenotazione in coda non va più trattata come formula fissa dopo ogni
+risposta informativa. Nessuna modifica allo strumento `info_attivita` stesso (resta corretto che
+recuperi tutto in un colpo solo, cambia solo cosa il modello ne fa nella risposta) -- a differenza
+del bug sui prezzi, qui il problema è di stile/selettività conversazionale, non di accuratezza
+fattuale, quindi resta un fix di prompt engineering, non serve una verifica deterministica a
+livello di codice.
+
+**Verifica**: nuovo test in `agente.test.ts` che verifica la presenza delle istruzioni chiave nella
+regola 11 (selettività, gestione della domanda generica, divieto di citare FAQ non richieste,
+divieto di chiudere sempre con la prenotazione). `npx vitest run` -> 292/292 verdi; `npx tsc
+--noEmit` -> pulito; `npx eslint` -> pulito; `npm run build` -> production build riuscita.
+
+**Non ancora fatto**: nessuna verifica dal vivo (richiede deploy) -- da riprovare esattamente lo
+stesso scenario ("dammi informazioni aggiuntive" su una conversazione pulita) per confermare che la
+risposta sia ora breve e naturale invece che un elenco completo.

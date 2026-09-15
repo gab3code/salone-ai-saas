@@ -73,16 +73,14 @@ reale delle fasi è:
   questa rete di sicurezza elimini davvero il problema (richiede deploy), poi continuare gli altri
   scenari di test elencati da Gabriel (i 14 scenari, non tutti ancora coperti).
 
-  **Feedback diretto di Gabriel il 15/09/2026 (con trascrizione reale), non ancora affrontato**: le
-  risposte di `info_attivita` a una domanda generica come "dammi informazioni aggiuntive" sono un
-  "malloppone noioso di testo" -- l'AI riversa TUTTA la knowledge base in un unico paragrafo denso
+  **Feedback diretto di Gabriel il 15/09/2026 (con trascrizione reale) -- CORRETTO 15/09/2026**: le
+  risposte di `info_attivita` a una domanda generica come "dammi informazioni aggiuntive" erano un
+  "malloppone noioso di testo" -- l'AI riversava TUTTA la knowledge base in un unico paragrafo denso
   (descrizione + indirizzo + parcheggio + pagamenti + policy di cancellazione + una FAQ non
-  richiesta + giorno di chiusura) e in coda ripropone comunque la prenotazione. Viola l'obiettivo
-  originale della Fase 2 (risposte informative naturali e sintetiche, non un elenco). Da correggere
-  probabilmente rivedendo la "regola 11" del system prompt e/o la descrizione dello strumento
-  `info_attivita` in `tools.ts`, per farla essere più selettiva (rispondere solo a quanto
-  effettivamente chiesto, eventualmente chiedere cosa interessa di preciso invece di scaricare
-  tutto) e non chiudere sempre con una spinta alla prenotazione.
+  richiesta + giorno di chiusura) e in coda riproponeva comunque la prenotazione. Riscritta la
+  regola 11 del system prompt (vedi DECISIONS.md) per rispondere in modo selettivo a quanto
+  effettivamente chiesto invece di recitare tutto il risultato dello strumento. `tsc`/`eslint`/
+  `vitest` (292/292)/`build` puliti. **Ancora da fare**: verifica dal vivo dopo il deploy.
 
   **Backlog UI, esplicitamente rimandato da Gabriel a una fase di rifinitura**: il "thinking orbs"
   (indicatore di caricamento della chat) compare ma non è animato.
