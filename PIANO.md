@@ -298,8 +298,13 @@ mappati -- resta valido, non riscritto da zero.
    DECISIONS.md per il dettaglio completo e l'ipotesi di causa): `verifica_disponibilita` ora
    restituisce anche `giorno_settimana_richiesto` (il vero nome del giorno per la data
    interrogata, calcolato dal codice) e lo strumento istruisce il modello a usarlo sempre invece di
-   ricalcolarlo. Test aggiunti, tutto pulito. **Resta da verificare dal vivo dopo il deploy** che il
-   problema non si ripresenti.
+   ricalcolarlo. Test aggiunti, tutto pulito. **VERIFICATO DAL VIVO 15/09/2026 dopo il deploy**
+   (vedi DECISIONS.md, sezione "lavoro autonomo"): in una conversazione veramente fresca su un
+   tenant di test con la stessa configurazione del bug originale, l'AI risponde correttamente sia
+   sul giorno aperto sia su quello chiuso. Una vecchia conversazione già "inquinata" da risposte
+   sbagliate pre-deploy continua a sbagliare se richiesta di nuovo -- comportamento atteso (il
+   modello resta coerente con quanto già detto nella stessa chat, il fix non riscrive la
+   cronologia), non una ricaduta del fix.
 6. ~~**Bug di isolamento multi-tenant trovato in audit notturno 15/09/2026 (non dal vivo): scrivere
    un appuntamento non verificava mai che l'operatore appartenesse al tenant giusto**~~ **CODICE
    FATTO 15/09/2026** (vedi DECISIONS.md 15/09/2026 per il dettaglio completo): nuova

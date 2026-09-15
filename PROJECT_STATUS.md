@@ -25,9 +25,17 @@ giorno per la data effettivamente passata (nuova funzione `nomeGiornoSettimana` 
 `giorni-settimana.ts`), con l'istruzione esplicita di copiarlo invece di ricalcolarlo -- scelta
 deliberata di dare al modello un dato pronto piuttosto che costruire un controllo incrociato
 tool-call/testo più invasivo dentro `agente.ts` (costo/beneficio, vedi DECISIONS.md). 3 nuovi test
-mirati (421/421 totali, 35 file), `tsc`/`eslint`/`npm run build` puliti. **Non ancora verificato
-dal vivo in produzione**: serve prima il deploy di questo fix. Tenant di test ("Test Caparra AI")
-già ripulito da Supabase. Dettaglio completo in DECISIONS.md, sezione "15/09/2026, lavoro autonomo".
+mirati (421/421 totali, 35 file), `tsc`/`eslint`/`npm run build` puliti. **Verificato dal vivo dopo
+il push di Gabriel**: in un tenant di test nuovo con la stessa identica configurazione del bug
+originale (solo domenica aperta) e una conversazione VERAMENTE fresca (nessuna cronologia
+pregressa), l'AI ha risposto correttamente sia su domenica 20 (aperto, slot giusti) sia su sabato
+19 (chiuso) nella stessa conversazione. Riprovando invece nella vecchia conversazione già
+"inquinata" da risposte sbagliate pre-deploy, l'errore si ripete -- non è una ricaduta del fix, è
+il modello che resta coerente con quello che ha già detto prima nella stessa chat: una
+conversazione con errori precedenti al deploy non si autocorregge chiedendo di nuovo, il fix vale
+per le conversazioni nuove. **Fase 2 dichiarata chiusa** su questo punto. Tenant di test ("Test
+Caparra AI" e "Test Bug Giorno Settimana") ripuliti da Supabase. Dettaglio completo in
+DECISIONS.md, sezione "15/09/2026, lavoro autonomo".
 
 Aggiornamento precedente, 15/09/2026, quarantesimo giro -- Gabriel ha chiesto un onboarding vero, non
 una sola casella di testo: "una vera e propria onboarding con delle domande, chiuse o aperte... e
@@ -2502,8 +2510,9 @@ l'11/09/2026 via MCP diretto).
       la data giusta -- riprodotto dal vivo due volte sul tenant "prova gabriel" ("chiusi domenica
       20 settembre" quando il 20 è aperto e libero). Fix: il tool ora restituisce anche
       `giorno_settimana_richiesto` (nome vero del giorno per la data passata) da copiare invece di
-      ricalcolare. Non ancora verificato dal vivo in produzione (serve il deploy). Vedi
-      DECISIONS.md, sezione "15/09/2026, lavoro autonomo".
+      ricalcolare. **Verificato dal vivo dopo il deploy**, in una conversazione veramente fresca:
+      corretto sia su domenica 20 (aperto) sia su sabato 19 (chiuso). Vedi DECISIONS.md, sezione
+      "15/09/2026, lavoro autonomo".
     - ~~**L'AI ha detto al cliente l'importo sbagliato della caparra**: "richiede una caparra di
       25 euro" quando l'importo vero è 5,00 €~~ **RISOLTO 15/09/2026**: stessa doppia difesa
       (prevenzione via istruzione nel prompt, già presente, + rete di sicurezza deterministica

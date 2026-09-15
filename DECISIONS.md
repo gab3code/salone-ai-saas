@@ -3802,10 +3802,28 @@ segua la DATA passata (sabato 19) e non "oggi" o un valore fisso -- il tipo di e
 lasciato passare il bug. Suite completa: `npx vitest run` (421/421, 35 file), `tsc --noEmit`, `eslint`,
 `npm run build` tutti puliti.
 
-**Non ancora fatto**: verifica dal vivo del fix in produzione (serve il deploy), e non ho ancora
-riprovato a sample-check ulteriori conversazioni per vedere se il problema si ripresenta anche con
-`giorno_settimana_richiesto` in campo -- ragionevole prima di dichiarare la Fase 2 definitivamente
-chiusa.
+**Verificato dal vivo dopo il deploy (stesso giorno, dopo che Gabriel ha fatto il push)**: prima
+verifica veloce nella conversazione originale su "prova gabriel" (quella che aveva riprodotto il
+bug) -- stessa domanda ("Siete aperti domenica 20 settembre?") ha dato di nuovo la risposta
+sbagliata ("chiusi"). Non è una ricaduta del fix: quella conversazione conteneva già, PRIMA del
+deploy, diverse risposte sbagliate sulla stessa data (l'intera cronologia mostra il modello
+rifiutare uno per uno quasi tutti i giorni chiesti, incluso erroneamente domenica 20). Il modello
+tende a restare coerente con quello che ha già detto nella stessa conversazione piuttosto che
+ricalcolare da zero -- una conversazione "inquinata" da prima del fix non si autocorregge
+retroattivamente chiedendo di nuovo, e non potrebbe essere altrimenti (il fix non riscrive la
+cronologia passata).
 
-Tenant di prova "Test Caparra AI" ripulito da Supabase (`tenants` in cascade + `auth.users`
-separato, confermato con query di verifica: zero righe rimaste in entrambe le tabelle).
+Verifica pulita, quella che conta davvero: creato un tenant di test nuovo ("Test Bug Giorno
+Settimana", ripulito subito dopo) con esattamente le stesse condizioni del bug originale (solo
+domenica aperta 10-13, tutti gli altri giorni chiusi) e una conversazione VERAMENTE nuova (nuovo
+tenant = nuovo `identificatoreSessione` in localStorage, nessuna cronologia pregressa). Chiesto
+direttamente "Vorrei prenotare una Prova per domenica 20 settembre" -> risposta corretta, slot
+proposti dalle 10:00 alle 12:30. Chiesto poi nella stessa conversazione "siete aperti anche sabato
+19 settembre?" -> correttamente "chiusi sabato 19", seguito subito da "domenica 20 invece abbiamo
+diversi orari disponibili" con gli slot giusti. Il fix (`giorno_settimana_richiesto`) funziona
+come previsto in una conversazione fresca post-deploy. **Fase 2 dichiarata chiusa** su questo
+punto.
+
+Tenant di prova "Test Caparra AI" e "Test Bug Giorno Settimana" ripuliti da Supabase (`tenants` in
+cascade + `auth.users` separato, confermato con query di verifica: zero righe rimaste in entrambe
+le tabelle).
