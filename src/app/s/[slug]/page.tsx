@@ -187,7 +187,9 @@ export default async function PaginaPubblicaSalone({
         Pagina di {profilo.nome} -- prenotazioni gestite online.
       </footer>
 
-      {profilo.chatAiAttiva && <ChatWidgetPubblico slug={slug} nomeAttivita={profilo.nome} />}
+      {profilo.chatAiAttiva && (
+        <ChatWidgetPubblico slug={slug} nomeAttivita={profilo.nome} haInformazioniAttivita={profilo.haInformazioniAttivita} />
+      )}
     </div>
   );
 }

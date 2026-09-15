@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { pianoHaAccessoAIChatWeb } from "@/lib/ai/limiti";
+import { pianoHaKnowledgeBaseAi } from "@/lib/piani";
 import type { ConfigCaparra, TipoCaparra } from "@/lib/stripe/caparra";
 
 /**
@@ -59,6 +60,13 @@ export interface ProfiloPubblico {
   // -- il widget chat lato pagina pubblica si mostra SOLO se true, coerente
   // col gate già applicato server-side da /api/chat/[slug].
   chatAiAttiva: boolean;
+  // Se il tenant ha anche la knowledge base dell'AI receptionist (Fase 2,
+  // Pro/Enterprise, vedi pianoHaKnowledgeBaseAi in piani.ts) -- usato dal
+  // widget SOLO per calibrare il messaggio di suggerimento iniziale (punto
+  // 15/09/2026, richiesta di Gabriel di far notare all'utente cosa può
+  // chiedere): non promettere "chiedimi qualsiasi cosa sull'attività" a un
+  // cliente il cui tenant non ha configurato quelle informazioni.
+  haInformazioniAttivita: boolean;
   // Deposito/caparra anti-no-show (Fase 6): letta qui insieme al resto del
   // profilo pubblico, così FlussoPrenotazione.tsx può calcolare e mostrare
   // l'importo PRIMA di far scegliere al cliente se pagare -- niente
@@ -145,6 +153,7 @@ export async function caricaProfiloPubblico(
     logoUrl: tenant.logo_url,
     coverUrl: tenant.cover_url,
     chatAiAttiva: pianoHaAccessoAIChatWeb(tenant.piano),
+    haInformazioniAttivita: pianoHaKnowledgeBaseAi(tenant.piano),
     caparra: {
       attiva: tenant.caparra_attiva,
       tipo: tenant.caparra_tipo as TipoCaparra,

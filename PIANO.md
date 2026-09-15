@@ -93,7 +93,16 @@ reale delle fasi è:
   più sotto in questo stesso file). Aggiunto `src/lib/ai/pulisci-markdown.ts` (rete di sicurezza
   deterministica, stesso principio di `verifica-numeri.ts`) che ripulisce grassetto/corsivo/titoli/
   elenchi puntati dalla risposta finale prima di mandarla al cliente. `tsc`/`eslint`/`vitest`
-  (303/303)/`build` puliti. **Ancora da fare**: verifica dal vivo dopo il deploy.
+  (303/303)/`build` puliti. **Verificato dal vivo 15/09/2026**: "dammi informazioni aggiuntive" ora
+  risponde con 2-3 frasi naturali invece del malloppone originale.
+
+  **Suggerimento iniziale sul widget (richiesta di Gabriel 15/09/2026)**: un visitatore non ha modo
+  di sapere, guardando la sola icona della chat, che può sia prenotare sia chiedere qualunque cosa
+  sull'attività. Aggiunto un fumetto che appare 1,5s dopo il caricamento (una sola volta per
+  browser, testo diverso se il tenant ha o no la knowledge base della Fase 2) + un pallino verde
+  animato sul pulsante finché non viene notato/chiuso. Nuovo campo `haInformazioniAttivita` in
+  `ProfiloPubblico` per calibrare il testo. `tsc`/`eslint`/`vitest` (305/305)/`build` puliti.
+  **Ancora da fare**: verifica visiva dal vivo dopo il deploy (posizionamento su schermo piccolo).
 
   **Backlog UI, esplicitamente rimandato da Gabriel a una fase di rifinitura**: il "thinking orbs"
   (indicatore di caricamento della chat) compare ma non è animato.

@@ -2381,3 +2381,52 @@ build riuscita.
 **Non ancora fatto**: nessuna verifica dal vivo di questo terzo fix (richiede deploy) -- da
 riprovare "che servizi offrite?" e altre domande che elencano più voci per confermare che il
 widget ora vada a capo correttamente e che non compaiano più simboli markdown letterali.
+
+---
+
+## 2026-09-15 — Verifica dal vivo del terzo fix + suggerimento iniziale sul widget per far scoprire
+## cosa può fare l'AI
+
+**Verifica del fix markdown (bundle 44, non ancora pushato al momento di questa voce)**: testato
+"dammi informazioni aggiuntive" (la stessa frase del bug originale di oggi) -- ora risponde con
+2-3 frasi naturali (descrizione, parcheggio, pagamenti) senza policy di cancellazione o FAQ a
+caso, e senza chiudere forzando la prenotazione. Su una domanda specifica ("avete parcheggio?")
+risponde in una riga sola. Conferma indiretta che la regola 11 (voce precedente) funziona bene dal
+vivo, oltre ai test automatici.
+
+**Richiesta di Gabriel**: far capire meglio al cliente finale, sulla pagina pubblica, che può sia
+prenotare tramite l'AI sia farle qualunque domanda sull'attività -- non solo scrivere per un aiuto
+generico. Proposta lasciata a me ("vedi tu"): un pop-up o un cambio d'icona.
+
+**Decisione presa**: entrambe le cose insieme, spendendo una sola interazione dell'utente:
+1. Un fumetto di suggerimento che appare 1,5 secondi dopo il caricamento della pagina (solo se il
+   widget non è mai stato aperto/il suggerimento non è mai stato chiuso su quel browser -- stessa
+   logica "visto/non visto" già usata per l'id di sessione della chat), con un testo diverso a
+   seconda che il tenant abbia o no la knowledge base (Fase 2, Pro/Enterprise): con la knowledge
+   base dice esplicitamente "chiedimi quello che vuoi sull'attività: orari, prezzi, parcheggio e
+   altro"; senza, resta sul transazionale ("orari, prezzi e disponibilità dei servizi") per non
+   promettere risposte che il tenant non ha configurato. Si chiude da solo dopo 10 secondi se
+   ignorato, o subito se il cliente lo tocca (apre la chat) o lo chiude con la ×.
+2. Un piccolo pallino verde animato (`animate-ping`, utility nativa di Tailwind, nessuna dipendenza
+   nuova) sul pulsante della chat finché il suggerimento non è stato visto/chiuso -- la richiesta
+   di "cambiare l'icona" di Gabriel, risolta senza un'icona diversa per ogni stato (più semplice da
+   mantenere) ma con lo stesso effetto di richiamare l'attenzione.
+
+Per calibrare il testo del fumetto (punto 1) serviva sapere, lato client, se il tenant ha la
+knowledge base -- nuovo campo `haInformazioniAttivita` in `ProfiloPubblico`
+(`pagina-pubblica.server.ts`, da `pianoHaKnowledgeBaseAi` in `piani.ts`), passato da `page.tsx` a
+`ChatWidgetPubblico` come prop opzionale (default `false`, per restare compatibile con qualunque
+altro chiamante futuro del componente).
+
+**Verifica**: 2 nuovi test in `pagina-pubblica.server.test.ts` (`haInformazioniAttivita` false su
+Growth, true su Pro). `npx vitest run` -> 305/305 verdi; `npx tsc --noEmit` -> pulito; `npx eslint`
+-> un errore trovato e corretto durante la verifica (`react-hooks/set-state-in-effect`: uno dei
+tre `setState` nell'effect del suggerimento veniva chiamato in modo sincrono nel corpo dell'effect
+invece che dentro un timeout -- spostato in un `setTimeout(..., 0)`, comunque istantaneo per chi
+guarda la pagina, nessun impatto visibile); `npm run build` -> production build riuscita.
+
+**Non ancora fatto**: nessuna verifica visiva dal vivo del fumetto/pallino (richiede deploy +
+guardarlo con occhi umani, non solo dati testuali come per la chat) -- da controllare che il
+posizionamento regga anche su schermo piccolo (il pannello della chat aperta usa già
+`calc(100vw-2rem)` per lo stesso motivo, il fumetto ha una larghezza massima fissa più stretta ma
+va comunque controllato dal vivo).

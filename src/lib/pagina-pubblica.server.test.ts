@@ -114,6 +114,28 @@ describe("caricaProfiloPubblico", () => {
     expect(profilo?.chatAiAttiva).toBe(false);
   });
 
+  it("haInformazioniAttivita è false su un piano Growth (ha solo la chat AI transazionale)", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [{ data: TENANT_ROW, error: null }] }, // piano "growth"
+      servizi: { select: [{ data: [], error: null }] },
+      operatori: { select: [{ data: [], error: null }] },
+    });
+
+    const profilo = await caricaProfiloPubblico(supabase, "bella-hair");
+    expect(profilo?.haInformazioniAttivita).toBe(false);
+  });
+
+  it("haInformazioniAttivita è true su un piano Pro (ha anche la knowledge base, Fase 2)", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [{ data: { ...TENANT_ROW, piano: "pro" }, error: null }] },
+      servizi: { select: [{ data: [], error: null }] },
+      operatori: { select: [{ data: [], error: null }] },
+    });
+
+    const profilo = await caricaProfiloPubblico(supabase, "bella-hair");
+    expect(profilo?.haInformazioniAttivita).toBe(true);
+  });
+
   it("non interroga operatori_servizi se non ci sono operatori attivi (nessuna riga da filtrare)", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [{ data: TENANT_ROW, error: null }] },

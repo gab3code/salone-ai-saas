@@ -34,13 +34,47 @@ function ottieniIdentificatoreSessione(slug: string): string {
   }
 }
 
-export default function ChatWidgetPubblico({ slug, nomeAttivita }: { slug: string; nomeAttivita: string }) {
+/**
+ * Suggerimento iniziale (richiesta di Gabriel 15/09/2026): un visitatore che
+ * non ha mai usato un sito con AI in chat non ha motivo di sapere, guardando
+ * la sola icona, che può prenotare da lì E chiedere qualsiasi cosa
+ * sull'attività -- non solo scrivere per un aiuto generico. Mostrato una
+ * volta sola per browser (stessa logica "visto/non visto" già usata per
+ * l'id di sessione qui sopra), non ad ogni caricamento della pagina.
+ */
+function suggerimentoGiaVisto(slug: string): boolean {
+  try {
+    return localStorage.getItem(`chat-suggerimento-visto-${slug}`) === "1";
+  } catch {
+    return true; // niente localStorage: meglio non insistere con qualcosa che non possiamo ricordare di aver già mostrato
+  }
+}
+
+function segnaSuggerimentoVisto(slug: string) {
+  try {
+    localStorage.setItem(`chat-suggerimento-visto-${slug}`, "1");
+  } catch {
+    // ignorato: al massimo il suggerimento ricompare una volta di troppo, nessun impatto funzionale
+  }
+}
+
+export default function ChatWidgetPubblico({
+  slug,
+  nomeAttivita,
+  haInformazioniAttivita = false,
+}: {
+  slug: string;
+  nomeAttivita: string;
+  haInformazioniAttivita?: boolean;
+}) {
   const [aperto, setAperto] = useState(false);
   const [messaggi, setMessaggi] = useState<Messaggio[]>([]);
   const [bozza, setBozza] = useState("");
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [trasferito, setTrasferito] = useState(false);
+  const [suggerimentoAttivo, setSuggerimentoAttivo] = useState(false); // pallino sul pulsante
+  const [suggerimentoVisibile, setSuggerimentoVisibile] = useState(false); // il fumetto vero e proprio
   const idSessioneRef = useRef<string>("");
   const fineListaRef = useRef<HTMLDivElement>(null);
 
@@ -51,6 +85,32 @@ export default function ChatWidgetPubblico({ slug, nomeAttivita }: { slug: strin
   useEffect(() => {
     if (aperto) fineListaRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messaggi, aperto]);
+
+  useEffect(() => {
+    if (suggerimentoGiaVisto(slug)) return;
+    // setState solo dentro ai timeout, mai in modo sincrono nel corpo
+    // dell'effect (regola react-hooks/set-state-in-effect) -- 0ms per il
+    // pallino è comunque istantaneo per chi guarda la pagina.
+    const attiva = setTimeout(() => setSuggerimentoAttivo(true), 0);
+    const mostra = setTimeout(() => setSuggerimentoVisibile(true), 1500);
+    const nascondi = setTimeout(() => setSuggerimentoVisibile(false), 11500); // auto-nascosto se ignorato, ma il pallino resta
+    return () => {
+      clearTimeout(attiva);
+      clearTimeout(mostra);
+      clearTimeout(nascondi);
+    };
+  }, [slug]);
+
+  function chiudiSuggerimentoPerSempre() {
+    segnaSuggerimentoVisto(slug);
+    setSuggerimentoVisibile(false);
+    setSuggerimentoAttivo(false);
+  }
+
+  function apriChat() {
+    setAperto(true);
+    if (suggerimentoAttivo) chiudiSuggerimentoPerSempre();
+  }
 
   async function inviaMessaggio() {
     const testo = bozza.trim();
@@ -160,12 +220,37 @@ export default function ChatWidgetPubblico({ slug, nomeAttivita }: { slug: strin
         </div>
       )}
 
+      {!aperto && suggerimentoVisibile && (
+        <div className="relative max-w-[15rem] rounded-2xl border border-zinc-200 bg-white px-4 py-3 pr-8 text-sm text-zinc-700 shadow-xl">
+          <button
+            type="button"
+            aria-label="Chiudi suggerimento"
+            onClick={chiudiSuggerimentoPerSempre}
+            className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+          <button type="button" onClick={apriChat} className="text-left">
+            👋 Puoi prenotare subito qui, oppure chiedimi{" "}
+            {haInformazioniAttivita ? `quello che vuoi su ${nomeAttivita}: orari, prezzi, parcheggio e altro.` : "orari, prezzi e disponibilità dei nostri servizi."}
+          </button>
+        </div>
+      )}
+
       <button
         type="button"
-        onClick={() => setAperto((a) => !a)}
+        onClick={() => (aperto ? setAperto(false) : apriChat())}
         aria-label={aperto ? "Chiudi chat" : "Apri chat"}
-        className="flex size-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-transform hover:scale-105"
+        className="relative flex size-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-transform hover:scale-105"
       >
+        {suggerimentoAttivo && !aperto && (
+          <span className="absolute right-0.5 top-0.5 flex size-3">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex size-3 rounded-full bg-emerald-500" />
+          </span>
+        )}
         {aperto ? (
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M18 6L6 18M6 6l12 12" />
