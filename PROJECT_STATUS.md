@@ -2145,9 +2145,18 @@ l'11/09/2026 via MCP diretto).
    vecchio bug del fuso e confermato che i test lo beccano, poi ripristinato il codice
    corretto -- cliente trovato/creato, mapping dell'errore Postgres `23P01`),
    `cancellaAppuntamentoTenant`. Suite totale ora 93/93 verde, build pulita.
-5. **Concorrenza non testata su questo progetto**: il vincolo DB esiste ma non è stato
-   ancora verificato con un vero test a due richieste simultanee (era stato fatto con
-   successo sul progetto precedente con un meccanismo diverso).
+5. ~~Concorrenza non testata su questo progetto~~ **VERIFICATO PARZIALMENTE 15/09/2026**: due
+   richieste HTTP reali lanciate in parallelo per lo stesso slot (stesso operatore, stesso
+   orario) hanno confermato dal vivo il limite già documentato in `avviaPagamentoCaparraTenant`/
+   migrazione `0011`: quando un servizio richiede la caparra, il controllo di conflitto prima del
+   pagamento NON blocca lo slot, quindi due clienti possono ottenere entrambi un link di
+   pagamento valido per lo stesso orario. La difesa finale (webhook + `creaAppuntamentoTenant` +
+   vincolo Postgres `exclude using gist`, che rimborsa automaticamente il secondo pagamento in
+   conflitto) non è stata ancora verificata con un pagamento di test vero completato fino in
+   fondo su ENTRAMBI i lati in corsa -- resta l'unico pezzo di questo test non ancora provato
+   dal vivo. Sui servizi SENZA caparra (prenotazione diretta, senza passaggio da Stripe) il
+   vincolo Postgres è invece l'unica difesa fin dall'inizio e non è stato ancora testato con un
+   vero doppio tentativo simultaneo. Vedi DECISIONS.md 15/09/2026 per il dettaglio.
 6. ~~Region Supabase EU non ancora confermata~~ **RISOLTO 11/09/2026**: confermato via MCP
    diretto al progetto (`weeaggiqovnmtovdjzxy`) — region `eu-west-1`. Possiamo dichiarare "dati
    in Europa" come Estetia.
@@ -2299,6 +2308,16 @@ l'11/09/2026 via MCP diretto).
     resta indeterminata e la percentuale collassa sempre a 0. Sostituito `h-full` con un'altezza
     assoluta (`h-32`). Verificato in locale con dati finti (screenshot prima/dopo): ora le barre
     hanno altezze proporzionate ai dati reali. Vedi DECISIONS.md 15/09/2026 per il dettaglio.
+21. **Scansione UI completa di `/dashboard/configura` e delle 7 sottopagine di
+    `/dashboard/impostazioni` (sessione di test notturna 15/09/2026), nessun bug nuovo trovato**:
+    verificate dal vivo tutte le pagine (visivamente e con interazione reale sui form -- Aggiungi/
+    Elimina su operatori, servizi, promemoria, testato anche con valori negativi correttamente
+    rifiutati sia lato client che lato server). Trovata solo un'osservazione di qualità del
+    codice, non sfruttabile (confermato via `pg_policies` che RLS copre già il caso): vedi
+    "Osservazioni aperte" sotto. Vedi DECISIONS.md 15/09/2026 per il dettaglio completo,
+    incluso il test di concorrenza reale sullo stesso slot (problema noto #5 sotto, confermato
+    dal vivo per la prima volta) e i test di prompt-injection/social-engineering contro l'AI
+    (entrambi respinti correttamente, nessun bug).
 
 ## Osservazioni aperte (non bug, decisioni da prendere)
 
@@ -2308,6 +2327,20 @@ l'11/09/2026 via MCP diretto).
   prima di procedere. Probabilmente intenzionale per velocità, ma una decisione consapevole di
   Gabriel su questo punto non guasterebbe (aggiungere lo stesso pattern di conferma è a basso
   rischio, il componente esiste già e funziona).
+- **`eliminaOperatore`/`eliminaServizio`/`impostaAssociazioneOperatoreServizio`
+  (`dashboard/configura/azioni.ts`) cancellano per `id` senza filtrare esplicitamente per
+  `tenant_id`**, a differenza di quasi tutte le altre query del progetto -- oggi non sfruttabile
+  (le tabelle `operatori`/`servizi`/`operatori_servizi` hanno tutte una policy RLS `ALL` che
+  richiede `tenant_id = auth_tenant_id()`, verificato via `pg_policies`, e queste tre azioni
+  usano il client soggetto a RLS, non quello admin), ma varrebbe la pena aggiungere il filtro
+  esplicito anche qui per difesa-in-profondità, coerenza col resto del codice, e per non dipendere
+  da RLS come unica barriera. Trovato 15/09/2026, vedi DECISIONS.md.
+- **Voci in lista d'attesa con un "giorno preferito" ormai passato restano visibili per
+  sempre**: nessuna pulizia/scadenza automatica in `/dashboard/lista-attesa` -- non causano
+  comportamenti scorretti (nessuno slot potrà mai liberarsi in un giorno già passato), solo
+  rumore visivo col tempo se un cliente non viene rimosso a mano dopo essere stato contattato o
+  essere diventato irrilevante. Trovato 15/09/2026 pulendo due voci di test rimaste da un giro
+  precedente.
 
 ## Mappa dei file principali
 
