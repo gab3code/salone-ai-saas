@@ -2330,20 +2330,27 @@ l'11/09/2026 via MCP diretto).
     ("10:00 – 10:30 · manicure · Gabriel · Mario Rossi"). **Due bug nuovi e distinti trovati
     lungo il percorso di questo test, non collegati al calendario**: vedi DECISIONS.md
     15/09/2026 per il dettaglio completo.
-    - **L'AI a volte sbaglia il calcolo del giorno della settimana**: chiedendole di prenotare
+    - ~~**L'AI a volte sbaglia il calcolo del giorno della settimana**: chiedendole di prenotare
       "sabato 19 settembre" ha risposto "sabato sarebbe il 20, non il 19" -- falso (il 19
-      settembre 2026 è sabato, il 20 è domenica, coerente con tutto il resto già stabilito nella
-      stessa conversazione). Corretta esplicitamente nel messaggio successivo, poi ha proceduto
-      bene. Bug di generazione testuale del modello, non un calcolo del codice (nessuno strumento
-      calcola il giorno della settimana per l'AI).
-    - **L'AI ha detto al cliente l'importo sbagliato della caparra**: "richiede una caparra di 25
-      euro" quando l'importo vero è 5,00 € (20% di 25€, confermato sia dal codice
-      `crea_prenotazione` in `src/lib/ai/tools.ts` sia dalla pagina Stripe reale, che mostrava
-      correttamente "5,00 €"). Nessun danno economico (l'addebito Stripe è quello giusto, l'AI
-      ha solo sbagliato a *dirlo* al cliente), ma un problema serio di fiducia/UX: un cliente che
-      legge "25 euro" e poi vede "5,00 €" sulla pagina di pagamento pensa a un errore
-      dell'applicazione. Da valutare: costringere l'AI a citare l'importo esatto restituito dallo
-      strumento invece di lasciarglielo riformulare liberamente in linguaggio naturale.
+      settembre 2026 è sabato, il 20 è domenica).~~ **RISOLTO 15/09/2026**: doppia difesa, vedi
+      `src/lib/ai/giorni-settimana.ts`. Prevenzione: il system prompt ora include una tabella già
+      calcolata di tutte le date dei prossimi 8 settimane per ciascun giorno della settimana (un
+      modello copia un dato pronto molto più affidabilmente di quanto lo calcoli a mente).
+      Correzione deterministica di riserva (la prevenzione da sola ha ridotto ma non azzerato il
+      problema, verificato dal vivo): il codice ricontrolla ogni risposta finale cercando
+      combinazioni "giorno della settimana + data" e, se non corrispondono al calendario vero,
+      chiede un giro di autocorrezione al modello o, se anche quello fallisce, sostituisce
+      direttamente il nome del giorno sbagliato nel testo. 16 test nuovi in
+      `giorni-settimana.test.ts` più verifica dal vivo contro il vero modello (non nella suite
+      committata). Vedi DECISIONS.md 15/09/2026 per il dettaglio completo.
+    - ~~**L'AI ha detto al cliente l'importo sbagliato della caparra**: "richiede una caparra di
+      25 euro" quando l'importo vero è 5,00 €~~ **RISOLTO 15/09/2026**: stessa doppia difesa
+      (prevenzione via istruzione nel prompt, già presente, + rete di sicurezza deterministica
+      nuova in `verifica-numeri.ts`): il codice confronta l'importo citato vicino alla parola
+      "caparra" nella risposta finale con `importo_caparra_euro` davvero restituito da
+      `crea_prenotazione` in quel turno, e corregge (giro di autocorrezione, poi sostituzione
+      diretta del solo numero se necessario, preservando il link di pagamento) se non
+      corrispondono. Vedi DECISIONS.md 15/09/2026 per il dettaglio completo.
     Dati di test di questa verifica ripuliti dal database subito dopo la conferma (appuntamento
     "Mario Rossi" cancellato, riga `richieste_caparra` collegata lasciata come storico completato
     dato che è indistinguibile da un pagamento vero completato con successo).

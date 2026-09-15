@@ -1,7 +1,17 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { STRUMENTI_AI, eseguiStrumento, type ContestoStrumento, type NomeStrumento } from "./tools";
-import { trovaIncongruenzaPrezzoDurata, type ServizioReale } from "./verifica-numeri";
+import {
+  trovaIncongruenzaPrezzoDurata,
+  trovaIncongruenzaCaparra,
+  correggiImportoCaparraNelTesto,
+  type ServizioReale,
+} from "./verifica-numeri";
+import {
+  tabellaGiorniSettimana,
+  trovaIncongruenzaGiornoSettimana,
+  correggiGiornoSettimanaNelTesto,
+} from "./giorni-settimana";
 import { pulisciMarkdown } from "./pulisci-markdown";
 
 /**
@@ -114,6 +124,12 @@ function costruisciSystemPrompt(
   // motore di prenotazione (vedi problema noto #1 in PROJECT_STATUS.md).
   const dataOggi = adesso.toISOString().slice(0, 10);
   const giornoSettimana = GIORNI_SETTIMANA_IT[adesso.getUTCDay()];
+  // Trovato dal vivo il 15/09/2026 (vedi DECISIONS.md e giorni-settimana.ts):
+  // sapere che "oggi è martedì 15/09" non basta a evitare che il modello
+  // SBAGLI IL CALCOLO di quale data cade un altro giorno della settimana
+  // (es. ha risposto "sabato sarebbe il 20" quando è il 19) -- gli serve la
+  // tabella già calcolata, non l'obbligo di calcolarla lui.
+  const tabellaGiorni = tabellaGiorniSettimana(adesso);
 
   const apertura = haInformazioniAttivita
     ? `Sei il/la receptionist digitale di "${nomeAttivita}", disponibile tramite chat sulla pagina pubblica dell'attività: aiuti i clienti sia con domande generali sull'attività sia con la prenotazione.`
@@ -125,7 +141,11 @@ function costruisciSystemPrompt(
 
   return `${apertura}
 
-Contesto attuale: oggi è ${giornoSettimana} ${dataOggi} (formato YYYY-MM-DD). Usa SEMPRE questa data per calcolare "oggi", "domani", "dopodomani", giorni della settimana, ecc. Non chiederla mai al cliente e non presumerne una diversa.
+Contesto attuale: oggi è ${giornoSettimana} ${dataOggi} (formato YYYY-MM-DD). Usa SEMPRE questa data per calcolare "oggi", "domani", "dopodomani", ecc. Non chiederla mai al cliente e non presumerne una diversa.
+
+Tabella dei prossimi giorni della settimana con le loro date esatte (usala SEMPRE per sapere a quale data corrisponde un giorno della settimana nominato dal cliente -- non calcolarlo MAI a mente, cercalo qui sotto: un calcolo sbagliato a mente ha già causato un errore reale con un cliente):
+${tabellaGiorni}
+Se il cliente nomina sia un giorno della settimana sia una data che secondo questa tabella non corrispondono (es. "sabato 20" quando il 20 è domenica), fidati della DATA per qualunque calcolo/strumento e fai gentilmente notare il giorno della settimana corretto -- non insistere sul giorno della settimana sbagliato e non rifiutarti di procedere.
 
 REGOLE ASSOLUTE, non negoziabili:
 1. Non inventare MAI servizi, prezzi, durate, orari o disponibilità. Ogni informazione di questo tipo deve venire da uno strumento -- se non l'hai ancora chiamato, chiamalo prima di rispondere. Quando rispondi su un servizio specifico -- anche in un follow-up breve tipo "e quello X?" o "e il prezzo dell'altro?" -- usa ESATTAMENTE i valori di durata e prezzo che elenca_servizi ha restituito per QUEL servizio preciso: non stimarli, non arrotondarli, e non riusare un numero visto per un servizio diverso nella stessa conversazione anche se ti sembra plausibile o simile. Se hai un dubbio su quale valore appartenga a quale servizio, richiama elenca_servizi invece di rispondere a memoria. Quando uno strumento richiede un id (servizio_id, servizio_ids, operatore_id, appuntamento_id), usa SEMPRE l'id esatto restituito da elenca_servizi/elenca_operatori/cerca_prenotazioni_cliente -- mai il nome del servizio o dell'operatore al suo posto.
@@ -149,19 +169,26 @@ Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è
 }
 
 /**
- * Rete di sicurezza deterministica contro prezzi/durate inventati su un
- * follow-up secco tra due servizi (trovato dal vivo il 15/09/2026, vedi
- * verifica-numeri.ts e DECISIONS.md): rafforzare il system prompt ha ridotto
- * ma non eliminato il problema con Haiku 4.5, e su un prezzo Gabriel ha
+ * Rete di sicurezza deterministica contro dati verificabili inventati dal
+ * modello: numeri (prezzo/durata su un follow-up secco tra due servizi, o
+ * l'importo della caparra appena restituito da crea_prenotazione) e giorno
+ * della settimana abbinato a una data (tutti trovati dal vivo il 15/09/2026,
+ * vedi verifica-numeri.ts, giorni-settimana.ts e DECISIONS.md): rafforzare
+ * il system prompt ha ridotto ma non eliminato questi problemi con Haiku
+ * 4.5, e su un dato verificabile (un importo di denaro, una data) Gabriel ha
  * chiesto esplicitamente una verifica a livello di codice, non solo
  * un'istruzione al modello.
  *
- * Chiamata solo se il testo sembra menzionare un prezzo o una durata (per
- * non aggiungere una query al database su ogni singola risposta della
- * chat). Un solo giro di correzione col modello; se anche quello risultasse
+ * La query servizi (per prezzo/durata) parte solo se il testo sembra
+ * menzionare un prezzo o una durata (per non aggiungere una query al
+ * database su ogni singola risposta della chat) -- il controllo sul giorno
+ * della settimana invece è sempre attivo (nessuna query, puro calcolo su
+ * `adesso`). Un solo giro di correzione col modello, che copre tutti i
+ * problemi insieme se presenti più di uno; se anche quel giro risultasse
  * ancora sbagliato -- o il modello chiedesse di nuovo uno strumento invece
- * di rispondere -- la frase corretta viene generata direttamente dal codice:
- * su un prezzo la correttezza vince sempre sulla naturalezza del testo.
+ * di rispondere -- la frase (o il singolo dato, per caparra/giorno) corretta
+ * viene generata/sostituita direttamente dal codice: su un dato verificabile
+ * la correttezza vince sempre sulla naturalezza del testo.
  */
 async function correggiSeIncongruente(
   testo: string,
@@ -170,28 +197,46 @@ async function correggiSeIncongruente(
   contenutoRisposta: Anthropic.Message["content"],
   clientAnthropic: ClienteAnthropic,
   system: string,
-  tools: Anthropic.Tool[]
+  tools: Anthropic.Tool[],
+  importoCaparraReale: number | null,
+  adesso: Date
 ): Promise<string> {
-  if (!/€|euro|minut/i.test(testo)) return testo;
+  const potrebbeMenzionareUnNumero = /€|euro|minut/i.test(testo);
 
-  const risultatoServizi = await eseguiStrumento("elenca_servizi", {}, ctx);
-  const serviziGrezzi =
-    (risultatoServizi.servizi as Array<{ nome: string; durata_minuti: number; prezzo_euro: number }> | undefined) ?? [];
-  const servizi: ServizioReale[] = serviziGrezzi.map((s) => ({
-    nome: s.nome,
-    durataMinuti: s.durata_minuti,
-    prezzoEuro: s.prezzo_euro,
-  }));
+  let servizi: ServizioReale[] = [];
+  if (potrebbeMenzionareUnNumero) {
+    const risultatoServizi = await eseguiStrumento("elenca_servizi", {}, ctx);
+    const serviziGrezzi =
+      (risultatoServizi.servizi as Array<{ nome: string; durata_minuti: number; prezzo_euro: number }> | undefined) ?? [];
+    servizi = serviziGrezzi.map((s) => ({ nome: s.nome, durataMinuti: s.durata_minuti, prezzoEuro: s.prezzo_euro }));
+  }
 
-  const incongruenza = trovaIncongruenzaPrezzoDurata(testo, servizi);
-  if (!incongruenza) return testo;
+  const verificaIncongruenze = (t: string): string[] => {
+    const problemi: string[] = [];
+    const incongruenzaPrezzo = trovaIncongruenzaPrezzoDurata(t, servizi);
+    if (incongruenzaPrezzo) problemi.push(incongruenzaPrezzo);
+    if (importoCaparraReale !== null) {
+      const incongruenzaCaparra = trovaIncongruenzaCaparra(t, importoCaparraReale);
+      if (incongruenzaCaparra) problemi.push(incongruenzaCaparra);
+    }
+    const incongruenzaGiorno = trovaIncongruenzaGiornoSettimana(t, adesso);
+    if (incongruenzaGiorno) problemi.push(incongruenzaGiorno);
+    return problemi;
+  };
+
+  const problemi = verificaIncongruenze(testo);
+  if (problemi.length === 0) return testo;
 
   const rispostaCorretta = await clientAnthropic.messages.create({
     model: MODELLO,
     max_tokens: 1024,
     system,
     tools,
-    messages: [...messages, { role: "assistant", content: contenutoRisposta }, { role: "user", content: incongruenza }],
+    messages: [
+      ...messages,
+      { role: "assistant", content: contenutoRisposta },
+      { role: "user", content: problemi.join(" Inoltre: ") },
+    ],
   });
 
   const haRichiestoStrumento = rispostaCorretta.content.some((blocco) => blocco.type === "tool_use");
@@ -201,17 +246,44 @@ async function correggiSeIncongruente(
     .join("\n")
     .trim();
 
-  if (!haRichiestoStrumento && testoCorretto && !trovaIncongruenzaPrezzoDurata(testoCorretto, servizi)) {
+  if (!haRichiestoStrumento && testoCorretto && verificaIncongruenze(testoCorretto).length === 0) {
     return testoCorretto;
   }
 
-  // Il modello non si è corretto: fallback deterministico, garantito corretto
-  // anche se meno naturale del solito -- meglio una frase secca ma esatta che
-  // rischiare un secondo numero inventato.
-  const servizioMenzionato = servizi.find((s) => new RegExp(`\\b${s.nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(testo));
-  return servizioMenzionato
-    ? `Il servizio "${servizioMenzionato.nome}" costa ${servizioMenzionato.prezzoEuro}€ e dura ${servizioMenzionato.durataMinuti} minuti.`
-    : testo;
+  // Il modello non si è corretto (del tutto): fallback deterministico,
+  // garantito corretto anche se meno naturale del solito -- meglio una
+  // risposta secca ma esatta che rischiare un secondo numero inventato.
+  // Il testo di partenza per il fallback è quello del secondo giro se
+  // disponibile (potrebbe aver corretto UNO dei due problemi), altrimenti
+  // il testo originale.
+  let base = !haRichiestoStrumento && testoCorretto ? testoCorretto : testo;
+
+  if (importoCaparraReale !== null && trovaIncongruenzaCaparra(base, importoCaparraReale)) {
+    base = correggiImportoCaparraNelTesto(base, importoCaparraReale);
+  }
+  // Sostituzione mirata (solo il nome del giorno, come per la caparra sopra)
+  // -- mai distruttiva, va sempre applicata indipendentemente dagli altri
+  // problemi trovati.
+  if (trovaIncongruenzaGiornoSettimana(base, adesso)) {
+    base = correggiGiornoSettimanaNelTesto(base, adesso);
+  }
+  // Il fallback prezzo/durata sostituisce l'INTERO messaggio con una frase
+  // generata dal codice -- va bene quando il messaggio parlava solo di
+  // prezzo/durata, ma durante un flusso di caparra attivo (importoCaparraReale
+  // non null) il messaggio contiene anche il link di pagamento: sostituirlo
+  // per intero lo perderebbe. In quel caso (doppio errore nello stesso
+  // messaggio, situazione rara) si preferisce lasciare un'imprecisione sul
+  // prezzo piuttosto che perdere il link -- l'importo della caparra, quello
+  // già corretto sopra, resta comunque protetto.
+  if (importoCaparraReale === null && trovaIncongruenzaPrezzoDurata(base, servizi)) {
+    const servizioMenzionato = servizi.find((s) =>
+      new RegExp(`\\b${s.nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(base)
+    );
+    if (servizioMenzionato) {
+      base = `Il servizio "${servizioMenzionato.nome}" costa ${servizioMenzionato.prezzoEuro}€ e dura ${servizioMenzionato.durataMinuti} minuti.`;
+    }
+  }
+  return base;
 }
 
 /**
@@ -248,6 +320,13 @@ export async function rispondiConversazione(
 
   let trasferitoAUmano = false;
   let usoStrumenti = false;
+  // Importo esatto della caparra restituito dall'ULTIMA chiamata a
+  // crea_prenotazione in questo turno (se richiede_pagamento è true) -- usato
+  // da correggiSeIncongruente per verificare che il messaggio finale citi la
+  // cifra vera, non una inventata dal modello (trovato dal vivo 15/09/2026,
+  // vedi DECISIONS.md e verifica-numeri.ts). Resta null per l'intera
+  // conversazione se questo turno non tocca affatto una caparra.
+  let importoCaparraRichiesto: number | null = null;
 
   // Il tool info_attivita esiste solo per i tenant con la knowledge base
   // dell'AI receptionist (Pro/Enterprise, `pianoHaKnowledgeBaseAi` in
@@ -294,7 +373,9 @@ export async function rispondiConversazione(
               risposta.content,
               clientAnthropic,
               costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita),
-              strumentiDisponibili as unknown as Anthropic.Tool[]
+              strumentiDisponibili as unknown as Anthropic.Tool[],
+              importoCaparraRichiesto,
+              adesso
             )
           )
         : testo;
@@ -311,6 +392,13 @@ export async function rispondiConversazione(
     for (const blocco of blocchiToolUse) {
       const risultato = await eseguiStrumento(blocco.name as NomeStrumento, blocco.input as Record<string, unknown>, ctx);
       if (blocco.name === "trasferisci_a_operatore") trasferitoAUmano = true;
+      if (
+        blocco.name === "crea_prenotazione" &&
+        risultato.richiede_pagamento === true &&
+        typeof risultato.importo_caparra_euro === "number"
+      ) {
+        importoCaparraRichiesto = risultato.importo_caparra_euro;
+      }
       risultatiTool.push({
         type: "tool_result",
         tool_use_id: blocco.id,

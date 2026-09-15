@@ -3110,3 +3110,84 @@ calendario**:
 **Pulizia dati di test**: l'appuntamento di prova "Mario Rossi" del 19/09/2026 è stato cancellato
 subito dopo la verifica; la riga `richieste_caparra` collegata è stata lasciata `completata` come
 prima (indistinguibile da un vero pagamento riuscito, non ha senso modificarla).
+
+## 2026-09-15 — Fix dei due bug AI trovati sopra: prevenzione + rete di sicurezza deterministica, non solo un'istruzione più forte
+
+**Richiesta di Gabriel**: "sono errori gravi dell'ai, miglioralo e testalo bene nel tuo ambiente".
+
+**Decisione**: per entrambi i bug, stessa filosofia già validata su prezzo/durata (vedi
+`verifica-numeri.ts`, voce precedente su questo problema): un'istruzione nel system prompt da
+sola riduce ma non azzera un errore di questo tipo con Haiku 4.5, quindi ogni bug ha ricevuto DUE
+difese, non una sola:
+1. **Prevenzione**: dare al modello il dato già calcolato invece di chiedergli di calcolarlo (per
+   il giorno della settimana) o rinforzare l'istruzione esistente (per la caparra, già presente
+   dal 14/09).
+2. **Correzione deterministica**: il codice ricontrolla il testo finale prima di mandarlo al
+   cliente e, se trova un'incongruenza verificabile, prova un giro di autocorrezione col modello
+   e, come ultima rete, sostituisce direttamente il dato sbagliato nel testo -- mai un'eccezione,
+   mai un messaggio bloccato, solo un dato reso corretto.
+
+**Bug 1, giorno della settimana (nuovo modulo `src/lib/ai/giorni-settimana.ts`)**:
+- Prevenzione: il system prompt (`costruisciSystemPrompt` in `agente.ts`) ora include, subito
+  dopo "oggi è martedì 15 settembre 2026", una tabella con TUTTE le date dei prossimi 56 giorni
+  (8 settimane) raggruppate per giorno della settimana (una riga per giorno, es. "sabato:
+  2026-09-19, 2026-09-26, ..."). Un modello linguistico è molto più affidabile nel *copiare* un
+  dato già pronto che nel *calcolarlo* -- lo stesso principio già scritto nel commento di
+  `verifica-numeri.ts` per prezzo/durata, qui applicato per la prima volta a un calcolo di date.
+  8 settimane bastano per la quasi totalità delle richieste di prenotazione reali senza gonfiare
+  troppo il prompt di ogni turno (7 righe, non 56).
+- Correzione deterministica (`trovaIncongruenzaGiornoSettimana`/`correggiGiornoSettimanaNelTesto`):
+  cerca nel testo finale ogni combinazione "giorno della settimana + data" (in entrambi gli
+  ordini: "sabato 19 settembre" o "il 19 settembre è sabato"), ricalcola il vero giorno della
+  settimana per quella data (anno inferito da `adesso` se non esplicito, con un margine di ~90
+  giorni nel passato prima di provare l'anno successivo -- un cliente che dice "sabato 19" senza
+  anno intende quasi sempre la prossima occorrenza, non una passata) e corregge se non
+  corrispondono. Non attraversa mai un confine di frase (un punto/punto esclamativo/interrogativo
+  in mezzo): un giorno della settimana menzionato in una frase e una data in quella successiva
+  non vanno confusi solo perché vicini in caratteri. Il fallback finale sostituisce SOLO la parola
+  del giorno sbagliato (preservando maiuscola iniziale), mai l'intero messaggio.
+- Verifica dal vivo contro il vero modello (Haiku 4.5, non un client finto): riproducendo lo
+  scenario originale ("Prenota subito una pedicure con Gabriel per sabato 19 settembre alle
+  16:00...") **6 volte di fila prima del fix di correzione deterministica**, 5/6 hanno risposto
+  correttamente grazie alla sola tabella nel prompt, ma 1/6 ha comunque scritto "domenica 19
+  settembre" (falso) proponendo un'alternativa -- prova diretta che la prevenzione da sola non
+  basta su questo modello. **Con la rete di correzione aggiunta, ripetuto lo stesso scenario altre
+  5 volte: sempre corretto** (0 errori residui su questo campione, incluso un giro dove il modello
+  ha divagato sul ragionare se la data "fosse già passata" -- innocuo, non un errore di giorno
+  della settimana). Non è una prova matematica che l'errore non si ripresenterà mai (un modello
+  linguistico non offre garanzie assolute), ma la rete di correzione deterministica intercetta e
+  corregge qualunque occorrenza residua prima che raggiunga il cliente, cosa che la sola
+  istruzione nel prompt non poteva fare.
+
+**Bug 2, importo caparra (esteso `src/lib/ai/verifica-numeri.ts`, stessa filosofia di
+`trovaIncongruenzaPrezzoDurata` già esistente)**:
+- `trovaIncongruenzaCaparra`/`correggiImportoCaparraNelTesto`: cerca l'importo in euro PIÙ VICINO
+  alla parola "caparra" nel testo (non il primo che appare nel messaggio -- un messaggio spesso
+  cita anche il prezzo pieno del servizio nella stessa risposta, es. "la manicure costa 25 euro...
+  la caparra è di 5 euro", e il prezzo pieno non deve essere scambiato per l'importo della
+  caparra). Stessa regola dei confini di frase del bug 1: un importo in una frase diversa (punto
+  in mezzo) non conta come "vicino" anche se più corto in caratteri di uno nella frase giusta --
+  altrimenti un prezzo pieno nella frase immediatamente precedente batterebbe per vicinanza
+  l'importo vero nella frase successiva.
+- Agganciato al loop di conversazione in `agente.ts`: quando `crea_prenotazione` restituisce
+  `richiede_pagamento: true`, l'importo esatto (`importo_caparra_euro`) viene salvato per la
+  durata del turno e confrontato con qualunque cifra il modello scriva vicino a "caparra" nella
+  risposta finale.
+- `correggiSeIncongruente` (in `agente.ts`) ora raccoglie TUTTI i problemi trovati (prezzo/durata,
+  caparra, giorno della settimana) e li corregge in un solo giro col modello invece di uno per
+  problema -- più economico e più naturale (un solo messaggio di correzione, non tre in fila). Un
+  dettaglio di sicurezza: se il fallback prezzo/durata (che riscrive l'INTERO messaggio) scattasse
+  mentre è attivo un flusso di caparra, distruggerebbe il link di pagamento -- quindi quel
+  fallback specifico è disattivato quando `importoCaparraReale` non è null, accettando
+  un'eventuale imprecisione residua sul prezzo pieno piuttosto che perdere il link (scenario
+  comunque raro: richiede DUE errori diversi nello stesso messaggio).
+- Verifica dal vivo: nello stesso campione di conversazioni sopra, l'importo di caparra riportato
+  è sempre risultato corretto (5€, mai 25€) in ogni singola risposta osservata.
+
+**Test**: `giorni-settimana.test.ts` (nuovo file, 16 test: tabella + le due funzioni di
+correzione), `verifica-numeri.test.ts` (+12 sulla caparra), `agente.caparra.test.ts` (nuovo file,
+5 test sul cablaggio crea_prenotazione -> correzione, con `vi.mock("./tools")` mirato per non
+dover passare dal vero Stripe/DB) -- oltre alle verifiche dal vivo sopra contro il vero modello
+(non committate: uno script temporaneo cancellato subito dopo l'uso, come da prassi per non
+lasciare artefatti di test usa-e-getta). Suite completa: `npx vitest run` (364/364), `tsc
+--noEmit`, `eslint`, `npm run build` tutti puliti.
