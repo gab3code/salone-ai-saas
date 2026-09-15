@@ -2205,3 +2205,75 @@ per un servizio diverso nella stessa conversazione anche se sembra plausibile, e
 **Verifica**: `npx vitest run` -> 276/276 verdi (nessun test dipendeva dal testo esatto della
 regola 1); `npx tsc --noEmit` -> pulito; `npx eslint` -> pulito. Verifica dal vivo dello stesso
 scenario di follow-up dopo il deploy: vedi la prossima voce di questo file per l'esito.
+
+---
+
+## 2026-09-15 — Il solo system prompt non basta: aggiunta una rete di sicurezza a livello di
+## codice contro prezzi/durate inventati (nuovo modulo `verifica-numeri.ts`)
+
+**Contesto**: dopo il deploy del rafforzamento della regola 1 (voce precedente), riverificato dal
+vivo lo stesso scenario ("Quanto costa la pedicure?" -> "e la manicure?") su 3 conversazioni pulite
+distinte (`localStorage.clear()` prima di ognuna, per evitare di riusare per sbaglio lo storico
+server-side di un test precedente -- vedi nota più sotto). Risultato: 2 corrette su 3 ("La manicure
+costa 25 euro e dura 30 minuti."), 1 ancora sbagliata ("La manicure costa 30 euro e dura 30
+minuti." -- prezzo inventato, reale 25€). Un miglioramento reale (da 0/2 a 2/3) ma non
+un'eliminazione del problema, e riportato a Gabriel esattamente in questi termini, senza
+arrotondare per eccesso: su un prezzo, un errore ogni tanto resta inaccettabile.
+
+Chiesto esplicitamente a Gabriel come procedere (cambiare modello per uno più capace, o mitigare
+diversamente restando su Haiku 4.5): ha scelto di **restare su Haiku** (costo) e mitigare a un
+livello diverso -- non un'altra istruzione al modello, ma una verifica del codice sul numero
+dichiarato dall'AI contro il dato reale prima di mandare la risposta al cliente.
+
+**Modifica**: nuovo modulo `src/lib/ai/verifica-numeri.ts`, funzione pura `trovaIncongruenzaPrezzoDurata(testo, servizi)`
+(nessun IO, stesso principio di separazione già usato per `booking-engine.ts` vs
+`booking-engine.server.ts`): riconosce se il testo finale dell'AI menziona **un solo** servizio
+reale in modo univoco (se ne menziona più di uno, o nessuno, fa fail-open e non tocca nulla --
+meglio non controllare che attribuire un numero al servizio sbagliato per un falso positivo),
+estrae un eventuale prezzo (`€`/`euro`, con virgola o punto decimale) e/o una durata (`minuti`)
+dichiarati nel testo, e li confronta con i valori reali di quel servizio.
+
+Cablato in `src/lib/ai/agente.ts` con la nuova funzione `correggiSeIncongruente`, chiamata subito
+prima di restituire la risposta finale al cliente (solo se il testo sembra contenere un prezzo o
+una durata, per non aggiungere una query al database su ogni singola risposta della chat):
+1. Richiama `elenca_servizi` (lo strumento vero, stessi dati che vede il modello) per avere i
+   valori reali aggiornati.
+2. Se `trovaIncongruenzaPrezzoDurata` non trova nulla di sbagliato, la risposta esce invariata.
+3. Se trova un'incongruenza, fa fare **un solo giro di correzione** al modello: gli rimanda la sua
+   stessa risposta sbagliata più una spiegazione dell'errore trovato, chiedendo di riscrivere
+   correggendo SOLO quel valore.
+4. Se il modello si corregge bene (niente richiesta di uno strumento, e il testo corretto non
+   presenta più l'incongruenza), si usa quella risposta corretta dal modello -- resta naturale.
+5. Se il modello non si corregge (sbaglia di nuovo il numero, o chiede uno strumento invece di
+   rispondere), **fallback deterministico**: una frase generata direttamente dal codice
+   (`Il servizio "X" costa Y€ e dura Z minuti.`), garantita corretta anche se meno naturale del
+   solito. Su un prezzo la correttezza vince sempre sulla naturalezza del testo.
+
+Fail-open per design in ogni punto: `eseguiStrumento` non lancia mai eccezioni (contratto già
+esistente, confermato qui semplicemente riusandolo), quindi un problema nel recupero dei servizi
+reali (query fallita, tenant senza servizi) produce una lista vuota e la validazione si
+disattiva da sola invece di bloccare o alterare una risposta che non può verificare con sicurezza.
+
+**Verifica**: nuovo file `src/lib/ai/verifica-numeri.test.ts` (9 test sulla funzione pura --
+nessuna incongruenza quando i valori combaciano, prezzo sbagliato rilevato, durata sbagliata
+rilevata, entrambi insieme, fail-open su più servizi menzionati/nessun servizio
+menzionato/lista vuota, formato con virgola decimale, simbolo `€` oltre alla parola per esteso) +
+6 nuovi test di integrazione in `agente.test.ts` (describe "rete di sicurezza sui prezzi/durate")
+con un client Anthropic finto e un client Supabase finto che risponde alla stessa catena di query
+di `elenca_servizi`: risposta già corretta non tocca nulla (un solo giro al modello); testo senza
+prezzi/durate non chiama nemmeno `elenca_servizi`; prezzo sbagliato corretto con successo al
+secondo giro (verificato anche il contenuto esatto del messaggio di correzione mandato al
+modello); fallback deterministico quando il modello chiede uno strumento invece di correggersi;
+fallback deterministico quando il modello sbaglia di nuovo il numero al secondo giro; fail-open
+con un client Supabase non funzionante (il caso già coperto implicitamente dai test preesistenti
+con `supabase: {}`, reso qui esplicito). Tutti passano: `npx vitest run` -> 291/291 verdi (25
+file); `npx tsc --noEmit` -> pulito (corretto anche un flag regex `/s` nel nuovo file di test, non
+supportato dal target TypeScript del progetto -- sostituito con un pattern equivalente senza il
+flag, il testo verificato è comunque su una sola riga); `npx eslint` sui 4 file toccati -> pulito;
+`npm run build` -> production build riuscita, nessuna route toccata da questo cambiamento.
+
+**Non ancora fatto**: nessuna verifica dal vivo di questa rete di sicurezza specifica (richiede
+deploy). Da ripetere lo stesso scenario di follow-up più volte dopo il deploy per raccogliere
+conferma empirica che il cliente non veda più MAI un numero sbagliato -- il fallback deterministico
+lo garantisce in teoria, ma dato quanto si è rivelato insidioso questo bug vale la pena
+confermarlo dal vivo prima di considerarlo definitivamente chiuso.

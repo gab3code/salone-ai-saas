@@ -234,4 +234,122 @@ describe("rispondiConversazione", () => {
       expect(create.mock.calls[1][0].system).toContain("info_attivita");
     });
   });
+
+  describe("rete di sicurezza sui prezzi/durate (trovato dal vivo 15/09/2026, vedi verifica-numeri.ts)", () => {
+    // Finge la stessa catena usata da elenca_servizi in tools.ts:
+    // supabase.from("servizi").select(...).eq(...).eq(...).order(...) -> {data, error}.
+    function supabaseConServizi(
+      servizi: Array<{ id: string; nome: string; durata_minuti: number; prezzo_centesimi: number }>
+    ): SupabaseClient {
+      const query = {
+        eq: vi.fn(() => query),
+        order: vi.fn().mockResolvedValue({ data: servizi, error: null }),
+      };
+      return { from: vi.fn(() => ({ select: vi.fn(() => query) })) } as unknown as SupabaseClient;
+    }
+
+    // Nuovo oggetto ctx per ogni test: i mock di from/eq/order accumulano
+    // chiamate, e ogni test controlla quante volte sono stati invocati.
+    function nuovoCtxConServizi() {
+      return {
+        ...ctx,
+        supabase: supabaseConServizi([
+          { id: "s1", nome: "manicure", durata_minuti: 30, prezzo_centesimi: 2500 },
+          { id: "s2", nome: "pedicure", durata_minuti: 30, prezzo_centesimi: 4000 },
+        ]),
+      };
+    }
+
+    it("non tocca una risposta già corretta (un solo giro al modello, nessuna correzione superflua)", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("La manicure costa 25 euro e dura 30 minuti."));
+      const risultato = await rispondiConversazione(
+        [],
+        "e la manicure?",
+        nuovoCtxConServizi(),
+        { messages: { create } } as ClienteAnthropic
+      );
+
+      expect(risultato.rispostaTesto).toBe("La manicure costa 25 euro e dura 30 minuti.");
+      expect(create).toHaveBeenCalledTimes(1); // niente giro di correzione: non serviva
+    });
+
+    it("non chiama nemmeno elenca_servizi se il testo non menziona affatto prezzi o durate", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Certo, ti aspettiamo domani!"));
+      const ctxTest = nuovoCtxConServizi();
+      await rispondiConversazione([], "Ok grazie", ctxTest, { messages: { create } } as ClienteAnthropic);
+
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(ctxTest.supabase.from).not.toHaveBeenCalled();
+    });
+
+    it("corregge un prezzo sbagliato con un secondo giro al modello quando la correzione risulta esatta", async () => {
+      const create = vi
+        .fn()
+        .mockResolvedValueOnce(testoFinale("La manicure costa 35 euro e dura 30 minuti.")) // sbagliato: reale 25€
+        .mockResolvedValueOnce(testoFinale("La manicure costa 25 euro e dura 30 minuti.")); // corretto al secondo giro
+
+      const risultato = await rispondiConversazione(
+        [],
+        "e la manicure?",
+        nuovoCtxConServizi(),
+        { messages: { create } } as ClienteAnthropic
+      );
+
+      expect(risultato.rispostaTesto).toBe("La manicure costa 25 euro e dura 30 minuti.");
+      expect(create).toHaveBeenCalledTimes(2);
+
+      // Il secondo giro deve includere sia la risposta sbagliata originale sia
+      // la spiegazione dell'incongruenza, non solo il messaggio del cliente.
+      const secondaChiamata = create.mock.calls[1][0];
+      const ultimiDue = secondaChiamata.messages.slice(-2);
+      expect(ultimiDue[0]).toEqual({ role: "assistant", content: [{ type: "text", text: "La manicure costa 35 euro e dura 30 minuti." }] });
+      expect(ultimiDue[1].role).toBe("user");
+      expect(ultimiDue[1].content).toMatch(/35€.*25€|manicure/i);
+    });
+
+    it("fallback deterministico se il modello, invece di correggersi, chiede di nuovo uno strumento", async () => {
+      const create = vi
+        .fn()
+        .mockResolvedValueOnce(testoFinale("La manicure costa 35 euro e dura 30 minuti."))
+        .mockResolvedValueOnce(usoStrumento("elenca_servizi", {}));
+
+      const risultato = await rispondiConversazione(
+        [],
+        "e la manicure?",
+        nuovoCtxConServizi(),
+        { messages: { create } } as ClienteAnthropic
+      );
+
+      expect(risultato.rispostaTesto).toBe('Il servizio "manicure" costa 25€ e dura 30 minuti.');
+      expect(create).toHaveBeenCalledTimes(2); // niente terzo giro: il fallback è generato dal codice, non dal modello
+    });
+
+    it("fallback deterministico se anche il secondo giro del modello sbaglia il numero", async () => {
+      const create = vi
+        .fn()
+        .mockResolvedValueOnce(testoFinale("La manicure costa 35 euro e dura 30 minuti."))
+        .mockResolvedValueOnce(testoFinale("La manicure costa 30 euro e dura 30 minuti.")); // ancora sbagliato
+
+      const risultato = await rispondiConversazione(
+        [],
+        "e la manicure?",
+        nuovoCtxConServizi(),
+        { messages: { create } } as ClienteAnthropic
+      );
+
+      expect(risultato.rispostaTesto).toBe('Il servizio "manicure" costa 25€ e dura 30 minuti.');
+      expect(create).toHaveBeenCalledTimes(2);
+    });
+
+    it("fail-open: con un client Supabase non funzionante non blocca né altera la risposta (nessuna eccezione)", async () => {
+      // ctx di base ha supabase: {} as SupabaseClient -- eseguiStrumento la
+      // intercetta e restituisce {errore: ...}, quindi servizi = [] e
+      // trovaIncongruenzaPrezzoDurata fa fail-open (vedi verifica-numeri.ts).
+      const create = vi.fn().mockResolvedValue(testoFinale("La manicure costa 999 euro e dura 30 minuti."));
+      const risultato = await rispondiConversazione([], "e la manicure?", ctx, { messages: { create } } as ClienteAnthropic);
+
+      expect(risultato.rispostaTesto).toBe("La manicure costa 999 euro e dura 30 minuti.");
+      expect(create).toHaveBeenCalledTimes(1);
+    });
+  });
 });

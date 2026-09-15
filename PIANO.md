@@ -59,8 +59,33 @@ reale delle fasi è:
   operatore per questo). `tsc`/`eslint`/`vitest` (276/276)/`build` puliti. Migrazione
   `0021_knowledge_base_attivita.sql` applicata al database reale il 15/09/2026 con l'ok di
   Gabriel (colonne/tabella/RLS verificate via query dirette, nessun nuovo avviso di sicurezza).
-  **Ancora da fare**: verificare dal vivo la qualità conversazionale reale (i 14 scenari elencati da
-  Gabriel, non copribili dai soli test automatici).
+
+  **Bug reale trovato e mitigato in due passaggi durante la verifica dal vivo (15/09/2026, vedi
+  DECISIONS.md per il dettaglio)**: su un follow-up secco tra due servizi ("Quanto costa la
+  pedicure?" -> "e la manicure?") Haiku 4.5 inventava prezzo/durata nonostante i dati corretti già
+  nel contesto. Rafforzato il system prompt (0/2 -> 2/3 corretti, non sufficiente su un dato che
+  tocca i soldi del cliente) e poi aggiunta una rete di sicurezza deterministica a livello di
+  codice (`src/lib/ai/verifica-numeri.ts` + `correggiSeIncongruente` in `agente.ts`): controlla il
+  numero dichiarato dall'AI contro il dato reale prima di mandarlo al cliente, tenta un giro di
+  autocorrezione col modello, e se anche quello fallisce genera la frase direttamente dal codice
+  (garantita corretta). Scelta di Gabriel: restare su Haiku (costo) invece di cambiare modello.
+  `tsc`/`eslint`/`vitest` (291/291)/`build` puliti. **Ancora da fare**: verificare dal vivo che
+  questa rete di sicurezza elimini davvero il problema (richiede deploy), poi continuare gli altri
+  scenari di test elencati da Gabriel (i 14 scenari, non tutti ancora coperti).
+
+  **Feedback diretto di Gabriel il 15/09/2026 (con trascrizione reale), non ancora affrontato**: le
+  risposte di `info_attivita` a una domanda generica come "dammi informazioni aggiuntive" sono un
+  "malloppone noioso di testo" -- l'AI riversa TUTTA la knowledge base in un unico paragrafo denso
+  (descrizione + indirizzo + parcheggio + pagamenti + policy di cancellazione + una FAQ non
+  richiesta + giorno di chiusura) e in coda ripropone comunque la prenotazione. Viola l'obiettivo
+  originale della Fase 2 (risposte informative naturali e sintetiche, non un elenco). Da correggere
+  probabilmente rivedendo la "regola 11" del system prompt e/o la descrizione dello strumento
+  `info_attivita` in `tools.ts`, per farla essere più selettiva (rispondere solo a quanto
+  effettivamente chiesto, eventualmente chiedere cosa interessa di preciso invece di scaricare
+  tutto) e non chiudere sempre con una spinta alla prenotazione.
+
+  **Backlog UI, esplicitamente rimandato da Gabriel a una fase di rifinitura**: il "thinking orbs"
+  (indicatore di caricamento della chat) compare ma non è animato.
 - **Fase 3 = onboarding AI-assisted**: descrizione testuale della propria attività → bozza
   generata dall'AI → compilata sui form di `/dashboard/configura` che esistono già, il
   titolare conferma/corregge invece di partire da campi vuoti. **Nota per quando ci arriviamo

@@ -1,6 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { STRUMENTI_AI, eseguiStrumento, type ContestoStrumento, type NomeStrumento } from "./tools";
+import { trovaIncongruenzaPrezzoDurata, type ServizioReale } from "./verifica-numeri";
 
 /**
  * Il loop vero e proprio (Task #66): MESSAGGIO -> AI -> intent/contesto ->
@@ -145,6 +146,72 @@ Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è
 }
 
 /**
+ * Rete di sicurezza deterministica contro prezzi/durate inventati su un
+ * follow-up secco tra due servizi (trovato dal vivo il 15/09/2026, vedi
+ * verifica-numeri.ts e DECISIONS.md): rafforzare il system prompt ha ridotto
+ * ma non eliminato il problema con Haiku 4.5, e su un prezzo Gabriel ha
+ * chiesto esplicitamente una verifica a livello di codice, non solo
+ * un'istruzione al modello.
+ *
+ * Chiamata solo se il testo sembra menzionare un prezzo o una durata (per
+ * non aggiungere una query al database su ogni singola risposta della
+ * chat). Un solo giro di correzione col modello; se anche quello risultasse
+ * ancora sbagliato -- o il modello chiedesse di nuovo uno strumento invece
+ * di rispondere -- la frase corretta viene generata direttamente dal codice:
+ * su un prezzo la correttezza vince sempre sulla naturalezza del testo.
+ */
+async function correggiSeIncongruente(
+  testo: string,
+  ctx: ContestoStrumento,
+  messages: Anthropic.MessageParam[],
+  contenutoRisposta: Anthropic.Message["content"],
+  clientAnthropic: ClienteAnthropic,
+  system: string,
+  tools: Anthropic.Tool[]
+): Promise<string> {
+  if (!/€|euro|minut/i.test(testo)) return testo;
+
+  const risultatoServizi = await eseguiStrumento("elenca_servizi", {}, ctx);
+  const serviziGrezzi =
+    (risultatoServizi.servizi as Array<{ nome: string; durata_minuti: number; prezzo_euro: number }> | undefined) ?? [];
+  const servizi: ServizioReale[] = serviziGrezzi.map((s) => ({
+    nome: s.nome,
+    durataMinuti: s.durata_minuti,
+    prezzoEuro: s.prezzo_euro,
+  }));
+
+  const incongruenza = trovaIncongruenzaPrezzoDurata(testo, servizi);
+  if (!incongruenza) return testo;
+
+  const rispostaCorretta = await clientAnthropic.messages.create({
+    model: MODELLO,
+    max_tokens: 1024,
+    system,
+    tools,
+    messages: [...messages, { role: "assistant", content: contenutoRisposta }, { role: "user", content: incongruenza }],
+  });
+
+  const haRichiestoStrumento = rispostaCorretta.content.some((blocco) => blocco.type === "tool_use");
+  const testoCorretto = rispostaCorretta.content
+    .filter((blocco): blocco is Anthropic.TextBlock => blocco.type === "text")
+    .map((blocco) => blocco.text)
+    .join("\n")
+    .trim();
+
+  if (!haRichiestoStrumento && testoCorretto && !trovaIncongruenzaPrezzoDurata(testoCorretto, servizi)) {
+    return testoCorretto;
+  }
+
+  // Il modello non si è corretto: fallback deterministico, garantito corretto
+  // anche se meno naturale del solito -- meglio una frase secca ma esatta che
+  // rischiare un secondo numero inventato.
+  const servizioMenzionato = servizi.find((s) => new RegExp(`\\b${s.nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(testo));
+  return servizioMenzionato
+    ? `Il servizio "${servizioMenzionato.nome}" costa ${servizioMenzionato.prezzoEuro}€ e dura ${servizioMenzionato.durataMinuti} minuti.`
+    : testo;
+}
+
+/**
  * Gestisce un turno di conversazione: prende lo storico + il nuovo
  * messaggio del cliente, esegue il ciclo di tool-calling finché il modello
  * non produce una risposta testuale finale (o finché non si supera il
@@ -208,7 +275,18 @@ export async function rispondiConversazione(
         .map((blocco) => blocco.text)
         .join("\n")
         .trim();
-      return { rispostaTesto: testo || "Non sono riuscito a formulare una risposta.", trasferitoAUmano, usoStrumenti };
+      const testoFinale = testo
+        ? await correggiSeIncongruente(
+            testo,
+            ctx,
+            messages,
+            risposta.content,
+            clientAnthropic,
+            costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita),
+            strumentiDisponibili as unknown as Anthropic.Tool[]
+          )
+        : testo;
+      return { rispostaTesto: testoFinale || "Non sono riuscito a formulare una risposta.", trasferitoAUmano, usoStrumenti };
     }
 
     usoStrumenti = true;
