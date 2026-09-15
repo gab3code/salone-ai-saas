@@ -2885,3 +2885,51 @@ già abbastanza ready to use"). Prossimi punti in agenda: percorsi di cancellazi
 self-service cliente), pagine dashboard non ancora ricontrollate in questa sessione (clienti,
 configura, impostazioni/*), e una scansione mirata di bug UI (schermate mancanti, console/errori,
 overflow) come richiesto esplicitamente stanotte.
+
+---
+
+## 2026-09-15 — Percorsi di cancellazione verificati dal vivo (nessun bug reale) + trovato e
+## risolto un bug UI reale: il grafico di Analytics mostrava sempre barre piatte
+
+**Cancellazione self-service cliente (`/gestisci/[id]`)**: verificata dal vivo end-to-end su un
+appuntamento reale di test -- schermata corretta con tutti i dettagli, conferma a due passaggi
+("Sei sicuro?" / "Sì, cancella" / "No, torna indietro", niente `confirm()` nativo del browser),
+stato aggiornato subito a "Cancellata" con messaggio chiaro, e verificato che riaprire un id
+inesistente o palesemente malformato (non-UUID) mostra "Prenotazione non trovata" senza mai
+rompersi. Nessun problema trovato. (Questo test ha anche ripulito i due appuntamenti di prova
+rimasti dalla sessione precedente, segnalati come da pulire.)
+
+**Cancellazione lato dashboard (staff)**: verificata dal vivo -- click su "Cancella" nella vista
+calendario cancella davvero l'appuntamento (confermato su Supabase) e la lista si aggiorna da sola
+subito dopo (falso allarme iniziale: nel primo tentativo il refresh sembrava non avvenire, ma era
+solo un tempo di attesa troppo breve nel mio test -- con qualche secondo in più il
+`revalidatePath` già presente nel codice funziona correttamente). **Osservazione per Gabriel, non
+un bug che ho corretto da solo**: a differenza della pagina cliente (`/gestisci/[id]`), il bottone
+"Cancella" della dashboard non ha NESSUNA conferma -- un click, anche per errore, cancella subito e
+senza possibilità di annullare. Probabilmente intenzionale per velocità dello staff, ma vale la
+pena decidere consapevolmente se aggiungere lo stesso "Sei sicuro?" già pronto e testato sull'altra
+pagina.
+
+**Bug reale trovato e risolto: grafico "Analytics" sempre a barre piatte**. Visitando
+`/dashboard/analytics` le due serie ("Prenotazioni confermate", "Nuovi clienti") mostravano SEMPRE
+barre piatte/invisibili, anche con dati reali diversi da zero (3 clienti nuovi in settimana,
+appuntamenti confermati) -- solo le etichette delle date sull'asse erano visibili. Causa in
+`grafico-andamento.tsx` (grafico scritto a mano, niente libreria): la barra usa un'altezza in
+percentuale (`style={{height: "45%"}}`), calcolata per riempire un contenitore con `h-full`
+("altezza 100% del genitore") -- ma quel genitore è una colonna flessibile dentro una riga con
+`items-end` (allinea le colonne in basso, NON le stira a riempire l'altezza della riga): una
+colonna flex non stirata si dimensiona sul proprio contenuto, quindi la sua altezza resta
+indeterminata, e `h-full` al suo interno risolve sempre a un'altezza collassata (0) invece che alla
+riga intera -- una percentuale calcolata su un'altezza 0 resta sempre 0, qualunque fosse il dato
+reale. **Fix**: sostituito `h-full` con un'altezza assoluta (`h-32`, la stessa della riga
+contenitore) sul box della barra -- non dipende più dallo stiramento (o meno) del genitore.
+Verificato in locale con una pagina di anteprima temporanea (mai committata, stessa tecnica già
+usata questa sessione: `GraficoAndamento` montato direttamente con dati finti a valori diversi,
+screenshot con Playwright/Chromium headless) -- prima del fix barre completamente piatte, dopo il
+fix barre con altezze proporzionate ai valori come atteso. `npx vitest run` -> 332/332 verdi (nessun
+test dedicato a questo componente puramente visivo, coerente con l'assenza di test-per-componente-
+JSX nel resto del progetto); `npx tsc --noEmit` -> pulito; `npx eslint` -> pulito; `npm run build`
+-> production build riuscita.
+
+**Non ancora fatto**: riverificare dal vivo sul sito vero (non solo in locale) dopo il prossimo
+deploy che il grafico mostri le barre correttamente con i dati reali del tenant.

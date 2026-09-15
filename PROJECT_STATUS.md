@@ -2292,6 +2292,22 @@ l'11/09/2026 via MCP diretto).
     `verificaOperatoreCompatibile` (verifica tenant + attivo + esegue il servizio) chiamata da
     entrambe le funzioni di scrittura prima di procedere. Vedi DECISIONS.md 15/09/2026 per il
     dettaglio tecnico completo.
+20. ~~**Il grafico "Analytics" mostrava sempre barre piatte, anche con dati reali (trovato in
+    sessione di test notturna 15/09/2026)**~~ **RISOLTO 15/09/2026**: `grafico-andamento.tsx`
+    calcolava l'altezza della barra in percentuale dentro un contenitore `h-full`, ma quel
+    contenitore è una colonna flex NON stirata dal genitore (`items-end`), quindi la sua altezza
+    resta indeterminata e la percentuale collassa sempre a 0. Sostituito `h-full` con un'altezza
+    assoluta (`h-32`). Verificato in locale con dati finti (screenshot prima/dopo): ora le barre
+    hanno altezze proporzionate ai dati reali. Vedi DECISIONS.md 15/09/2026 per il dettaglio.
+
+## Osservazioni aperte (non bug, decisioni da prendere)
+
+- **Cancellazione dashboard senza conferma**: il bottone "Cancella" nella vista calendario dello
+  staff (`/dashboard/calendario`) cancella l'appuntamento immediatamente al click, senza nessuna
+  conferma -- a differenza della pagina cliente `/gestisci/[id]`, che ha un passaggio "Sei sicuro?"
+  prima di procedere. Probabilmente intenzionale per velocità, ma una decisione consapevole di
+  Gabriel su questo punto non guasterebbe (aggiungere lo stesso pattern di conferma è a basso
+  rischio, il componente esiste già e funziona).
 
 ## Mappa dei file principali
 

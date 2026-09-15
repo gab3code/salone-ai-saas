@@ -38,7 +38,15 @@ function Barre({
           });
           return (
             <div key={i} className="flex flex-1 flex-col items-center gap-1" title={`Settimana del ${etichettaSettimana}: ${valore}`}>
-              <div className="flex h-full w-full items-end">
+              {/* Altezza fissa (h-32, non h-full) apposta: il contenitore riga sopra usa
+                  `items-end` per allineare le colonne sul fondo, quindi NON le stira a
+                  riempire h-32 -- un `h-full` qui dentro erediterebbe un'altezza
+                  indeterminata dal genitore (una colonna flex non stirata si dimensiona
+                  sul proprio contenuto) e la percentuale calcolata sotto collasserebbe
+                  sempre a 0, mostrando barre piatte anche con dati reali (bug trovato dal
+                  vivo il 15/09/2026: il grafico sembrava sempre vuoto). Un valore assoluto
+                  qui non dipende dallo stiramento del genitore. */}
+              <div className="flex h-32 w-full items-end">
                 <div
                   className={`w-full rounded-t ${coloreClasse} ${valore === 0 ? "min-h-[2px]" : ""}`}
                   style={{ height: `${valore === 0 ? 1 : percentuale}%` }}
