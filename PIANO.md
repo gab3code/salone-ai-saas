@@ -122,7 +122,15 @@ reale delle fasi è:
   un leggero sfondo sfocato (`backdrop-blur-sm`) dietro il pannello quando la chat è aperta, con
   tap fuori per chiuderla. `tsc`/`eslint`/`vitest` (305/305)/`build` puliti, verifica visiva locale
   su desktop e su emulazione di telefoni reali (iPhone SE/13, Pixel 7) -- vedi DECISIONS.md per il
-  dettaglio tecnico. **Ancora da fare**: conferma visiva di Gabriel sul sito vero dopo il deploy.
+  dettaglio tecnico. **Confermato da Gabriel sul sito vero dopo il deploy** (commit `bb1939a`).
+
+  **Italiano innaturale trovato dal vivo da Gabriel** ("Interessa a te uno di questi?" invece di
+  "Ti interessa..."): aggiunta una regola dedicata nel system prompt sui verbi pronominali italiani
+  (interessare, piacere, servire, ecc.), con l'esempio sbagliato/corretto specifico. Non è un bug
+  deterministico come prezzo/durata o markdown -- riduce la frequenza dell'errore ma un'istruzione
+  nel prompt da sola non la azzera del tutto (vedi DECISIONS.md). **Ancora da fare**: verificare che
+  Gabriel non ci risegnali lo stesso tipo di errore -- se succede, il prossimo passo è un giro di
+  correzione col modello (come `correggiSeIncongruente`) o un cambio di modello per questo compito.
 
   **Backlog UI, esplicitamente rimandato da Gabriel a una fase di rifinitura**: il "thinking orbs"
   (indicatore di caricamento della chat) compare ma non è animato.

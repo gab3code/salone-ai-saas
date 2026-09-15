@@ -251,6 +251,30 @@ describe("rispondiConversazione", () => {
     });
   });
 
+  describe("naturalezza dell'italiano (trovato dal vivo 15/09/2026, Gabriel: \"parla un po' male l'italiano in alcune situazioni\", es. \"Interessa a te uno di questi?\")", () => {
+    it("il system prompt istruisce a usare la forma naturale con il pronome (es. 'ti interessa') invece dell'ordine invertito", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
+      await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
+
+      const system = create.mock.calls[0][0].system as string;
+      expect(system).toMatch(/Ti interessa uno di questi\?/);
+      expect(system).toMatch(/mai.*Interessa a te uno di questi\?/);
+    });
+
+    it("la regola c'è sempre, indipendentemente da haInformazioniAttivita", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
+      await rispondiConversazione(
+        [],
+        "Ciao",
+        { ...ctx, haInformazioniAttivita: true },
+        { messages: { create } } as ClienteAnthropic
+      );
+
+      const system = create.mock.calls[0][0].system as string;
+      expect(system).toMatch(/italiano naturale e corretto/);
+    });
+  });
+
   describe("rete di sicurezza sui prezzi/durate (trovato dal vivo 15/09/2026, vedi verifica-numeri.ts)", () => {
     // Finge la stessa catena usata da elenca_servizi in tools.ts:
     // supabase.from("servizi").select(...).eq(...).eq(...).order(...) -> {data, error}.

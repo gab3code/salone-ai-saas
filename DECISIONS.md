@@ -2542,3 +2542,47 @@ temporanea + Chromium, mai committata): fumetto e pannello controllati su deskto
 `false` (testo più lungo, per controllare che non tagli dentro il `max-w-[16rem]` del fumetto);
 click sul fumetto ri-verificato non aprire la chat; click fuori dal pannello aperto verificato
 chiuderlo; font-size dell'input verificato a 16px via `getComputedStyle`.
+
+**Verificato dal vivo sul sito vero dopo il deploy (commit `bb1939a`)**: fumetto/badge/blur/click-only
+-dismiss/click-fuori-per-chiudere tutti confermati funzionanti in produzione, non solo in locale.
+
+---
+
+## 2026-09-15 — Regola nuova nel system prompt: italiano naturale, non tradotto alla lettera
+## (trovato dal vivo da Gabriel: "Interessa a te uno di questi?")
+
+**Contesto**: Gabriel ha riportato una risposta della chat con una frase costruita male --
+"Interessa a te uno di questi?" -- e ha segnalato che "parla un po' male l'italiano in alcune
+situazioni". Il problema non è un caso isolato di distrazione del modello ma una categoria di
+errore ricorrente per un LLM: con i verbi che in italiano si costruiscono con un pronome
+(interessare, piacere, servire, ecc.) il modello a volte scivola sull'ordine soggetto-verbo diretto
+("Interessa a te...?"), che è una costruzione plausibile in altre lingue ma suona artificiale in
+italiano -- il parlante nativo direbbe sempre "Ti interessa...?". Nessuna delle regole esistenti
+nel system prompt (tono, markdown, info_attivita) copriva la naturalezza della lingua in sé.
+
+**Modifica** (`agente.ts`, `costruisciSystemPrompt`): aggiunta una nuova regola assoluta (n. 10,
+le regole precedenti erano già solo 9 fisse + tono + info_attivita opzionale, quindi rinumerate di
+conseguenza: tono passa da 10 a 11, info_attivita da 11 a 12) che istruisce esplicitamente a
+scrivere in un italiano naturale come lo scriverebbe un madrelingua, con l'esempio concreto
+sbagliato/corretto trovato da Gabriel ("Interessa a te uno di questi?" da evitare, "Ti interessa
+uno di questi?" o "Quale dei due ti interessa?" corretti) generalizzato ad altri verbi pronominali
+comuni in una conversazione di prenotazione (piacere, servire, andare bene).
+
+**Nota**: questo non è un bug deterministico come i precedenti (prezzo/durata, markdown letterale)
+-- non esiste una funzione pura che possa verificare "questa frase suona naturale in italiano", a
+differenza di un numero che si può confrontare con un valore noto. La correzione qui è solo a
+livello di prompt: riduce la frequenza dell'errore ma, come già visto con la regola 9 sul markdown,
+un'istruzione nel prompt da sola non garantisce zero occorrenze con Haiku 4.5. Se Gabriel segnala
+di nuovo lo stesso tipo di errore dopo questa modifica, il prossimo passo realistico è o cambiare
+modello per questo compito specifico o aggiungere un giro di correzione col modello stesso (stesso
+principio di `correggiSeIncongruente`, ma giudicando "suona naturale?" invece di "il numero è
+corretto?" -- più costoso e più soggettivo da verificare in un test automatico).
+
+**Verifica**: 2 nuovi test in `agente.test.ts` che controllano che il system prompt contenga
+l'esempio corretto/sbagliato e la regola generale, sia con `haInformazioniAttivita` `false` che
+`true`. `npx vitest run` -> 307/307 verdi; `npx tsc --noEmit` -> pulito; `npx eslint` sui file
+toccati -> pulito; `npm run build` -> production build riuscita.
+
+**Non ancora fatto**: verifica dal vivo che l'errore specifico segnalato da Gabriel non si ripresenti
+(richiede altre conversazioni reali con domande simili -- non è verificabile a colpo sicuro con un
+solo test, la natura del problema è probabilistica).
