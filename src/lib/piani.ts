@@ -154,3 +154,24 @@ export const PIANI_CON_KNOWLEDGE_BASE_AI = new Set(["pro", "enterprise"]);
 export function pianoHaKnowledgeBaseAi(piano: string): boolean {
   return PIANI_CON_KNOWLEDGE_BASE_AI.has(piano);
 }
+
+/**
+ * Gate di piano per il Promemoria di compleanno ("Automazioni extra
+ * (promemoria di compleanno)", Pro/Enterprise). CONFLITTO trovato il
+ * 15/09/2026 (vedi DECISIONS.md): la voce era già pubblicizzata in
+ * `Prezzi.tsx` da prima del 12/09/2026, ma il codice non esisteva --
+ * costruito lo stesso giorno dopo che Gabriel ha approvato la funzione con
+ * la richiesta esplicita "rendi tutto personalizzabile dallo staff" (vedi
+ * `tenants.compleanno_attivo`/`compleanno_messaggio`, migrazione 0023, e
+ * `src/lib/compleanno.ts`/`compleanno.server.ts`). Gate NUOVO E
+ * INDIPENDENTE dagli altri Set qui sopra (stessa lista piani di
+ * `PIANI_CON_SMS` oggi, non un vincolo: potrebbero divergere in futuro) --
+ * a differenza degli altri promemoria, un tenant su questo piano deve
+ * ANCHE accendere esplicitamente `tenants.compleanno_attivo` (default
+ * spento): questo gate decide solo CHI PUÒ attivarlo, non se è già attivo.
+ */
+export const PIANI_CON_PROMEMORIA_COMPLEANNO = new Set(["pro", "enterprise"]);
+
+export function pianoHaPromemoriaCompleanno(piano: string): boolean {
+  return PIANI_CON_PROMEMORIA_COMPLEANNO.has(piano);
+}

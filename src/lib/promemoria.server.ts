@@ -14,6 +14,7 @@ import {
 import { inviaEmail } from "@/lib/email/mailjet.server";
 import { escapeHtml, formattaOrario, urlBaseSito } from "@/lib/email/notifiche.server";
 import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
+import { avvisaCompleanni, COLONNE_TENANT_COMPLEANNO, PIANI_PER_QUERY_COMPLEANNO } from "@/lib/compleanno.server";
 
 type ClientAdmin = ReturnType<typeof creaClientAdmin>;
 
@@ -23,12 +24,18 @@ interface TenantConPromemoria {
   slug: string;
   piano: string;
   fuso_orario: string;
+  /** Colonne del Promemoria di compleanno (vedi compleanno.server.ts) --
+   * vive sullo stesso oggetto tenant invece di una seconda query, stessa
+   * riga già letta per gli altri due promemoria. */
+  compleanno_attivo: boolean;
+  compleanno_messaggio: string | null;
 }
 
 export interface EsitoPromemoriaGiornalieri {
   tenantElaborati: number;
   reminderInviati: number;
   followUpInviati: number;
+  compleanniInviati: number;
 }
 
 /** Le relazioni annidate di Supabase tornano oggetto singolo o array a seconda della cardinalità
@@ -310,17 +317,30 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
  * batte una query "tutti i tenant insieme" per chiarezza del codice.
  */
 export async function eseguiPromemoriaGiornalieri(admin: ClientAdmin, adesso: Date): Promise<EsitoPromemoriaGiornalieri> {
-  const esito: EsitoPromemoriaGiornalieri = { tenantElaborati: 0, reminderInviati: 0, followUpInviati: 0 };
+  const esito: EsitoPromemoriaGiornalieri = {
+    tenantElaborati: 0,
+    reminderInviati: 0,
+    followUpInviati: 0,
+    compleanniInviati: 0,
+  };
+
+  // Unione dei due gate di piano (PIANI_CON_PROMEMORIA e
+  // PIANI_CON_PROMEMORIA_COMPLEANNO -- OGGI il secondo è un sottoinsieme
+  // del primo, ma sono Set indipendenti apposta: costruire l'unione invece
+  // di assumere il sottoinsieme regge anche se in futuro divergono, es. un
+  // piano col compleanno ma senza gli altri due promemoria).
+  const pianiRilevanti = [...new Set([...PIANI_CON_PROMEMORIA, ...PIANI_PER_QUERY_COMPLEANNO])];
 
   const { data: tenants } = await admin
     .from("tenants")
-    .select("id, nome, slug, piano, fuso_orario")
-    .in("piano", [...PIANI_CON_PROMEMORIA]);
+    .select(`id, nome, slug, piano, fuso_orario, ${COLONNE_TENANT_COMPLEANNO}`)
+    .in("piano", pianiRilevanti);
 
   for (const tenant of tenants ?? []) {
     try {
       esito.reminderInviati += await avvisaAppuntamentiImminenti(admin, tenant, adesso);
       esito.followUpInviati += await avvisaClientiInattivi(admin, tenant, adesso);
+      esito.compleanniInviati += await avvisaCompleanni(admin, tenant, adesso);
       esito.tenantElaborati += 1;
     } catch (errore) {
       console.error(`[promemoria] Errore elaborando il tenant ${tenant.id}:`, errore);

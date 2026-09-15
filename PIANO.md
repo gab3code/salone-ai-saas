@@ -185,8 +185,11 @@ reale delle fasi è:
   Supabase dopo il test.
 - **Fase 4 = riprogrammazione cliente self-service + promemoria di compleanno**. Riprogrammazione:
   **VERIFICATA DAL VIVO E CHIUSA 16/09/2026** -- vedi Gruppo B-bis per il dettaglio. Promemoria
-  di compleanno: rimandato a dopo il lancio (richiesta esplicita
-  di Gabriel, vedi DECISIONS.md 15/09/2026).
+  di compleanno: **CODICE FATTO 15/09/2026** (Gabriel ha approvato la funzione con "va bene ma
+  rendi tutto personalizzabile dallo staff" dopo la spiegazione del meccanismo -- vedi
+  DECISIONS.md 15/09/2026 per tutti i dettagli di design), testato (451/451), migrato in
+  produzione, non ancora verificato dal vivo. Risolve il CONFLITTO Pro/`Prezzi.tsx` descritto
+  più sotto.
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni
   AI cliente-salone -- vincolo legale reale (Salone AI è processore di dati per conto del
   titolare, non proprietario di quella conversazione), dettaglio in CLAUDE.md punto 21 e
@@ -486,15 +489,18 @@ sono nella loro Fase con `[x]`.
    degli altri bloccanti sopra, non solo un "nice to have" generico.
 8. ~~"1 operatore" sul piano Free~~ **CODICE FATTO 13/09/2026** -- vedi Fase 5 (`limiteOperatori`
    in `piani.ts`, applicato in `creaOperatore`).
-9. **Automazioni extra / promemoria di compleanno (Pro)** -- aggiunta 14/09/2026 (rielaborazione
-   prezzi/margini, prezzo Pro portato a 89,90€ in cambio di "vantaggi seri" scelti da Gabriel,
-   vedi DECISIONS.md). La tabella `automazioni` (migrazione 0001) ha già un `tipo = 'compleanno'`
-   previsto ma mai implementato -- serve: colonna data di nascita su `clienti` (raccolta
-   opzionale, non oggi richiesta da nessun form), un cron giornaliero che trova i compleanni del
-   giorno per tenant Pro/Enterprise e manda email/SMS con `inviaSmsSeInclusoNelPiano`/
-   `inviaEmail` (stesso pattern di `promemoria.server.ts`), e un modo per il titolare di
-   attivare/disattivare/personalizzare il messaggio (probabilmente in
-   `/dashboard/impostazioni/promemoria`, stessa pagina dei promemoria esistenti).
+9. ~~**Automazioni extra / promemoria di compleanno (Pro)**~~ **CODICE FATTO 15/09/2026, non
+   ancora verificato dal vivo** -- aggiunta 14/09/2026 (rielaborazione prezzi/margini, prezzo Pro
+   portato a 89,90€ in cambio di "vantaggi seri" scelti da Gabriel, vedi DECISIONS.md), poi
+   rimandata a dopo il lancio il 15/09/2026 e infine approvata lo stesso giorno con la richiesta
+   esplicita "rendi tutto personalizzabile dallo staff" -- vedi DECISIONS.md 15/09/2026 per il
+   design completo. `src/lib/compleanno.ts`/`compleanno.server.ts`, migrazione
+   `0023_promemoria_compleanno.sql` (`clienti.data_nascita`, raccolta facoltativa su ogni piano
+   da `/dashboard/clienti/[id]`; `tenants.compleanno_attivo`/`compleanno_messaggio`), gate
+   `pianoHaPromemoriaCompleanno` in `piani.ts`, pagina staff
+   `/dashboard/impostazioni/compleanno` (interruttore + messaggio libero con segnaposto `{nome}`
+   + anteprima dal vivo), wired nello stesso cron giornaliero di `promemoria.server.ts`. Chiude
+   il CONFLITTO descritto subito sotto.
 10. **Supporto prioritario (Pro)** -- aggiunta 14/09/2026. Diverso dagli altri due: non è
     codice, è un impegno di processo (rispondere prima ai ticket/email di un cliente Pro). Da
     decidere con Gabriel COME distinguere un cliente Pro quando scrive (probabilmente: chiedere
@@ -532,14 +538,16 @@ inclusa nel piano Pro (89,90€/mese) -- aggiunta l'8/09/2026 insieme a "Support
 "Report/analytics avanzati" quando Gabriel ha chiesto "vantaggi seri" per giustificare il prezzo
 Pro (vedi punto 9 di questo stesso Gruppo E qui sopra, DECISIONS.md). Il 15/09/2026, rispondendo
 alle domande fatte prima di iniziare la Fase 4, Gabriel ha detto esplicitamente di rimandare il
-promemoria di compleanno **a dopo il lancio**. Le due cose sono in contraddizione diretta: se i
-pagamenti veri su Pro aprono prima che questa funzione esista, stiamo vendendo una funzione che
-non c'è -- ESATTAMENTE lo stesso problema di credibilità già trovato e risolto per il "Tono
-dell'AI personalizzabile" (`docs/analisi-concorrenti-mercato.md`, "AGGIORNAMENTO CRITICO" punto
-4). **Non risolto qui, serve una decisione di Gabriel**: costruirlo prima di aprire i pagamenti
-veri su Pro (rientra comunque nel blocco già esistente insieme a multi-sede/ruoli e Tono AI), o
-togliere/ammorbidire la voce dal sito finché non è pronta. Segnalato anche in chat lo stesso
-giorno.
+promemoria di compleanno **a dopo il lancio**. Le due cose erano in contraddizione diretta: se i
+pagamenti veri su Pro aprono prima che questa funzione esista, si vende una funzione che non c'è
+-- ESATTAMENTE lo stesso problema di credibilità già trovato e risolto per il "Tono dell'AI
+personalizzabile" (`docs/analisi-concorrenti-mercato.md`, "AGGIORNAMENTO CRITICO" punto 4).
+
+**RISOLTO lo stesso giorno**: dopo la spiegazione del meccanismo, Gabriel ha scelto di costruire
+la funzione ("va bene ma rendi tutto personalizzabile dallo staff") invece di ammorbidire la
+pagina prezzi -- vedi punto 9 del Gruppo E qui sopra e DECISIONS.md 15/09/2026 per il design
+completo. Il conflitto non esiste più: quando i pagamenti veri su Pro apriranno, la funzione
+pubblicizzata sarà già codice reale (in attesa solo della verifica dal vivo post-deploy).
 
 ---
 

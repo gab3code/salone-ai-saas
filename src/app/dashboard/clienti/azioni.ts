@@ -24,6 +24,16 @@ export async function aggiornaCliente(id: string, formData: FormData) {
     ? tagGrezzo.split(",").map((t) => t.trim()).filter(Boolean)
     : [];
 
+  // Data di nascita (facoltativa, vedi migrazione 0023 e src/lib/compleanno.ts
+  // per l'uso che ne fa il promemoria di compleanno): il solo controllo qui è
+  // "non nel futuro", errore di battitura più probabile di un vero dato da
+  // rifiutare (l'input <input type="date"> non impedisce di per sé una data
+  // futura).
+  const dataNascitaGrezza = String(formData.get("data_nascita") || "").trim();
+  if (dataNascitaGrezza && dataNascitaGrezza > new Date().toISOString().slice(0, 10)) {
+    return { errore: "La data di nascita non può essere nel futuro." };
+  }
+
   const { error } = await supabase
     .from("clienti")
     .update({
@@ -31,6 +41,7 @@ export async function aggiornaCliente(id: string, formData: FormData) {
       email: email || null,
       note: note || null,
       tag,
+      data_nascita: dataNascitaGrezza || null,
     })
     .eq("id", id)
     .eq("tenant_id", tenantId);

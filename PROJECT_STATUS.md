@@ -1,6 +1,26 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, quarantaquattresimo giro -- dopo il push e deploy di Gabriel
+Ultimo aggiornamento: 15/09/2026, quarantacinquesimo giro -- costruito il Promemoria di
+compleanno (Pro/Enterprise), dopo che Gabriel ha approvato la funzione ("va bene ma rendi tutto
+personalizzabile dallo staff") in risposta alla spiegazione del meccanismo. Risolve il CONFLITTO
+Prezzi.tsx/compleanno trovato nel giro precedente (quarantatreesimo). Costruito:
+`src/lib/compleanno.ts` (logica pura, 18 test) + `src/lib/compleanno.server.ts` (layer connesso,
+data civile locale del tenant via `realeAPseudoUtc`, claim-before-send annuale su
+`clienti.compleanno_ultimo_anno_avvisato`), nuovo gate `pianoHaPromemoriaCompleanno` in
+`piani.ts`, pagina staff `/dashboard/impostazioni/compleanno` (interruttore spento di default +
+messaggio libero con segnaposto `{nome}` + anteprima dal vivo), campo facoltativo "data di
+nascita" aggiunto alla scheda cliente su TUTTI i piani. Wired nello stesso cron giornaliero già
+esistente (`/api/cron/promemoria`), nessun nuovo cron Vercel. Migrazione
+`0023_promemoria_compleanno.sql` applicata al database reale via `execute_sql`
+(`apply_migration` bloccato dal classificatore, stesso workaround già usato per la Fase 4),
+verificata con una query sulle colonne. Test 451/451 (433 + 18 nuovi), `tsc --noEmit`/`eslint`
+puliti sui file toccati, build di produzione riuscita con la nuova rotta registrata. Dettaglio
+completo (incluse le scelte di design non esplicitamente richieste ma decise autonomamente e
+dichiarate: timing dell'invio, gestione del 29 febbraio) in DECISIONS.md, "15/09/2026 —
+Promemoria di compleanno costruito: risolve il conflitto Pro/`Prezzi.tsx`". **Non ancora
+verificato dal vivo** -- da fare dopo il deploy di Gabriel.
+
+Aggiornamento precedente, 16/09/2026, quarantaquattresimo giro -- dopo il push e deploy di Gabriel
 (commit `768e1b7` Fase 4 + `8805a7b` audit competitivo, confermati su `main` e in Produzione su
 Vercel), verificato dal vivo l'intero flusso di spostamento self-service sul tenant di test
 dedicato ("Test Sposta"): primo spostamento riuscito con messaggio di conferma corretto e

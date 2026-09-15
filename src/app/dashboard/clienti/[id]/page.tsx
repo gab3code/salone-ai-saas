@@ -31,7 +31,7 @@ export default async function PaginaClienteDettaglio({
 
   const { data: cliente } = await supabase
     .from("clienti")
-    .select("id, nome, telefono, email, note, tag, creato_da_ai, created_at")
+    .select("id, nome, telefono, email, note, tag, data_nascita, creato_da_ai, created_at")
     .eq("id", id)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -108,6 +108,19 @@ export default async function PaginaClienteDettaglio({
                 defaultValue={cliente.email ?? ""}
                 className="rounded border border-zinc-300 px-2 py-1"
               />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              Data di nascita (facoltativa)
+              <input
+                type="date"
+                name="data_nascita"
+                defaultValue={cliente.data_nascita ?? ""}
+                className="rounded border border-zinc-300 px-2 py-1"
+              />
+              <span className="text-xs text-zinc-400">
+                Serve solo per il promemoria di compleanno (Pro/Enterprise, Impostazioni → Promemoria di
+                compleanno) -- lasciala vuota se il cliente non l&apos;ha condivisa.
+              </span>
             </label>
             <label className="flex flex-col gap-1 text-sm">
               Tag (separati da virgola)

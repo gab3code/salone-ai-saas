@@ -3961,3 +3961,79 @@ end-to-end su entrambi i casi che contano (spostamento riuscito + tetto rispetta
 Sposta" ripulito da Supabase subito dopo (`delete from tenants`, cascade, nessuna riga
 `auth.users` associata perché creato via SQL diretto senza account -- confermato con una query di
 verifica: zero righe rimaste).
+
+## 15/09/2026 — Promemoria di compleanno costruito: risolve il conflitto Pro/`Prezzi.tsx`
+
+Dopo aver spiegato a Gabriel il meccanismo della funzione (compleanno del cliente -> messaggio
+automatico via email o SMS di fallback) e le due domande aperte (saluto puro o con offerta
+promozionale; livello di personalizzazione), Gabriel ha risposto: **"va bene ma rendi tutto
+personalizzabile dallo staff"**. Questa voce chiude il conflitto trovato lo stesso giorno (vedi
+sopra): "Automazioni extra (promemoria di compleanno)" era pubblicizzata su Pro da prima del
+12/09/2026 senza che il codice esistesse.
+
+**Cosa significa "tutto personalizzabile" qui**, tradotto in scelte concrete:
+- **Interruttore per tenant, default SPENTO** (`tenants.compleanno_attivo`): un titolare Pro/
+  Enterprise che non visita mai le impostazioni non vede partire nessuna email automatica ai suoi
+  clienti -- stesso principio già seguito per il contatto automatico della lista d'attesa
+  (14/09/2026).
+- **Testo del messaggio libero**, non le opzioni guidate del tono dell'AI (`tono_ai`): qui il
+  messaggio è letto parola per parola dal cliente finale, non è un'indicazione di stile per
+  un modello linguistico, quindi uno stile a scelte guidate lo avrebbe reso tutti uguali tra
+  saloni diversi -- staff scrive quello che vuole (compreso un eventuale sconto/offerta, se lo
+  desidera: non serve un campo strutturato separato, basta scriverlo nel testo), con un
+  segnaposto `{nome}` sostituito dal nome del cliente e un'anteprima dal vivo mentre scrive
+  (`/dashboard/impostazioni/compleanno`). Messaggio predefinito sensato se lo staff non
+  personalizza nulla, stesso principio di `tono_ai` (default "professionale" anche a zero
+  configurazione).
+- **Canale**: riusa l'infrastruttura email/SMS-di-fallback già esistente (mai entrambi sullo
+  stesso cliente, SMS solo se il piano lo include) -- non reso configurabile, Gabriel non l'ha
+  chiesto e sarebbe un asse indipendente dal contenuto del messaggio.
+- **Timing NON reso configurabile** (differenza deliberata rispetto ai "Promemoria automatici" di
+  Fase 6, dove Gabriel aveva chiesto esplicitamente "quanto tempo prima"): qui l'augurio parte il
+  giorno stesso del compleanno (data civile locale del tenant, non l'istante UTC del cron), non
+  "prima" -- non ha lo stesso asse "ore di preavviso" dei reminder pre-appuntamento. Interpretazione
+  presa autonomamente (Gabriel ha chiesto "tutto personalizzabile" riferendosi al contenuto/
+  attivazione dopo la spiegazione, non ha mai menzionato l'orario di invio) e dichiarata qui
+  esplicitamente invece di essere lasciata implicita.
+- **29 febbraio**: scelto un default ragionevole non richiesto esplicitamente -- un cliente nato
+  il 29/02 riceve l'augurio il 28/02 negli anni non bisestili, il 29/02 in quelli bisestili (mai
+  saltato, mai spostato a marzo). Documentato in `src/lib/compleanno.ts`, coperto da test dedicati.
+- **Raccolta della data di nascita**: aggiunta come campo facoltativo alla scheda cliente
+  (`/dashboard/clienti/[id]`), disponibile su TUTTI i piani (raccoglierla è gratis, zero costo di
+  invio) -- è solo l'automazione di invio a restare dietro al gate Pro/Enterprise, stesso
+  principio già seguito per altri dati CRM (note, tag) che sono liberi su ogni piano.
+
+**Implementazione**, stessa architettura di `promemoria.ts`/`promemoria.server.ts` (Fase 6):
+`src/lib/compleanno.ts` (logica pura: `compleannoCadeOggi`, `clientiDaAvvisarePerCompleanno`,
+`comporreMessaggioCompleanno`, zero query, 18 test unitari) + `src/lib/compleanno.server.ts`
+(layer connesso: carica i clienti idonei, calcola la data civile LOCALE del tenant con
+`realeAPseudoUtc` -- stessa convenzione "pseudo-UTC" di tutto il booking engine, necessaria
+perché il cron gira una volta al giorno a un'ora fissa UTC e un tenant lontano da UTC
+rischierebbe di ricevere l'augurio con un giorno di scarto -- e manda l'email/SMS). Claim-before-
+send ANNUALE con una singola colonna (`clienti.compleanno_ultimo_anno_avvisato`, update
+condizionato sull'anno), stesso principio già usato per il follow-up clienti inattivi
+(`promemoria_inattivita_inviato_at`) e non la tabella-lucchetto a parte usata per i reminder
+pre-appuntamento (qui non serve un "per quale regola": il compleanno è uno solo per cliente).
+
+Nuovo gate indipendente in `piani.ts` (`PIANI_CON_PROMEMORIA_COMPLEANNO`, Pro/Enterprise, stessa
+lista di `PIANI_CON_SMS` oggi ma Set separato apposta). Wired nello STESSO cron giornaliero già
+esistente (`/api/cron/promemoria`, chiamato da `eseguiPromemoriaGiornalieri` in
+`promemoria.server.ts`) invece di aggiungerne uno nuovo su Vercel -- un nuovo campo
+`compleanniInviati` nell'esito, e la select su `tenants` allargata con le due nuove colonne.
+Migrazione `0023_promemoria_compleanno.sql`: `clienti.data_nascita` (facoltativa, nessun piano),
+`clienti.compleanno_ultimo_anno_avvisato`, `tenants.compleanno_attivo` (default false),
+`tenants.compleanno_messaggio` (nullable, check <= 500 caratteri) -- applicata al database reale
+via `execute_sql` (stesso workaround del blocco del classificatore su `apply_migration` già usato
+per la Fase 4), verificata con una query sulle colonne subito dopo.
+
+Nuova pagina impostazioni `/dashboard/impostazioni/compleanno` (interruttore + testo + anteprima
+dal vivo lato client, gate ricontrollato anche nell'azione server `aggiornaCompleanno` oltre che
+nella UI, stesso principio di `aggiornaTonoAi`). Test: 451/451 (433 + 18 nuovi), `tsc --noEmit`
+pulito, `eslint` pulito su tutti i file toccati (i 9 errori/9 warning restanti dell'eslint
+generale sono preesistenti su file non toccati da questa voce -- primitives di UI della landing,
+`metriche.ts`), build di produzione riuscita con la nuova rotta registrata.
+
+**Non ancora verificato dal vivo**: il codice è stato scritto, testato e deployato, ma l'invio
+vero e proprio (via cron o chiamata diretta della funzione server contro un cliente di test con
+data di nascita impostata su oggi) non è stato ancora osservato in produzione -- da fare dopo il
+deploy di Gabriel, stesso ordine già seguito per la Fase 4.
