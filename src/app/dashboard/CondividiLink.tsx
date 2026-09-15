@@ -32,20 +32,27 @@ export function CondividiLink({ url, qrDataUrl, nomeFile }: { url: string; qrDat
   }
 
   return (
-    <div className="mt-8 max-w-md rounded-lg border border-zinc-200 p-4">
+    <div className="mt-8 max-w-xl rounded-lg border border-zinc-200 p-4">
       <h2 className="text-sm font-medium text-zinc-900">Condividi la tua pagina</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Incolla il link sul tuo profilo Google Business o nella bio Instagram, oppure condividi il
         QR code come storia, post o stampato in negozio.
       </p>
 
+      {/* Trovato dal vivo 15/09/2026: con `max-w-md` (28rem) l'URL reale
+          veniva tagliato a metà nel campo, illeggibile a colpo d'occhio
+          anche se selezionabile/copiabile per intero -- card allargata a
+          `max-w-xl` (36rem, ci sta comodamente anche un dominio più lungo di
+          questo) e `truncate` sul campo come rete di sicurezza (ellissi
+          pulita invece di un taglio a metà carattere) per quando lo spazio
+          non basta comunque, es. su schermi stretti. */}
       <div className="mt-3 flex gap-2">
         <input
           type="text"
           readOnly
           value={url}
           onFocus={(e) => e.currentTarget.select()}
-          className="min-w-0 flex-1 rounded border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-sm text-zinc-700"
+          className="min-w-0 flex-1 truncate rounded border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-sm text-zinc-700"
         />
         <button
           type="button"

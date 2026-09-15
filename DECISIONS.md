@@ -3496,7 +3496,27 @@ promemoria) -- riusata invece di reinventare la stessa logica una terza volta. R
 diversi producono QR diversi). Suite completa: `npx vitest run` (410/410), `tsc --noEmit`,
 `eslint`, `npm run build` tutti puliti.
 
-**Ancora aperto**: non ancora verificato dal vivo nel browser vero (il deploy di questo giro deve
-ancora arrivare a Gabriel) -- verifica programmata per dopo il prossimo push: aprire `/dashboard`,
-controllare che il link sia corretto, che "Copia" funzioni davvero, che il QR scaricato inquadri
-correttamente con la fotocamera di un telefono vero.
+**Aggiornamento 15/09/2026, dopo il push di Gabriel**: verificato dal vivo su `/dashboard` (tenant
+"prova gabriel"). Link corretto (`https://salone-ai-saas.vercel.app/s/salone-bc163ecf`), bottone
+"Copia" funziona (feedback visivo "Copiato!", scrittura negli appunti confermata dal browser senza
+errori), QR code un PNG valido (verificato via JS in pagina: `data:image/png;base64,...`, ~3.3KB,
+`href` del bottone "Scarica" identico all'immagine mostrata, nome file `qr-<slug>.png`).
+
+**Bug visivo trovato e corretto nello stesso giro**: il riquadro usava `max-w-md` (28rem) --
+troppo stretto per un URL reale, che veniva tagliato a metà nel campo di testo (illeggibile a colpo
+d'occhio, anche se comunque selezionabile/copiabile per intero). Corretto: riquadro allargato a
+`max-w-xl` (36rem) + `truncate` sul campo come rete di sicurezza per quando lo spazio non basta
+comunque (ellissi pulita invece di un taglio a metà carattere). Non ripubblicato ancora al momento
+di scrivere questo -- vedi bundle di consegna.
+
+**Controllo più ampio fatto su richiesta di Gabriel** ("verifica che tutto sia ok e sistema bug
+visivi o di codice"): `npx eslint .` su tutto il progetto (non solo i file toccati oggi) ha trovato
+9 errori/9 warning pre-esistenti in `src/components/primitives/` (PromptBar.tsx, RecordsTable.tsx,
+ToolChips.tsx, StreamingText.tsx) e un warning in `metriche.ts` -- introdotti in un commit precedente
+("Sincronizza librerie UI...", vedi `git log`), non da questo giro di lavoro. Verificato che quei
+componenti non sono importati da nessuna pagina reale dell'app (`src/app/beautifui/` ha solo due
+file `.css`, nessun `page.tsx`): codice morto/di riferimento, mai servito a un utente vero, per
+questo `npm run build` resta pulito nonostante quegli errori. Lasciati intenzionalmente
+intoccati -- non sono un bug della funzionalità di oggi, e sistemarli è una pulizia separata da
+decidere con Gabriel (rischio di toccare codice vendorizzato/di scaffolding senza sapere se serve
+ancora). Nessun altro problema trovato nei file toccati in questa sessione.
