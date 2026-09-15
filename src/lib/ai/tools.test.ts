@@ -69,6 +69,36 @@ describe("eseguiStrumento -- validazione input prima di toccare il database", ()
         servizio_id: "s1",
         operatore_id: "o1",
         inizio: "non-una-data",
+        cliente_nome: "Mario Rossi",
+        cliente_telefono: "3331234567",
+      },
+      ctx
+    );
+    expect(risultato.errore).toBeDefined();
+  });
+
+  it("crea_prenotazione senza cliente_nome restituisce un errore esplicito (richiesta di Gabriel dal vivo 15/09/2026: non solo il telefono)", async () => {
+    const risultato = await eseguiStrumento(
+      "crea_prenotazione",
+      {
+        servizio_id: "11111111-1111-1111-1111-111111111111",
+        operatore_id: "11111111-1111-1111-1111-111111111111",
+        inizio: "2026-09-05T15:00",
+        cliente_telefono: "3331234567",
+      },
+      ctx
+    );
+    expect(risultato.errore).toBeDefined();
+  });
+
+  it("crea_prenotazione con cliente_nome vuoto/solo spazi restituisce un errore esplicito, non un cliente 'senza nome'", async () => {
+    const risultato = await eseguiStrumento(
+      "crea_prenotazione",
+      {
+        servizio_id: "11111111-1111-1111-1111-111111111111",
+        operatore_id: "11111111-1111-1111-1111-111111111111",
+        inizio: "2026-09-05T15:00",
+        cliente_nome: "   ",
         cliente_telefono: "3331234567",
       },
       ctx
@@ -122,7 +152,13 @@ describe("eseguiStrumento -- validazione input prima di toccare il database", ()
   it("crea_prenotazione con il NOME del servizio invece del suo id restituisce un errore esplicito, non un crash", async () => {
     const risultato = await eseguiStrumento(
       "crea_prenotazione",
-      { servizio_id: "taglio", operatore_id: "mario", inizio: "2026-09-05T15:00", cliente_telefono: "3331234567" },
+      {
+        servizio_id: "taglio",
+        operatore_id: "mario",
+        inizio: "2026-09-05T15:00",
+        cliente_nome: "Mario Rossi",
+        cliente_telefono: "3331234567",
+      },
       ctx
     );
     expect(risultato.errore).toBeDefined();

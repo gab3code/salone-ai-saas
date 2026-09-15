@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 /**
  * Widget chat AI riutilizzabile per la pagina pubblica del salone (Fase 4,
@@ -18,6 +18,51 @@ import { useEffect, useRef, useState } from "react";
 interface Messaggio {
   ruolo: "cliente" | "assistente";
   contenuto: string;
+}
+
+// Un URL grezzo (es. il link di pagamento Stripe della caparra, 150+
+// caratteri col fingerprint della sessione) è illeggibile se mostrato per
+// intero -- richiesta di Gabriel dal vivo 15/09/2026, dopo aver visto
+// esattamente questo caso in chat: "non dare il link intero, dallo blu
+// cliccabile". Il testo dell'AI resta comunque testo semplice (mai markdown,
+// regola 9 del system prompt in agente.ts): qui si riconosce un URL "a
+// occhio nudo" con una regex e lo si sostituisce SOLO nella resa a schermo
+// con un link vero (breve, blu, cliccabile) che punta all'URL reale --
+// l'AI continua a scrivere l'URL per esteso, la trasformazione è solo
+// visiva.
+const REGEX_URL = /(https?:\/\/[^\s]+)/g;
+// Punteggiatura finale che può restare "attaccata" a un URL scritto a fine
+// frase (es. "...paga qui: https://esempio.it."): va staccata dal link vero
+// e mostrata come testo normale subito dopo, altrimenti il punto finirebbe
+// dentro l'href e/o dentro l'etichetta cliccabile.
+const REGEX_PUNTEGGIATURA_FINALE = /[.,;:!?)\]}'"]+$/;
+
+function formattaTestoConLink(testo: string): ReactNode[] {
+  const pezzi = testo.split(REGEX_URL);
+  const risultato: ReactNode[] = [];
+  pezzi.forEach((pezzo, i) => {
+    // Le catture di `split` con un gruppo finiscono sempre agli indici
+    // dispari -- questo pezzo è quindi sempre un URL, mai testo normale.
+    if (i % 2 === 0) {
+      if (pezzo) risultato.push(pezzo);
+      return;
+    }
+    const coda = pezzo.match(REGEX_PUNTEGGIATURA_FINALE)?.[0] ?? "";
+    const url = coda ? pezzo.slice(0, -coda.length) : pezzo;
+    risultato.push(
+      <a
+        key={i}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-medium text-blue-600 underline underline-offset-2"
+      >
+        Apri il link
+      </a>
+    );
+    if (coda) risultato.push(coda);
+  });
+  return risultato;
 }
 
 function ottieniIdentificatoreSessione(slug: string): string {
@@ -231,13 +276,17 @@ export default function ChatWidgetPubblico({
                      a capo reali del modello in un'unica riga -- trovato dal vivo
                      15/09/2026, vedi DECISIONS.md ("Che servizi offrite?" diventava
                      un unico paragrafo illeggibile anche se il testo dell'AI aveva
-                     già gli a capo giusti). */}
+                     già gli a capo giusti).
+                     break-words: rete di sicurezza residua per qualunque altra parola
+                     senza spazi più larga del fumetto -- non dovrebbe più capitare per
+                     un link (ora sostituito da formattaTestoConLink, vedi sotto), ma
+                     costa zero tenerla anche per il resto del testo. */}
                   <p
-                    className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
+                    className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm ${
                       m.ruolo === "cliente" ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-900"
                     }`}
                   >
-                    {m.contenuto}
+                    {formattaTestoConLink(m.contenuto)}
                   </p>
                 </div>
               ))}

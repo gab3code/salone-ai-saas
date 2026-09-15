@@ -145,7 +145,7 @@ export const STRUMENTI_AI = [
   {
     name: "crea_prenotazione",
     description:
-      "Crea una prenotazione reale sul calendario, dopo aver verificato la disponibilità con verifica_disponibilita. Se il cliente non esiste ancora, viene creato automaticamente dal telefono. Se questa attività richiede una caparra per confermare (non tutte la richiedono), lo strumento NON crea la prenotazione subito: restituisce invece richiede_pagamento=true con un url_pagamento e l'importo in euro -- la prenotazione vera si conferma da sola automaticamente al pagamento, non richiamare questo strumento dopo aver condiviso il link.",
+      "Crea una prenotazione reale sul calendario, dopo aver verificato la disponibilità con verifica_disponibilita e dopo aver raccolto nome E telefono del cliente (chiedili entrambi se non li conosci già in questa conversazione, non solo il telefono). Se il cliente non esiste ancora, viene creato automaticamente. Se questa attività richiede una caparra per confermare (non tutte la richiedono), lo strumento NON crea la prenotazione subito: restituisce invece richiede_pagamento=true con un url_pagamento e l'importo in euro -- la prenotazione vera si conferma da sola automaticamente al pagamento, non richiamare questo strumento dopo aver condiviso il link.",
     input_schema: {
       type: "object",
       properties: {
@@ -156,7 +156,7 @@ export const STRUMENTI_AI = [
         cliente_telefono: { type: "string" },
         note: { type: "string" },
       },
-      required: ["servizio_id", "operatore_id", "inizio", "cliente_telefono"],
+      required: ["servizio_id", "operatore_id", "inizio", "cliente_nome", "cliente_telefono"],
     },
   },
   {
@@ -403,6 +403,15 @@ async function eseguiStrumentoInterno(
       ) {
         return { errore: "servizio_id, operatore_id, inizio e cliente_telefono sono obbligatori." };
       }
+      // Nome obbligatorio (non solo il telefono): richiesta di Gabriel dal
+      // vivo 15/09/2026, vedi DECISIONS.md -- prima di generare qualunque
+      // prenotazione (a maggior ragione un link di pagamento vero per la
+      // caparra) l'AI deve aver raccolto anche il nome, non solo il
+      // telefono, invece di lasciare un cliente "senza nome" nello storico e
+      // nella richiesta di pagamento.
+      if (typeof cliente_nome !== "string" || !cliente_nome.trim()) {
+        return { errore: "cliente_nome è obbligatorio: chiedi il nome del cliente prima di procedere." };
+      }
       if (!eUuidValido(servizio_id) || !eUuidValido(operatore_id)) {
         return {
           errore:
@@ -445,7 +454,7 @@ async function eseguiStrumentoInterno(
           operatoreId: operatore_id,
           inizio: inizioData,
           inizioIso: inizio,
-          clienteNome: typeof cliente_nome === "string" ? cliente_nome : undefined,
+          clienteNome: cliente_nome,
           clienteTelefono: cliente_telefono,
         });
         if (!risultatoCaparra.ok) return { errore: risultatoCaparra.errore };
@@ -460,7 +469,7 @@ async function eseguiStrumentoInterno(
         servizioId: servizio_id,
         operatoreId: operatore_id,
         inizio: inizioData,
-        clienteNome: typeof cliente_nome === "string" ? cliente_nome : undefined,
+        clienteNome: cliente_nome,
         clienteTelefono: cliente_telefono,
         creatoDa: "ai",
         note: typeof note === "string" ? note : undefined,

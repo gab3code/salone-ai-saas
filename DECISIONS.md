@@ -2682,3 +2682,70 @@ pagamento Stripe TEST deve completare la prenotazione vera tramite webhook, e un
 pagare non deve mai lasciare un appuntamento confermato nel calendario. Da fare come parte del test
 completo più ampio richiesto da Gabriel, insieme alla verifica che l'AI non compaia affatto per i
 piani senza accesso (Free/Starter).
+
+---
+
+## 2026-09-15 — Due bug trovati dal vivo da Gabriel testando il fix della caparra: link non a capo
+## e nessun link cliccabile, e nome cliente non richiesto prima di generare il pagamento
+
+**Contesto**: subito dopo il deploy del fix caparra sopra, ho fatto il test dal vivo vero: chat AI
+su `salone-bc163ecf` (caparra attiva), richiesta di prenotazione, l'AI ha correttamente proposto il
+link di pagamento invece di confermare subito (verificato anche su Supabase: riga
+`richieste_caparra` creata in stato `in_attesa`, nessun appuntamento creato prima del pagamento --
+il fix funziona). Gabriel, guardando dal vivo, ha segnalato due problemi:
+
+1. **"il link si prolunga a destra invece di andare a capo nella chat"**: il fumetto del messaggio
+   ha `whitespace-pre-wrap` (per gli a capo reali, vedi voce dell'11/09) ma non `break-words` --
+   un URL è una singola "parola" senza spazi di 150+ caratteri (il link Stripe Checkout include il
+   fingerprint della sessione dopo `#`), quindi il browser non aveva nessun punto dove spezzarla e
+   sfondava il bordo destro del fumetto invece di andare a capo.
+2. **"non dare il link intero, dallo blu cliccabile"**: anche risolto il punto 1, un URL di 150+
+   caratteri scritto per esteso resta illeggibile e poco professionale in una chat.
+3. (Messaggio successivo, sullo stesso test) **"poi non ha chiesto nome e numero di telefono ne
+   niente"**: falso allarme parziale -- verificato su Supabase che la conversazione usata dal test
+   era la STESSA di un test precedente di un'ora prima (stesso `identificatore_sessione` in
+   `localStorage`, la pagina era stata solo ricaricata nella stessa tab), quindi l'AI aveva già
+   nome e telefono di quella conversazione (regola 4, "mantieni il contesto"). MA la segnalazione
+   di Gabriel ha comunque scoperto un gap reale: **il nome non è mai stato obbligatorio per
+   `crea_prenotazione`** (solo il telefono lo era) -- un cliente nuovo con caparra attiva poteva
+   arrivare a un pagamento vero senza che l'AI gli avesse mai chiesto il nome, lasciando
+   `cliente_nome: "Cliente"` (fallback) nella riga `richieste_caparra` e nello storico. Confermato
+   da Gabriel con un messaggio esplicito: "prima di mandare il link deve raccogliere le
+   informazioni importanti".
+
+**Fix**:
+1. `ChatWidgetPubblico.tsx`: aggiunta la classe `break-words` al fumetto -- rete di sicurezza
+   residua anche dopo il punto 2, per qualunque altra parola senza spazi che dovesse mai finire in
+   un messaggio.
+2. `ChatWidgetPubblico.tsx`: nuova funzione `formattaTestoConLink` -- riconosce un URL nel testo
+   con una regex (`https?:\/\/[^\s]+`, ripulita da eventuale punteggiatura finale tipo un punto a
+   fine frase) e lo sostituisce SOLO nella resa a schermo con un vero link cliccabile (`<a>`,
+   `target="_blank"`, blu, sottolineato, etichetta fissa "Apri il link" invece del testo grezzo).
+   Il testo che l'AI scrive e che viene salvato/passato al modello resta invariato (l'URL per
+   esteso) -- la trasformazione è puramente visiva, non tocca la regola 9 (niente markdown: qui
+   non si interpreta markdown scritto dall'AI, si riconosce un pattern URL indipendentemente da
+   come l'AI lo scrive).
+3. `src/lib/ai/tools.ts`: `cliente_nome` spostato tra i campi `required` dello schema di
+   `crea_prenotazione` (prima era opzionale, solo `cliente_telefono` era obbligatorio) + validazione
+   a runtime che rifiuta esplicitamente un nome mancante o vuoto/di soli spazi, con lo stesso
+   pattern già usato per gli altri campi obbligatori (errore leggibile dall'AI, mai
+   un'eccezione). Descrizione dello strumento aggiornata di conseguenza.
+4. `src/lib/ai/agente.ts`: regola 3 del system prompt estesa -- non basta più dire che serve il
+   telefono per creare/modificare/cancellare, ora specifica esplicitamente che per CREARE una
+   prenotazione nuova serve anche il nome, raccolti entrambi PRIMA di chiamare lo strumento (a
+   maggior ragione prima di generare un eventuale link di pagamento reale).
+
+**Verifica**: 2 nuovi test in `tools.test.ts` (`crea_prenotazione` senza `cliente_nome` e con
+`cliente_nome` vuoto/di soli spazi -> errore esplicito in entrambi i casi) + 2 test esistenti
+aggiornati per includere un `cliente_nome` valido (altrimenti avrebbero smesso di testare quello
+per cui erano stati scritti, dato che ora l'errore sul nome mancante li avrebbe intercettati
+prima). Verifica visiva locale del wrap/link cliccabile con la stessa tecnica già in uso questa
+sessione (pagina temporanea + Playwright, mai committata) su desktop e `devices["iPhone 13"]`:
+confermato che il link va a capo dentro il fumetto ed appare come "Apri il link" in blu sottolineato
+invece del testo grezzo, sia su schermi larghi che stretti. `npx vitest run` -> 322/322 verdi;
+`npx tsc --noEmit` -> pulito; `npx eslint` sui file toccati -> pulito; `npm run build` -> production
+build riuscita.
+
+**Non ancora fatto**: riverificare dal vivo sul sito vero dopo questo secondo deploy che il link sia
+ora leggibile/cliccabile in chat e che l'AI chieda sempre il nome (su una conversazione DAVVERO
+nuova, non una riutilizzata per sbaglio come nel test precedente) prima di generare il pagamento.
