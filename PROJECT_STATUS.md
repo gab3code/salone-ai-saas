@@ -1,6 +1,15 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 15/09/2026, trentasettesimo giro -- ripreso un task rimasto aperto dal
+Ultimo aggiornamento: 15/09/2026, trentottesimo giro -- Gabriel ha chiesto un modo per condividere
+il link della propria pagina su Google Business/Instagram: prima d'oggi la dashboard mostrava solo
+lo slug come testo grezzo. Aggiunto un riquadro nella home della dashboard con il link completo
+copiabile (bottone "Copia") e un QR code scaricabile come PNG, generato server-side (`qrcode`,
+nessuna libreria QR nel bundle client). URL costruito riusando `urlBaseSito()`, già esistente per
+il link nell'email di promemoria, invece di reinventarlo. 410/410 test, `tsc`/`eslint`/
+`npm run build` puliti. **Non ancora verificato dal vivo** (in attesa del prossimo pull+push di
+Gabriel). Dettaglio completo in DECISIONS.md.
+
+Aggiornamento precedente, 15/09/2026, trentasettesimo giro -- ripreso un task rimasto aperto dal
 02/09/2026 (Gruppo D di PIANO.md): generalizzare il copy oltre "salone", chiesto da Gabriel in
 vista di dare il link della sua app anche ad attività diverse (es. il fratello osteopata). Un grep
 mirato ha trovato più occorrenze di quelle attese, inclusa una mostrata al CLIENTE FINALE sulla

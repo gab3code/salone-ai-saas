@@ -3,8 +3,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { caricaMetriche } from "@/lib/metriche.server";
+import { urlBaseSito } from "@/lib/email/notifiche.server";
+import { generaQrCodeDataUrl } from "@/lib/qrcode.server";
 import { esci } from "./azioni";
 import { AvviaCheckoutSeNecessario } from "./avvia-checkout-se-necessario";
+import { CondividiLink } from "./CondividiLink";
 
 /**
  * Prima pagina protetta: prova che l'intera catena funziona davvero, non
@@ -42,6 +45,17 @@ export default async function PaginaDashboard({
   const metriche = tenant && profilo?.tenant_id ? await caricaMetriche(supabase, profilo.tenant_id) : null;
   const formatoEuro = (centesimi: number) =>
     (centesimi / 100).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+
+  // Link pubblico da condividere (Google Business, bio Instagram, QR in
+  // negozio) -- stesso helper già usato per il link nell'email di
+  // promemoria, così l'URL è sempre coerente in tutta l'app. `urlBaseSito()`
+  // può restituire null solo se manca sia `NEXT_PUBLIC_SITE_URL` sia
+  // l'header `host` (fail-open, vedi notifiche.server.ts): niente riquadro
+  // "condividi" piuttosto che un link rotto, non dovrebbe mai capitare in
+  // una richiesta reale servita da Vercel.
+  const urlBase = tenant ? await urlBaseSito() : null;
+  const urlPaginaPubblica = urlBase && tenant ? `${urlBase}/s/${tenant.slug}` : null;
+  const qrCodeDataUrl = urlPaginaPubblica ? await generaQrCodeDataUrl(urlPaginaPubblica) : null;
 
   return (
     <div className="flex flex-1 flex-col p-8">
@@ -99,8 +113,6 @@ export default async function PaginaDashboard({
           <dl className="mt-6 grid max-w-md grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <dt className="text-zinc-500">Attività</dt>
             <dd>{tenant.nome}</dd>
-            <dt className="text-zinc-500">Slug pagina pubblica</dt>
-            <dd>{tenant.slug}</dd>
             <dt className="text-zinc-500">Piano</dt>
             <dd>{tenant.piano}</dd>
             <dt className="text-zinc-500">Stato abbonamento</dt>
@@ -110,6 +122,10 @@ export default async function PaginaDashboard({
               {profilo?.nome || user.email} ({profilo?.ruolo})
             </dd>
           </dl>
+
+          {urlPaginaPubblica && qrCodeDataUrl && (
+            <CondividiLink url={urlPaginaPubblica} qrDataUrl={qrCodeDataUrl} nomeFile={`qr-${tenant.slug}`} />
+          )}
 
           {metriche && (
             <>

@@ -853,6 +853,20 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       applicata al database reale il 14/09/2026 (primo tentativo bloccato dal classificatore di
       sicurezza della sandbox, riprovato su richiesta esplicita di Gabriel -- vedi Gruppo A punto
       10). `tsc`/`eslint`/`vitest` (193/193, +15 da questo giro)/`build` puliti.
+- [x] **Condividi la tua pagina (link + QR code)** -- **CODICE FATTO 15/09/2026** (richiesta
+      esplicita di Gabriel: "serve un modo per condividere il link del proprio negozio sui siti
+      come Google o sulla pagina Instagram"). Prima di oggi la dashboard mostrava lo slug come
+      testo grezzo ("Slug pagina pubblica: xyz"), inutilizzabile da incollare in un profilo Google
+      Business o in una bio Instagram. Ora: riquadro nella home della dashboard con il link
+      completo copiabile (bottone "Copia", clipboard) e un QR code scaricabile come PNG (bottone
+      "Scarica"), pensato per una storia/post Instagram o per la stampa in negozio. QR generato
+      SERVER-SIDE (`src/lib/qrcode.server.ts`, libreria `qrcode`, nessun `<canvas>` richiesto in
+      Node) e passato già pronto come data URL al componente client (`CondividiLink.tsx`), che si
+      occupa solo di clipboard/download -- niente libreria QR nel bundle browser. URL costruito
+      con `urlBaseSito()` (già esistente in `notifiche.server.ts`, riusato invece di reinventarlo,
+      stessa funzione già usata per il link nell'email di promemoria). 2 nuovi test
+      (`qrcode.server.test.ts`), suite completa `npx vitest run` (410/410), `tsc --noEmit`,
+      `eslint`, `npm run build` tutti puliti.
 
 ## Fase 5 -- Billing self-service e admin panel (punti 6, 7, 23, 24)
 - [x] Piani Free -> Enterprise progettati (non copiati), prezzi e posizionamento AI decisi

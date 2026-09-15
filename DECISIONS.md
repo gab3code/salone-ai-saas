@@ -3468,3 +3468,35 @@ illustrativi del formato atteso, non testo che implica una restrizione di settor
 
 **Test**: nessun test nuovo (solo stringhe statiche, nessuna logica toccata). Suite completa:
 `npx vitest run` (408/408), `tsc --noEmit`, `eslint`, `npm run build` tutti puliti.
+
+## 2026-09-15 — Condividi la tua pagina: link copiabile + QR code
+
+**Richiesta di Gabriel**, arrivata nella stessa conversazione della generalizzazione del copy:
+"serve un modo per condividere il link del proprio negozio sui siti come Google o sulla pagina
+Instagram". Verificato prima di costruire: oggi la dashboard mostra solo lo slug come testo
+grezzo, senza link cliccabile né modo di copiarlo -- gap reale, non un dato mancante.
+
+**Scelta pre-filtrata** (proposta a Gabriel come unica opzione, non un menu): un riquadro nella
+home della dashboard con (1) il link pubblico completo, copiabile con un bottone, da incollare nel
+campo "sito web" di un profilo Google Business o nella bio Instagram, e (2) un QR code scaricabile
+come PNG, da postare come storia/post o stampare in negozio. Copre entrambi i canali citati con lo
+stesso riquadro, senza multipliare le opzioni.
+
+**Implementazione**: nuova dipendenza `qrcode` (+ `@types/qrcode`). QR generato SERVER-SIDE
+(`src/lib/qrcode.server.ts`, `import "server-only"` come il resto dei moduli server-only del
+progetto) invece che nel browser: `qrcode` in Node non ha bisogno di un `<canvas>`, e così la
+libreria non finisce nel bundle client. Il componente client (`CondividiLink.tsx`) riceve il data
+URL già pronto e si occupa solo delle due interazioni che richiedono davvero il browser (copia
+negli appunti, download). URL pubblico costruito con `urlBaseSito()`, funzione già esistente in
+`notifiche.server.ts` (stessa usata per il link "gestisci la tua prenotazione" nell'email di
+promemoria) -- riusata invece di reinventare la stessa logica una terza volta. Rimossa la riga
+"Slug pagina pubblica" dalla scheda riepilogo della dashboard, ora ridondante col nuovo riquadro.
+
+**Test**: nuovo `qrcode.server.test.ts` (2 casi: il data URL generato è un PNG valido, testi
+diversi producono QR diversi). Suite completa: `npx vitest run` (410/410), `tsc --noEmit`,
+`eslint`, `npm run build` tutti puliti.
+
+**Ancora aperto**: non ancora verificato dal vivo nel browser vero (il deploy di questo giro deve
+ancora arrivare a Gabriel) -- verifica programmata per dopo il prossimo push: aprire `/dashboard`,
+controllare che il link sia corretto, che "Copia" funzioni davvero, che il QR scaricato inquadri
+correttamente con la fotocamera di un telefono vero.
