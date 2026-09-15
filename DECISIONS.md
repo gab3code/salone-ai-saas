@@ -2165,3 +2165,43 @@ viceversa, follow-up ambigui tipo "e quello da 90?", ecc.): i test automatici ve
 cablaggio (visibilità dello strumento, dati corretti, nessuna invenzione a livello di codice), non
 il comportamento qualitativo del modello reale, che richiede una verifica dal vivo contro un
 tenant Pro/Enterprise reale dopo l'applicazione della migrazione.
+
+---
+
+## 2026-09-15 — Bug reale trovato e corretto: l'AI inventa prezzo/durata su un follow-up secco tra due servizi
+
+**Contesto**: applicata la migrazione `0021` con l'ok di Gabriel, ho iniziato la verifica dal vivo
+via Chrome sul tenant di prova "prova gabriel" (Pro), popolato con una knowledge base realistica e
+due servizi (pedicure 40€/30min, manicure 25€/30min) apposta per testare lo scenario di follow-up
+che Gabriel aveva descritto esplicitamente ("quanto costa il massaggio?" -> "e quello da 90?").
+
+Le domande informative semplici (Fase 2, `info_attivita`) hanno funzionato bene fin da subito
+("Avete parcheggio?" -> risposta corretta e concisa, nessuna spinta forzata alla prenotazione).
+Ma sullo scenario di follow-up ho trovato un bug reale, riproducibile 2 volte su 2: "Quanto costa
+la pedicure?" (risposta corretta) seguito dal follow-up secco "e la manicure?" ha prodotto numeri
+sbagliati -- primo tentativo "25 euro e dura 25 minuti" (prezzo giusto, durata reale 30 non 25),
+secondo tentativo in una conversazione pulita "35 euro e dura 25 minuti" (entrambi i numeri
+inventati, il prezzo reale è 25€). Confermato via query dirette sul database che i dati erano
+corretti in entrambi i casi, e che NON è un problema della Fase 2 (che non c'entra, è la parte
+transazionale di sempre) né di uno strumento non chiamato: `elenca_servizi` restituisce sempre
+TUTTI i servizi in un colpo solo, quindi il modello aveva già in mano anche i dati corretti della
+manicure fin dalla prima chiamata. Un limite di Claude Haiku 4.5 (il modello scelto per costo, vedi
+il commento su `MODELLO` in `agente.ts`) nel sintetizzare una risposta su un follow-up ellittico
+riferito a un servizio diverso da quello appena discusso, anche con il dato corretto già presente
+nel contesto.
+
+Segnalato subito a Gabriel per la gravità (un prezzo sbagliato è il tipo di invenzione più
+delicato possibile, tocca direttamente i soldi del cliente) prima di continuare gli altri scenari
+di test. Gabriel ha scelto di rafforzare subito il system prompt (opzione più economica, zero
+cambio di modello) e riverificare dal vivo prima di eventualmente valutare altre strade.
+
+**Modifica**: rafforzata la regola 1 delle "REGOLE ASSOLUTE" in `costruisciSystemPrompt`
+(`src/lib/ai/agente.ts`): oltre al divieto generico di inventare prezzi/durate, ora dice
+esplicitamente di usare SEMPRE i valori esatti di `elenca_servizi` per il servizio specifico
+menzionato -- anche in un follow-up breve tipo "e quello X?" -- di non riusare mai un numero visto
+per un servizio diverso nella stessa conversazione anche se sembra plausibile, e di richiamare
+`elenca_servizi` in caso di dubbio invece di rispondere a memoria.
+
+**Verifica**: `npx vitest run` -> 276/276 verdi (nessun test dipendeva dal testo esatto della
+regola 1); `npx tsc --noEmit` -> pulito; `npx eslint` -> pulito. Verifica dal vivo dello stesso
+scenario di follow-up dopo il deploy: vedi la prossima voce di questo file per l'esito.

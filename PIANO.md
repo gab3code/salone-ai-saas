@@ -56,9 +56,10 @@ reale delle fasi è:
   cancellazione riusata da dove già esiste) + una FAQ libera per il resto; riservata a
   Pro/Enterprise (non allo stesso gate della chat AI base); se un'informazione manca, l'AI lo
   dichiara onestamente e invita a contattare l'attività (mai un trasferimento automatico a un
-  operatore per questo). `tsc`/`eslint`/`vitest` (276/276)/`build` puliti. **Ancora da fare**:
-  applicare la migrazione `0021_knowledge_base_attivita.sql` al database reale (serve l'ok di
-  Gabriel) e verificare dal vivo la qualità conversazionale reale (i 14 scenari elencati da
+  operatore per questo). `tsc`/`eslint`/`vitest` (276/276)/`build` puliti. Migrazione
+  `0021_knowledge_base_attivita.sql` applicata al database reale il 15/09/2026 con l'ok di
+  Gabriel (colonne/tabella/RLS verificate via query dirette, nessun nuovo avviso di sicurezza).
+  **Ancora da fare**: verificare dal vivo la qualità conversazionale reale (i 14 scenari elencati da
   Gabriel, non copribili dai soli test automatici).
 - **Fase 3 = onboarding AI-assisted**: descrizione testuale della propria attività → bozza
   generata dall'AI → compilata sui form di `/dashboard/configura` che esistono già, il
