@@ -1,6 +1,26 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 15/09/2026, trentanovesimo giro -- Gabriel non aveva mai provato di persona
+Ultimo aggiornamento: 15/09/2026, quarantesimo giro -- Gabriel ha chiesto un onboarding vero, non
+una sola casella di testo: "una vera e propria onboarding con delle domande, chiuse o aperte... e
+con l'aiuto dell'AI setta tutto il negozio". Scelta con lui (unica domanda diretta, non una
+discussione) una sequenza fissa di 3 passi (chi lavora qui, orari, servizi) invece di una
+conversazione AI dinamica -- più veloce da costruire, prevedibile, una sola chiamata AI a persona.
+Il wizard non introduce una nuova pipeline AI: traduce le risposte in una descrizione naturale e la
+passa alla stessa `generaBozzaOnboardingAction` di sempre, stessa validazione, stesso "mai
+inventare un numero non scritto". Di riflesso corregge anche il problema del nome operatore
+generico (osservazione del giro precedente): quando il titolare dice "lavoro da solo", ora scrive
+esplicitamente il suo nome vero invece di lasciare che l'AI lo indovini. Mostrato solo quando
+l'attività è ancora vuota (zero operatori e zero servizi) -- chi ha già configurato qualcosa vede
+tutto come prima (form manuali + "Compila con l'AI" a testo libero per modifiche puntuali), e anche
+per chi è ancora vuoto i form manuali restano disponibili sotto "Preferisci configurare tutto a
+mano?". Estratta la revisione/applicazione della bozza in un componente condiviso
+(`RevisioneBozzaOnboarding.tsx`) invece di duplicarla tra vecchio pannello e nuovo wizard. Trovato e
+corretto un bug proprio mentre si scriveva il wizard (il chip "Altro" per il tipo di attività
+rompeva la sua stessa casella di testo al primo carattere digitato) prima di consegnarlo. 8 test
+nuovi (418/418 totali), `tsc`/`eslint`/`npm run build` puliti. **Non ancora verificato dal vivo**
+(serve il deploy). Dettaglio completo in DECISIONS.md.
+
+Aggiornamento precedente, 15/09/2026, trentanovesimo giro -- Gabriel non aveva mai provato di persona
 l'onboarding AI (Fase 3): chiesto di valutarlo mettendosi nei panni di un cliente vero, correggere
 se necessario e dare un parere personale. Creata una registrazione vera in produzione (osteopata
 solista, caso vicino al fratello di Gabriel), seguito l'intero percorso fino alla pagina pubblica e

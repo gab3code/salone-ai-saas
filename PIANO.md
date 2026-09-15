@@ -164,8 +164,19 @@ reale delle fasi è:
   verifica completa di prima (410/410 test, `tsc`/`eslint`/`build`). **Verificato dal vivo dopo il
   deploy**: checkbox lun-ven correttamente scaricate subito dopo l'apply, senza reload -- confermato
   risolto. Raccolte anche osservazioni di prodotto più ampie sull'onboarding
-  (percorso guidato assente, "Compila con l'AI" non conversazionale, nome operatore generico) --
-  non ancora decise, riportate a Gabriel separatamente.
+  (percorso guidato assente, "Compila con l'AI" non conversazionale, nome operatore generico).
+
+  **Onboarding a domande guidate, sostituisce il testo libero per chi parte da zero (15/09/2026,
+  dettaglio completo in DECISIONS.md)**: Gabriel ha chiesto un onboarding vero invece della sola
+  casella di testo -- "una vera e propria onboarding con delle domande, chiuse o aperte... e con
+  l'aiuto dell'AI setta tutto il negozio". Deciso con lui: sequenza fissa di 3 passi (chi lavora
+  qui, orari, servizi), non una conversazione AI dinamica -- più veloce, prevedibile, una sola
+  chiamata AI a persona. Il wizard traduce le risposte in una descrizione naturale e riusa la
+  STESSA pipeline AI/validazione di sempre, zero rischio nuovo sull'estrazione. Mostrato solo
+  quando l'attività è ancora vuota; chi ha già configurato qualcosa non vede nessuna differenza.
+  Corregge di riflesso anche il nome operatore generico (ora usa il nome vero del titolare quando
+  lavora da solo). 8 test nuovi (418/418 totali), `tsc`/`eslint`/`build` puliti. **Non ancora
+  verificato dal vivo** (serve il deploy).
 - **Fase 4 = riprogrammazione cliente self-service + promemoria di compleanno** (vedi Gruppo
   B-bis e la lista "cosa manca ancora" più sotto per il dettaglio di ciascuna).
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni

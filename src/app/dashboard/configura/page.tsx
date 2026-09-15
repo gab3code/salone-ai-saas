@@ -10,6 +10,7 @@ import {
   salvaOrari,
 } from "./azioni";
 import { PannelloOnboardingAI } from "./PannelloOnboardingAI";
+import { OnboardingWizard } from "./OnboardingWizard";
 
 const NOMI_GIORNI = [
   "Domenica",
@@ -42,7 +43,11 @@ export default async function PaginaConfigura() {
   const tenantId = await ottieniTenantCorrente(supabase);
   if (!tenantId) redirect("/accedi");
 
-  const [orariRes, operatoriRes, serviziRes, opServiziRes] = await Promise.all([
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const [orariRes, operatoriRes, serviziRes, opServiziRes, profiloRes] = await Promise.all([
     supabase.from("orari_apertura").select("*").eq("tenant_id", tenantId),
     supabase.from("operatori").select("id, nome, descrizione").eq("tenant_id", tenantId).order("nome"),
     supabase
@@ -51,6 +56,7 @@ export default async function PaginaConfigura() {
       .eq("tenant_id", tenantId)
       .order("nome"),
     supabase.from("operatori_servizi").select("operatore_id, servizio_id"),
+    user ? supabase.from("profiles").select("nome").eq("id", user.id).single() : Promise.resolve({ data: null }),
   ]);
 
   const orariPerGiorno = new Map<number, OrarioRiga>(
@@ -61,6 +67,16 @@ export default async function PaginaConfigura() {
   const associazioni = new Set(
     (opServiziRes.data ?? []).map((r) => `${r.operatore_id}:${r.servizio_id}`)
   );
+  const nomeTitolare = profiloRes.data?.nome || "Titolare";
+
+  // Onboarding a domande guidate (richiesta esplicita di Gabriel, 15/09/2026,
+  // dopo aver provato di persona il flusso): un'attività ancora vuota (zero
+  // operatori E zero servizi, non ha mai completato la configurazione) vede
+  // subito il wizard a domande invece della stessa interfaccia "di base" di
+  // chi la usa da mesi -- l'interfaccia manuale + "Compila con l'AI" restano
+  // disponibili sotto un dettaglio richiudibile per chi preferisce comunque
+  // configurare tutto a mano dall'inizio, mai nascosti del tutto.
+  const vuoto = operatori.length === 0 && servizi.length === 0;
 
   // Bug trovato dal vivo 15/09/2026 durante il test dell'onboarding AI: subito
   // dopo "Applica alla configurazione" (PannelloOnboardingAI -> router.refresh()),
@@ -77,26 +93,13 @@ export default async function PaginaConfigura() {
     return `${giorno}:${r?.chiuso ?? ""}:${r?.apertura ?? ""}:${r?.chiusura ?? ""}:${r?.pausa_inizio ?? ""}:${r?.pausa_fine ?? ""}`;
   }).join("|");
 
-  return (
-    <div className="flex flex-1 flex-col gap-10 p-8">
-      <div>
-        <a href="/dashboard" className="text-sm underline">
-          ← Dashboard
-        </a>
-        <h1 className="mt-2 text-xl font-semibold">Configura l&apos;attività</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Orari, operatori e servizi: senza questi dati il calendario e l&apos;AI non hanno nulla
-          su cui lavorare.
-        </p>
-      </div>
-
-      {/* Fase 3 di PIANO.md: in evidenza ("aperto" di default) quando il
-          salone è ancora vuoto -- è lì che risparmia più tempo -- ma resta
-          disponibile anche dopo, come opzione da riaprire, per chi vuole
-          aggiungere servizi/operatori/informazioni descrivendoli invece di
-          compilare i form uno per uno. */}
-      <PannelloOnboardingAI evidenzia={operatori.length === 0 && servizi.length === 0} />
-
+  // Le tre sezioni "manuali" di sempre (orari/operatori/servizi + la tabella
+  // di associazione) -- estratte in una variabile invece che ripetute due
+  // volte nel JSX qui sotto: quando l'attività è vuota restano disponibili
+  // ma richiuse dentro un <details> ("preferisci configurare a mano?"),
+  // altrimenti sono mostrate esattamente come da sempre, invariate.
+  const sezioniManuali = (
+    <>
       {/* --- Orari di apertura --- */}
       <section>
         <h2 className="text-base font-medium">Orari di apertura</h2>
@@ -352,6 +355,52 @@ export default async function PaginaConfigura() {
             </table>
           </div>
         </section>
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex flex-1 flex-col gap-10 p-8">
+      <div>
+        <a href="/dashboard" className="text-sm underline">
+          ← Dashboard
+        </a>
+        <h1 className="mt-2 text-xl font-semibold">Configura l&apos;attività</h1>
+        <p className="mt-1 text-sm text-zinc-600">
+          Orari, operatori e servizi: senza questi dati il calendario e l&apos;AI non hanno nulla
+          su cui lavorare.
+        </p>
+      </div>
+
+      {vuoto ? (
+        <>
+          <section className="rounded-2xl border border-violet-200 bg-violet-50/40 p-5">
+            <h2 className="text-base font-medium">Iniziamo a configurare la tua attività</h2>
+            <p className="mt-1 text-sm text-zinc-600">
+              Rispondi a poche domande, l&apos;AI prepara una bozza da rivedere prima di salvarla --
+              non scrive nulla senza la tua conferma.
+            </p>
+            <div className="mt-4">
+              <OnboardingWizard nomeTitolare={nomeTitolare} />
+            </div>
+          </section>
+          <details className="rounded-2xl border border-zinc-200 p-5">
+            <summary className="cursor-pointer text-sm font-medium text-zinc-600">
+              Preferisci configurare tutto a mano?
+            </summary>
+            <div className="mt-4 flex flex-col gap-10">{sezioniManuali}</div>
+          </details>
+        </>
+      ) : (
+        <>
+          {/* Fase 3 di PIANO.md: resta disponibile come opzione da riaprire
+              per chi vuole aggiungere servizi/operatori/informazioni
+              descrivendoli invece di compilare i form uno per uno -- il
+              wizard a domande guidate sopra è pensato solo per il primo
+              giro, quando l'attività è ancora vuota. */}
+          <PannelloOnboardingAI evidenzia={false} />
+          {sezioniManuali}
+        </>
       )}
     </div>
   );

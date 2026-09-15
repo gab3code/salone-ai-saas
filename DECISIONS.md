@@ -3590,3 +3590,62 @@ non arriva al cliente finale (con un solo operatore la selezione è saltata nel 
 si vede nel calendario/dashboard del titolare. Nessuna di queste è stata corretta in questo giro:
 la prima è un bug UI chiaro, le altre sono scelte di prodotto che vanno decise con Gabriel prima di
 toccare codice.
+
+## 2026-09-15 — Onboarding a domande guidate, sostituisce la sola casella di testo per chi parte da zero
+
+**Richiesta di Gabriel**, dopo il resoconto del test dal vivo sopra: non gli bastava correggere il
+bug e sistemare i dettagli, voleva un onboarding vero -- "non dovrebbe aprire l'interfaccia base,
+ma fare una vera e propria onboarding con delle domande, chiuse o aperte... e con l'aiuto dell'AI
+setta tutto il negozio". Prima di scrivere codice, chiesta una decisione esplicita (unica domanda,
+non una discussione): sequenza fissa di schermate (poche domande, alcune chiuse tipo "che tipo di
+attività", altre aperte per i servizi, l'AI usata solo alla fine per interpretare il testo libero)
+oppure una vera conversazione AI dinamica (l'AI decide la domanda successiva in base alle risposte,
+come una chat). Scelta la sequenza fissa -- più veloce da costruire, prevedibile, una sola chiamata
+AI a persona, meno rischio di derive a metà conversazione con budget/tempo limitati.
+
+**Design**: 3 passi (chi lavora qui → orari → servizi) invece dell'unica casella di testo di prima.
+I primi due sono quasi tutti chip/selettori chiusi (tipo attività, solo/con altri, giorni aperti,
+orario comune, pausa sì/no); il terzo resta testo libero solo per i servizi, l'unica parte
+realmente troppo varia per una UI chiusa (nome + durata + prezzo di un numero arbitrario di
+servizi). Alla fine il wizard NON introduce una nuova pipeline AI: costruisce una descrizione in
+linguaggio naturale dalle risposte (`costruisciDescrizioneOnboarding` in `OnboardingWizard.tsx`,
+pura e testata) e la passa alla stessa `generaBozzaOnboardingAction` già in produzione -- stesso
+prompt, stessa validazione (`onboarding-ai.ts`), stessa regola "mai inventare un numero non
+scritto dal titolare". Zero rischio nuovo sull'estrazione AI, tutto il lavoro nuovo è nella UI che
+raccoglie le risposte.
+
+**Corregge di riflesso il problema del nome operatore generico** (osservazione #3 del giro
+precedente): quando il titolare dice "lavoro da solo", la descrizione generata scrive
+esplicitamente il suo nome vero (già noto dal profilo, `profiles.nome`) invece di lasciare che
+l'AI lo indovini da un "lavoro da solo" anonimo -- niente più "Studio osteopata" al posto di
+"Marco".
+
+**Riuso invece di duplicazione**: la revisione/applicazione della bozza (checklist con
+incluso/escludi, editing riga per riga, applicazione finale) era scritta dentro
+`PannelloOnboardingAI.tsx` -- estratta in `RevisioneBozzaOnboarding.tsx`, condivisa sia dal vecchio
+pannello a testo libero (ancora disponibile, vedi sotto) sia dal nuovo wizard. Stessa logica, un
+solo posto, invece di due copie da tenere sincronizzate.
+
+**Quando si vede cosa**: `dashboard/configura/page.tsx` calcola `vuoto` (zero operatori E zero
+servizi, mai completata una configurazione) -- se vuoto, il wizard è la prima cosa mostrata al
+posto del pannello a testo libero, con le sezioni manuali (orari/operatori/servizi a form) chiuse
+sotto un `<details>` "Preferisci configurare tutto a mano?" (nativo, nessun JS aggiuntivo, sempre
+disponibile per chi non vuole passare dall'AI). Se NON vuoto (attività già configurata almeno una
+volta), tutto resta esattamente come prima: form manuali sempre aperti + "Compila con l'AI" a testo
+libero per modifiche puntuali -- il wizard è pensato solo per il primo giro, non per l'uso
+quotidiano.
+
+**Bug trovato e corretto durante l'implementazione, prima di consegnare**: il chip "Altro" per il
+tipo di attività condivideva lo stesso campo di stato del testo libero digitato dopo -- al primo
+carattere scritto, la condizione che mostrava la casella di testo ("tipoAttivita === 'Altro'")
+diventava falsa e la casella spariva. Corretto tracciando la selezione del chip "Altro" in uno
+stato separato dal testo effettivo digitato.
+
+**Test**: 8 casi nuovi per `costruisciDescrizioneOnboarding` (nome del titolare usato quando lavora
+da solo, elenco altri operatori, orari e pausa inclusi/esclusi correttamente, giorni riordinati
+anche se scelti fuori sequenza, nessun giorno selezionato segnalato esplicitamente, testo dei
+servizi riportato invariato, tipo di attività incluso). Nessun test nuovo per
+`RevisioneBozzaOnboarding.tsx` (puro refactor/estrazione, stesso comportamento già coperto
+indirettamente in produzione) né per `PannelloOnboardingAI.tsx` (comportamento invariato per chi
+lo usa già). Suite completa: `npx vitest run` (418/418), `tsc --noEmit`, `eslint`, `npm run build`
+tutti puliti. **Non ancora verificato dal vivo** (serve il deploy).
