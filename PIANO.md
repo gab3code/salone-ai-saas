@@ -389,9 +389,21 @@ per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
 2. ~~**Pagine legali** (privacy/termini/cookie): gap reale, mai tracciato come task da nessuna
    parte prima di oggi (solo menzionato in `docs/analisi-estetia.md`) -- il progetto non ne ha
    nessuna. Ogni concorrente verificato le ha.~~ **CODICE FATTO 14/09/2026** -- vedi Fase 4.
-3. **Completare la generalizzazione del copy** oltre "salone" (deciso il 02/09/2026, mai
+3. ~~**Completare la generalizzazione del copy** oltre "salone" (deciso il 02/09/2026, mai
    finito): `/registrati` e la dashboard usano ancora "Crea il tuo salone" e testi
-   settore-specifici in alcuni punti.
+   settore-specifici in alcuni punti.~~ **CODICE FATTO 15/09/2026** (chiesto da Gabriel, in vista
+   di dare il link a un'attività che non è un salone di bellezza, es. il fratello osteopata):
+   `/registrati` ("Crea la tua attività", "Nome dell'attività", messaggio di conferma email),
+   tutta la dashboard ("Configura l'attività" al posto di "Configura il salone" in 4 punti,
+   "Attività" al posto di "Salone" nella scheda riepilogo, messaggio di provisioning fallito) e
+   il messaggio "giorno chiuso" sulla pagina pubblica di prenotazione (era l'unico testo
+   salone-specifico visibile al CLIENTE finale, non solo al titolare). Lasciati intenzionalmente
+   invariati: il nome del brand "Salone AI" e il copy della landing (`page.tsx`, già scritto in
+   modo inclusivo con "liberi professionisti") -- sono scelte di posizionamento/marketing, non
+   bug di copy, e cambiarli è una decisione separata da prendere con Gabriel se/quando serve.
+   Placeholder di esempio (es. "Salone di parrucchieri..." nei pannelli AI) lasciati anch'essi
+   invariati: sono solo esempi illustrativi, non testo prescrittivo. 408/408 test, `tsc`/`eslint`/
+   `npm run build` puliti.
 
 ### Gruppo E -- Ogni promessa del sito, verificata una per una
 

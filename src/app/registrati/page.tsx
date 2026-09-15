@@ -146,7 +146,7 @@ function FormRegistrazione() {
             <h1 className="mt-4 text-xl font-semibold text-white">Controlla la tua email</h1>
             <p className="mt-2 text-sm leading-relaxed text-white/60">
               Ti abbiamo mandato un link di conferma a <strong className="text-white">{email}</strong>. Aprilo per
-              attivare l&apos;account e il tuo salone
+              attivare l&apos;account e la tua attività
               {pianoValido ? ` e completare l'attivazione del piano ${ETICHETTA_PIANO[pianoValido]}` : ""}.
             </p>
           </div>
@@ -165,7 +165,7 @@ function FormRegistrazione() {
       <div className="relative w-full max-w-sm">
         <form onSubmit={registrati} className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl sm:p-8">
           <div className="mb-2 text-center">
-            <h1 className="text-xl font-semibold text-white">Crea il tuo salone</h1>
+            <h1 className="text-xl font-semibold text-white">Crea la tua attività</h1>
             <p className="mt-1 text-sm text-white/50">Pronto in 5 minuti, nessun tecnico necessario.</p>
           </div>
 
@@ -190,7 +190,7 @@ function FormRegistrazione() {
 
           <div className="space-y-1.5">
             <label className={classeEtichetta} htmlFor="nomeSalone">
-              Nome del salone
+              Nome dell&apos;attività
             </label>
             <input
               id="nomeSalone"

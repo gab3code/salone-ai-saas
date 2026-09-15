@@ -81,7 +81,7 @@ export default async function PaginaDashboard({
             Analytics
           </Link>
           <a href="/dashboard/configura" className="rounded border border-zinc-300 px-3 py-1.5">
-            Configura il salone
+            Configura l&apos;attività
           </a>
           <a href="/dashboard/impostazioni" className="rounded border border-zinc-300 px-3 py-1.5">
             Impostazioni
@@ -91,13 +91,13 @@ export default async function PaginaDashboard({
 
       {!tenant ? (
         <p className="mt-4 text-sm text-red-600">
-          Nessun salone trovato per questo utente -- il provisioning automatico non è andato a
+          Nessuna attività trovata per questo utente -- il provisioning automatico non è andato a
           buon fine (controlla i log del trigger al_nuovo_utente su Supabase).
         </p>
       ) : (
         <>
           <dl className="mt-6 grid max-w-md grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <dt className="text-zinc-500">Salone</dt>
+            <dt className="text-zinc-500">Attività</dt>
             <dd>{tenant.nome}</dd>
             <dt className="text-zinc-500">Slug pagina pubblica</dt>
             <dd>{tenant.slug}</dd>

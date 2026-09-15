@@ -1,6 +1,15 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 15/09/2026, trentaseiesimo giro -- il fix del giro precedente ("passaggio a
+Ultimo aggiornamento: 15/09/2026, trentasettesimo giro -- ripreso un task rimasto aperto dal
+02/09/2026 (Gruppo D di PIANO.md): generalizzare il copy oltre "salone", chiesto da Gabriel in
+vista di dare il link della sua app anche ad attività diverse (es. il fratello osteopata). Un grep
+mirato ha trovato più occorrenze di quelle attese, inclusa una mostrata al CLIENTE FINALE sulla
+pagina pubblica di prenotazione ("Il salone è chiuso" -> "Chiuso"), non solo al titolare in
+dashboard. Lasciati apposta invariati il brand "Salone AI" e il copy della landing (scelta di
+marketing, non un bug). 408/408 test, `tsc`/`eslint`/`npm run build` puliti. Dettaglio in
+DECISIONS.md.
+
+Aggiornamento precedente, 15/09/2026, trentaseiesimo giro -- il fix del giro precedente ("passaggio a
 operatore" sostituito da "chiama il negozio") è stato verificato dal vivo dopo il deploy: stesso
 reclamo di prova sul tenant "prova gabriel", la risposta ora è "Ti invito a contattare l'attività
 al 02 99999999..." -- nessuna menzione di operatore, confermato in produzione. Nello stesso giro,

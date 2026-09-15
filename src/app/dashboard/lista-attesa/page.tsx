@@ -141,7 +141,7 @@ export default async function PaginaListaAttesa() {
         <p className="text-sm text-zinc-500">
           Configura almeno un servizio prima di usare la lista d&apos;attesa --{" "}
           <a href="/dashboard/configura" className="underline">
-            vai a Configura il salone
+            vai a Configura l&apos;attività
           </a>
           .
         </p>

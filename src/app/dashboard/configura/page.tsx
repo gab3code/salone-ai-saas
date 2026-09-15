@@ -68,7 +68,7 @@ export default async function PaginaConfigura() {
         <a href="/dashboard" className="text-sm underline">
           ← Dashboard
         </a>
-        <h1 className="mt-2 text-xl font-semibold">Configura il salone</h1>
+        <h1 className="mt-2 text-xl font-semibold">Configura l&apos;attività</h1>
         <p className="mt-1 text-sm text-zinc-600">
           Orari, operatori e servizi: senza questi dati il calendario e l&apos;AI non hanno nulla
           su cui lavorare.

@@ -3438,3 +3438,33 @@ suggerimento invece del pulsante della chat (si sovrappongono per una finestra d
 caricamento): non è un bug di questo fix, è il comportamento voluto del fumetto (un click lo chiude
 e basta, vedi `chiudiSuggerimento` in `ChatWidgetPubblico.tsx`) -- va solo tenuto a mente rifacendo
 questo tipo di verifica in futuro (aprire la chat con un secondo click se il primo non basta).
+
+## 2026-09-15 — Generalizzazione del copy oltre "salone" (task rimasto aperto dal 02/09/2026)
+
+**Contesto**: task del Gruppo D di PIANO.md ("prima di pubblicare il link di un salone vero"),
+deciso il 02/09/2026 ma mai finito. Ripreso oggi perché Gabriel ha chiesto un modo di condividere
+il link della propria attività su Google/Instagram -- nello stesso giro ha confermato che vuole
+poter dare il link anche a un'attività che non è un salone di bellezza (es. il fratello,
+massoterapista/osteopata).
+
+**Verifica prima di correggere**: un grep mirato su "salone" in tutto `src/app` (non solo
+`/registrati`, come indicato genericamente nel task originale) ha trovato più occorrenze
+user-facing di quelle attese: 4 punti diversi nella dashboard oltre a `/registrati`, più un testo
+mostrato al CLIENTE FINALE sulla pagina pubblica di prenotazione ("Il salone è chiuso in questo
+giorno") -- quest'ultimo il più importante da correggere, visto che lo vede chi prenota, non solo
+il titolare.
+
+**Corretto**: `/registrati` (titolo, etichetta nome attività, messaggio di conferma email),
+`dashboard/page.tsx` (link di navigazione + etichetta nella scheda riepilogo + messaggio di errore
+provisioning), `dashboard/configura/page.tsx` (titolo), `dashboard/calendario/page.tsx` e
+`dashboard/lista-attesa/page.tsx` (link "vai a Configura..."), `FlussoPrenotazione.tsx` (messaggio
+giorno chiuso, pagina pubblica).
+
+**Deliberatamente lasciato invariato**: il nome del brand "Salone AI" e il copy SEO della landing
+(`src/app/page.tsx`) -- già scritto in modo inclusivo ("liberi professionisti") e comunque una
+scelta di posizionamento/marketing separata, non un bug di copy da correggere di riflesso; i
+placeholder di esempio nei pannelli AI ("Es. Salone di parrucchieri...") -- sono solo esempi
+illustrativi del formato atteso, non testo che implica una restrizione di settore.
+
+**Test**: nessun test nuovo (solo stringhe statiche, nessuna logica toccata). Suite completa:
+`npx vitest run` (408/408), `tsc --noEmit`, `eslint`, `npm run build` tutti puliti.

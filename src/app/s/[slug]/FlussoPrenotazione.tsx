@@ -316,7 +316,7 @@ export default function FlussoPrenotazione({
               // libererà mai qui, quindi niente modulo lista d'attesa -- solo
               // l'invito a scegliere un altro giorno.
               <p className="text-sm text-zinc-600">
-                Il salone è chiuso in questo giorno, scegli un altro giorno.
+                Chiuso in questo giorno, scegli un altro giorno.
               </p>
             ) : inCodaListaAttesa ? (
               <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">

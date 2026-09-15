@@ -273,7 +273,7 @@ export default async function PaginaCalendario({
         <p className="text-sm text-zinc-500">
           Configura almeno un operatore e un servizio prima di creare appuntamenti --{" "}
           <a href="/dashboard/configura" className="underline">
-            vai a Configura il salone
+            vai a Configura l&apos;attività
           </a>
           .
         </p>
