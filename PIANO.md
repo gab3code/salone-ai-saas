@@ -525,6 +525,78 @@ pagamenti veri su Pro insieme al punto 2 sopra: se al momento di vendere Pro sul
 non fosse ancora sbloccato da Meta, questa riga della FAQ andrebbe temporaneamente ammorbidita,
 non lasciata a prometterlo mentre non è vero per il cliente che sta pagando.
 
+**CONFLITTO trovato il 15/09/2026, riletta tutta la documentazione competitiva su richiesta di
+Gabriel** ("rileggi tutti gli md, capendo cosa avevamo stabilito per battere la concorrenza"):
+`Prezzi.tsx` pubblicizza da riga 104 **"Automazioni extra (promemoria di compleanno)"** come voce
+inclusa nel piano Pro (89,90€/mese) -- aggiunta l'8/09/2026 insieme a "Supporto prioritario" e
+"Report/analytics avanzati" quando Gabriel ha chiesto "vantaggi seri" per giustificare il prezzo
+Pro (vedi punto 9 di questo stesso Gruppo E qui sopra, DECISIONS.md). Il 15/09/2026, rispondendo
+alle domande fatte prima di iniziare la Fase 4, Gabriel ha detto esplicitamente di rimandare il
+promemoria di compleanno **a dopo il lancio**. Le due cose sono in contraddizione diretta: se i
+pagamenti veri su Pro aprono prima che questa funzione esista, stiamo vendendo una funzione che
+non c'è -- ESATTAMENTE lo stesso problema di credibilità già trovato e risolto per il "Tono
+dell'AI personalizzabile" (`docs/analisi-concorrenti-mercato.md`, "AGGIORNAMENTO CRITICO" punto
+4). **Non risolto qui, serve una decisione di Gabriel**: costruirlo prima di aprire i pagamenti
+veri su Pro (rientra comunque nel blocco già esistente insieme a multi-sede/ruoli e Tono AI), o
+togliere/ammorbidire la voce dal sito finché non è pronta. Segnalato anche in chat lo stesso
+giorno.
+
+---
+
+### Gruppo F -- Rileggendo `docs/analisi-estetia.md` e `docs/analisi-concorrenti-mercato.md` per intero, cosa manca ancora dalla lista di lavoro (15/09/2026)
+
+Richiesta esplicita di Gabriel: rileggere tutta la documentazione competitiva e verificare che
+non manchi nulla dal piano. Le sezioni sopra (Gruppo E, "Sintesi strategica" sotto) erano già
+complete per le PROMESSE del sito -- questi sono invece spunti REALI dei due documenti mai
+diventati un task, trovati confrontando riga per riga con quanto già tracciato. Nessuno di questi
+è bloccante prima del lancio (a differenza dei punti del Gruppo E sopra): sono differenziali in
+più da valutare, non buchi che rompono una promessa già fatta.
+
+1. **Concetto opzionale di "postazione/risorsa fisica" nel booking engine** (`docs/analisi-estetia.md`,
+   sezione "Gestione avanzata"): Estetia previene conflitti anche per risorsa fisica condivisa
+   (una cassa, un lavabo), non solo per operatore -- utile per un salone con team dove le
+   postazioni sono meno degli operatori, irrilevante per il professionista singolo (la
+   maggioranza del nostro target attuale). **Non deciso, tocca lo schema del booking engine
+   (CLAUDE.md punto 5, da fermarsi e chiedere)**: aggiungerlo ora sarebbe prematuro senza un
+   salone con team reale che lo richieda esplicitamente -- candidato per Fase 7/Gruppo C quando
+   ci sarà un cliente "salone con team" pagante, non prima.
+2. **Metrica "Tasso AI" in dashboard/analytics** (% di conversazioni gestite dall'AI senza
+   passaggio a un operatore, vista sulla dashboard di Estetia come KPI in prima pagina): oggi
+   `metriche.ts` non calcola nulla del genere. Coerente col punto 21 di CLAUDE.md (insight
+   azionabili) e più forte della versione di Estetia -- la loro è "un numero secco senza un
+   perché" (debolezza osservata in `docs/analisi-estetia.md`), la nostra dovrebbe accompagnarla
+   con un'azione se il tasso scende (es. "rivedi il system prompt" o "controlla le conversazioni
+   con handoff"). Candidato per Fase 3 (analytics), non urgente.
+3. **Calcolatore prezzi interattivo** ("quanti operatori/clienti ti servono?" su `Prezzi.tsx`) --
+   proposto in `docs/analisi-estetia.md` come contromisura diretta alla "paralisi da scelta"
+   osservata sulla griglia prezzi di Estetia (5 piani + 5 add-on). Candidato per quando si
+   rifinisce la pagina prezzi definitiva (Fase 7), non un blocco per il lancio.
+4. **Demo pubblica realmente interagibile prima della registrazione** (dati finti ma prodotto
+   vero, non un'animazione statica come quella di Estetia in homepage) -- differenziale di
+   fiducia per chi valuta il prodotto senza ancora registrarsi. Candidato per dopo il lancio,
+   richiede un tenant demo dedicato mantenuto a parte.
+5. **Onboarding cronometrato e testato per restare sotto i 10 minuti** dichiarati da Estetia come
+   riferimento ("attivo in 10 minuti, zero competenze tecniche") -- oggi verificato dal vivo che
+   funziona, mai misurato il tempo reale contro quel benchmark esplicito. Candidato per un giro
+   di test dal vivo quando si chiude Fase 7 (parità/superiorità UX).
+6. **Messaggi vocali (speech-to-text) quando WhatsApp sarà attivo** (CLAUDE.md punto 8, "eventuali
+   messaggi vocali"; Estetia dichiara gestione "anche vocale", Skedula ha un vero assistente
+   telefonico vocale) -- oggi irrilevante perché WhatsApp è bloccato dalla business verification
+   Meta e il canale attivo (chat web) è solo testo. Non dimenticare quando si sblocca WhatsApp:
+   serve gestire lo speech-to-text del canale PRIMA di passare il testo all'AI, non è automatico.
+7. **"Fallback umano" come funzionalità di marketing a sé stante** (Estetia la vende come card
+   separata in prima pagina, non solo come dettaglio nell'onboarding) -- noi la citiamo solo
+   dentro la descrizione della card "Assistente AI" in `Funzionalita.tsx`, funzionalmente
+   identica (passaggio a operatore, Fase 2) ma meno in vista nel copy. Minore, puro copy, nessun
+   codice: valutare se separarla in una card propria quando si rivede la landing (Fase 7).
+
+**Cosa NON è un buco, verificato in questo giro** (per chiarezza, non un elenco a caso):
+recensioni post-appuntamento già tracciate (Fase 3, sopra); segmentazione "per tipo di attività"
+sulla landing già fatta e più ampia di quella di Estetia (`PerChi.tsx`, per professione invece che
+per dimensione del salone); canale vocale come funzione telefonica reale già esplicitamente
+"fuori scope per ora" (sopra); region EU di Supabase già verificata (`eu-west-1`); pagine legali
+già fatte.
+
 ---
 
 ## Sintesi strategica: come superare i competitor (aggiornata 12/09/2026, mega-controllo)

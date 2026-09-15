@@ -1,6 +1,24 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 15/09/2026, quarantaduesimo giro -- con Fase 1-2-3 dichiarate chiuse (giro
+Ultimo aggiornamento: 15/09/2026, quarantatreesimo giro -- giro di sola pianificazione (nessun
+codice), richiesto da Gabriel dopo aver chiesto quante fasi mancassero: "rileggi tutti gli md e
+pianifica bene, capendo cosa avevamo stabilito per battere la concorrenza". Riletti per intero
+CLAUDE.md, PIANO.md, `docs/analisi-estetia.md`, `docs/analisi-concorrenti-mercato.md`,
+`docs/verifica-fattibilita-33-punti.md`, incrociando ogni spunto reale dei documenti competitivi
+con i task già tracciati invece di darlo per scontato. Trovato un conflitto reale da farsi
+decidere da Gabriel: `Prezzi.tsx` vende "Automazioni extra (promemoria di compleanno)" come
+incluso nel piano Pro, ma il promemoria di compleanno è stato rimandato a dopo il lancio il
+15/09/2026 -- stesso identico rischio già risolto per il "Tono dell'AI personalizzabile"
+(vendere una funzione che non esiste). Trovati anche sette spunti reali dei documenti competitivi
+mai diventati task, nessuno bloccante per il lancio (concetto di "postazione/risorsa fisica" nel
+booking engine, metrica "Tasso AI" in dashboard, calcolatore prezzi interattivo, demo pubblica
+interagibile, onboarding cronometrato contro il benchmark di 10 minuti di Estetia, gestione dei
+messaggi vocali per quando WhatsApp sarà attivo, "fallback umano" come funzionalità di marketing a
+sé stante) -- dettaglio completo in PIANO.md, "Gruppo F", e in DECISIONS.md. Confermato che il
+resto del piano competitivo (recensioni, segmentazione landing, canale vocale telefonico, region
+EU, pagine legali) è già coperto, non mancava nulla lì.
+
+Aggiornamento precedente, 15/09/2026, quarantaduesimo giro -- con Fase 1-2-3 dichiarate chiuse (giro
 precedente) e via libera esplicita di Gabriel ("fatto il deploy parti pure"), costruita la Fase 4:
 bottone "Sposta" self-service su `/gestisci/[id]`. Anti-abuso come deciso con Gabriel il
 14/09/2026: stessa finestra minima di ore della cancellazione (`ore_minime_cancellazione`, riusata

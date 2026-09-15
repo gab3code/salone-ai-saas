@@ -3895,3 +3895,41 @@ prima di poter provare il flusso reale (cercare un nuovo orario, confermare, ver
 secondo tentativo di spostamento venga correttamente bloccato). Aggiornerò questa voce o ne
 aggiungerò una nuova con l'esito, stesso standard di onestà già applicato alla Fase 2 qui sopra --
 non dichiaro "fatto" prima di averlo visto funzionare fuori dal sandbox.
+
+## 15/09/2026 — Riletta tutta la documentazione competitiva: verifica che il piano non abbia buchi
+
+**Richiesta di Gabriel**, dopo aver chiesto quante fasi mancassero: "sei sicuro non dobbiamo
+aggiungere ancora cose alle fasi? rileggi tutti gli md e pianifica bene, capendo cosa avevamo
+stabilito per battere la concorrenza". Riletti per intero `CLAUDE.md` (i 33 punti), `PIANO.md`
+(tutte le fasi e i gruppi A-E), `docs/analisi-estetia.md`, `docs/analisi-concorrenti-mercato.md`,
+`docs/verifica-fattibilita-33-punti.md`, incrociando ogni spunto reale dei documenti competitivi
+con ciò che risulta già tracciato come task, invece di fidarmi che fosse già tutto lì.
+
+**Trovato un conflitto reale, non solo uno spunto mancante**: `Prezzi.tsx` pubblicizza
+"Automazioni extra (promemoria di compleanno)" come voce inclusa nel piano Pro (aggiunta
+l'8/09/2026 su richiesta di Gabriel di "vantaggi seri" per il prezzo Pro), ma il 15/09/2026,
+rispondendo alle domande fatte prima della Fase 4, Gabriel ha detto di rimandare il promemoria di
+compleanno a dopo il lancio. Se i pagamenti veri su Pro aprono prima -- vendiamo una funzione che
+non esiste, stesso identico problema di credibilità già trovato e risolto per il "Tono dell'AI
+personalizzabile" il 12/09/2026. Non risolto autonomamente (tocca il business model, CLAUDE.md
+punto 31): segnalato a Gabriel in chat e in PIANO.md (Gruppo E), resta una sua decisione --
+costruirlo prima di aprire Pro, o ammorbidire/togliere la voce dal sito fino a quando non è
+pronto.
+
+**Trovati sette spunti reali dei documenti competitivi mai diventati task** (nessuno bloccante
+per il lancio, tutti candidati per dopo, dettaglio completo in PIANO.md "Gruppo F"): concetto
+opzionale di "postazione/risorsa fisica" nel booking engine per saloni con team (tocca lo schema,
+da decidere con Gabriel quando servirà davvero, non ora); metrica "Tasso AI" in dashboard/
+analytics (% conversazioni risolte dall'AI senza passaggio a operatore, più forte della versione
+di Estetia se accompagnata da un'azione consigliata); calcolatore prezzi interattivo su
+`Prezzi.tsx`; demo pubblica realmente interagibile prima della registrazione; onboarding
+cronometrato contro il benchmark dichiarato di Estetia (10 minuti); gestione dei messaggi vocali
+(speech-to-text) per quando WhatsApp sarà attivo; "fallback umano" come funzionalità di marketing
+a sé stante invece che citata solo dentro la card "Assistente AI" (puro copy).
+
+**Verificato che NON mancasse altro**: raccolta recensioni post-appuntamento già tracciata (Fase
+3); segmentazione della landing per tipo di attività già fatta e più ampia di quella di Estetia
+(per professione, non per dimensione del salone); canale vocale telefonico reale già
+esplicitamente fuori scope; region EU di Supabase già verificata; pagine legali già fatte.
+Nessuna riscrittura di codice in questa voce -- solo pianificazione, PIANO.md aggiornato con
+Gruppo F e la nota sul conflitto Pro/compleanno.
