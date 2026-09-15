@@ -412,6 +412,55 @@ export type RisultatoScrittura<T extends object = object> =
   | ({ ok: true } & T)
   | { ok: false; errore: string };
 
+/**
+ * Verifica che l'operatore appartenga davvero a questo tenant, sia attivo e
+ * offra questo servizio -- PRIMA di scrivere un appuntamento, mai dopo.
+ * Bug di isolamento multi-tenant trovato in un audit del 15/09/2026 (mai dal
+ * vivo, mai segnalato da Gabriel): `creaAppuntamentoTenant`/
+ * `modificaAppuntamentoTenant` validavano `servizio_id` con `tenant_id`
+ * (sopra), ma scrivevano `operatore_id` così com'era arrivato, senza mai
+ * verificare che appartenesse allo stesso tenant. Un FK semplice
+ * (`operatori(id)`, non un vincolo composto su tenant+id) e RLS che passa
+ * comunque `tenant_id` della RIGA scritta (sempre quello giusto) non
+ * bloccano un `operatore_id` preso da un ALTRO tenant -- e il client
+ * admin/service_role usato dai tool AI ignora comunque RLS. Concretamente:
+ * un `operatore_id` di un salone concorrente (leggibile dalla sua pagina
+ * pubblica) passato per errore o con un prompt malevolo avrebbe creato un
+ * appuntamento reale nel calendario di QUESTO tenant ma intestato a un
+ * dipendente di un ALTRO salone -- mai bloccato prima da nessun livello.
+ * Stessa idea già applicata a `servizio_id`, qui estesa a `operatore_id` +
+ * al controllo "questo operatore esegue davvero questo servizio"
+ * (`operatori_servizi`, già applicato SOLO in fase di ricerca slot in
+ * `booking-engine.ts`, mai in scrittura: chi chiama `crea_prenotazione`
+ * senza prima passare da `verifica_disponibilita` -- o con un input diverso
+ * da quello restituito -- non veniva mai fermato).
+ */
+async function verificaOperatoreCompatibile(
+  supabase: SupabaseClient,
+  tenantId: string,
+  operatoreId: string,
+  servizioId: string
+): Promise<{ ok: true } | { ok: false; errore: string }> {
+  const { data: operatore } = await supabase
+    .from("operatori")
+    .select("id, attivo")
+    .eq("id", operatoreId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!operatore) return { ok: false, errore: "Operatore non trovato." };
+  if (!operatore.attivo) return { ok: false, errore: "Questo operatore non è più disponibile." };
+
+  const { data: compatibile } = await supabase
+    .from("operatori_servizi")
+    .select("operatore_id")
+    .eq("operatore_id", operatoreId)
+    .eq("servizio_id", servizioId)
+    .maybeSingle();
+  if (!compatibile) return { ok: false, errore: "Questo operatore non esegue il servizio richiesto." };
+
+  return { ok: true };
+}
+
 /** Trova un cliente per telefono o lo crea -- stesso cliente non duplicato tra canali. */
 async function trovaOCreaCliente(
   supabase: SupabaseClient,
@@ -641,6 +690,9 @@ export async function creaAppuntamentoTenant(
     .single();
   if (!servizio) return { ok: false, errore: "Servizio non trovato." };
 
+  const operatoreCompatibile = await verificaOperatoreCompatibile(supabase, tenantId, params.operatoreId, params.servizioId);
+  if (!operatoreCompatibile.ok) return operatoreCompatibile;
+
   // Durata sommata in spazio pseudo-UTC (timezone-invariante: è
   // un'aritmetica su millisecondi, non su ore civili) -- `fine` resta
   // pseudo qui, coerente con `params.inizio` e con verificaConflittoTenant
@@ -742,6 +794,17 @@ export async function modificaAppuntamentoTenant(
     .eq("id", appuntamentoAttuale.servizio_id)
     .single();
   if (!servizio) return { ok: false, errore: "Servizio dell'appuntamento non trovato." };
+
+  // Stesso controllo di creaAppuntamentoTenant (vedi commento su
+  // verificaOperatoreCompatibile): spostare un appuntamento su un nuovo
+  // operatore ha lo stesso rischio di isolamento multi-tenant di crearlo.
+  const operatoreCompatibile = await verificaOperatoreCompatibile(
+    supabase,
+    tenantId,
+    params.operatoreId,
+    appuntamentoAttuale.servizio_id
+  );
+  if (!operatoreCompatibile.ok) return operatoreCompatibile;
 
   const fine = new Date(params.inizio.getTime() + servizio.durata_minuti * 60_000);
 

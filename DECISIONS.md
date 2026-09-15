@@ -2803,3 +2803,85 @@ production build riuscita.
 **Non ancora fatto**: riverificare dal vivo sul sito vero dopo il prossimo deploy che l'AI ora dica
 correttamente "chiuso quel giorno" invece di proporre la lista d'attesa per domenica 20/09 (o
 qualunque altro giorno di chiusura del tenant di test).
+
+---
+
+## 2026-09-15 — Sessione notturna di stress test richiesta da Gabriel: trovato un bug di isolamento
+## multi-tenant su `operatore_id` in scrittura, mai sfruttato dal vivo ma reale
+
+**Contesto**: Gabriel è andato a dormire chiedendo di continuare a testare a fondo e "cercare di
+rompere l'app" per un'ora o più, senza fermarmi ad aspettare conferme, sistemando quello che trovo e
+verificando ogni fix -- lui farà il push appena si sveglia. Dopo il fix della lista d'attesa sopra e
+la riverifica del gating AI Free/Starter (vedi sotto, nessun problema trovato lì), ho fatto un giro
+di audit mirato su dove un multi-tenant SaaS si rompe più spesso: l'isolamento dei dati tra tenant
+diversi in scrittura, non solo in lettura.
+
+**Cosa ho trovato**: `creaAppuntamentoTenant` e `modificaAppuntamentoTenant`
+(`booking-engine.server.ts`) validano da sempre che `servizio_id` appartenga al tenant
+(`.eq("id", ...).eq("tenant_id", tenantId)`) prima di scrivere -- ma `operatore_id` veniva scritto
+così com'era arrivato, MAI verificato allo stesso modo. Tre cose lo rendevano possibile senza che
+nessun livello lo bloccasse:
+1. Il vincolo `references operatori(id)` in `appuntamenti`/`chiusure`/ecc. è un FK semplice, non
+   composto su `(tenant_id, operatore_id)` -- un `operatore_id` di un ALTRO tenant è comunque un id
+   valido in quella tabella, il FK non si accorge di niente.
+2. RLS su `appuntamenti` (`isolamento_tabella ... using (tenant_id = auth_tenant_id())`) controlla
+   solo il `tenant_id` della RIGA scritta (sempre corretto, è un parametro nostro) -- non joina mai
+   `operatori` per verificare che l'operatore referenziato appartenga allo stesso tenant.
+3. Gli strumenti AI scrivono con il client admin/service_role, che ignora RLS del tutto -- quindi
+   anche se RLS avesse fatto quel controllo (non lo fa), non avrebbe comunque protetto il canale AI.
+   `verificaConflittoTenant` stesso non lo scopre: filtra per `tenant_id` + `operatore_id`, e se
+   l'operatore è di un altro tenant semplicemente non trova mai conflitti sotto QUESTO tenant_id, e
+   lascia proseguire.
+
+In pratica: un `operatore_id` letto dalla pagina pubblica di un ALTRO salone (gli id degli operatori
+compaiono nel JSON di `elenca_operatori`/nella pagina pubblica, non sono un segreto) passato a
+`crea_prenotazione` -- per errore o con un messaggio scritto apposta per confondere l'AI -- avrebbe
+creato un appuntamento reale nel calendario di QUESTO tenant ma intestato a un dipendente di un
+salone concorrente, senza che nessun controllo lo fermasse. Stessa cosa spostando un appuntamento
+esistente su un nuovo operatore (`modifica_prenotazione`). Un secondo problema collegato, meno
+grave ma della stessa famiglia: nessuno dei due punti di scrittura verificava che l'operatore
+scelto esegua DAVVERO quel servizio (`operatori_servizi`) -- controllato solo in fase di ricerca
+slot (`booking-engine.ts`), mai in scrittura, quindi un input che salta `verifica_disponibilita`
+poteva creare un appuntamento con un operatore-servizio incompatibile.
+
+Non trovato dal vivo, non segnalato da nessuno -- scoperto rileggendo il codice di scrittura con
+l'occhio "cosa succede se questo campo arriva sbagliato/malevolo", lo stesso spirito già applicato a
+`servizio_id`/`cliente_nome`/`data_preferita` in questa sessione.
+
+**Fix**: nuova funzione `verificaOperatoreCompatibile` in `booking-engine.server.ts` -- verifica che
+l'operatore esista PER QUESTO tenant, sia `attivo`, ed esegua il servizio richiesto (via
+`operatori_servizi`), restituendo un errore esplicito e leggibile altrimenti ("Operatore non
+trovato." / "Questo operatore non è più disponibile." / "Questo operatore non esegue il servizio
+richiesto."). Chiamata da entrambe `creaAppuntamentoTenant` e `modificaAppuntamentoTenant` PRIMA di
+qualunque scrittura, con lo stesso servizio_id già in mano (quello della richiesta per la creazione,
+quello dell'appuntamento esistente per lo spostamento) -- stessa unica fonte di verità, nessuna
+logica duplicata tra i due.
+
+**Verifica**: 4 nuovi test dedicati (operatore inesistente/di un altro tenant -> "Operatore non
+trovato", nessuna scrittura; operatore disattivato -> rifiutato; operatore valido ma incompatibile
+col servizio -> rifiutato; stesso controllo verificato anche su `modificaAppuntamentoTenant`) + 11
+fixture di test esistenti aggiornate per includere le nuove query `operatori`/`operatori_servizi`
+(altrimenti il client Supabase finto avrebbe lanciato "nessuna risposta configurata" -- nessuna
+regressione, tutti riconfermati verdi dopo l'aggiornamento). `npx vitest run` -> 332/332 verdi;
+`npx tsc --noEmit` -> pulito; `npx eslint` sui file toccati -> pulito; `npm run build` -> production
+build riuscita. Non verificato dal vivo con due tenant reali (avrebbe richiesto costruire
+apposta uno scenario d'attacco end-to-end solo per dimostrarlo) -- la copertura è sui test mirati,
+che riproducono esattamente il percorso di codice vulnerabile prima del fix.
+
+**Gating AI Free/Starter (task esplicito di Gabriel), verificato dal vivo senza trovare problemi**:
+sul tenant `salone-3ad8c9ad` (piano `free`, l'unico tenant Free/Starter reale sul database oggi) la
+pagina pubblica non mostra nessun pulsante/widget di chat (il flag `chatAiAttiva` in
+`pagina-pubblica.server.ts` -- derivato da `pianoHaAccessoAIChatWeb` -- risulta `false`, verificato
+visivamente), e chiamando direttamente `POST /api/chat/salone-3ad8c9ad` dalla console del browser
+(stesso'origine, bypassando quindi qualunque restrizione della sola UI) la risposta è `403` con
+`{"errore":"La chat AI non è inclusa nel piano di questa attività."}` -- il gate è applicato anche
+lato server, non solo nascondendo il pulsante. Nessun tenant "starter" reale esiste oggi sul
+database per un secondo test dal vivo, ma il gate usa lo stesso insieme (`PIANI_CON_AI_CHAT_WEB`,
+`ai/limiti.ts`) per entrambi, quindi la stessa verifica vale strutturalmente anche per Starter.
+
+**Continuo**: sessione di test/stress notturna ancora in corso su richiesta esplicita di Gabriel
+("continua anche per molto più tempo... il tuo obiettivo è vedere se la versione dell'app attuale è
+già abbastanza ready to use"). Prossimi punti in agenda: percorsi di cancellazione (dashboard e
+self-service cliente), pagine dashboard non ancora ricontrollate in questa sessione (clienti,
+configura, impostazioni/*), e una scansione mirata di bug UI (schermate mancanti, console/errori,
+overflow) come richiesto esplicitamente stanotte.

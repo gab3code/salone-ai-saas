@@ -244,6 +244,12 @@ mappati -- resta valido, non riscritto da zero.
    `trovaSlotEStatoGiornoTenant` e restituisce `giorno_chiuso`, il system prompt distingue chiuso da
    pieno, e `aggiungiListaAttesaTenant` rifiuta lato server una `data_preferita` su un giorno chiuso
    per qualunque canale (dashboard/AI/pubblico). Resta da verificare dal vivo dopo il deploy.
+6. ~~**Bug di isolamento multi-tenant trovato in audit notturno 15/09/2026 (non dal vivo): scrivere
+   un appuntamento non verificava mai che l'operatore appartenesse al tenant giusto**~~ **CODICE
+   FATTO 15/09/2026** (vedi DECISIONS.md 15/09/2026 per il dettaglio completo): nuova
+   `verificaOperatoreCompatibile` chiamata da `creaAppuntamentoTenant`/`modificaAppuntamentoTenant`
+   prima di scrivere -- verifica tenant, `attivo`, e che l'operatore esegua davvero il servizio.
+   Nessun exploit reale osservato, trovato per audit del codice di scrittura, non da un test dal vivo.
 
 ### Gruppo B-bis -- Altre funzioni che mancano davvero, trovate in un secondo giro (12/09/2026)
 

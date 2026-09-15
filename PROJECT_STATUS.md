@@ -2280,6 +2280,18 @@ l'11/09/2026 via MCP diretto).
     prompt distingue i due casi, e `aggiungiListaAttesaTenant` (condivisa da dashboard/AI/pubblico)
     ora rifiuta lato server una `data_preferita` che cade in un giorno marcato chiuso, qualunque
     canale la mandi. Vedi DECISIONS.md 15/09/2026 per il dettaglio tecnico completo.
+19. ~~**Bug di isolamento multi-tenant: `operatore_id` scritto in un appuntamento senza mai
+    verificare che appartenesse al tenant giusto (trovato in audit notturno 15/09/2026, non dal
+    vivo)**~~ **RISOLTO 15/09/2026**: `creaAppuntamentoTenant`/`modificaAppuntamentoTenant`
+    validavano `servizio_id` con `tenant_id` ma scrivevano `operatore_id` così com'era arrivato --
+    né il FK (semplice, non composto su tenant+id), né RLS (controlla solo il `tenant_id` della riga
+    scritta), né il client admin/service_role usato dall'AI (ignora RLS) lo impedivano. Un
+    `operatore_id` di un salone concorrente (leggibile dalla sua pagina pubblica) passato per errore
+    o con un messaggio scritto apposta per l'AI avrebbe creato un appuntamento reale nel calendario
+    di QUESTO tenant intestato a un dipendente di un ALTRO salone. Nuova funzione
+    `verificaOperatoreCompatibile` (verifica tenant + attivo + esegue il servizio) chiamata da
+    entrambe le funzioni di scrittura prima di procedere. Vedi DECISIONS.md 15/09/2026 per il
+    dettaglio tecnico completo.
 
 ## Mappa dei file principali
 
