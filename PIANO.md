@@ -136,12 +136,22 @@ reale delle fasi è:
   (indicatore di caricamento della chat) compare ma non è animato.
 - **Fase 3 = onboarding AI-assisted**: descrizione testuale della propria attività → bozza
   generata dall'AI → compilata sui form di `/dashboard/configura` che esistono già, il
-  titolare conferma/corregge invece di partire da campi vuoti. **Nota per quando ci arriviamo
-  (richiesta esplicita di Gabriel il 15/09/2026)**: questa stessa bozza generata dall'AI deve
-  compilare ANCHE i campi della knowledge base della Fase 2 sopra (descrizione, parcheggio,
-  metodi di pagamento, eventuali FAQ), non solo orari/operatori/servizi -- un solo giro di
-  onboarding per tutto, zero dati duplicati da far scrivere due volte al titolare. Non ancora una
-  voce di questo documento prima del 14/09/2026 -- nuovo task, priorità alta.
+  titolare conferma/corregge invece di partire da campi vuoti. La bozza generata dall'AI
+  compila ANCHE i campi della knowledge base della Fase 2 sopra (descrizione, parcheggio, metodi
+  di pagamento, FAQ) quando il piano li include, non solo orari/operatori/servizi -- un solo giro
+  di onboarding per tutto, zero dati duplicati da far scrivere due volte al titolare (richiesta
+  esplicita di Gabriel il 15/09/2026). **Codice completo e testato in locale il 15/09/2026**
+  (dettaglio in DECISIONS.md): modulo di estrazione (`onboarding-ai.ts` + `onboarding-ai.server.ts`,
+  stesso tool-calling forzato e la stessa regola "mai inventare un numero" già in uso per l'AI
+  cliente), azioni server che riusano quelle granulari già esistenti invece di scrivere query
+  dirette (`onboarding-ai-azioni.ts`), pannello "Compila con l'AI" in `/dashboard/configura`
+  (`PannelloOnboardingAI.tsx`, revisione/esclusione riga per riga prima di applicare, mai un
+  salvataggio automatico). 35 test nuovi (15+8+12), `tsc`/`eslint`/`npm run build` puliti, e verifica dal
+  vivo contro il modello Anthropic reale su 4 scenari (completo, prezzo mancante non inventato,
+  testo fuori tema, gate di piano rispettato) -- tutti corretti. **Ancora da fare prima di
+  chiudere la fase**: verifica end-to-end nel browser vero (click reale sul pannello, dati che
+  arrivano davvero in tabella) possibile solo dopo che Gabriel fa push e Vercel rideploya --
+  non ancora fatta, non un dettaglio da saltare.
 - **Fase 4 = riprogrammazione cliente self-service + promemoria di compleanno** (vedi Gruppo
   B-bis e la lista "cosa manca ancora" più sotto per il dettaglio di ciascuna).
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni

@@ -1,6 +1,34 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 14/09/2026, trentatreesimo giro -- rielaborazione di prezzi, margini e
+Ultimo aggiornamento: 15/09/2026, trentaquattresimo giro -- Fase 3 di PIANO.md (onboarding
+AI-assisted): il titolare descrive la propria attività in linguaggio naturale, l'AI ne estrae una
+bozza (orari, operatori, servizi, e se il piano lo include anche informazioni attività/FAQ), il
+titolare la rivede riga per riga (può escludere/correggere ogni voce) prima di applicarla sui
+form già esistenti di `/dashboard/configura` -- mai un salvataggio automatico. Stesso principio
+già in vigore per l'AI cliente (punto 7 di CLAUDE.md, "l'AI non deve inventare dati") esteso qui:
+un prezzo/durata/orario non specificato dal titolare resta vuoto in revisione, mai stimato.
+Codice nuovo che riusa sempre le azioni server granulari già in produzione
+(`creaOperatore`/`creaServizio`/`salvaOrari`/`aggiornaInformazioniAttivita`/`aggiungiFaq`/
+`aggiornaFinestraCancellazione`) invece di query dirette, con guardie esplicite contro la
+cancellazione silenziosa di dati già configurati (orari applicati solo se la bozza propone
+davvero qualcosa di aperto, informazioni attività e telefono mai azzerati quando la bozza non li
+menziona). Verificato dal vivo contro il modello Anthropic reale su 4 scenari (descrizione
+completa, prezzo mancante non inventato, testo fuori tema, gate di piano rispettato anche a
+livello di schema) -- tutti corretti. 35 test nuovi (`npx vitest run`: 399/399), `tsc --noEmit`,
+`eslint`, `npm run build` tutti puliti. Dettaglio completo in DECISIONS.md.
+
+Nello stesso giro, delegata da Gabriel a me la decisione sui tempi dell'anti-abuso del form di
+prenotazione pubblico (problema noto #15): **rimandato**, nessun salone è ancora pubblicamente
+live quindi il rischio che mitiga non esiste ancora (dettaglio in DECISIONS.md e più sotto in
+"Osservazioni aperte").
+
+**Ancora aperto, onestamente non fatto**: verifica end-to-end nel browser vero del pannello
+"Compila con l'AI" (dati che arrivano davvero nelle tabelle dopo un click reale) -- possibile solo
+dopo che questo codice è deployato (consegnato via bundle, in attesa che Gabriel faccia
+`git pull`+`git push`), la verifica via estensione Chrome richiede il sito vero raggiungibile dal
+suo browser, non questo sandbox.
+
+Aggiornamento precedente, 14/09/2026, trentatreesimo giro -- rielaborazione di prezzi, margini e
 abbonamenti su richiesta esplicita di Gabriel ("dobbiamo rielaborare prezzi margini e
 abbonamenti e capire qual'è la soluzione migliore"). Quattro decisioni concrete, tutte in
 DECISIONS.md con il ragionamento completo:
@@ -2354,6 +2382,14 @@ l'11/09/2026 via MCP diretto).
     Dati di test di questa verifica ripuliti dal database subito dopo la conferma (appuntamento
     "Mario Rossi" cancellato, riga `richieste_caparra` collegata lasciata come storico completato
     dato che è indistinguibile da un pagamento vero completato con successo).
+
+**Decisione 15/09/2026 (Gabriel ha lasciato a me la scelta)**: l'anti-abuso sulla prenotazione
+pubblica (problema noto #15 sotto) **resta rimandato**, non diventa un task della fase corrente --
+nessun salone reale è ancora pubblico (Gabriel: "lascia stare l'aprire il salone, seguiamo le
+fasi"), quindi il rischio che mitiga (spam sul form pubblico di un salone vero) non esiste ancora.
+Resta nella checklist da chiudere prima di condividere il primo link `/s/[slug]` con un cliente
+vero, non prima. Si riprende la sequenza di fasi di PIANO.md: dopo Fase 2 (AI conversazionale,
+chiusa oggi coi due bug corretti), la prossima è **Fase 3 -- onboarding AI-assisted**.
 
 ## Osservazioni aperte (non bug, decisioni da prendere)
 

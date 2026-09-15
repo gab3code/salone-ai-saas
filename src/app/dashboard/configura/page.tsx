@@ -9,6 +9,7 @@ import {
   impostaAssociazioneOperatoreServizio,
   salvaOrari,
 } from "./azioni";
+import { PannelloOnboardingAI } from "./PannelloOnboardingAI";
 
 const NOMI_GIORNI = [
   "Domenica",
@@ -73,6 +74,13 @@ export default async function PaginaConfigura() {
           su cui lavorare.
         </p>
       </div>
+
+      {/* Fase 3 di PIANO.md: in evidenza ("aperto" di default) quando il
+          salone è ancora vuoto -- è lì che risparmia più tempo -- ma resta
+          disponibile anche dopo, come opzione da riaprire, per chi vuole
+          aggiungere servizi/operatori/informazioni descrivendoli invece di
+          compilare i form uno per uno. */}
+      <PannelloOnboardingAI evidenzia={operatori.length === 0 && servizi.length === 0} />
 
       {/* --- Orari di apertura --- */}
       <section>

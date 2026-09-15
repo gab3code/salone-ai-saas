@@ -3191,3 +3191,114 @@ dover passare dal vero Stripe/DB) -- oltre alle verifiche dal vivo sopra contro 
 (non committate: uno script temporaneo cancellato subito dopo l'uso, come da prassi per non
 lasciare artefatti di test usa-e-getta). Suite completa: `npx vitest run` (364/364), `tsc
 --noEmit`, `eslint`, `npm run build` tutti puliti.
+
+---
+
+## 2026-09-15 — Anti-abuso sul form di prenotazione pubblico: rimandato, non deciso da Gabriel ma delegato a me
+
+**Contesto**: problema noto #15 (nessun rate-limit/captcha sul form pubblico di prenotazione).
+Gabriel: "lascia stare l'aprire il salone, seguiamo le fasi, l'1 [anti-abuso] vedi tu se farlo ora
+o inserirlo in una fase futura" -- prima volta in questa sessione che la scelta di quando fare un
+task viene lasciata esplicitamente a me invece che decisa da lui.
+
+**Decisione**: rimandato, non eseguito ora. **Motivazione**: il rischio che l'anti-abuso mitiga
+(spam/abuso sul form pubblico `/s/[slug]`) richiede che un form pubblico esista davvero per un
+salone vero con clienti veri -- oggi nessun salone è pubblicamente live (solo tenant di test).
+Costruirlo ora sarebbe lavoro speso su un rischio che non esiste ancora, a scapito della sequenza
+di fasi che invece sblocca funzionalità che Gabriel aspetta. **Non è un "mai"**: resta in
+checklist da chiudere obbligatoriamente prima di condividere il primo link `/s/[slug]` con un
+cliente pagante vero (vedi PROJECT_STATUS.md). Ripresa quindi la sequenza di PIANO.md: Fase 3,
+onboarding AI-assisted (voce successiva in questo documento).
+
+---
+
+## 2026-09-15 — Fase 3, onboarding AI-assisted: bozza da descrizione libera, mai un salvataggio senza revisione
+
+**Contesto**: Gabriel il 15/09/2026 ha chiuso la discussione sull'apertura del salone a clienti
+paganti reali ("lascia stare l'aprire il salone, seguiamo le fasi") e ha lasciato a me la
+decisione se fare subito o rimandare il task anti-abuso sul form di prenotazione pubblico (voce
+separata più sotto in questo stesso documento/PROJECT_STATUS.md: **deciso di rimandarlo**, nessun
+salone è ancora pubblicamente live quindi il rischio che mitiga non esiste ancora). Ripreso
+quindi il prossimo punto della sequenza di fasi in PIANO.md: Fase 3.
+
+**Decisione architetturale**: stesso principio già stabilito per l'AI cliente (punto 7 di
+CLAUDE.md, "l'AI non deve inventare dati") esteso all'AI di onboarding -- e stesso pattern di
+separazione pura/IO già in uso in tutto il progetto (`booking-engine.ts`/`.server.ts`).
+
+- `src/lib/onboarding-ai.ts` (puro): valida/normalizza l'output grezzo del modello in una
+  `BozzaOnboarding` sicura. Un giorno omesso diventa "chiuso" di default (mai un orario
+  inventato), un prezzo/durata mancante resta `null` (mai stimato), un nome mancante scarta la
+  riga invece di inventarne uno. I campi di knowledge base (informazioni attività/FAQ) sono
+  sempre vuoti se il piano del tenant non li include (`pianoHaKnowledgeBaseAi`) -- niente senso
+  proporre in revisione un campo che poi fallirebbe silenziosamente al salvataggio.
+- `src/lib/onboarding-ai.server.ts` (IO): chiama Anthropic (`claude-haiku-4-5-20251001`, stesso
+  modello dell'AI cliente) con tool-calling FORZATO su un unico strumento
+  (`tool_choice: {type: "tool", name: "restituisci_bozza"}`), stesso principio già in uso in
+  `agente.ts`/`tools.ts` -- niente parsing di testo libero. Lo schema del tool cambia in base al
+  piano (i campi di knowledge base non vengono nemmeno proposti al modello se il piano non li
+  supporta, difesa in profondità oltre al filtro lato validazione). System prompt con la stessa
+  regola non negoziabile già vista altrove: mai inventare prezzo/durata/orario, meglio un campo
+  vuoto che un titolare corregge lui stesso.
+- `src/app/dashboard/configura/onboarding-ai-azioni.ts`: le due azioni server che collegano tutto
+  al resto della dashboard, **riusando sempre le azioni granulari già esistenti e già in
+  produzione** (`creaOperatore`, `creaServizio`, `salvaOrari`, `aggiornaInformazioniAttivita`,
+  `aggiungiFaq`, `aggiornaFinestraCancellazione`) invece di scrivere query dirette -- un solo
+  posto dove vive ogni regola di validazione/limite di piano. Estensione minima e non invasiva:
+  `creaOperatore`/`creaServizio` ora restituiscono anche l'`id` appena creato (serviva per
+  risolvere le associazioni operatore/servizio della bozza), nessun chiamante esistente ne
+  risentiva perché tutti scartavano già il valore di ritorno.
+  - **Guardie contro la cancellazione silenziosa di dati già configurati**, il punto più delicato
+    di questa azione: (1) gli orari vengono applicati SOLO se la bozza ha almeno un giorno
+    aperto -- una bozza "tutto chiuso" significa quasi sempre "il testo non parlava di orari",
+    non "chiudi ogni giorno", e applicarla alla lettera su un tenant già configurato
+    cancellerebbe orari veri; (2) le informazioni attività ripartono sempre dai valori attuali in
+    DB e sovrascrivono solo i campi che la bozza fornisce davvero (`aggiornaInformazioniAttivita`
+    fa un UPDATE completo dei 4 campi, non un merge); (3) la finestra di cancellazione ripassa
+    sempre il `telefono` già in DB, perché quell'azione lo sovrascrive nella stessa riga e la
+    bozza di onboarding non lo tratta affatto -- senza questo accorgimento, applicare solo la
+    politica di cancellazione da una bozza avrebbe azzerato un numero di telefono già impostato.
+  - Non tutto-o-niente: ogni pezzo (orari, ogni operatore, ogni servizio, ogni FAQ...) viene
+    tentato indipendentemente, un fallimento parziale (es. limite operatori del piano Free
+    raggiunto a metà bozza) finisce in un elenco di errori onesto invece di annullare il resto o
+    fallire in silenzio.
+  - Associazioni operatore/servizio: se la bozza non ne specifica nessuna esplicita, default
+    ragionevole "ogni operatore appena creato con ogni servizio appena creato" -- una bozza può
+    riferirsi solo a operatori/servizi che propone lei stessa, non a righe già esistenti sul
+    tenant (limite onesto della v1, non fuzzy-matching sui nomi in database).
+- `src/app/dashboard/configura/PannelloOnboardingAI.tsx`: pannello client, in evidenza (aperto di
+  default) quando il salone non ha ancora operatori/servizi, disponibile come opzione anche dopo.
+  Textarea libera → "Genera bozza" → schermata di revisione con una checkbox di
+  inclusione/esclusione per ogni riga (operatore, servizio, orari, informazioni attività, ogni
+  FAQ, finestra di cancellazione), campi modificabili a mano, un avviso esplicito quando un
+  servizio manca di durata/prezzo ("completali prima di applicare") → "Applica alla
+  configurazione" chiama `applicaBozzaOnboarding` solo con le righe rimaste incluse. Nessun
+  salvataggio automatico in nessun punto del flusso.
+
+**Verifica dal vivo contro il modello Anthropic reale** (non mockato, stesso script usa-e-getta
+poi cancellato, prassi già seguita per i bug giorno/caparra sopra), 4 scenari:
+1. Descrizione completa (orari martedì-sabato 9-19 pausa 13-14, 2 operatori con specializzazione,
+   3 servizi con durata/prezzo, cancellazione 24h, indirizzo/parcheggio/pagamenti) → estratta
+   correttamente in ogni dettaglio, inclusi i giorni chiusi (domenica, lunedì) mai menzionati
+   esplicitamente ma dedotti correttamente per esclusione.
+2. Un servizio (pedicure) menzionato senza prezzo → `prezzoEuro`/`durataMinuti` restituiti `null`,
+   MAI inventati, mentre l'altro servizio (manicure, con prezzo dichiarato) estratto correttamente.
+3. Testo vago/fuori tema ("oggi è una bella giornata di sole...") → nessuna bozza utilizzabile
+   (`ok: false`), nessuna allucinazione forzata per riempire comunque qualcosa.
+4. Informazioni di knowledge base (indirizzo, parcheggio, pagamenti) menzionate nel testo ma piano
+   Free → correttamente NON proposte (`informazioniAttivita: null`), il gate di piano
+   rispettato anche a livello di schema del tool, non solo di validazione successiva.
+
+**Test**: `onboarding-ai.test.ts` (nuovo file, 15 test sulla normalizzazione pura),
+`onboarding-ai.server.test.ts` (nuovo file, 8 test sul cablaggio Anthropic con client finto:
+tool_choice forzato, schema condizionato dal piano, gestione errori di rete/risposta
+malformata/bozza vuota), `onboarding-ai-azioni.test.ts` (nuovo file, 12 test di orchestrazione con
+ogni azione granulare mockata: guardie anti-cancellazione, fallimento parziale non bloccante,
+default di associazione, gate di piano). Suite completa: `npx vitest run` (399/399), `tsc
+--noEmit`, `eslint`, `npm run build` tutti puliti.
+
+**Ancora aperto, onestamente non fatto**: verifica end-to-end nel browser vero (click reale sul
+pannello dentro `/dashboard/configura`, dati che arrivano davvero nelle tabelle). Il codice non è
+ancora deployato (sandbox senza credenziali di push, consegna via bundle come sempre) e la
+verifica dal vivo via estensione Chrome richiede il sito vero raggiungibile dal browser di
+Gabriel -- non questo sandbox. Programmata per subito dopo che Gabriel fa push e Vercel
+rideploya, da fare da me stesso (CLAUDE.md punto 27bis), non da fargli confermare lui.

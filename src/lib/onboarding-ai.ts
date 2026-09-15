@@ -1,0 +1,244 @@
+/**
+ * Fase 3 di PIANO.md (onboarding AI-assisted, richiesta esplicita di Gabriel
+ * 14-15/09/2026): parte pura, senza IO, che normalizza/valida l'output
+ * grezzo del modello in una bozza sicura da mostrare al titolare per la
+ * revisione -- stesso principio di booking-engine.ts vs
+ * booking-engine.server.ts, testabile senza mock di rete/database.
+ *
+ * REGOLA FONDAMENTALE (stessa di CLAUDE.md punto 7, applicata qui
+ * all'onboarding invece che alla chat cliente): l'AI non deve MAI inventare
+ * un prezzo, una durata o un orario che il titolare non ha scritto o reso
+ * inequivocabile nella sua descrizione. Questo modulo quindi non "ripara"
+ * un valore mancante con un default plausibile -- lo lascia `null` così la
+ * UI di revisione lo evidenzia come "da compilare" prima di poter applicare
+ * quella riga, esattamente come un campo vuoto in un form normale.
+ */
+
+export interface OrarioBozza {
+  giornoSettimana: number; // 0=domenica .. 6=sabato, come Date.getUTCDay()
+  chiuso: boolean;
+  apertura: string | null; // "HH:MM"
+  chiusura: string | null;
+  pausaInizio: string | null;
+  pausaFine: string | null;
+}
+
+export interface OperatoreBozza {
+  nome: string;
+  descrizione: string | null;
+}
+
+export interface ServizioBozza {
+  nome: string;
+  durataMinuti: number | null; // null = non specificato dal testo, l'owner lo compila in revisione
+  prezzoEuro: number | null;
+}
+
+export interface AssociazioneBozza {
+  operatore: string; // nome, non id -- risolto in id solo al momento di applicare la bozza
+  servizio: string;
+}
+
+export interface InformazioniAttivitaBozza {
+  descrizione: string | null;
+  indirizzo: string | null;
+  parcheggio: string | null;
+  metodiPagamento: string | null;
+}
+
+export interface FaqBozza {
+  domanda: string;
+  risposta: string;
+}
+
+export interface BozzaOnboarding {
+  orari: OrarioBozza[]; // sempre esattamente 7 elementi, uno per giorno
+  operatori: OperatoreBozza[];
+  servizi: ServizioBozza[];
+  associazioni: AssociazioneBozza[];
+  informazioniAttivita: InformazioniAttivitaBozza | null;
+  faq: FaqBozza[];
+  oreMinimeCancellazione: number | null;
+}
+
+const FORMATO_ORARIO = /^([01]\d|2[0-3]):[0-5]\d$/;
+// Stessi limiti già applicati dalle azioni esistenti (creaServizio,
+// creaOperatore, aggiungiFaq, aggiornaInformazioniAttivita,
+// aggiornaFinestraCancellazione) -- ripetuti qui così una bozza "over
+// budget" viene già tagliata in revisione invece di fallire silenziosamente
+// al momento di applicarla.
+const MAX_CARATTERI_DESCRIZIONE_OPERATORE = 500;
+const MAX_CARATTERI_CAMPO_INFORMAZIONI = 2000;
+const MAX_CARATTERI_FAQ_DOMANDA = 300;
+const MAX_CARATTERI_FAQ_RISPOSTA = 1000;
+const MAX_ORE_CANCELLAZIONE = 720;
+const MAX_OPERATORI_BOZZA = 20;
+const MAX_SERVIZI_BOZZA = 40;
+const MAX_FAQ_BOZZA = 15; // una bozza generosa in FAQ ha comunque senso solo fino a un certo punto
+
+function orarioValido(v: unknown): string | null {
+  return typeof v === "string" && FORMATO_ORARIO.test(v) ? v : null;
+}
+
+function testoONull(v: unknown, maxLunghezza: number): string | null {
+  if (typeof v !== "string") return null;
+  const pulito = v.trim().slice(0, maxLunghezza);
+  return pulito || null;
+}
+
+function numeroPositivoONull(v: unknown): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) return null;
+  return v;
+}
+
+/** Come numeroPositivoONull, ma 0 è un prezzo legittimo (es. una consulenza
+ *  gratuita) e va distinto da "non specificato dal testo": solo un valore
+ *  negativo o non numerico diventa null. */
+function prezzoEuroONull(v: unknown): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return null;
+  return v;
+}
+
+/**
+ * Sempre 7 righe (una per giorno 0-6): un giorno assente nell'input grezzo
+ * -- il modello a volte ne omette qualcuno invece di scriverlo chiuso --
+ * diventa "chiuso" di default, mai un giorno con orari inventati.
+ */
+function normalizzaOrari(grezzi: unknown): OrarioBozza[] {
+  const perGiorno = new Map<number, OrarioBozza>();
+  if (Array.isArray(grezzi)) {
+    for (const r of grezzi) {
+      if (typeof r !== "object" || r === null) continue;
+      const giorno = Number((r as Record<string, unknown>).giorno_settimana);
+      if (!Number.isInteger(giorno) || giorno < 0 || giorno > 6) continue;
+      const chiuso = (r as Record<string, unknown>).chiuso !== false; // fail-safe: chiuso di default se ambiguo
+      perGiorno.set(giorno, {
+        giornoSettimana: giorno,
+        chiuso,
+        apertura: chiuso ? null : orarioValido((r as Record<string, unknown>).apertura),
+        chiusura: chiuso ? null : orarioValido((r as Record<string, unknown>).chiusura),
+        pausaInizio: chiuso ? null : orarioValido((r as Record<string, unknown>).pausa_inizio),
+        pausaFine: chiuso ? null : orarioValido((r as Record<string, unknown>).pausa_fine),
+      });
+    }
+  }
+  return Array.from({ length: 7 }, (_, giorno) => perGiorno.get(giorno) ?? {
+    giornoSettimana: giorno,
+    chiuso: true,
+    apertura: null,
+    chiusura: null,
+    pausaInizio: null,
+    pausaFine: null,
+  });
+}
+
+function normalizzaOperatori(grezzi: unknown): OperatoreBozza[] {
+  if (!Array.isArray(grezzi)) return [];
+  const risultato: OperatoreBozza[] = [];
+  for (const r of grezzi) {
+    if (typeof r !== "object" || r === null) continue;
+    const nome = testoONull((r as Record<string, unknown>).nome, 100);
+    if (!nome) continue;
+    risultato.push({ nome, descrizione: testoONull((r as Record<string, unknown>).descrizione, MAX_CARATTERI_DESCRIZIONE_OPERATORE) });
+    if (risultato.length >= MAX_OPERATORI_BOZZA) break;
+  }
+  return risultato;
+}
+
+function normalizzaServizi(grezzi: unknown): ServizioBozza[] {
+  if (!Array.isArray(grezzi)) return [];
+  const risultato: ServizioBozza[] = [];
+  for (const r of grezzi) {
+    if (typeof r !== "object" || r === null) continue;
+    const nome = testoONull((r as Record<string, unknown>).nome, 100);
+    if (!nome) continue;
+    const durataGrezza = (r as Record<string, unknown>).durata_minuti;
+    risultato.push({
+      nome,
+      durataMinuti: typeof durataGrezza === "number" ? numeroPositivoONull(Math.round(durataGrezza)) : null,
+      prezzoEuro: prezzoEuroONull((r as Record<string, unknown>).prezzo_euro),
+    });
+    if (risultato.length >= MAX_SERVIZI_BOZZA) break;
+  }
+  return risultato;
+}
+
+function normalizzaAssociazioni(grezzi: unknown): AssociazioneBozza[] {
+  if (!Array.isArray(grezzi)) return [];
+  const risultato: AssociazioneBozza[] = [];
+  for (const r of grezzi) {
+    if (typeof r !== "object" || r === null) continue;
+    const operatore = testoONull((r as Record<string, unknown>).operatore, 100);
+    const servizio = testoONull((r as Record<string, unknown>).servizio, 100);
+    if (operatore && servizio) risultato.push({ operatore, servizio });
+  }
+  return risultato;
+}
+
+function normalizzaInformazioniAttivita(grezzo: unknown): InformazioniAttivitaBozza | null {
+  if (typeof grezzo !== "object" || grezzo === null) return null;
+  const r = grezzo as Record<string, unknown>;
+  const informazioni: InformazioniAttivitaBozza = {
+    descrizione: testoONull(r.descrizione, MAX_CARATTERI_CAMPO_INFORMAZIONI),
+    indirizzo: testoONull(r.indirizzo, MAX_CARATTERI_CAMPO_INFORMAZIONI),
+    parcheggio: testoONull(r.parcheggio, MAX_CARATTERI_CAMPO_INFORMAZIONI),
+    metodiPagamento: testoONull(r.metodi_pagamento, MAX_CARATTERI_CAMPO_INFORMAZIONI),
+  };
+  const tuttiVuoti = !informazioni.descrizione && !informazioni.indirizzo && !informazioni.parcheggio && !informazioni.metodiPagamento;
+  return tuttiVuoti ? null : informazioni;
+}
+
+function normalizzaFaq(grezzi: unknown): FaqBozza[] {
+  if (!Array.isArray(grezzi)) return [];
+  const risultato: FaqBozza[] = [];
+  for (const r of grezzi) {
+    if (typeof r !== "object" || r === null) continue;
+    const domanda = testoONull((r as Record<string, unknown>).domanda, MAX_CARATTERI_FAQ_DOMANDA);
+    const risposta = testoONull((r as Record<string, unknown>).risposta, MAX_CARATTERI_FAQ_RISPOSTA);
+    if (domanda && risposta) risultato.push({ domanda, risposta });
+    if (risultato.length >= MAX_FAQ_BOZZA) break;
+  }
+  return risultato;
+}
+
+function normalizzaOreCancellazione(grezzo: unknown): number | null {
+  if (typeof grezzo !== "number" || !Number.isFinite(grezzo) || !Number.isInteger(grezzo)) return null;
+  if (grezzo < 0 || grezzo > MAX_ORE_CANCELLAZIONE) return null;
+  return grezzo;
+}
+
+/**
+ * Normalizza l'input grezzo (il JSON restituito dal tool-calling del
+ * modello, non ancora fidato) in una BozzaOnboarding sicura. Fail-open su
+ * ogni singolo campo malformato (lo scarta/lascia null) invece di lanciare
+ * un'eccezione -- una bozza parziale ma utilizzabile è sempre meglio di
+ * nessuna bozza.
+ */
+export function validaBozzaGrezza(grezza: unknown, haKnowledgeBaseAi: boolean): BozzaOnboarding {
+  const r = typeof grezza === "object" && grezza !== null ? (grezza as Record<string, unknown>) : {};
+  return {
+    orari: normalizzaOrari(r.orari),
+    operatori: normalizzaOperatori(r.operatori),
+    servizi: normalizzaServizi(r.servizi),
+    associazioni: normalizzaAssociazioni(r.associazioni),
+    // I campi di knowledge base non si possono comunque salvare su un piano
+    // senza questa funzionalità (aggiornaInformazioniAttivita/aggiungiFaq li
+    // rifiuterebbero) -- meglio non proporli affatto in revisione che
+    // mostrare un suggerimento che poi fallisce silenziosamente all'apply.
+    informazioniAttivita: haKnowledgeBaseAi ? normalizzaInformazioniAttivita(r.informazioni_attivita) : null,
+    faq: haKnowledgeBaseAi ? normalizzaFaq(r.faq) : [],
+    oreMinimeCancellazione: normalizzaOreCancellazione(r.ore_minime_cancellazione),
+  };
+}
+
+/** true se la bozza non contiene assolutamente nulla di utilizzabile (testo troppo vago/fuori tema). */
+export function bozzaVuota(bozza: BozzaOnboarding): boolean {
+  return (
+    bozza.operatori.length === 0 &&
+    bozza.servizi.length === 0 &&
+    bozza.orari.every((o) => o.chiuso) &&
+    !bozza.informazioniAttivita &&
+    bozza.faq.length === 0 &&
+    bozza.oreMinimeCancellazione === null
+  );
+}

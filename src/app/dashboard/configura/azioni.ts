@@ -80,7 +80,16 @@ export async function creaOperatore(formData: FormData) {
     }
   }
 
-  const { error } = await supabase.from("operatori").insert({ tenant_id: tenantId, nome, descrizione });
+  // .select("id").single() aggiunto 15/09/2026 per Fase 3 (onboarding
+  // AI-assisted, applicaBozzaOnboarding in questo stesso file): serve l'id
+  // appena creato per risolvere le associazioni operatore/servizio della
+  // bozza. Nessun chiamante esistente legge il valore restituito (i form di
+  // page.tsx lo scartano), quindi è un'estensione innocua.
+  const { data: operatoreCreato, error } = await supabase
+    .from("operatori")
+    .insert({ tenant_id: tenantId, nome, descrizione })
+    .select("id")
+    .single();
   if (error) return { errore: `Errore creando l'operatore: ${error.message}` };
 
   // Su Pro il prezzo scala con gli operatori (il prezzo base include il
@@ -91,7 +100,7 @@ export async function creaOperatore(formData: FormData) {
   await sincronizzaQuantitaOperatoriStripe(supabase, tenantId);
 
   revalidatePath("/dashboard/configura");
-  return { ok: true };
+  return { ok: true as const, id: operatoreCreato.id as string };
 }
 
 export async function eliminaOperatore(id: string) {
@@ -123,16 +132,21 @@ export async function creaServizio(formData: FormData) {
     return { errore: "Il prezzo non può essere negativo." };
   }
 
-  const { error } = await supabase.from("servizi").insert({
-    tenant_id: tenantId,
-    nome,
-    durata_minuti: Math.round(durataMinuti),
-    prezzo_centesimi: Math.round(prezzoEuro * 100),
-  });
+  // .select("id").single(): stesso motivo di creaOperatore sopra.
+  const { data: servizioCreato, error } = await supabase
+    .from("servizi")
+    .insert({
+      tenant_id: tenantId,
+      nome,
+      durata_minuti: Math.round(durataMinuti),
+      prezzo_centesimi: Math.round(prezzoEuro * 100),
+    })
+    .select("id")
+    .single();
   if (error) return { errore: `Errore creando il servizio: ${error.message}` };
 
   revalidatePath("/dashboard/configura");
-  return { ok: true };
+  return { ok: true as const, id: servizioCreato.id as string };
 }
 
 export async function eliminaServizio(id: string) {
