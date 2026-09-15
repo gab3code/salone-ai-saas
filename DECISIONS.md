@@ -3430,6 +3430,11 @@ numero, link e telefono nello stesso messaggio riconosciuti entrambi, testo senz
 invariato. Suite completa: `npx vitest run` (408/408), `tsc --noEmit`, `eslint`, `npm run build`
 tutti puliti.
 
-**Ancora aperto**: non ancora verificato dal vivo nel browser vero (il deploy di questo giro deve
-ancora arrivare a Gabriel) -- verifica programmata per dopo il prossimo push, stesso schema usato
-finora.
+**Aggiornamento 15/09/2026, dopo il push di Gabriel**: verificato dal vivo nel browser vero (tab
+nuova, tenant "prova gabriel", chiesto "Qual è il vostro numero di telefono?"). La risposta mostra
+"02 99999999" come link blu, sottolineato, cliccabile (`tel:0299999999`) -- non più testo semplice.
+Confermato anche che il primo click su un tab appena navigato può centrare il fumetto di
+suggerimento invece del pulsante della chat (si sovrappongono per una finestra di ~1,5s dopo il
+caricamento): non è un bug di questo fix, è il comportamento voluto del fumetto (un click lo chiude
+e basta, vedi `chiudiSuggerimento` in `ChatWidgetPubblico.tsx`) -- va solo tenuto a mente rifacendo
+questo tipo di verifica in futuro (aprire la chat con un secondo click se il primo non basta).

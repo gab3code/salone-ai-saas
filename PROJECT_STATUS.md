@@ -9,8 +9,9 @@ lo erano già): fatto con una regex mirata ai due prefissi reali di un numero it
 o cellulare `3...`, con o senza `+39`) applicata solo al testo che non è già un URL -- una regex
 più permissiva avrebbe scambiato date o intervalli di prezzo per numeri di telefono. Primo test di
 un componente React del progetto (nessun rendering DOM, solo ispezione della struttura ritornata).
-408/408 test, `tsc`/`eslint`/`npm run build` puliti. **Non ancora verificato dal vivo** (in attesa
-del prossimo pull+push di Gabriel). Dettaglio completo in DECISIONS.md.
+408/408 test, `tsc`/`eslint`/`npm run build` puliti. Verificato anche dal vivo nel browser vero
+dopo il deploy: chiesto il numero in chat, "02 99999999" arriva come link blu cliccabile
+(`tel:0299999999`), non più testo semplice. Dettaglio completo in DECISIONS.md.
 
 Aggiornamento precedente, 15/09/2026, trentacinquesimo giro -- Fase 3 verificata dal vivo nel
 browser vero (panello "Compila con l'AI": descrizione libera -> bozza -> applicata -> confermato in
