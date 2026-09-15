@@ -154,6 +154,17 @@ reale delle fasi è:
   -> confermato in `/dashboard/configura` e `/dashboard/impostazioni/cancellazione` che i dati ci
   sono davvero, incluso il telefono del tenant NON cancellato dall'apply (la guardia funziona).
   Fase 3 chiusa.
+
+  **Bug UI trovato e corretto il 15/09/2026, durante un test dal vivo nei panni di un cliente vero
+  richiesto esplicitamente da Gabriel** (dettaglio completo in DECISIONS.md): subito dopo "Applica
+  alla configurazione" la tabella "Orari di apertura" restava visivamente su "tutto chiuso" anche
+  se i dati salvati erano già corretti (si vedeva solo ricaricando la pagina) -- causa un
+  `router.refresh()` che non rimonta input non controllati già presenti a schermo. Corretto con
+  una `key` sul form che cambia insieme ai dati, così il form si rimonta da zero. Stessa
+  verifica completa di prima (410/410 test, `tsc`/`eslint`/`build`), verifica dal vivo nel browser
+  rimandata al prossimo deploy. Raccolte anche osservazioni di prodotto più ampie sull'onboarding
+  (percorso guidato assente, "Compila con l'AI" non conversazionale, nome operatore generico) --
+  non ancora decise, riportate a Gabriel separatamente.
 - **Fase 4 = riprogrammazione cliente self-service + promemoria di compleanno** (vedi Gruppo
   B-bis e la lista "cosa manca ancora" più sotto per il dettaglio di ciascuna).
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni

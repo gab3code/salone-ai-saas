@@ -62,6 +62,21 @@ export default async function PaginaConfigura() {
     (opServiziRes.data ?? []).map((r) => `${r.operatore_id}:${r.servizio_id}`)
   );
 
+  // Bug trovato dal vivo 15/09/2026 durante il test dell'onboarding AI: subito
+  // dopo "Applica alla configurazione" (PannelloOnboardingAI -> router.refresh()),
+  // le checkbox "Chiuso" restavano visivamente con lo stato vecchio anche se i
+  // dati salvati erano già corretti (confermato ricaricando la pagina). Causa:
+  // gli input qui sotto sono non controllati (defaultChecked/defaultValue) --
+  // React li imposta solo al primo mount e un router.refresh() non rimonta gli
+  // elementi già presenti, si limita a riconciliarli. La soluzione più semplice
+  // che resta nello spirito "niente stato client da sincronizzare a mano" del
+  // resto della pagina: una `key` sul form che cambia quando cambiano i dati,
+  // così React rimonta l'intero form (e quindi i default) invece di riusarlo.
+  const chiaveOrari = NOMI_GIORNI.map((_, giorno) => {
+    const r = orariPerGiorno.get(giorno);
+    return `${giorno}:${r?.chiuso ?? ""}:${r?.apertura ?? ""}:${r?.chiusura ?? ""}:${r?.pausa_inizio ?? ""}:${r?.pausa_fine ?? ""}`;
+  }).join("|");
+
   return (
     <div className="flex flex-1 flex-col gap-10 p-8">
       <div>
@@ -86,6 +101,7 @@ export default async function PaginaConfigura() {
       <section>
         <h2 className="text-base font-medium">Orari di apertura</h2>
         <form
+          key={chiaveOrari}
           action={async (formData: FormData) => {
             "use server";
             await salvaOrari(formData);

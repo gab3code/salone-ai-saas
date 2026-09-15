@@ -1,6 +1,24 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 15/09/2026, trentottesimo giro -- Gabriel ha chiesto un modo per condividere
+Ultimo aggiornamento: 15/09/2026, trentanovesimo giro -- Gabriel non aveva mai provato di persona
+l'onboarding AI (Fase 3): chiesto di valutarlo mettendosi nei panni di un cliente vero, correggere
+se necessario e dare un parere personale. Creata una registrazione vera in produzione (osteopata
+solista, caso vicino al fratello di Gabriel), seguito l'intero percorso fino alla pagina pubblica e
+a una prenotazione di prova, poi pulito tutto (tenant + utente eliminati da Supabase, nessun
+residuo). **Bug reale trovato e corretto**: subito dopo "Applica alla configurazione" la tabella
+"Orari di apertura" mostrava ancora tutti i giorni come "Chiuso" (i dati erano già salvati
+correttamente, si vedeva solo ricaricando la pagina) -- causa: input non controllati
+(`defaultChecked`) che React non aggiorna su un semplice `router.refresh()`, si aggiornano solo al
+primo mount. Fix: una `key` sul form che cambia quando cambiano davvero i dati, così il form viene
+rimontato da zero. 410/410 test invariati, `tsc`/`eslint`/`npm run build` puliti. **Non ancora
+verificato dal vivo** (serve il deploy per riprodurre `router.refresh()` sull'ambiente reale).
+Raccolte anche altre osservazioni non ancora costruite (dashboard vuota che mostra già il riquadro
+"Condividi", nessun percorso guidato per un account nuovo, "Compila con l'AI" è una sola casella di
+testo e non una conversazione, nome operatore generico invece del nome del titolare) -- riportate a
+Gabriel in chat, da decidere insieme prima di toccare altro codice. Dettaglio completo in
+DECISIONS.md.
+
+Aggiornamento precedente, 15/09/2026, trentottesimo giro -- Gabriel ha chiesto un modo per condividere
 il link della propria pagina su Google Business/Instagram: prima d'oggi la dashboard mostrava solo
 lo slug come testo grezzo. Aggiunto un riquadro nella home della dashboard con il link completo
 copiabile (bottone "Copia") e un QR code scaricabile come PNG, generato server-side (`qrcode`,

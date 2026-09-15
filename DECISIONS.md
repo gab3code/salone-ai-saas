@@ -3520,3 +3520,57 @@ questo `npm run build` resta pulito nonostante quegli errori. Lasciati intenzion
 intoccati -- non sono un bug della funzionalità di oggi, e sistemarli è una pulizia separata da
 decidere con Gabriel (rischio di toccare codice vendorizzato/di scaffolding senza sapere se serve
 ancora). Nessun altro problema trovato nei file toccati in questa sessione.
+
+## 2026-09-15 — Test dal vivo dell'onboarding AI, nei panni di un cliente vero (richiesta di Gabriel)
+
+**Richiesta di Gabriel**: non aveva mai visto/provato di persona l'onboarding assistito dall'AI
+(Fase 3). Ha chiesto di (1) valutare se fa domande in modo intuitivo e configura l'attività in
+modo semplice e veloce, (2) migliorarlo se non è così -- pre-autorizzazione a correggere, non solo
+segnalare --, (3) mettersi nei panni di un suo cliente che si registra per la prima volta, (4) dare
+un parere personale su cosa preferirei/vorrei nell'onboarding.
+
+**Metodo**: creata una registrazione vera in produzione (non un tenant giocattolo con dati finti a
+caso, per testare il caso reale che questa funzione deve coprire) -- "Osteopatia Corpo Libero",
+titolare "Marco", un osteopata/massoterapista solista a Milano, persona scelta deliberatamente
+vicina a un caso reale (il fratello di Gabriel fa questo lavoro). Percorso completo: registrazione
+→ dashboard vuota → "Configura l'attività" → "Compila con l'AI" con una descrizione libera naturale
+→ revisione della bozza → applica → verifica dashboard, calendario, pagina pubblica → prenotazione
+di prova come cliente. Tenant e utente di test eliminati da Supabase a fine verifica (tenants,
+CASCADE su tutte le tabelle figlie, + auth.users) -- nessun residuo lasciato in produzione.
+
+**Bug reale trovato e corretto**: subito dopo "Applica alla configurazione", la tabella "Orari di
+apertura" sotto continuava a mostrare tutti e 7 i giorni con la checkbox "Chiuso" spuntata, anche
+se gli orari generati dall'AI (lun-ven 09-18, pausa 13-14) erano già quelli giusti nei campi orario
+accanto. Ricaricando la pagina i dati risultavano corretti (lun-ven aperti, weekend chiusi) -- non
+un bug di salvataggio, solo di visualizzazione, ma di quelli che possono far pensare a un utente
+che l'AI abbia fallito e spingerlo a intervenire manualmente in modo sbagliato subito dopo un
+"successo" che invece era reale.
+
+**Causa**: `dashboard/configura/page.tsx` è un Server Component puro, gli input di orario sono
+volutamente non controllati (`defaultChecked`/`defaultValue`, niente stato client da sincronizzare
+a mano -- scelta di design già in uso in tutta la pagina). `PannelloOnboardingAI` chiama
+`router.refresh()` dopo l'apply, che rilegge i dati freschi lato server, ma React riconcilia gli
+elementi già montati invece di ricrearli da zero -- e un `default*` si applica solo al primo mount,
+mai più dopo. Risultato: i valori "vecchi" restano visivamente incollati alla checkbox finché il
+componente non viene rimontato per intero (es. con una navigazione vera, non un semplice refresh).
+
+**Fix**: aggiunta una `key` al form che cambia ogni volta che cambiano davvero i dati di
+orari_apertura (stringa costruita da tutti i campi rilevanti di ogni giorno). Quando la `key`
+cambia, React smonta e rimonta l'intero form invece di riusarlo, quindi i `default*` vengono
+riletti da zero dai dati freschi -- stessa filosofia "niente stato client" della pagina, nessuna
+conversione a componente controllato. Verificato via `tsc --noEmit`, `npx vitest run` (410/410
+invariati), `eslint`, `npm run build`, tutti puliti. Verifica dal vivo nel browser vero rimandata a
+dopo il push (serve il deploy per riprodurre esattamente `router.refresh()` sull'ambiente reale,
+lo stesso schema seguito per gli altri fix di oggi).
+
+**Altre osservazioni raccolte facendo il test, riportate a Gabriel ma NON ancora decise/costruite**
+(vedi messaggio in chat per la versione discorsiva): dashboard appena creata mostra già il riquadro
+"Condividi la tua pagina" senza nulla ancora da prenotare; nessun percorso guidato/checklist per un
+account nuovo, "Configura l'attività" è un bottone come gli altri cinque; "Compila con l'AI" è una
+sola casella di testo libero + generazione unica, non una conversazione a domande; con una
+descrizione che diceva solo "lavoro da solo" (senza nome), l'AI ha chiamato l'unico operatore
+"Studio osteopata" invece di usare il nome del titolare già noto dalla registrazione ("Marco") --
+non arriva al cliente finale (con un solo operatore la selezione è saltata nel flusso pubblico) ma
+si vede nel calendario/dashboard del titolare. Nessuna di queste è stata corretta in questo giro:
+la prima è un bug UI chiaro, le altre sono scelte di prodotto che vanno decise con Gabriel prima di
+toccare codice.
