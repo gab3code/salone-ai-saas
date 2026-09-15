@@ -3648,4 +3648,52 @@ servizi riportato invariato, tipo di attività incluso). Nessun test nuovo per
 `RevisioneBozzaOnboarding.tsx` (puro refactor/estrazione, stesso comportamento già coperto
 indirettamente in produzione) né per `PannelloOnboardingAI.tsx` (comportamento invariato per chi
 lo usa già). Suite completa: `npx vitest run` (418/418), `tsc --noEmit`, `eslint`, `npm run build`
-tutti puliti. **Non ancora verificato dal vivo** (serve il deploy).
+tutti puliti.
+
+**Aggiornamento 15/09/2026, dopo il push di Gabriel**: verificato dal vivo su
+`salone-ai-saas.vercel.app` con una nuova registrazione di prova ("Wizard Test Parrucchiere",
+titolare "Sara"). Il wizard compare subito al posto del pannello a testo libero; confermato anche
+il fix del chip "Altro" (la casella di testo libero resta visibile digitando, non sparisce più al
+primo carattere come nella versione scritta prima di consegnare). Percorso completo: tipo attività
+→ Estetista, giorni lun-ven con orario 09-18 e pausa 13-14, servizi "Taglio donna, 45 minuti, 35
+euro. Colore, 90 minuti, 60 euro." in testo libero → bozza generata corretta (orari, UNA sola
+operatrice chiamata "Sara", non un'etichetta generica -- conferma che scrivere il nome vero nella
+descrizione risolve davvero il problema osservato nel giro precedente) → applicata → verificato che
+la pagina torna all'interfaccia normale (form manuali + "Compila con l'AI" a bottone piccolo, non
+più il wizard) con orari/operatore/servizi/associazioni tutti corretti e persistiti. Tenant di
+prova eliminato da Supabase a fine verifica, nessun residuo.
+
+**Aggiornamento 15/09/2026, giro di test sui casi limite (richiesto da Gabriel: "continua a fare
+test per una ventina di minuti")**: verificati dal vivo, con due tenant di prova separati, i
+percorsi non ancora coperti dal test precedente. Nessun bug trovato.
+
+- *"Con altre persone" invece di "Da solo"*: il campo "Nomi delle altre persone" compare solo
+  quando serve, il testo digitato resta stabile, e la bozza generata include correttamente il
+  titolare (nome vero) più tutti gli operatori elencati.
+- *"No" alla pausa pranzo*: i campi Pausa da/a spariscono subito, nessuna pausa scritta nella
+  descrizione né nella bozza.
+- *Nessun giorno di apertura selezionato (deselezionati tutti i chip)*: il wizard non blocca
+  l'avanzamento (comportamento voluto, coperto anche da un test unitario), e l'AI a valle traduce
+  "Nessun giorno di apertura indicato" in tutti i giorni segnati "Chiuso" in tabella -- comportamento
+  sicuro, nessun giorno finisce aperto per errore.
+- *"Ricomincia" prima di applicare*: riporta il wizard al passo 1 con i valori di default
+  (Parrucchiere/Barbiere, Da solo), pulito, senza residui delle risposte precedenti.
+- *Fallback "Preferisci configurare tutto a mano?" su attività ancora vuota*: si apre correttamente
+  sotto il wizard, i tre form manuali (orari/operatori/servizi) funzionano esattamente come per un
+  account già configurato -- aggiunto un operatore a mano, e al ricaricamento la pagina passa da
+  sola all'interfaccia normale (il controllo "vuoto" reagisce a qualsiasi dato inserito, non solo a
+  quello arrivato dal wizard).
+
+**Due osservazioni minori, non bloccanti, nessuna azione presa**:
+1. Il box "Condividi la tua pagina" resta visibile anche su un'attività ancora senza servizi --
+   già segnalato nel giro precedente come raccomandazione non ancora approvata da Gabriel, non
+   ancora costruito.
+2. Provare a registrare un nuovo account mentre si è già loggati con un altro fallisce in
+   silenzio (nessun nuovo account creato, redirect alla dashboard di quello già attivo, nessun
+   messaggio d'errore) -- comportamento preesistente del flusso di registrazione, non introdotto
+   dal wizard, e improbabile nell'uso reale (un cliente vero non è mai già loggato quando si
+   registra per la prima volta). Segnalato per completezza, non corretto: fuori dallo scope di
+   oggi.
+
+Entrambi i tenant di prova ripuliti da Supabase a fine verifica (tabelle + `auth.users`), nessun
+residuo.

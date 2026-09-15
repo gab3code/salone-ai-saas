@@ -175,8 +175,12 @@ reale delle fasi è:
   STESSA pipeline AI/validazione di sempre, zero rischio nuovo sull'estrazione. Mostrato solo
   quando l'attività è ancora vuota; chi ha già configurato qualcosa non vede nessuna differenza.
   Corregge di riflesso anche il nome operatore generico (ora usa il nome vero del titolare quando
-  lavora da solo). 8 test nuovi (418/418 totali), `tsc`/`eslint`/`build` puliti. **Non ancora
-  verificato dal vivo** (serve il deploy).
+  lavora da solo). 8 test nuovi (418/418 totali), `tsc`/`eslint`/`build` puliti. **Verificato dal
+  vivo dopo il push**: registrazione di prova, wizard mostrato subito su attività vuota, chip
+  "Altro" testato (il bug pre-consegna non si ripresenta), operatore creato come "Sara" (nome
+  vero, non etichetta generica), bozza applicata correttamente, interfaccia normale al posto del
+  wizard dopo l'apply, dati persistiti giusti in tutte le sezioni. Tenant di prova ripulito da
+  Supabase dopo il test.
 - **Fase 4 = riprogrammazione cliente self-service + promemoria di compleanno** (vedi Gruppo
   B-bis e la lista "cosa manca ancora" più sotto per il dettaglio di ciascuna).
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni

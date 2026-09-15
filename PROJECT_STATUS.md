@@ -17,8 +17,11 @@ mano?". Estratta la revisione/applicazione della bozza in un componente condivis
 (`RevisioneBozzaOnboarding.tsx`) invece di duplicarla tra vecchio pannello e nuovo wizard. Trovato e
 corretto un bug proprio mentre si scriveva il wizard (il chip "Altro" per il tipo di attività
 rompeva la sua stessa casella di testo al primo carattere digitato) prima di consegnarlo. 8 test
-nuovi (418/418 totali), `tsc`/`eslint`/`npm run build` puliti. **Non ancora verificato dal vivo**
-(serve il deploy). Dettaglio completo in DECISIONS.md.
+nuovi (418/418 totali), `tsc`/`eslint`/`npm run build` puliti. **Verificato dal vivo dopo il push**:
+nuova registrazione di prova, wizard completo (tipo attività, giorni/orari, servizi in testo
+libero) → bozza corretta con l'operatrice chiamata col suo vero nome ("Sara", non un'etichetta
+generica) → applicata → tornato all'interfaccia normale con tutto persistito correttamente. Tenant
+di prova pulito da Supabase. Dettaglio completo in DECISIONS.md.
 
 Aggiornamento precedente, 15/09/2026, trentanovesimo giro -- Gabriel non aveva mai provato di persona
 l'onboarding AI (Fase 3): chiesto di valutarlo mettendosi nei panni di un cliente vero, correggere
