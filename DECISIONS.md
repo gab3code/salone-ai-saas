@@ -3042,3 +3042,71 @@ via React di default, verificato che `dangerouslySetInnerHTML` non è usato da n
 progetto, ma non ancora provati caratteri di controllo/emoji/stringhe lunghissime). La consegna
 via bundle git dei tre commit di stanotte resta comunque il passo più importante prima di
 chiudere la sessione, fatta subito dopo questa voce.
+
+## 2026-09-15 — "Calendario staff vuoto": non un bug, più due bug nuovi trovati verificandolo
+
+**Segnalazione di Gabriel**: "il calendario lato staff non mostra gli appuntamenti".
+
+**Diagnosi**: interrogato il database, il tenant di prova `salone-bc163ecf` aveva zero
+appuntamenti con `stato != cancellato` -- i tre unici mai creati erano stati tutti cancellati da
+me durante la sessione di test notturna di poco prima (flusso di cancellazione). Riletto per
+intero `src/app/dashboard/calendario/page.tsx`: query filtrata per `tenant_id`, range di date
+convertito correttamente con `pseudoUtcAReale`/`realeAPseudoUtc`, `.neq("stato", "cancellato")`
+-- nessun difetto nella logica. Ipotesi: non un bug, semplicemente zero appuntamenti confermati
+al momento.
+
+**Verifica conclusiva, end-to-end, senza fidarmi della sola lettura del codice** (coerente con
+l'abitudine di non dare per buono il proprio lavoro senza controllo indipendente): creata una
+prenotazione vera tramite la chat AI pubblica di `salone-bc163ecf` (manicure con Gabriel, sabato
+19 settembre 2026 alle 10:00, cliente fittizio "Mario Rossi" / 3210000000). Questo tenant ha la
+caparra attiva, quindi l'AI non crea l'appuntamento direttamente ma restituisce un link Stripe
+Checkout. Aperto il link, confermato "Sandbox" + importo "5,00 €" mostrato correttamente,
+completato il pagamento con la carta di test standard (4242 4242 4242 4242, 12/34, 123, "Mario
+Rossi"), reindirizzato a `?caparra=successo`. Verificato via SQL diretto che il webhook
+(`completaPagamentoCaparra`) ha creato la riga in `appuntamenti` con `stato: confermato` e
+`caparra_importo_centesimi: 500` (5€, corretto), e collegato la riga `richieste_caparra` come
+`completata`. Aperto `/dashboard/calendario?data=2026-09-19` nel browser reale: **l'appuntamento
+compare correttamente** ("10:00 – 10:30 · manicure · Gabriel · Mario Rossi"). **Conclusione: il
+codice del calendario non ha nessun bug** -- il problema segnalato da Gabriel era dovuto ai miei
+stessi test della notte precedente che avevano svuotato la tabella per quel tenant.
+
+**Due bug nuovi e distinti, trovati lungo il percorso di questa verifica, non collegati al
+calendario**:
+
+1. **L'AI sbaglia occasionalmente il calcolo del giorno della settimana**. Primo tentativo:
+   "Prenota subito una pedicure con Gabriel per sabato 19 settembre alle 16:00" -> risposta
+   dell'AI: "Oggi è martedì 15 settembre 2026, quindi sabato sarebbe il 20 settembre, non il
+   19" -- **falso**: verificato con un calcolo diretto della data (`new Date(2026, 8, 19).getDay()`
+   e `new Date(2026, 8, 20).getDay()`) che il 19 settembre 2026 è sabato e il 20 è domenica,
+   coerente con tutto il resto già stabilito nella stessa conversazione (l'AI stessa aveva detto
+   poco prima, in un contesto diverso, "Siamo aperti solo il sabato" per spiegare perché la
+   domenica è chiusa). Corretta esplicitamente nel messaggio successivo ("No, il 19 settembre
+   2026 è sabato, controlla di nuovo"), dopodiché l'AI ha proceduto correttamente. Nessuno
+   strumento (`tools.ts`) calcola il giorno della settimana per conto dell'AI -- è un errore di
+   ragionamento del modello nella generazione del testo, non un bug nel codice o nei dati. Non
+   ancora una correzione proposta: da valutare se vale la pena calcolare il giorno della
+   settimana lato codice e iniettarlo nel system prompt in modo esplicito (es. "oggi è martedì 15
+   settembre 2026, sabato prossimo è il 19") invece di lasciare che il modello lo deduca da solo.
+
+2. **L'AI ha detto al cliente un importo di caparra sbagliato**. Nello stesso scambio, dopo aver
+   creato la richiesta di prenotazione, l'AI ha scritto al cliente: "questa attività richiede una
+   caparra di 25 euro per confermare" e "Basta completare il pagamento di 25 euro da questo
+   link". L'importo vero è 5,00 € (20% di 25€, il prezzo del servizio) -- confermato in due modi
+   indipendenti: (a) letto `src/lib/ai/tools.ts`, il tool `crea_prenotazione` restituisce
+   all'AI `importo_caparra_euro: 5` (calcolato correttamente da
+   `calcolaImportoCaparraCentesimi`); (b) la pagina Stripe Checkout reale mostrava "Caparra --
+   manicure da prova gabriel, 5,00 €". **Nessun danno economico**: l'addebito Stripe effettivo è
+   quello corretto (5€), l'AI ha sbagliato solo a riportarlo nel messaggio in linguaggio
+   naturale -- confermato leggendo la riga salvata in `messaggi` che il testo "25 euro" è proprio
+   quello che è stato scritto al cliente, non un problema di visualizzazione. **Resta comunque un
+   problema serio di fiducia**: un cliente che legge "25 euro" e poi vede "5,00 €" sulla pagina
+   di pagamento reale penserà a un baco dell'app, non a un errore dell'AI. Non ancora corretto --
+   opzione da valutare con Gabriel: rendere quel numero deterministico invece che generato
+   liberamente dal modello (es. il messaggio di conferma con il link costruito lato codice,
+   l'AI lo introduce ma non riformula la cifra), oppure rafforzare il system prompt con
+   un'istruzione esplicita di riportare sempre `importo_caparra_euro` testualmente e mai
+   ricalcolarlo/riformularlo.
+
+**Pulizia dati di test**: l'appuntamento di prova "Mario Rossi" del 19/09/2026 è stato cancellato
+subito dopo la verifica; la riga `richieste_caparra` collegata è stata lasciata `completata` come
+prima (indistinguibile da un vero pagamento riuscito, non ha senso modificarla).

@@ -2318,6 +2318,35 @@ l'11/09/2026 via MCP diretto).
     incluso il test di concorrenza reale sullo stesso slot (problema noto #5 sotto, confermato
     dal vivo per la prima volta) e i test di prompt-injection/social-engineering contro l'AI
     (entrambi respinti correttamente, nessun bug).
+22. **"Il calendario lato staff non mostra gli appuntamenti" (segnalato da Gabriel 15/09/2026):
+    non è un bug, verificato dal vivo end-to-end**: il tenant di prova (`salone-bc163ecf`) aveva
+    zero appuntamenti non cancellati -- i 3 esistenti erano stati tutti cancellati durante la
+    sessione di test notturna precedente. Riletto per intero `dashboard/calendario/page.tsx`:
+    query e conversione fuso orario corrette, nessun difetto nel codice. Prova conclusiva: creata
+    una prenotazione vera via chat AI pubblica (manicure, Gabriel, 19/09/2026 10:00, cliente di
+    test "Mario Rossi"), completato il pagamento caparra reale su Stripe TEST (5,00 €, carta
+    4242...4242), verificato via SQL che il webhook ha creato l'appuntamento con `stato:
+    confermato`, poi verificato nel browser che compare correttamente in `/dashboard/calendario`
+    ("10:00 – 10:30 · manicure · Gabriel · Mario Rossi"). **Due bug nuovi e distinti trovati
+    lungo il percorso di questo test, non collegati al calendario**: vedi DECISIONS.md
+    15/09/2026 per il dettaglio completo.
+    - **L'AI a volte sbaglia il calcolo del giorno della settimana**: chiedendole di prenotare
+      "sabato 19 settembre" ha risposto "sabato sarebbe il 20, non il 19" -- falso (il 19
+      settembre 2026 è sabato, il 20 è domenica, coerente con tutto il resto già stabilito nella
+      stessa conversazione). Corretta esplicitamente nel messaggio successivo, poi ha proceduto
+      bene. Bug di generazione testuale del modello, non un calcolo del codice (nessuno strumento
+      calcola il giorno della settimana per l'AI).
+    - **L'AI ha detto al cliente l'importo sbagliato della caparra**: "richiede una caparra di 25
+      euro" quando l'importo vero è 5,00 € (20% di 25€, confermato sia dal codice
+      `crea_prenotazione` in `src/lib/ai/tools.ts` sia dalla pagina Stripe reale, che mostrava
+      correttamente "5,00 €"). Nessun danno economico (l'addebito Stripe è quello giusto, l'AI
+      ha solo sbagliato a *dirlo* al cliente), ma un problema serio di fiducia/UX: un cliente che
+      legge "25 euro" e poi vede "5,00 €" sulla pagina di pagamento pensa a un errore
+      dell'applicazione. Da valutare: costringere l'AI a citare l'importo esatto restituito dallo
+      strumento invece di lasciarglielo riformulare liberamente in linguaggio naturale.
+    Dati di test di questa verifica ripuliti dal database subito dopo la conferma (appuntamento
+    "Mario Rossi" cancellato, riga `richieste_caparra` collegata lasciata come storico completato
+    dato che è indistinguibile da un pagamento vero completato con successo).
 
 ## Osservazioni aperte (non bug, decisioni da prendere)
 
