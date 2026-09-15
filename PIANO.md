@@ -373,6 +373,14 @@ in scadenza contro Fresha/Treatwell), ma la combinazione qui sotto, in ordine di
    pubblica sul dominio/brand del salone** -- l'unica cosa strutturalmente impossibile da
    replicare per un marketplace senza smettere di essere un marketplace. Già vero oggi (Fase 4),
    va solo comunicato con più forza nel materiale di vendita quando esisterà (Fase 5).
+   **Nota di Gabriel (15/09/2026), da tenere per quando si scriverà il copy definitivo della
+   landing/materiale di vendita**: il punto da far capire chiaramente al titolare non è solo
+   "zero commissione" in astratto, ma il confronto diretto con Fresha/Treatwell -- loro sono un
+   motore di ricerca/marketplace e trattengono una percentuale su ogni prenotazione portata da
+   loro; noi vendiamo un software in abbonamento e basta, nessun pagamento aggiuntivo legato alle
+   prenotazioni del titolare. Va reso esplicito e concreto in landing page (non lasciato
+   implicito in una frase generica su "nessuna commissione"), è un argomento di vendita diretto
+   contro i due concorrenti più grandi.
 2. **Deposito/caparra anti-no-show** -- gap reale e verificato in TUTTO il software italiano di
    categoria (Estetia/Calendix/Skedula/WeGest/CutApp: nessuno ce l'ha), standard invece nei
    marketplace (Fresha/Booksy). Stripe è già integrato (Fase 5) -- stessa competenza tecnica,
