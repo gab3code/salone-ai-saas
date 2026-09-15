@@ -10,9 +10,12 @@ residuo). **Bug reale trovato e corretto**: subito dopo "Applica alla configuraz
 correttamente, si vedeva solo ricaricando la pagina) -- causa: input non controllati
 (`defaultChecked`) che React non aggiorna su un semplice `router.refresh()`, si aggiornano solo al
 primo mount. Fix: una `key` sul form che cambia quando cambiano davvero i dati, così il form viene
-rimontato da zero. 410/410 test invariati, `tsc`/`eslint`/`npm run build` puliti. **Non ancora
-verificato dal vivo** (serve il deploy per riprodurre `router.refresh()` sull'ambiente reale).
-Raccolte anche altre osservazioni non ancora costruite (dashboard vuota che mostra già il riquadro
+rimontato da zero. 410/410 test invariati, `tsc`/`eslint`/`npm run build` puliti. **Verificato dal
+vivo dopo il push**: nuova registrazione di prova, apply dell'onboarding AI, checkbox lun-ven
+correttamente scaricate SUBITO dopo l'apply, senza reload -- bug risolto, tenant di prova pulito da
+Supabase. (Consegna del bundle inciampata due volte: prima un problema di trasferimento, poi un ref
+sbagliato dentro il bundle stesso -- entrambi risolti, dettaglio in DECISIONS.md.) Raccolte anche
+altre osservazioni non ancora costruite (dashboard vuota che mostra già il riquadro
 "Condividi", nessun percorso guidato per un account nuovo, "Compila con l'AI" è una sola casella di
 testo e non una conversazione, nome operatore generico invece del nome del titolare) -- riportate a
 Gabriel in chat, da decidere insieme prima di toccare altro codice. Dettaglio completo in

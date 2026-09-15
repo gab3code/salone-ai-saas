@@ -3559,9 +3559,25 @@ orari_apertura (stringa costruita da tutti i campi rilevanti di ogni giorno). Qu
 cambia, React smonta e rimonta l'intero form invece di riusarlo, quindi i `default*` vengono
 riletti da zero dai dati freschi -- stessa filosofia "niente stato client" della pagina, nessuna
 conversione a componente controllato. Verificato via `tsc --noEmit`, `npx vitest run` (410/410
-invariati), `eslint`, `npm run build`, tutti puliti. Verifica dal vivo nel browser vero rimandata a
-dopo il push (serve il deploy per riprodurre esattamente `router.refresh()` sull'ambiente reale,
-lo stesso schema seguito per gli altri fix di oggi).
+invariati), `eslint`, `npm run build`, tutti puliti.
+
+**Aggiornamento 15/09/2026, dopo il push di Gabriel**: verificato dal vivo su `salone-ai-saas.vercel.app`
+riproducendo lo scenario esatto del bug -- nuova registrazione di prova ("Studio Fisio Test"),
+`/dashboard/configura` con tutti i giorni di default su "Chiuso", descrizione libera nel pannello
+AI ("fisioterapista, lavoro da solo, lun-ven 9-18 pausa 13-14"), "Applica alla configurazione".
+Subito dopo l'apply, SENZA ricaricare la pagina: Lunedì-Venerdì mostrano la checkbox "Chiuso"
+correttamente SCARICATA con gli orari giusti (09:00-18:00, pausa 13:00-14:00), Sabato/Domenica
+restano spuntati -- esattamente il comportamento atteso, bug risolto. Confermato anche di riflesso
+un'altra osservazione del giro precedente: con una descrizione che non nomina il titolare, l'AI ha
+chiamato l'operatore "Fisioterapista" (non il nome del titolare "Luca", già noto dalla
+registrazione) -- stesso schema visto con "Studio osteopata", non un caso isolato. Bundle
+inizialmente consegnato con un problema di trasferimento (il file non arrivava sul Mac nonostante
+la conferma di scrittura) e poi con il ref sbagliato al suo interno (`HEAD` invece di
+`refs/heads/main`, per cui `git pull <bundle> main` non trovava il ref) -- risolto ricreando il
+bundle con `git bundle create ... 75123a8..main` invece di `...HEAD`. Tenant di prova eliminato da
+Supabase a fine verifica (tenants, CASCADE, + auth.users), nessun residuo. Ripulita anche la
+cartella del progetto sul Mac di Gabriel da 22 bundle vecchi già mergiati, accumulati da sessioni
+precedenti mai puliti fino in fondo.
 
 **Altre osservazioni raccolte facendo il test, riportate a Gabriel ma NON ancora decise/costruite**
 (vedi messaggio in chat per la versione discorsiva): dashboard appena creata mostra già il riquadro

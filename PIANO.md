@@ -161,8 +161,9 @@ reale delle fasi è:
   se i dati salvati erano già corretti (si vedeva solo ricaricando la pagina) -- causa un
   `router.refresh()` che non rimonta input non controllati già presenti a schermo. Corretto con
   una `key` sul form che cambia insieme ai dati, così il form si rimonta da zero. Stessa
-  verifica completa di prima (410/410 test, `tsc`/`eslint`/`build`), verifica dal vivo nel browser
-  rimandata al prossimo deploy. Raccolte anche osservazioni di prodotto più ampie sull'onboarding
+  verifica completa di prima (410/410 test, `tsc`/`eslint`/`build`). **Verificato dal vivo dopo il
+  deploy**: checkbox lun-ven correttamente scaricate subito dopo l'apply, senza reload -- confermato
+  risolto. Raccolte anche osservazioni di prodotto più ampie sull'onboarding
   (percorso guidato assente, "Compila con l'AI" non conversazionale, nome operatore generico) --
   non ancora decise, riportate a Gabriel separatamente.
 - **Fase 4 = riprogrammazione cliente self-service + promemoria di compleanno** (vedi Gruppo
