@@ -764,7 +764,10 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       scenari con l'AI chiamano il vero Claude (costo reale, seppur minimo, per run). Primo run
       reale di Gabriel: tutti e 6 falliti per una collisione tra l'helper e il trigger di
       provisioning automatico (`profiles_pkey`) -- **CORRETTO 16/09/2026**, vedi DECISIONS.md
-      "Bug profiles_pkey nei test E2E". Ancora da riverificare dal vivo col fix applicato.
+      "Bug profiles_pkey nei test E2E". Secondo run: 3/6 passati, 2 falliti per un bug VERO nella
+      checkbox servizi del pannello dashboard (si spegneva da sola per un re-render prematuro) --
+      **CORRETTO 16/09/2026**, vedi DECISIONS.md "Bug vero (non solo di test) trovato dagli
+      scenari E2E". Ancora da riverificare dal vivo col fix applicato (terzo giro).
       Dettaglio completo, incluso perché non in CI e cosa manca ancora (scenari 2, 4, 7, 8, 10, 11,
       13, 14, 15), in `tests/e2e/README.md` e in DECISIONS.md.
 - [x] ~~Semplificazione consapevole: fuso orario trattato come UTC~~ **FATTO 11/09/2026**

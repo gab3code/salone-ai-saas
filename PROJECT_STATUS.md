@@ -1,6 +1,24 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, cinquantaduesimo giro -- Task #190, primo giro di correzione
+Ultimo aggiornamento: 16/09/2026, cinquantatreesimo giro -- Task #190, secondo giro di
+correzione sui 6 scenari E2E. Gabriel ha ri-lanciato `npm run test:e2e` col fix del giro
+precedente: da 6/6 falliti a 3/6 passati. Restavano 2 fallimenti identici (Scenario 3 e 12) su
+`getByRole("checkbox").check()` ("Clicking the checkbox did not change its state") -- stavolta
+**non un bug del test ma un bug vero nel pannello "Nuovo appuntamento"**, mai notato perché la
+UI a checkbox multiple dei servizi consecutivi (Task #189) non era mai stata verificata dal
+vivo: la checkbox leggeva `checked` da un prop legato all'URL, aggiornato solo dopo che
+`router.push` (asincrono) completava, ma un `setSlotSelezionato(null)` sincrono nello stesso
+handler forzava un re-render immediato con quel prop ancora vecchio, rimettendo la checkbox a
+spenta un istante dopo che il click l'aveva accesa -- caso limite reale anche per un utente vero
+su una connessione lenta, non solo un artefatto di Playwright. Corretto con uno stato locale
+come sorgente di verità per la checkbox, riallineato al prop quando la navigazione completa
+(pattern React "adjusting state when a prop changes" durante il render, non in un `useEffect`).
+Corretto anche un problema minore nel test dello Scenario 1 (locator ambiguo su "Taglio").
+`tsc`/`eslint`/`vitest` (469/469)/`build` puliti. **Non ancora riverificato dal vivo**: serve un
+terzo giro di Gabriel. Dettaglio in DECISIONS.md, "2026-09-16 — Bug vero (non solo di test)
+trovato dagli scenari E2E: la checkbox servizi si spegneva da sola".
+
+Aggiornamento precedente, 16/09/2026, cinquantaduesimo giro -- Task #190, primo giro di correzione
 sui 6 scenari E2E scritti nel giro precedente. Gabriel ha lanciato `npm run test:e2e` per la
 prima volta nel suo Terminal reale: tutti e 6 fallivano identicamente con
 `duplicate key value violates unique constraint "profiles_pkey"`. Causa trovata leggendo la

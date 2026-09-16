@@ -4496,3 +4496,40 @@ playwright.config.ts` pulito, `npx vitest run` 469/469 (suite esistente non tocc
 applicato -- resta aperto se i 6 scenari passino tutti al primo colpo o se emergano altri bug
 (selettori, timing della chat, la vera race condition dello Scenario 3) mai visti perché questi
 test non sono mai arrivati a girare fino in fondo neanche una volta.
+
+## 2026-09-16 — Bug vero (non solo di test) trovato dagli scenari E2E: la checkbox servizi si spegneva da sola
+
+Secondo run di Gabriel: il fix del trigger ha portato la suite da 6/6 falliti a 3/6 passati.
+Restavano 2 fallimenti identici (Scenario 3, doppia prenotazione simultanea, e Scenario 12,
+prenotazione manuale da dashboard), entrambi sullo stesso punto: `getByRole("checkbox").check()`
+con l'errore Playwright "Clicking the checkbox did not change its state".
+
+**Non era un problema del test -- era un bug reale nel pannello "Nuovo appuntamento"
+(`pannello-nuovo-appuntamento.tsx`)**, presente da quando è stata costruita la UI a checkbox
+multiple per i servizi consecutivi (Task #189, mai verificata dal vivo, vedi la nota già in
+PROJECT_STATUS.md). La checkbox leggeva `checked` direttamente dal prop `servizioIdsIniziali`
+(che arriva dall'URL via il Server Component, aggiornato solo quando `router.push` -- asincrono
+-- completa la navigazione). Il gestore `alternaServizio` però chiamava anche
+`setSlotSelezionato(null)` in modo SINCRONO, che forzava un re-render immediato con
+`servizioIdsIniziali` ancora al valore vecchio: React rimetteva quindi la checkbox a spenta un
+istante dopo che il click nativo del browser l'aveva accesa, ben prima che la navigazione
+finisse e portasse il valore corretto. Playwright lo scopre sempre (click troppo rapido perché
+un occhio umano lo noti in condizioni normali), ma la stessa incoerenza esisterebbe per un
+utente vero su una connessione lenta o un server sotto carico -- un caso limite reale, non solo
+un artefatto di test.
+
+**Fix**: introdotto uno stato locale `servizioIdsSelezionati` come sorgente di verità per
+`checked` e per la durata mostrata, aggiornato SUBITO al click (nessuna attesa della
+navigazione); riallineato al prop `servizioIdsIniziali` quando la navigazione completa, con il
+pattern "adjusting state when a prop changes" di React eseguito DURANTE il render (non in un
+`useEffect`, che avrebbe fatto scattare l'errore lint `react-hooks/set-state-in-effect` e un
+giro di render in più). La sezione "Orari liberi" e gli input nascosti del form restano invece
+legati al prop originale (server-truth): devono corrispondere agli slot realmente calcolati
+lato server, non a un click che potrebbe non essere ancora arrivato al server.
+
+Corretto anche un problema minore nel test dello Scenario 1 (non un bug applicativo):
+`getByText("Taglio")` ambiguo, matcha sia la riga del calendario sia l'etichetta della checkbox
+nello stesso pannello -- risolto scopando il controllo alla riga `<li>` specifica.
+
+Verificato: `tsc`/`eslint`/`build` puliti, `vitest run` 469/469. **Non ancora riverificato dal
+vivo**: serve un terzo giro di Gabriel con `npm run test:e2e`.
