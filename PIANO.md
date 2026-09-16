@@ -1371,6 +1371,22 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       CONTESTUALMENTE, altrimenti si apre anche un buco sul piano Free (N attività gratuite da 60
       prenotazioni ciascuna per lo stesso account).
 
+      **Scenari E2E scritti il 16/09/2026, DA ESEGUIRE** (`npm run test:e2e`, servono `.env.local`
+      e rete verso Supabase/Stripe): 16 fatturazione dell'operatore extra, 17 cambio piano con
+      sostituzione dell'add-on, 18 multi-sede e isolamento dei dati fra sedi, 19 permessi del
+      collaboratore (più la controprova sul titolare, indispensabile: senza, un bug che blocca
+      TUTTI farebbe passare lo scenario a pieni voti). Nuovi helper
+      `abbonamento-di-prova.ts` (abbonamento Stripe vero in test-mode, creato con
+      `payment_behavior: "default_incomplete"` -- ha line item veri senza metodo di pagamento e
+      senza muovere un centesimo) e `membri-di-prova.ts`.
+      `playwright.config.ts` ora legge `PLAYWRIGHT_CHROMIUM_PATH`, per ambienti che hanno già un
+      Chromium e non devono scaricarne un altro; sulla macchina di Gabriel la variabile non esiste
+      e non cambia nulla.
+      **Perché non li ho eseguiti io**: la sandbox cloud e la VM collegata al Mac hanno entrambe un
+      allowlist di rete che blocca `weeaggiqovnmtovdjzxy.supabase.co`, `api.stripe.com` e
+      `api.mailjet.com` (verificato: CONNECT rifiutato con 403). Nella VM inoltre i `node_modules`
+      sono compilati per macOS, quindi vitest non parte nemmeno. `npx tsc --noEmit` eseguito sul
+      Mac dopo il merge: pulito.
       **Non verificato dal vivo**: nessun giro nel browser (invito reale, accettazione, cambio
       sede, dipendente che prova ad aprire le impostazioni, upsell del team su un tenant non Pro).
       `tsc`/`vitest` (493/493, +15 da questo giro)/`build` puliti; `eslint` riporta 9 errori
