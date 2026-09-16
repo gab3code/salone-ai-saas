@@ -18,6 +18,7 @@ import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { inviaNotificheNuovoAppuntamento, escapeHtml, formattaOrario, urlBaseSito } from "@/lib/email/notifiche.server";
 import { inviaEmail } from "@/lib/email/mailjet.server";
 import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
+import { programmaRichiestaRecensione } from "@/lib/recensioni.server";
 
 /**
  * Livello di collegamento tra il motore puro (booking-engine.ts, già testato
@@ -815,6 +816,17 @@ export async function creaAppuntamentoTenant(
       console.error("[email] Errore inatteso propagato dalle notifiche di nuovo appuntamento:", erroreNotifica);
     }
   }
+
+  // Raccolta recensioni post-appuntamento (Fase 3, 16/09/2026): programmata
+  // qui, non dentro le notifiche sopra, perché riguarda l'INTERO
+  // appuntamento/catena di servizi consecutivi (una recensione per
+  // appuntamento, non una per servizio) -- una sola richiesta ancorata alla
+  // fine reale dell'ultimo servizio della catena (`fine`, calcolato sopra),
+  // sulla prima riga del gruppo (stesso `appuntamentoId` restituito al
+  // chiamante). Fail-open già garantito dentro programmaRichiestaRecensione
+  // stessa: un problema qui non deve mai far sembrare fallita questa
+  // prenotazione già scritta con successo.
+  await programmaRichiestaRecensione(tenantId, idRigheCreate[0], pseudoUtcAReale(fine, fusoOrario));
 
   return { ok: true, appuntamentoId: idRigheCreate[0] };
 }

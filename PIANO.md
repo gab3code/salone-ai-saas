@@ -963,11 +963,29 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       test dedicati. **Import NON incluso**: leggere un CSV esterno richiede validazione, anteprima
       e gestione dei duplicati (telefono già esistente, righe malformate) -- lavoro non "contenuto"
       quanto l'export, resta da fare a parte.
-- [ ] **Raccolta recensioni post-appuntamento** (nuovo task, stesso giro): nessun gestionale
-      italiano verificato lo fa nativamente -- messaggio automatico dopo l'appuntamento che
-      chiede una valutazione, mostrata poi sulla pagina pubblica del salone (Fase 4). Si appoggia
-      alla stessa infrastruttura di reminder/automazioni pianificata in Fase 6, non un sistema
-      separato.
+- [x] ~~Raccolta recensioni post-appuntamento~~ **FATTA 16/09/2026**: email 2 ore dopo la fine
+      dell'appuntamento (`ORE_ATTESA_RICHIESTA_RECENSIONE` in `src/lib/recensioni.ts`) con un
+      link monouso per lasciare 1-5 stelle + commento facoltativo, mostrate poi sulla pagina
+      pubblica del salone (sezione nuova in `/s/[slug]/page.tsx`, sparisce se il titolare spegne
+      l'interruttore). Disponibile da **Free** in su (decisione di Gabriel: le recensioni si
+      lasciano già su Google, nessun gate di piano). Decisioni di scope (16/09/2026, vedi
+      DECISIONS.md per il dettaglio completo): verifica-visita (solo chi ha un appuntamento
+      confermato riceve il link, come booking.com), una recensione per appuntamento (vincolo
+      unique = link monouso), il titolare non può MAI modificare/cancellare una recensione (solo
+      rispondere pubblicamente sotto) -- applicato anche a livello di permessi Postgres, non solo
+      in codice (`authenticated` ha SOLO `select` su `recensioni`, stesso pattern già usato per
+      `richieste_caparra`), nessun hide/delete per singola recensione, un solo interruttore per
+      tenant che controlla insieme invio di nuove richieste E visibilità pubblica (mai
+      separatamente). Programmazione via **Upstash QStash** (non Vercel Cron: il piano Hobby lo
+      limita a una volta al giorno, non basta per un ritardo di poche ore calcolato per ogni
+      singolo appuntamento) -- webhook dedicato con verifica della firma HMAC
+      (`src/app/api/webhooks/qstash/richiedi-recensione/route.ts`), claim-before-send sullo
+      stesso principio di `promemoria_appuntamento_inviati` per non mandare la stessa richiesta
+      due volte su una doppia consegna QStash. Nuova migrazione `0026_recensioni.sql`. `tsc`/
+      `eslint`/`vitest` (478/478, +9 da questo giro)/`build`/`playwright test --list` (18 test,
+      invariato) puliti. **Non incluso in questo giro**: nessun nuovo scenario Playwright
+      dedicato (richiederebbe simulare il trigger QStash e l'attesa delle 2 ore) -- verificato
+      solo con test unitari sulla logica pura e a mano dal vivo da Gabriel dopo il deploy.
 
 ## Fase 4 -- Pagina pubblica, foto, PWA (punti 18, 19, 20)
 - [x] Pagina pubblica per-salone generata automaticamente, condivisibile -- **scritta

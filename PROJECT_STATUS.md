@@ -1,6 +1,26 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, sessantaduesimo giro -- **Task #190 CHIUSO**: run completo di
+Ultimo aggiornamento: 16/09/2026, sessantaquattresimo giro -- **Fase 3, Raccolta recensioni
+post-appuntamento IMPLEMENTATA**: email 2 ore dopo la fine dell'appuntamento con un link monouso
+per lasciare 1-5 stelle + commento, mostrate sulla pagina pubblica del salone. Verifica-visita
+(solo chi ha avuto davvero l'appuntamento riceve il link), il titolare non può mai modificare/
+cancellare una recensione (solo rispondere pubblicamente, applicato anche nei permessi Postgres),
+un solo interruttore per tenant per invio+visibilità, disponibile da Free in su. Programmazione
+via Upstash QStash (non Vercel Cron, limitato a una volta/giorno sul piano Hobby, non basta per
+un ritardo di poche ore per-appuntamento) -- webhook dedicato con verifica firma HMAC e
+claim-before-send. Nuova migrazione `0026_recensioni.sql`, nuova pagina pubblica
+`/recensisci/[id]`, nuova pagina dashboard `/dashboard/impostazioni/recensioni`. `tsc`/`eslint`/
+`vitest` (478/478, +9 da questo giro)/`build`/`playwright test --list` (18 test, invariato)
+puliti -- nessun nuovo scenario E2E dedicato (richiederebbe simulare il trigger QStash a 2 ore di
+distanza). Resta a cura di Gabriel: aggiungere le 4 variabili QStash anche su Vercel (oggi solo
+nel `.env.local` locale) prima del deploy in produzione. Dettaglio completo in DECISIONS.md,
+"2026-09-16 — Raccolta recensioni post-appuntamento (Fase 3): implementata".
+
+(Non riportato qui in un giro dedicato: tra la chiusura del Task #190 sotto e questa voce, è
+stato anche costruito e confermato dal vivo il prompt caching sulla chat AI -- vedi DECISIONS.md,
+"Prompt caching sulla chat AI" e "Prompt caching confermato dal vivo".)
+
+Aggiornamento precedente: 16/09/2026, sessantaduesimo giro -- **Task #190 CHIUSO**: run completo di
 tutti e 18 gli scenari E2E insieme (`npm run test:e2e`, un solo worker), **18 passed (4.0m)**,
 zero fallimenti. Tutti i 15 scenari del punto 27 di CLAUDE.md sono ora confermati verdi INSIEME,
 non solo nei run mirati dei giri precedenti. Nessuna modifica di codice in questo giro, solo

@@ -4926,3 +4926,85 @@ precedente -- compatibile con un cache hit su system+strumenti, anche se non è 
 controllata). Comportamento del prodotto invariato, come atteso: il caching cambia solo cosa
 Anthropic fattura, non cosa il modello vede o risponde. Nessuna modifica di codice in questo
 giro, solo conferma.
+
+## 2026-09-16 — Raccolta recensioni post-appuntamento (Fase 3): implementata
+
+Costruita dopo un lungo giro di chiarimenti con Gabriel (vedi le sue correzioni progressive nella
+stessa giornata) -- riepilogo di tutte le decisioni di scope prese, in un unico posto:
+
+1. **Timing**: 2 ore dopo la fine dell'appuntamento (`ORE_ATTESA_RICHIESTA_RECENSIONE` in
+   `src/lib/recensioni.ts`), non il giorno dopo come nella bozza iniziale -- richiesta esplicita
+   di Gabriel ("più nel vivo"). Numero facile da cambiare, prima stima onesta come altre soglie
+   del progetto.
+2. **Infrastruttura di scheduling**: **Upstash QStash**, non Vercel Cron. Il piano Hobby di
+   Vercel limita i cron job a una volta al giorno (`vercel.json`, già usato da
+   `/api/cron/promemoria`) -- non basta per un ritardo di poche ore calcolato per OGNI singolo
+   appuntamento, che avviene in un momento diverso per ognuno. QStash pubblica un messaggio con
+   ritardo assoluto (`notBefore`) verso un webhook nostro, gratis fino a 1.000 messaggi/giorno.
+   Discusso con Gabriel anche il dubbio se servisse collegare Vercel a Upstash via Marketplace
+   Integration (screenshot condiviso il 16/09/2026): NON necessario -- le credenziali QStash
+   prese direttamente dalla console Upstash (QSTASH_URL/QSTASH_TOKEN/
+   QSTASH_CURRENT_SIGNING_KEY/QSTASH_NEXT_SIGNING_KEY, salvate SOLO nel `.env.local` reale di
+   Gabriel via device bridge, mai nel repo) sono già tutto quello che serve; l'integrazione
+   Marketplace è solo una scorciatoia alternativa di provisioning/sync automatico, ridondante
+   qui. Resta da fare, a cura di Gabriel al momento del deploy: aggiungere le stesse 4 variabili
+   anche nelle Environment Variables del progetto Vercel (il `.env.local` vale solo in locale).
+3. **Verifica-visita** (richiesta esplicita, "come booking.com"): nessun accesso libero a un
+   form di recensione -- l'unico modo di arrivarci è il link ricevuto via email, generato SOLO
+   per un appuntamento reale e confermato. Una recensione per appuntamento (vincolo `unique` su
+   `recensioni.appuntamento_id`) è anche il meccanismo che rende il link monouso.
+4. **Il titolare non può mai modificare/cancellare una recensione** (vera o negativa che sia),
+   può solo aggiungere una risposta pubblica sotto. Applicato non solo in codice ma nei permessi
+   Postgres: `authenticated` ha SOLO `select` su `recensioni` (0026_recensioni.sql) -- stesso
+   identico pattern già usato per `richieste_caparra` (dove il titolare non deve poter alterare
+   a mano l'esito di un pagamento Stripe). Ogni scrittura (inserimento dal cliente, risposta del
+   titolare) passa da `service_role` via una server action dedicata (`rispondiRecensioneTenant`
+   in `recensioni.server.ts`, ristretta esplicitamente alle sole colonne
+   `risposta_titolare`/`risposta_titolare_creato_at`).
+5. **Nessun hide/delete per singola recensione**: l'unica leva di visibilità è l'interruttore
+   generale per tenant (`tenants.raccolta_recensioni_attiva`, default ACCESO -- "le recensioni
+   si lasciano già su Google"), che controlla insieme DUE cose, mai separatamente: l'invio di
+   nuove richieste di recensione E la visualizzazione pubblica di quelle già raccolte. Le righe
+   restano sempre intatte nel database anche a interruttore spento.
+6. **Nessun gate di piano**: disponibile da Free in su, a differenza di quasi tutte le altre
+   automazioni di Fase 6 (promemoria, compleanno, lista d'attesa automatica) -- scelta esplicita
+   di Gabriel.
+7. **Link SOLO via email, mai SMS**: stessa scelta di design già presa per il link "gestisci la
+   tua prenotazione" nei promemoria (un URL nudo in un SMS aumenta il rischio phishing) --
+   applicata qui per coerenza. Un cliente senza email registrata semplicemente non riceve la
+   richiesta (`elaboraRichiestaRecensione` ritorna `cliente_senza_email`, nessun errore, nessun
+   fallback).
+8. **Nome pubblico**: nome di battesimo + iniziale del cognome (es. "Giulia R.", funzione
+   `nomePubblicoRecensione`), mai il nome completo -- standard di settore (Google/Fresha/Booksy),
+   scelta presa autonomamente per privacy del cliente, non esplicitamente richiesta da Gabriel:
+   da confermare con lui, facile da cambiare se preferisce il nome intero.
+
+**Implementazione**: nuova migrazione `0026_recensioni.sql` (tabella `recensioni` + colonna
+`tenants.raccolta_recensioni_attiva` + colonna `appuntamenti.recensione_richiesta_inviata_at`
+per il claim-before-send, stesso principio già usato da `promemoria_appuntamento_inviati`).
+Logica pura in `src/lib/recensioni.ts` (validazione valutazione, nome pubblico, media),
+layer server in `src/lib/recensioni.server.ts` (programmazione, invio, lettura dashboard/
+pubblica, inserimento). Client QStash + verifica firma HMAC in `src/lib/qstash.server.ts`
+(stesso pattern lazy-singleton fail-open di Stripe/Mailjet). Nuovo webhook
+`/api/webhooks/qstash/richiedi-recensione` (verifica firma SENZA controllare l'URL, per
+robustezza dietro il proxy di Vercel -- l'HMAC sul corpo basta già a garantire autenticità).
+Hook in `creaAppuntamentoTenant` (booking-engine.server.ts): la programmazione avviene per
+OGNI canale di prenotazione (dashboard/AI/pubblico/caparra), non solo uno, perché riguarda la
+visita reale, non il canale con cui è stata prenotata. Nuova pagina pubblica `/recensisci/[id]`
+(stesso modello di sicurezza -- nessun login, solo possesso dell'id -- di `/gestisci/[id]`),
+nuova sezione in `/s/[slug]/page.tsx`, nuova pagina dashboard
+`/dashboard/impostazioni/recensioni`.
+
+**Verificato**: 9 nuovi test unitari sulla logica pura (`recensioni.test.ts`).
+`tsc`/`eslint`/`vitest` (478/478)/`build`/`playwright test --list` (18 test, invariato) puliti.
+Un bug di inferenza TypeScript trovato durante la verifica (non specifico di questo progetto):
+`return cond ? {ok: true as const} : {errore: string}` dentro una funzione async senza tipo di
+ritorno esplicito, chiamata da un'altra funzione async anch'essa senza tipo esplicito, perde la
+forma di unione discriminata al sito di chiamata (`"errore" in risultato` narrowing fallisce,
+`risultato.errore` diventa `string | undefined`) -- risolto usando lo stesso pattern
+`risultato?.errore` già usato altrove nel progetto (es. `pannello-compleanno.tsx`) invece del
+narrowing con `in`.
+
+**Non incluso in questo giro**: nessun nuovo scenario Playwright dedicato (richiederebbe
+simulare il trigger QStash con un ritardo di 2 ore, non banale in un test E2E) -- da verificare
+a mano da Gabriel dopo il deploy, con le variabili QStash aggiunte anche su Vercel.

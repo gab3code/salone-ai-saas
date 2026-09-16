@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { caricaProfiloPubblico } from "@/lib/pagina-pubblica.server";
+import { caricaRecensioniPubbliche } from "@/lib/recensioni.server";
 import FlussoPrenotazione from "./FlussoPrenotazione";
 import ChatWidgetPubblico from "./ChatWidgetPubblico";
 
@@ -58,6 +59,11 @@ export default async function PaginaPubblicaSalone({
   if (!profilo) notFound();
 
   const categorie = Array.from(new Set(profilo.servizi.map((s) => s.categoria ?? "Servizi")));
+
+  // Fase 3, 16/09/2026: `null` se il titolare ha spento l'interruttore
+  // generale (vedi 0026_recensioni.sql) -- in quel caso la sezione non
+  // compare affatto, non solo vuota.
+  const recensioniInfo = await caricaRecensioniPubbliche(creaClientAdmin(), profilo.tenantId);
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50">
@@ -176,6 +182,42 @@ export default async function PaginaPubblicaSalone({
                     <p className="text-xs font-medium text-zinc-900">{o.nome}</p>
                     {o.ruolo && <p className="text-[11px] text-zinc-400">{o.ruolo}</p>}
                   </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+        {/* ── recensioni (Fase 3, sparisce del tutto se il titolare ha spento
+             l'interruttore, o se non ce ne sono ancora) ─────────────────── */}
+        {recensioniInfo && recensioniInfo.recensioni.length > 0 && (
+          <section>
+            <h2 className="mb-1 text-lg font-semibold text-zinc-900">Recensioni</h2>
+            {recensioniInfo.media.media !== null && (
+              <p className="mb-4 text-sm text-zinc-500">
+                <span className="text-amber-500">★</span> {recensioniInfo.media.media} su 5 ({recensioniInfo.media.totale}{" "}
+                recensioni)
+              </p>
+            )}
+            <div className="flex flex-col gap-4">
+              {recensioniInfo.recensioni.map((r, i) => (
+                <div key={i} className="rounded-2xl border border-zinc-200 bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-amber-400" aria-label={`${r.valutazione} stelle su 5`}>
+                      {"★".repeat(r.valutazione)}
+                      <span className="text-zinc-200">{"★".repeat(5 - r.valutazione)}</span>
+                    </span>
+                    <span className="text-xs text-zinc-400">
+                      {new Date(r.createdAt).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-zinc-500">{r.nomeCliente}</p>
+                  {r.commento && <p className="mt-2 text-sm text-zinc-800">{r.commento}</p>}
+                  {r.rispostaTitolare && (
+                    <div className="mt-3 rounded-lg bg-zinc-50 px-3 py-2">
+                      <p className="text-xs font-medium text-zinc-500">Risposta di {profilo.nome}</p>
+                      <p className="mt-0.5 text-sm text-zinc-700">{r.rispostaTitolare}</p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

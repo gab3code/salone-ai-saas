@@ -62,6 +62,9 @@ export default async function PaginaImpostazioni() {
       <a href="/dashboard/impostazioni/lista-attesa" className="text-sm underline">
         Contatto automatico lista d&apos;attesa
       </a>
+      <a href="/dashboard/impostazioni/recensioni" className="text-sm underline">
+        Recensioni
+      </a>
       <a href="/dashboard/impostazioni/cancellazione" className="text-sm underline">
         Cancellazione online
       </a>
