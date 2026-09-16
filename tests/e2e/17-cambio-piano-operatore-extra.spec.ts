@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { creaTenantDiProva, type TenantDiProva } from "./helpers/tenant-di-prova";
 import { accediComeTitolare } from "./helpers/login";
 import { creaAbbonamentoDiProva, type AbbonamentoDiProva } from "./helpers/abbonamento-di-prova";
-import { priceIdOperatoreExtra } from "@/lib/stripe/piani";
+import { priceIdOperatoreExtra, priceIdPerPiano } from "@/lib/stripe/piani";
 
 /**
  * Scenario 17 (Fase 5, 16/09/2026): quando un salone cambia piano, la riga
@@ -74,21 +74,23 @@ test.describe("Scenario 17 -- cambio piano e quota per operatore", () => {
     await page.getByRole("button", { name: "Aggiungi" }).first().click();
     await expect(page.getByText("Terza").first()).toBeVisible({ timeout: 15_000 });
 
+    // Si asserisce sull'elenco COMPLETO dei price presenti, non su due
+    // booleani: quando fallisce, il messaggio di Playwright deve dire cosa
+    // c'è davvero sull'abbonamento, altrimenti resta da indovinare.
     await expect
       .poll(
         async () => {
           const item = await abbonamento!.leggiItem();
-          return {
-            starter: item.some((i) => i.priceId === priceExtraStarter),
-            growth: item.find((i) => i.priceId === priceExtraGrowth)?.quantita ?? null,
-          };
+          return item
+            .map((i) => `${i.priceId}${i.quantita !== undefined ? ` x${i.quantita}` : ""}`)
+            .sort();
         },
         {
           timeout: 20_000,
           message:
-            "dopo il passaggio a Growth deve restare SOLO la quota da 15€, con la quantità giusta -- mai le due insieme",
+            "dopo il passaggio a Growth deve restare SOLO la quota da 15€ (x2), mai quella da 10€",
         }
       )
-      .toEqual({ starter: false, growth: 2 });
+      .toEqual([`${priceIdPerPiano("starter")} x1`, `${priceExtraGrowth} x2`].sort());
   });
 });

@@ -58,7 +58,7 @@ test.describe("Scenario 18 -- più attività, un solo accesso", () => {
 
     // Prova dell'isolamento, versione A: i servizi della sede attiva.
     await page.goto("/dashboard/configura");
-    await expect(page.getByText("Taglio Centro")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Taglio Centro").first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Taglio Periferia")).toHaveCount(0);
 
     // --- cambio sede ---
@@ -71,9 +71,9 @@ test.describe("Scenario 18 -- più attività, un solo accesso", () => {
     // Prova dell'isolamento, versione B: ora si vede l'altro salone, e
     // soltanto quello. Questa è l'asserzione che conta.
     await page.goto("/dashboard/configura");
-    await expect(page.getByText("Taglio Periferia")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Taglio Periferia").first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Taglio Centro")).toHaveCount(0);
-    await expect(page.getByText("Bruno Periferia")).toBeVisible();
+    await expect(page.getByText("Bruno Periferia").first()).toBeVisible();
     await expect(page.getByText("Anna Centro")).toHaveCount(0);
 
     // La sede attiva è persistita su profiles.tenant_id -- è quello che legge

@@ -159,14 +159,19 @@ test.describe("Scenario 19 -- permessi del collaboratore", () => {
       )
       .toBe("owner");
 
-    const { data: profiloDopoPromozione } = await tenant.supabase
-      .from("profiles")
-      .select("ruolo")
-      .eq("id", staff.utenteId)
-      .single();
-    expect(profiloDopoPromozione?.ruolo, "profiles.ruolo è quello che legge ogni gate di permesso").toBe(
-      "owner"
-    );
+    await expect
+      .poll(
+        async () => {
+          const { data } = await tenant.supabase
+            .from("profiles")
+            .select("ruolo")
+            .eq("id", staff!.utenteId)
+            .single();
+          return data?.ruolo;
+        },
+        { timeout: 15_000, message: "profiles.ruolo è quello che legge ogni gate di permesso" }
+      )
+      .toBe("owner");
 
     // Rimozione: l'appartenenza sparisce e la sede attiva di quella persona
     // non può restare puntata su un salone di cui non fa più parte,
@@ -189,14 +194,24 @@ test.describe("Scenario 19 -- permessi del collaboratore", () => {
       )
       .toBe(0);
 
-    const { data: profiloDopoRimozione } = await tenant.supabase
-      .from("profiles")
-      .select("tenant_id")
-      .eq("id", staff.utenteId)
-      .single();
-    expect(
-      profiloDopoRimozione?.tenant_id,
-      "chi è stato rimosso non deve restare con la sede attiva puntata su quel salone"
-    ).not.toBe(tenant.id);
+    // `rimuoviMembro` aggiorna la sede attiva DOPO aver cancellato
+    // l'appartenenza: leggere il profilo nell'istante in cui il conteggio va a
+    // zero significa correre contro la seconda scrittura. Si attende.
+    await expect
+      .poll(
+        async () => {
+          const { data } = await tenant.supabase
+            .from("profiles")
+            .select("tenant_id")
+            .eq("id", staff!.utenteId)
+            .single();
+          return data?.tenant_id;
+        },
+        {
+          timeout: 15_000,
+          message: "chi è stato rimosso non deve restare con la sede attiva puntata su quel salone",
+        }
+      )
+      .not.toBe(tenant.id);
   });
 });

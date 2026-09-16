@@ -62,6 +62,13 @@ export async function sincronizzaQuantitaOperatoriStripe(
     const priceIdVoluto = priceIdOperatoreExtra(tenant.piano);
     const priceIdNoti = new Set(tuttiPriceIdOperatoreExtra());
 
+    console.info("[stripe] Sincronizzo operatori extra", {
+      tenantId,
+      piano: tenant.piano,
+      quantitaVoluta,
+      priceIdVoluto,
+    });
+
     const subscription = await stripe.subscriptions.retrieve(tenant.stripe_subscription_id);
     // Qualunque add-on "operatore extra" già presente, anche di un altro
     // piano: sono quelli da rimuovere o sostituire.
@@ -106,6 +113,15 @@ export async function sincronizzaQuantitaOperatoriStripe(
       });
     }
   } catch (errore) {
-    console.error("[stripe] Errore sincronizzando la quantità di operatori extra:", errore);
+    // Contesto nel log, non solo il messaggio: questa funzione è fail-open
+    // per scelta (un problema di fatturazione non deve mai impedire di
+    // creare un operatore vero), il che significa che quando sbaglia non
+    // succede NIENTE di visibile -- solo un cliente che paga la cifra
+    // sbagliata. Senza sapere quale tenant, quale piano e quale price stava
+    // trattando, quel silenzio è anche indiagnosticabile.
+    console.error("[stripe] Errore sincronizzando la quantità di operatori extra:", {
+      tenantId,
+      errore: (errore as Error).message,
+    });
   }
 }

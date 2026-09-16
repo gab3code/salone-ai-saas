@@ -214,6 +214,7 @@ function RigaAttivita({ riga }: { riga: RigaAdmin }) {
           <div className="flex flex-1 flex-col gap-1">
             <label className="text-xs text-zinc-500">Motivo della sospensione</label>
             <input
+              type="text"
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               placeholder="Es. abbonamento non pagato da 3 mesi"
@@ -271,6 +272,7 @@ function RigaAttivita({ riga }: { riga: RigaAdmin }) {
                     Scrivi <span className="font-medium text-zinc-800">{riepilogo.nome}</span> per confermare
                   </label>
                   <input
+                    type="text"
                     value={nomeDigitato}
                     onChange={(e) => setNomeDigitato(e.target.value)}
                     className="w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm"

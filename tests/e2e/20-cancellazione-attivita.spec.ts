@@ -65,8 +65,12 @@ test.describe("Scenario 20 -- cancellazione di un'attività", () => {
     await expect(rigaVittima.getByText("Stai per cancellare definitivamente")).toBeVisible({
       timeout: 15_000,
     });
-    await expect(rigaVittima.getByText(/1 clienti finali/)).toBeVisible();
-    await expect(rigaVittima.getByText(/1 appuntamenti/)).toBeVisible();
+    // Si punta al riquadro rosso del riepilogo: gli stessi numeri compaiono
+    // anche nella riga dei conteggi, e quello che si vuole verificare e' che
+    // la CONFERMA dica la verita', non che la pagina contenga un numero.
+    const riepilogo = rigaVittima.locator("ul", { hasText: "clienti finali" });
+    await expect(riepilogo.getByText(/1 clienti finali/)).toBeVisible();
+    await expect(riepilogo.getByText(/1 appuntamenti e 0 recensioni/)).toBeVisible();
 
     const conferma = rigaVittima.locator('input[type="text"]').last();
     const bottone = rigaVittima.getByRole("button", { name: "Cancella per sempre" });
