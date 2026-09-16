@@ -701,7 +701,7 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       verificato leggendo i dati veri dal database dopo la registrazione, isolamento RLS
       confermato (un utente legge esattamente 1 tenant, il proprio)
 
-## Fase 1 -- Booking engine (punti 12, 13, 14) -- IN CORSO
+## Fase 1 -- Booking engine (punti 12, 13, 14) -- FATTA (chiusa 16/09/2026 con Task #190)
 - [x] Calcolo disponibilità reale (orari, pause, ferie, operatore, durata servizio, buffer) --
       logica pura in `src/lib/booking-engine.ts`, 16 test verdi
 - [x] Collegare la logica pura a Supabase: `src/lib/booking-engine.server.ts` legge orari/
@@ -1332,7 +1332,9 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
   cliente reale lo chiede esplicitamente, non perché un concorrente ce l'ha -- vedi PIANO.md
   "Gruppo B-bis" punto 9 per il ragionamento completo.
 - [ ] Revisione sicurezza (RLS, permessi tool AI, rate limiting, input validation)
-- [ ] Test completo su tutti gli scenari del punto 30
+- [x] ~~Test completo su tutti gli scenari del punto 30~~ **FATTO 16/09/2026, Task #190**: vedi
+      il dettaglio completo in Fase 1 e in DECISIONS.md "Task #190 chiuso" -- 18/18 scenari E2E
+      verdi in un'unica run.
 - [ ] **Sentry (error tracking)** -- deciso il 16/09/2026 (Gabriel ha chiesto un parere su un
       post generico "stack per startup a $21/mese" visto sui social, vedi DECISIONS.md):
       unica aggiunta reale di quella lista, priorità vicina -- oggi un errore in produzione si
