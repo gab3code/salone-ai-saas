@@ -4758,3 +4758,73 @@ sempre sullo stesso giorno/orario allora è un bug reale nel motore di disponibi
 investigare (non nel prompt/test), altrimenti è variabilità del modello.
 
 Verificato di nuovo: `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` puliti.
+
+## 2026-09-16 — Terzo run reale: 16/18, Scenario 2 e 9 confermati sani, Scenario 8 corretto per la terza volta, Scenario 10 diagnosticato e corretto a livello di prompt
+
+Terzo run completo (`npm run test:e2e`, tutti e 18 gli scenari): **16/18 verdi**. Due conferme
+positive dai giri precedenti: lo Scenario 2 (modifica prenotazione) è passato pulito senza
+alcuna modifica di codice, confermando che il fallimento del giro precedente era davvero
+variabilità del modello legata ai crediti AI esauriti a metà sessione (segnalato da Gabriel), non
+un bug nel motore di disponibilità -- corretta la decisione di non averlo toccato alla cieca.
+Lo Scenario 9 (servizi consecutivi) è passato pulito col fix del giro precedente (pattern di
+ritentativo). Restano due fallimenti, entrambi con un sintomo NUOVO rispetto a tutti i giri
+precedenti:
+
+**Scenario 8, terzo bug nello stesso punto (stavolta corretto in modo strutturale)**: dando
+finalmente un orario esplicito diverso da quello occupato (fix del giro precedente), l'AI adesso
+verifica che l'orario sia libero e lo ripropone chiedendo un'ULTERIORE conferma esplicita
+("Perfetto, le 17:00 di giovedì 17 settembre è disponibile. Modifichiamo la prenotazione alle
+17:00 allora?") invece di prenotare subito -- lo stesso tipo di prudenza già visto e già gestito
+nello Scenario 9 per un impegno "più delicato" (qui, un conflitto reale appena scoperto). Il
+budget di 2 tentativi del test era però speso per intero sui due orari espliciti, senza un
+tentativo residuo per rispondere a quella riconferma. **Corretto** (`tests/e2e/08-slot-occupato-durante-conversazione.spec.ts`):
+la sequenza di messaggi ora alterna, per ciascun orario alternativo, prima l'offerta esplicita
+("Va bene, proviamo alle 15:00 allora, stesso giorno.") e poi -- solo se ancora nulla in DB --
+una riconferma che ripete lo STESSO orario ("Sì, confermalo pure alle 15:00.") prima di passare
+all'orario successivo: 4 tentativi totali invece di 2, mai un messaggio generico che lascerebbe
+all'AI il dubbio su quale orario si intenda (lo stesso principio del fix del giro precedente).
+
+**Scenario 10, sintomo completamente diverso dal primo run (diagnosticato E corretto)**: l'AI
+dichiara "Perfetto, ho cancellato il tuo appuntamento. È tutto fatto." dopo la prima conferma del
+cliente, ma il database mostra ancora `stato: "confermato"` -- e al ritentativo del test, l'AI
+risponde "L'appuntamento è già stato cancellato nel messaggio precedente", insistendo su un fatto
+falso. Il log diagnostico aggiunto nel primo run (solo su `!risultato.ok`, dentro il caso
+`cancella_prenotazione` di `tools.ts`) NON è scattato neppure stavolta -- e siccome quel ramo si
+attiva o su "Appuntamento non trovato" o su un vero errore Postgres, la sua assenza esclude
+ENTRAMBE le cause finora sospettate. Rileggendo il loop di tool-calling in `agente.ts`
+(`rispondiConversazione`): ogni `tool_use` che il modello emette viene SEMPRE eseguito per davvero
+prima che il loop continui (nessuna scorciatoia possibile lì) -- quindi se lo strumento fosse
+stato chiamato con esito positivo, la riga in DB sarebbe davvero "cancellato" (non lo è), e se
+fosse stato chiamato con esito negativo il log sarebbe scattato (non è scattato). L'unica
+spiegazione compatibile con TUTTE le prove: il modello non ha chiamato affatto lo strumento in
+quel turno, limitandosi a dichiarare il successo a memoria (rinforzato dal fatto che, al secondo
+tentativo, cita esplicitamente "il messaggio precedente" come prova -- la propria stessa
+affermazione, non un risultato di strumento).
+
+Questo NON è un bug di test come gli altri di questo giro: è una lacuna reale del prompt
+(`agente.ts`, REGOLA ASSOLUTA 1), che finora vietava di inventare INFORMAZIONI senza uno
+strumento ma non vietava esplicitamente di dichiarare completata un'AZIONE (creare/modificare/
+cancellare una prenotazione) senza averla davvero eseguita nello stesso turno. **Corretto a
+livello di prodotto**: REGOLA ASSOLUTA 1 estesa con una frase dedicata alle azioni, che impone di
+richiamare sempre lo strumento corrispondente quando il cliente conferma -- anche se il modello
+"pensa" di averlo già fatto in un turno precedente o il cliente ripete la stessa conferma una
+seconda volta -- e vieta di dichiarare un'azione "già fatta" basandosi solo su un proprio
+messaggio precedente invece che su un risultato di strumento fresco. In più, per verificare
+questa teoria con certezza (non solo per inferenza) invece di dichiararla chiusa sulla fiducia:
+aggiunto un secondo log diagnostico in `tools.ts`, stavolta INCONDIZIONATO (logga ogni invocazione
+di `cancella_prenotazione`, non solo i fallimenti) -- se lo scenario fallisse ancora e nessuno dei
+due log comparisse, la teoria "il modello non ha chiamato lo strumento" sarebbe confermata oltre
+ogni dubbio; se comparisse anche solo il nuovo log incondizionato senza quello di fallimento,
+vorrebbe dire che lo strumento È stato chiamato con esito positivo ma qualcos'altro ha rimesso lo
+stato indietro (ipotesi diversa, da investigare a quel punto). Entrambi i log restano temporanei,
+da togliere una volta confermato che il fix di prompt tiene su più run.
+
+Nessuna modifica di comportamento per un cliente reale che già conferma un'azione una sola volta
+e riceve un esito reale nello stesso turno (il caso comune) -- il fix cambia solo cosa succede
+quando il modello sarebbe stato tentato di dichiarare un'azione senza eseguirla, che è
+esattamente il comportamento scorretto da correggere.
+
+Verificato di nuovo: `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` puliti.
+Prossimo passo: Gabriel rilancia gli scenari 8 e 10 (`npx playwright test 08- 10-`, o la suite
+intera per una verifica completa) e manda l'esito -- in particolare se compare il nuovo log
+`[DIAG] cancella_prenotazione INVOCATO` nello Scenario 10, confermando o smentendo la teoria.

@@ -1,6 +1,29 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, cinquantanovesimo giro -- Task #190, secondo run reale dopo i
+Ultimo aggiornamento: 16/09/2026, sessantesimo giro -- Task #190, terzo run reale: **16/18
+verdi**. Confermati sani senza altre modifiche gli Scenario 2 (era variabilità AI da crediti
+esauriti, non un bug) e 9 (fix del giro precedente ha tenuto). **Scenario 8, terzo bug nello
+stesso punto**: dando un orario esplicito l'AI ora chiede un'ulteriore riconferma prima di
+prenotare (stessa prudenza già vista nello Scenario 9) e il budget di tentativi del test era
+esaurito sui soli orari -- **corretto** alternando offerta-orario e riconferma-con-lo-stesso-
+orario, 4 tentativi invece di 2. **Scenario 10, sintomo nuovo e diverso dal primo run**: l'AI
+dichiara una cancellazione riuscita ("è tutto fatto") con il DB ancora "confermato", poi insiste
+che era "già stato fatto" al ritentativo -- il log diagnostico (solo su fallimento) non è
+scattato, escludendo sia "Appuntamento non trovato" sia un errore Postgres. Rileggendo il loop
+di tool-calling (`agente.ts`, che esegue SEMPRE per davvero ogni `tool_use` emesso), l'unica
+spiegazione compatibile con tutte le prove è che il modello non abbia affatto chiamato lo
+strumento in quel turno, dichiarando il successo a memoria. **Non un bug di test come gli altri
+-- una lacuna reale del prompt**: REGOLA ASSOLUTA 1 (`agente.ts`) estesa per vietare
+esplicitamente di dichiarare un'azione (creare/modificare/cancellare) completata senza aver
+richiamato lo strumento corrispondente in quel turno con un risultato positivo, anche se il
+cliente conferma una seconda volta. Aggiunto anche un secondo log diagnostico, stavolta
+INCONDIZIONATO (ogni invocazione, non solo i fallimenti), per confermare la teoria con certezza
+al prossimo run invece che per sola inferenza. Verificato: `tsc`/`eslint`/`vitest` (469/469)/
+`build`/`playwright test --list` puliti. Dettaglio completo in DECISIONS.md, "2026-09-16 — Terzo
+run reale: 16/18, Scenario 2 e 9 confermati sani, Scenario 8 corretto per la terza volta,
+Scenario 10 diagnosticato e corretto a livello di prompt".
+
+Aggiornamento precedente, 16/09/2026, cinquantanovesimo giro -- Task #190, secondo run reale dopo i
 fix del giro precedente. **Scenario 10 passato** (il log diagnostico non è scattato, non prova
 che il sospetto fosse infondato ma esclude una causa deterministica). **Due nuovi bug di TEST**,
 entrambi corretti: Scenario 8 aveva ancora una conferma troppo vaga ("confermalo pure" senza un

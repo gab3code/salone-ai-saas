@@ -522,6 +522,20 @@ async function eseguiStrumentoInterno(
     }
 
     case "cancella_prenotazione": {
+      // Log diagnostico TEMPORANEO (16/09/2026, secondo giro): lo Scenario 10
+      // E2E ha mostrato l'AI dichiarare una cancellazione riuscita ("ho
+      // cancellato, è tutto fatto") con il database ancora "confermato" --
+      // ma il log precedente (solo su !risultato.ok) non è MAI scattato in
+      // quei run, il che esclude sia "Appuntamento non trovato" sia un vero
+      // errore Postgres. Ipotesi più probabile ora, coerente con
+      // rispondiConversazione in agente.ts (che esegue DAVVERO ogni
+      // tool_use che il modello emette): il modello non ha affatto chiamato
+      // questo strumento in quel turno, limitandosi a dichiarare successo a
+      // memoria. Questo log INCONDIZIONATO (non solo sul fallimento) è
+      // l'unico modo per confermarlo con certezza: se anche questo non
+      // comparisse nel prossimo run fallito, la teoria è confermata.
+      // Toglierlo una volta chiarita la causa, vedi DECISIONS.md.
+      console.error("[DIAG] cancella_prenotazione INVOCATO", { tenantId, appuntamentoId: input.appuntamento_id });
       const appuntamentoId = input.appuntamento_id;
       if (!eUuidValido(appuntamentoId)) {
         return {
@@ -531,12 +545,6 @@ async function eseguiStrumentoInterno(
       }
       const risultato = await cancellaAppuntamentoTenant(supabase, tenantId, appuntamentoId);
       if (!risultato.ok) {
-        // Log diagnostico TEMPORANEO (16/09/2026): lo Scenario 10 E2E ha
-        // fallito dal vivo con l'AI che si scusava e rimandava al telefono
-        // -- segno che questo ramo è stato raggiunto, ma senza sapere se per
-        // "Appuntamento non trovato" (id sbagliato passato dal modello) o un
-        // vero errore Postgres. Toglierlo una volta chiarita la causa, vedi
-        // DECISIONS.md.
         console.error("cancella_prenotazione fallito:", { tenantId, appuntamentoId, errore: risultato.errore });
         return { errore: risultato.errore };
       }

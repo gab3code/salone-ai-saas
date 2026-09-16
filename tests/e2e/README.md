@@ -50,10 +50,17 @@ correggere due bug reali lungo il percorso, vedi DECISIONS.md.
 **Primo run reale (16/09/2026): 12/14 verdi**, poi un secondo run di TUTTI e 18 i test: **15/18
 verdi**. Scenario 8 e 13 erano ancora bug nei TEST (un margine anti-burst troppo risicato in
 `chat.ts` + un retry che non rispondeva alla domanda di conferma dell'AI; un locator ambiguo
-sulla pagina pubblica) -- **corretti**, vedi DECISIONS.md. **Scenario 10 resta aperto**: l'AI si
-scusa e rimanda al telefono, segno che `cancella_prenotazione` fallisce per una causa reale non
-ancora isolata -- aggiunto un log diagnostico temporaneo in `tools.ts` (nessuna modifica di
-comportamento), il prossimo run dirà di più.
+sulla pagina pubblica) -- **corretti**, vedi DECISIONS.md. Un terzo run (dopo altri due giri di
+fix su 8/9/10, vedi DECISIONS.md) ha portato a **16/18 verdi**, con lo Scenario 2 confermato sano
+(era variabilità AI da crediti esauriti, non un bug). Restavano due sintomi nuovi, entrambi
+diagnosticati e corretti in questo stesso giro: lo **Scenario 8** aveva ancora un retry troppo
+corto per una riconferma esplicita che l'AI a volte chiede dopo aver offerto un orario alternativo
+-- corretto alternando offerta-orario e riconferma nel test. Lo **Scenario 10** mostrava l'AI
+dichiarare una cancellazione riuscita con il database ancora invariato: non un bug di test, ma una
+lacuna reale nel prompt (`agente.ts`) che non vietava esplicitamente di dichiarare un'azione
+completata senza aver davvero richiamato lo strumento in quel turno -- **corretto** estendendo
+REGOLA ASSOLUTA 1, con un log diagnostico incondizionato aggiunto in `tools.ts` per confermare la
+diagnosi al prossimo run.
 
 | `14-upgrade-piano-abbonamento.spec.ts` | 14 | (a) il NOSTRO endpoint `/api/stripe/checkout` genera un vero URL di Checkout Stripe e salva il customer sul tenant; (b) il NOSTRO webhook porta il tenant sul piano corretto quando Stripe conferma l'abbonamento attivo |
 | `15-cliente-cancella-abbonamento.spec.ts` | 15 | (a) il NOSTRO endpoint `/api/stripe/portal` genera un vero URL del Customer Portal per un tenant con abbonamento attivo; (b) il NOSTRO webhook riporta il tenant a Free quando Stripe conferma la cancellazione |

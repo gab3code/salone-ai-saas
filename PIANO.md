@@ -782,11 +782,22 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       serve il vero secret di Stripe per questi due scenari). Sui 14 rimanenti, **15/18 verdi**
       in totale: Scenario 8 e 13 erano ancora bug nei TEST (margine anti-burst troppo risicato +
       retry che non rispondeva alla domanda dell'AI; locator ambiguo sulla pagina pubblica) --
-      **CORRETTI**. **Scenario 10 (cliente cancella) resta aperto**: causa reale non ancora
-      isolata, aggiunto un log diagnostico temporaneo (nessuna modifica di comportamento), in
-      attesa del prossimo run per capire se è un id sbagliato dal modello o un errore Postgres.
-      Verificato `tsc`/`eslint`/`vitest`/`build`/`playwright test --list` puliti. Dettaglio
-      completo in `tests/e2e/README.md` e in DECISIONS.md.
+      **CORRETTI**. **Scenario 10 (cliente cancella) restava aperto**: causa reale non ancora
+      isolata, aggiunto un log diagnostico temporaneo. Secondo run: **Scenario 10 passato** (log
+      non scattato, nessuna certezza), 2 nuovi bug di TEST in 8 (conferma ancora troppo vaga) e 9
+      (servizi consecutivi, mancava un ritentativo) -- **CORRETTI**; Scenario 2 fallito con causa
+      non chiarita, non toccato alla cieca (poi confermato variabilità AI da crediti esauriti).
+      Terzo run: **16/18 verdi** -- Scenario 2 e 9 confermati sani. Scenario 8, terzo bug nello
+      stesso punto (l'AI chiede un'ulteriore riconferma dopo un orario esplicito) -- **CORRETTO**
+      alternando offerta-orario e riconferma nello stesso messaggio. Scenario 10, sintomo nuovo:
+      l'AI dichiara una cancellazione riuscita col DB ancora "confermato" -- diagnosticato (dal
+      loop di tool-calling in `agente.ts`, che esegue sempre per davvero ogni `tool_use`) come il
+      modello che NON chiama affatto lo strumento e dichiara il successo a memoria: non un bug di
+      test ma una lacuna reale del prompt, **corretta** estendendo REGOLA ASSOLUTA 1 a vietare di
+      dichiarare un'azione completata senza un risultato di strumento fresco in quel turno.
+      Aggiunto anche un secondo log diagnostico incondizionato per confermarlo con certezza al
+      prossimo run. Verificato `tsc`/`eslint`/`vitest`/`build`/`playwright test --list` puliti.
+      Dettaglio completo in `tests/e2e/README.md` e in DECISIONS.md.
 - [x] ~~Semplificazione consapevole: fuso orario trattato come UTC~~ **FATTO 11/09/2026**
       (corretto qui il 12/09/2026, questa riga era rimasta indietro): colonna
       `tenants.fuso_orario` (migrazione 0010, default `Europe/Rome`, applicata al DB reale),

@@ -78,35 +78,40 @@ test.describe("Scenario 8 -- lo slot si occupa durante la conversazione", () => 
       return data?.[0] ?? null;
     }
 
-    // Come negli altri scenari con l'AI: fino a due turni in più per
-    // arrivare a un'alternativa confermata, prima di arrendersi. Trovato dal
-    // vivo il 16/09/2026, in DUE round successivi: primo tentativo, ripetere
+    // Come negli altri scenari con l'AI: fino a un certo numero di turni in
+    // più per arrivare a un'alternativa confermata, prima di arrendersi.
+    // Trovato dal vivo il 16/09/2026, in TRE round successivi: (1) ripetere
     // sempre la stessa frase generica ("prenota pure un altro orario") non
     // bastava perché l'AI aveva già proposto un orario specifico e chiedeva
-    // conferma -- ma anche un "sì, confermalo pure" GENERICO non basta:
-    // senza un orario esplicito nel messaggio, l'AI non sa a quale dei tanti
-    // orari alternativi elencati il cliente si riferisca, e torna a chiedere
-    // chiarimenti invece di prenotare. Una vera persona, a quel punto,
-    // indicherebbe un orario preciso -- il test ora fa lo stesso: chiede
-    // esplicitamente un orario diverso da quello occupato (le 15:00, ben
-    // lontano dalle 11:00 e dentro l'orario 9-19 di apertura di default),
-    // invece di lasciare all'AI il compito di indovinare quale tra le
-    // alternative proposte il cliente intendesse.
+    // conferma; (2) anche un "sì, confermalo pure" GENERICO non basta: senza
+    // un orario esplicito nel messaggio, l'AI non sa a quale dei tanti orari
+    // alternativi elencati il cliente si riferisca, e torna a chiedere
+    // chiarimenti invece di prenotare -- corretto chiedendo esplicitamente
+    // un orario diverso da quello occupato; (3) anche dando un orario
+    // esplicito, l'AI a volte prima verifica/ripropone quell'orario e chiede
+    // un'ULTERIORE conferma esplicita ("...allora?") prima di prenotare
+    // davvero -- lo stesso pattern di prudenza già visto e gestito negli
+    // Scenari 8/9 per un impegno con conflitto reale di mezzo. Il test ora
+    // alterna: prima un orario esplicito, poi -- se ancora nulla in DB --
+    // una conferma esplicita che ripete quello stesso orario (mai generica,
+    // per non fargli perdere il riferimento), prima di passare all'orario
+    // successivo.
     const orariAlternativiEspliciti = ["15:00", "17:00"];
+    const messaggiRitentativo: string[] = orariAlternativiEspliciti.flatMap((ora) => [
+      `Va bene, proviamo alle ${ora} allora, stesso giorno.`,
+      `Sì, confermalo pure alle ${ora}.`,
+    ]);
     let prenotazione = await nuovaPrenotazioneDiversaDaOccupata();
     let tentativi = 0;
-    while (!prenotazione && tentativi < 2) {
-      ultimaRisposta = await inviaMessaggioChat(
-        page,
-        `Va bene, proviamo alle ${orariAlternativiEspliciti[tentativi]} allora, stesso giorno.`
-      );
+    while (!prenotazione && tentativi < messaggiRitentativo.length) {
+      ultimaRisposta = await inviaMessaggioChat(page, messaggiRitentativo[tentativi]);
       prenotazione = await nuovaPrenotazioneDiversaDaOccupata();
       tentativi++;
     }
 
     expect(
       prenotazione,
-      `L'AI non ha proposto/confermato un'alternativa entro 3 turni dopo il conflitto. Ultima risposta: "${ultimaRisposta}"`
+      `L'AI non ha proposto/confermato un'alternativa entro ${messaggiRitentativo.length + 1} turni dopo il conflitto. Ultima risposta: "${ultimaRisposta}"`
     ).toBeTruthy();
     expect(
       new Date(prenotazione!.inizio).getTime(),
