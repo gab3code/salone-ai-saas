@@ -761,9 +761,12 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       #9 (servizi consecutivi via chat AI, la funzionalità appena costruita), #12 (prenotazione
       manuale da dashboard). Girano SOLO in locale a comando (`npm run test:e2e`), non in CI
       (decisione con Gabriel, vedi DECISIONS.md 16/09/2026): toccano un database vero e gli
-      scenari con l'AI chiamano il vero Claude (costo reale, seppur minimo, per run). Dettaglio
-      completo, incluso perché non in CI e cosa manca ancora (scenari 2, 4, 7, 8, 10, 11, 13, 14,
-      15), in `tests/e2e/README.md` e in DECISIONS.md.
+      scenari con l'AI chiamano il vero Claude (costo reale, seppur minimo, per run). Primo run
+      reale di Gabriel: tutti e 6 falliti per una collisione tra l'helper e il trigger di
+      provisioning automatico (`profiles_pkey`) -- **CORRETTO 16/09/2026**, vedi DECISIONS.md
+      "Bug profiles_pkey nei test E2E". Ancora da riverificare dal vivo col fix applicato.
+      Dettaglio completo, incluso perché non in CI e cosa manca ancora (scenari 2, 4, 7, 8, 10, 11,
+      13, 14, 15), in `tests/e2e/README.md` e in DECISIONS.md.
 - [x] ~~Semplificazione consapevole: fuso orario trattato come UTC~~ **FATTO 11/09/2026**
       (corretto qui il 12/09/2026, questa riga era rimasta indietro): colonna
       `tenants.fuso_orario` (migrazione 0010, default `Europe/Rome`, applicata al DB reale),

@@ -1,6 +1,25 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, cinquantunesimo giro -- Task #190, secondo buco di fase:
+Ultimo aggiornamento: 16/09/2026, cinquantaduesimo giro -- Task #190, primo giro di correzione
+sui 6 scenari E2E scritti nel giro precedente. Gabriel ha lanciato `npm run test:e2e` per la
+prima volta nel suo Terminal reale: tutti e 6 fallivano identicamente con
+`duplicate key value violates unique constraint "profiles_pkey"`. Causa trovata leggendo la
+migrazione 0004: un trigger (`al_nuovo_utente`) crea GIÀ da solo tenant+profilo+orari alla
+creazione dell'utente auth, e l'helper di test provava a inserirne di suoi in più, collidendo
+sulla chiave primaria. Corretto lasciando fare al trigger e aggiornando il tenant che crea lui
+invece di inserirne uno concorrente (effetto collaterale positivo: il setup ricalca ora il vero
+flusso di registrazione). Aggiunto anche `workers: 1` a `playwright.config.ts` dopo aver visto
+nel log di Gabriel che girava comunque su 4 worker paralleli nonostante `fullyParallel: false`.
+Anche stavolta il tentativo di lanciare i test da qui (`device_bash`) ha fallito, ma stavolta in
+modo istruttivo: confermato con certezza (non più solo sospetto) che `device_bash` è una VM
+Linux ARM64 del tutto separata dal Mac di Gabriel, incapace per costruzione di eseguire
+qualunque binario nativo dell'app (Next/SWC, Chromium di Playwright) -- dettaglio in "Problemi
+noti aperti" #3, aggiornamento 16/09/2026. `tsc`/`eslint`/vitest (469/469) puliti; **non ancora
+riverificato dal vivo** -- Gabriel deve ri-lanciare `npm run test:e2e` lui stesso col fix
+applicato. Dettaglio in DECISIONS.md, "2026-09-16 — Bug profiles_pkey nei test E2E: il trigger
+di provisioning e l'helper si scontravano".
+
+Aggiornamento precedente, 16/09/2026, cinquantunesimo giro -- Task #190, secondo buco di fase:
 infrastruttura Playwright per i 15 scenari E2E del punto 30, 6 scritti (nuovo cliente via
 chat AI vera, doppia prenotazione simultanea con race VERA contro il DB, professionista
 assente, attività chiusa, servizi consecutivi via chat AI, prenotazione manuale da
@@ -2454,6 +2473,22 @@ l'11/09/2026 via MCP diretto).
    più sicuro è che Gabriel cloni fresco l'ultimo bundle in una cartella FUORI da iCloud (es.
    `~/dev/`, non `~/Desktop/`), imposti lì il remote (`git@github.com:gab3code/salone-ai-saas.git`
    o la versione HTTPS) e pushi da lì, lasciando perdere la copia corrotta.
+
+   **Aggiornamento 16/09/2026 -- causa confermata con certezza, non più solo sospetto**: mentre
+   si cercava di lanciare `npm run test:e2e` tramite `device_bash` (per non dover chiedere a
+   Gabriel di farlo lui), `uname -a` ha restituito `Linux ... aarch64` e
+   `process.platform`/`process.arch` di Node `linux arm64` -- **`device_bash` è una VM Linux
+   ARM64 del tutto separata dal Mac di Gabriel, che si limita a montare le sue cartelle
+   (`$HOME/mnt/<cartella>`)**, non è affatto il suo Terminal reale come poteva sembrare. Questo
+   spiega precisamente (non solo "probabilmente") i sintomi sopra: un `npm install`/`npm run dev`
+   lanciato da lì scrive/cerca binari nativi Linux (SWC, e per Playwright anche Chromium) in una
+   cartella che poi il vero Mac (macOS/arm64) prova a riusare, da cui i file corrotti/deadlock.
+   **Conseguenza pratica, più ampia della sola regola npm/git**: qualsiasi comando che debba
+   ESEGUIRE l'app o un suo binario nativo (`npm run dev`, `npm run build` per davvero, i test
+   Playwright) è IMPOSSIBILE da `device_bash`, non solo sconsigliato -- è un muro tecnico, non
+   una questione di permessi. Va sempre chiesto a Gabriel di lanciarlo lui nel Terminal reale.
+   `device_bash` resta utile e sicuro per leggere/scrivere file di testo (codice, doc) nella
+   cartella montata, mai per eseguire processi che toccano `node_modules` nativi.
 4. **Connettore Vercel non interrogabile da questa sessione (12/09/2026)**: risulta "connected"
    e abilitato in chat, ma `mcp__Vercel__list_teams` restituisce sempre una lista vuota (anche
    dopo un refresh del connettore) e le altre chiamate (progetti, deployment) fanno tutte da

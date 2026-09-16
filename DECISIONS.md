@@ -4450,3 +4450,49 @@ dal perimetro dei nostri test (probabilmente la scelta più sensata, ma non anco
 Suite esistente confermata verde durante questo lavoro (469/469 vitest, `tsc`/`eslint`/`build`
 puliti) -- nessuna modifica al codice applicativo in questo giro, solo test e infrastruttura di
 test.
+
+## 2026-09-16 — Bug profiles_pkey nei test E2E: il trigger di provisioning e l'helper si scontravano
+
+Gabriel ha lanciato `npm run test:e2e` per la prima volta (nel suo Terminal reale, come da
+`tests/e2e/README.md`): tutti e 6 gli scenari sono falliti allo stesso identico punto, dentro
+`creaTenantDiProva`, con `duplicate key value violates unique constraint "profiles_pkey"`.
+
+**Causa**, trovata rileggendo `supabase/migrations/0004_provisioning_automatico.sql` invece di
+supporre: il trigger `al_nuovo_utente` (funzione `gestisci_nuovo_utente()`) scatta DA SOLO
+subito dopo `AFTER INSERT ON auth.users` e crea già lui una riga `tenants`, una riga `profiles`
+(stesso id dell'utente auth, letto da `raw_user_meta_data`) e le 7 righe `orari_apertura` (tutte
+chiuse) -- esattamente quello che fa il vero form `/registrati`. La prima versione dell'helper
+di test non lo sapeva: creava un proprio `tenants` PRIMA dell'utente, poi dopo `createUser`
+provava anche a inserire una propria riga `profiles` per lo stesso id -- collisione di chiave
+primaria con quella già creata dal trigger un istante prima.
+
+**Fix**: invece di combattere il trigger, lo si lascia lavorare. `creaTenantDiProva` ora passa
+`nome_salone`/`nome_persona` nei `user_metadata` di `createUser` (come fa il vero form), legge
+il `tenant_id` che il trigger ha già assegnato tramite un `select` su `profiles`, e fa un
+`update` su quel tenant con le impostazioni volute dal test (slug, piano, caparra, telefono)
+invece di un `insert` concorrente. Lo stesso vale per `orari_apertura`: il trigger ha già creato
+le 7 righe, quindi l'helper ora fa un `upsert` (`onConflict: tenant_id,giorno_settimana`) invece
+di un `insert` che violerebbe lo stesso vincolo unique usato in produzione da `azioni.ts`.
+Effetto collaterale positivo, non solo una correzione: il setup di test ora esercita lo stesso
+percorso di codice di una registrazione vera, non uno artificiale — più fedele, non solo più
+corretto.
+
+Aggiunto nello stesso giro `workers: 1` a `playwright.config.ts`: il log di Gabriel mostrava
+"Running 6 tests using 4 workers" nonostante `fullyParallel: false`, che a quanto pare non basta
+da solo a serializzare l'esecuzione tra file di test diversi.
+
+**Scoperta collaterale, importante per il futuro**: nel tentativo (fallito) di rilanciare i test
+da qui prima di consegnare il fix, si è confermato con `uname -a`/`process.platform` che
+`device_bash` è una VM Linux ARM64 realmente separata dal Mac di Gabriel, non il suo Terminal
+vero -- monta solo le sue cartelle. Non può quindi eseguire NULLA che richieda un binario nativo
+dell'app (SWC di Next, Chromium scaricato da Playwright), indipendentemente da qualunque regola
+di permesso su npm/git: è un muro tecnico. Registrato in modo durevole in PROJECT_STATUS.md,
+"Problemi noti aperti" #3 (che finora attribuiva lo stesso genere di sintomi solo a iCloud/al
+sospetto, mai confermato con questa precisione).
+
+Verificato prima della consegna: `npx tsc --noEmit` pulito, `npx eslint tests/e2e
+playwright.config.ts` pulito, `npx vitest run` 469/469 (suite esistente non toccata dal fix).
+**Non ancora verificato dal vivo**: serve che Gabriel ri-lanci `npm run test:e2e` col fix
+applicato -- resta aperto se i 6 scenari passino tutti al primo colpo o se emergano altri bug
+(selettori, timing della chat, la vera race condition dello Scenario 3) mai visti perché questi
+test non sono mai arrivati a girare fino in fondo neanche una volta.
