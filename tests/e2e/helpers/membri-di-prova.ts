@@ -101,3 +101,22 @@ export async function collegaUtenteATenant(
     .upsert({ user_id: utenteId, tenant_id: tenantId, ruolo }, { onConflict: "user_id,tenant_id" });
   if (error) throw new Error(`Impossibile collegare l'utente al secondo tenant: ${error.message}`);
 }
+
+/**
+ * Promuove un utente di prova ad admin di piattaforma, così può aprire
+ * `/admin` (scenari 20 e 21).
+ *
+ * Attenzione a cosa significa nei test: un admin vede TUTTE le attività del
+ * database, comprese quelle vere di Gabriel. Gli scenari che lo usano devono
+ * agire soltanto sul tenant che hanno creato loro -- la conferma per nome
+ * esatto richiesta dalla cancellazione è l'ultima rete, ma la prima è
+ * scrivere test che non cercano mai una riga che non hanno creato.
+ */
+export async function rendiAdminPiattaforma(utenteId: string): Promise<void> {
+  const supabase = creaClientAdminTest();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ ruolo: "admin_piattaforma" })
+    .eq("id", utenteId);
+  if (error) throw new Error(`Impossibile promuovere ad admin di piattaforma: ${error.message}`);
+}
