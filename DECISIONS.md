@@ -4714,3 +4714,47 @@ Nessuna modifica di comportamento per un cliente reale in nessuno dei tre casi. 
 nuovo: `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` puliti. Prossimo
 passo: Gabriel rilancia `npm run test:e2e` (o solo `npx playwright test 08- 10- 13-` per
 velocità) e manda l'esito, in particolare l'eventuale riga di log per lo Scenario 10.
+
+## 2026-09-16 — Secondo run reale: Scenario 10 passato al volo, nuovi bug di test in 8 e 9, Scenario 2 sospetto ma NON toccato
+
+Gabriel ha avuto un dev server rimasto appeso su una porta (da un run precedente interrotto) --
+risolto lui stesso trovando il PID con `lsof` e killandolo, poi rilanciato pulito.
+
+**Scenario 10**: passato senza che il log diagnostico scattasse. Non prova che il bug non
+esista (potrebbe essere non-determinismo del modello, non riprodotto stavolta), ma tolto ogni
+sospetto di causa deterministica legata al codice appena toccato -- nessuna modifica ulteriore,
+il log diagnostico resta per un'eventuale prossima volta.
+
+**Scenario 8, secondo bug nello stesso punto**: il fix del giro precedente ("Sì, va bene,
+confermalo pure.") non bastava -- senza un ORARIO ESPLICITO nel messaggio, l'AI non sa a quale
+delle tante alternative elencate il cliente si riferisce, e torna a chiedere chiarimenti
+("vuoi le 11:00 (quella occupata) o un orario diverso?") invece di prenotare. **Corretto per
+davvero stavolta**: il test ora chiede un orario specifico e diverso da quello occupato ("Va
+bene, proviamo alle 15:00 allora") invece di lasciare all'AI il compito di indovinare -- esattamente
+come farebbe un cliente vero a quel punto della conversazione.
+
+**Scenario 9 (servizi consecutivi), nuovo bug di test**: l'AI, prima di scrivere una
+prenotazione multi-servizio (importo più alto, due righe), a volte chiede un'ultima conferma
+esplicita ("Procedo con la prenotazione... con Giulia?") invece di procedere subito dopo il
+primo "sì, confermo" -- prudenza ragionevole su un impegno più corposo, non un bug applicativo.
+Il test però faceva solo due invii fissi senza controllare se la prenotazione fosse già scritta
+prima di fermarsi. **Corretto**: aggiunto lo stesso pattern di ritentativo (fino a 2 conferme
+esplicite in più) già usato negli altri scenari con l'AI.
+
+**Scenario 2 (modifica prenotazione), fallito con una causa NON chiarita -- non toccato**: l'AI
+ha insistito che venerdì 18 settembre alle 16:00 "il giorno è aperto ma quell'orario è occupato"
+su un tenant di prova completamente fresco e isolato (slug/id casuali ad ogni run, verificato
+leggendo `tenant-di-prova.ts` -- niente riutilizzo di un tenant precedente), con orari di
+apertura di default 9-19 tutti i giorni tranne domenica: non dovrebbe esistere alcun conflitto
+reale su quello slot. Il test è stato disegnato per ASSERIRE che lo spostamento avvenga
+esattamente alle 16:00 richieste (non una qualunque alternativa, a differenza dello Scenario 8),
+quindi lo stesso tipo di fix (chiedere un orario diverso) romperebbe l'asserzione finale invece
+di risolvere il problema. Gabriel segnala di aver esaurito i crediti AI a metà di questa
+sessione di test: possibile causa (degrado di qualità/latenza delle risposte del modello sotto
+throttling), ma non verificabile da qui. **Non modificato nessun codice alla cieca** per
+un'unica occorrenza non riproducibile con certezza: prossimo passo, rilanciare SOLO questo
+scenario (`npx playwright test 02-`) con crediti AI sicuramente disponibili, e se si ripete
+sempre sullo stesso giorno/orario allora è un bug reale nel motore di disponibilità da
+investigare (non nel prompt/test), altrimenti è variabilità del modello.
+
+Verificato di nuovo: `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` puliti.

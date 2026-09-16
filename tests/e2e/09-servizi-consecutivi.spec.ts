@@ -36,20 +36,40 @@ test.describe("Scenario 9 -- più servizi consecutivi in chat", () => {
       page,
       `Ciao, vorrei Manicure e Pedicure di seguito con la stessa persona il ${giorno.etichettaGiornoMese} alle 10:00. Mi chiamo Giulia Rossi, il mio numero è ${telefono}.`
     );
-    await inviaMessaggioChat(page, "Sì, confermo, va bene anche un altro orario se necessario.");
+    let ultimaRisposta = await inviaMessaggioChat(page, "Sì, confermo.");
 
-    const { data: righe } = await tenant.supabase
-      .from("appuntamenti")
-      .select("id, inizio, fine, operatore_id, gruppo_prenotazione_id, servizi(nome), clienti(telefono)")
-      .eq("tenant_id", tenant.id)
-      .neq("stato", "cancellato")
-      .order("inizio");
-    const righeDelCliente = (righe ?? []).filter((a) => {
-      const cliente = Array.isArray(a.clienti) ? a.clienti[0] : a.clienti;
-      return cliente?.telefono === telefono;
-    });
+    async function righeDelClienteAttuali() {
+      const { data: righe } = await tenant.supabase
+        .from("appuntamenti")
+        .select("id, inizio, fine, operatore_id, gruppo_prenotazione_id, servizi(nome), clienti(telefono)")
+        .eq("tenant_id", tenant.id)
+        .neq("stato", "cancellato")
+        .order("inizio");
+      return (righe ?? []).filter((a) => {
+        const cliente = Array.isArray(a.clienti) ? a.clienti[0] : a.clienti;
+        return cliente?.telefono === telefono;
+      });
+    }
 
-    expect(righeDelCliente.length, `attese 2 righe (una per servizio), trovate ${righeDelCliente.length}`).toBe(2);
+    // Trovato dal vivo il 16/09/2026: su una prenotazione multi-servizio
+    // (importo totale più alto, due righe da scrivere) l'AI a volte chiede
+    // un'ultima conferma esplicita ("Procedo con la prenotazione... con
+    // Giulia?") prima di chiamare davvero crea_prenotazione, invece di
+    // procedere subito dopo il primo "sì" -- prudenza ragionevole su un
+    // impegno più corposo, non un bug. Stesso pattern di ritentativo già
+    // usato per gli altri scenari con l'AI.
+    let righeDelCliente = await righeDelClienteAttuali();
+    let tentativi = 0;
+    while (righeDelCliente.length === 0 && tentativi < 2) {
+      ultimaRisposta = await inviaMessaggioChat(page, "Sì, procedi pure con la prenotazione.");
+      righeDelCliente = await righeDelClienteAttuali();
+      tentativi++;
+    }
+
+    expect(
+      righeDelCliente.length,
+      `attese 2 righe (una per servizio), trovate ${righeDelCliente.length}. Ultima risposta: "${ultimaRisposta}"`
+    ).toBe(2);
     const [prima, seconda] = righeDelCliente;
     expect(prima.gruppo_prenotazione_id, "le due righe devono condividere lo stesso gruppo_prenotazione_id").toBeTruthy();
     expect(prima.gruppo_prenotazione_id).toBe(seconda.gruppo_prenotazione_id);

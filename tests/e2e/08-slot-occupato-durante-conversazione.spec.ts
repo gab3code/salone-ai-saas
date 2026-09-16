@@ -80,18 +80,26 @@ test.describe("Scenario 8 -- lo slot si occupa durante la conversazione", () => 
 
     // Come negli altri scenari con l'AI: fino a due turni in più per
     // arrivare a un'alternativa confermata, prima di arrendersi. Trovato dal
-    // vivo il 16/09/2026: ripetere SEMPRE la stessa frase generica ("prenota
-    // pure un altro orario") non basta quando l'AI ha già proposto un orario
-    // specifico e chiede conferma ("Ti prenoto alle 9:00, va bene?") -- un
-    // "sì" esplicito è la risposta corretta a quella domanda, non un secondo
-    // giro della stessa richiesta vaga (che oltretutto, ripetuta identica,
-    // rischia anche di far scattare l'anti-burst per il messaggio successivo
-    // troppo simile/ravvicinato).
-    const risposteConferma = ["Sì, va bene, confermalo pure.", "Sì, confermo, prenota pure quell'orario."];
+    // vivo il 16/09/2026, in DUE round successivi: primo tentativo, ripetere
+    // sempre la stessa frase generica ("prenota pure un altro orario") non
+    // bastava perché l'AI aveva già proposto un orario specifico e chiedeva
+    // conferma -- ma anche un "sì, confermalo pure" GENERICO non basta:
+    // senza un orario esplicito nel messaggio, l'AI non sa a quale dei tanti
+    // orari alternativi elencati il cliente si riferisca, e torna a chiedere
+    // chiarimenti invece di prenotare. Una vera persona, a quel punto,
+    // indicherebbe un orario preciso -- il test ora fa lo stesso: chiede
+    // esplicitamente un orario diverso da quello occupato (le 15:00, ben
+    // lontano dalle 11:00 e dentro l'orario 9-19 di apertura di default),
+    // invece di lasciare all'AI il compito di indovinare quale tra le
+    // alternative proposte il cliente intendesse.
+    const orariAlternativiEspliciti = ["15:00", "17:00"];
     let prenotazione = await nuovaPrenotazioneDiversaDaOccupata();
     let tentativi = 0;
     while (!prenotazione && tentativi < 2) {
-      ultimaRisposta = await inviaMessaggioChat(page, risposteConferma[tentativi]);
+      ultimaRisposta = await inviaMessaggioChat(
+        page,
+        `Va bene, proviamo alle ${orariAlternativiEspliciti[tentativi]} allora, stesso giorno.`
+      );
       prenotazione = await nuovaPrenotazioneDiversaDaOccupata();
       tentativi++;
     }

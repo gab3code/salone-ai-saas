@@ -1,5 +1,22 @@
 # Stato del progetto
 
+Ultimo aggiornamento: 16/09/2026, cinquantanovesimo giro -- Task #190, secondo run reale dopo i
+fix del giro precedente. **Scenario 10 passato** (il log diagnostico non è scattato, non prova
+che il sospetto fosse infondato ma esclude una causa deterministica). **Due nuovi bug di TEST**,
+entrambi corretti: Scenario 8 aveva ancora una conferma troppo vaga ("confermalo pure" senza un
+orario preciso, l'AI non sapeva quale alternativa intendesse) -- ora il test chiede un orario
+esplicito diverso da quello occupato; Scenario 9 (servizi consecutivi) a volte riceve dall'AI
+un'ultima domanda di conferma prima di scrivere una prenotazione multi-servizio -- aggiunto lo
+stesso pattern di ritentativo già usato altrove. **Scenario 2 fallito con causa NON chiarita**:
+l'AI insiste che uno slot è "occupato" su un tenant fresco e isolato dove non dovrebbe esistere
+alcun conflitto -- non toccato il codice alla cieca (l'asserzione finale richiede esattamente
+l'orario originale, un fix "prova un altro orario" romperebbe il test invece di risolverlo).
+Gabriel ha esaurito i crediti AI a metà sessione, possibile causa non verificabile da qui.
+Prossimo passo: rilanciare `npx playwright test 02-` da solo con crediti AI disponibili.
+Verificato: `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` puliti. Dettaglio
+completo in DECISIONS.md, "2026-09-16 — Secondo run reale: Scenario 10 passato al volo, nuovi
+bug di test in 8 e 9, Scenario 2 sospetto ma NON toccato".
+
 Ultimo aggiornamento: 16/09/2026, cinquantottesimo giro -- Task #190, primo run reale di TUTTI e
 18 i test. **I 4 test Stripe (scenari 14 e 15) verdi al primo colpo**: configurate le variabili
 mancanti (Price ID reali presi dalla Dashboard Stripe di Gabriel via estensione Chrome -- Pro
