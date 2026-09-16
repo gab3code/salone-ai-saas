@@ -1,6 +1,15 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, sessantunesimo giro -- Task #190, Scenario 8 e 10 confermati
+Ultimo aggiornamento: 16/09/2026, sessantaduesimo giro -- **Task #190 CHIUSO**: run completo di
+tutti e 18 gli scenari E2E insieme (`npm run test:e2e`, un solo worker), **18 passed (4.0m)**,
+zero fallimenti. Tutti i 15 scenari del punto 27 di CLAUDE.md sono ora confermati verdi INSIEME,
+non solo nei run mirati dei giri precedenti. Nessuna modifica di codice in questo giro, solo
+verifica. Percorso completo in 4 giri di run reali (12/14 -> 15/18 -> 16/18 -> 18/18): 2 bug
+reali nel prodotto trovati e corretti lungo il percorso (checkbox servizi in dashboard, l'AI che
+dichiarava un'azione completata senza chiamare lo strumento), il resto bug nei test o
+variabilità del modello. Dettaglio in DECISIONS.md, "2026-09-16 — Task #190 chiuso".
+
+Aggiornamento precedente: 16/09/2026, sessantunesimo giro -- Task #190, Scenario 8 e 10 confermati
 verdi dal vivo (`npx playwright test 08- 10-`, 2 passed). Il log diagnostico incondizionato
 aggiunto nel giro precedente ha confermato la teoria in modo diretto: il modello ha davvero
 provato prima un `appuntamento_id` non valido (un numero simile a un timestamp Unix, bloccato

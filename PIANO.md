@@ -752,8 +752,11 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       credenziale di push in sandbox, consegna via bundle come sempre) -- una volta che lo
       pushi/Vercel lo pubblica, verifico io stesso la UI dal vivo se preferisci, oppure la provi
       tu direttamente.
-- [~] Test su tutti gli scenari del punto 30 rilevanti alla prenotazione, contro il DB vero --
-      **IN CORSO 16/09/2026**, Task #190. Infrastruttura Playwright pronta (`playwright.config.ts`,
+- [x] ~~Test su tutti gli scenari del punto 30 rilevanti alla prenotazione, contro il DB vero~~
+      **FATTO 16/09/2026, Task #190 CHIUSO**: run completo di tutti e 18 gli scenari insieme
+      (`npm run test:e2e`, un solo worker) -- **18 passed (4.0m)**, zero fallimenti. Percorso
+      completo in 4 giri di run reali (12/14 -> 15/18 -> 16/18 -> 18/18), vedi DECISIONS.md
+      "Task #190 chiuso" per il riepilogo. Infrastruttura Playwright pronta (`playwright.config.ts`,
       `tests/e2e/helpers/`: tenant di prova usa-e-getta creato/ripulito per ogni test, login,
       chat AI, calcolo date) e 6 dei 15 scenari scritti: #1 (nuovo cliente via chat AI vera),
       #3 (doppia prenotazione simultanea, RACE VERA contro il DB, non simulata come nell'unit

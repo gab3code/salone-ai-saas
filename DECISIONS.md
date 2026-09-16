@@ -4854,3 +4854,22 @@ Verificato di nuovo: `tsc`/`eslint`/`vitest` (469/469)/`build` puliti.
 corso dei run di questo giro di lavoro (16/09/2026) -- gli ultimi due (8 e 10) confermati in
 quest'ultimo run mirato. Resta da fare un run completo di tutti e 18 insieme in una sola
 sessione come conferma finale, non ancora eseguito con questa versione esatta del codice.
+
+## 2026-09-16 — Task #190 chiuso: 18/18 scenari E2E verdi in un'unica run completa
+
+Gabriel ha lanciato `npm run test:e2e` (tutti e 18 gli scenari, un solo worker, sessione unica):
+**18 passed (4.0m)**, zero fallimenti, zero flaky. Con questo run tutti i 15 scenari del punto 27
+di CLAUDE.md (18 test in 15 file, inclusi i 4 su Stripe Checkout/Customer Portal) sono confermati
+verdi INSIEME, non solo singolarmente nei run mirati dei giri precedenti -- la conferma finale che
+mancava. Nessuna modifica di codice in questo giro: solo la verifica.
+
+Il percorso completo, per riferimento futuro: 4 giri di run reali (12/14 -> 15/18 -> 16/18 ->
+18/18), 2 bug reali nel PRODOTTO trovati e corretti (checkbox servizi in dashboard che si
+spegneva da sola; l'AI che dichiarava un'azione completata senza aver richiamato lo strumento
+corrispondente, corretto estendendo REGOLA ASSOLUTA 1 in `agente.ts`), il resto bug nei TEST
+stessi (margine anti-burst, locator ambigui, conferme troppo vaghe per un'AI che a volte chiede
+un'ulteriore riconferma esplicita) o variabilità del modello (Scenario 2, con crediti AI
+esauriti a metà sessione). Ogni fix è stato guidato da prove concrete (error-context.md,
+screenshot, log diagnostici temporanei poi rimossi) mai da un tentativo alla cieca.
+
+**Task #190 chiuso.**

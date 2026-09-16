@@ -1,4 +1,9 @@
-# Scenari E2E (punto 30 di CLAUDE.md) -- Task #190
+# Scenari E2E (punto 30 di CLAUDE.md) -- Task #190 CHIUSO
+
+**16/09/2026: `npm run test:e2e` -- 18 passed, zero fallimenti.** Tutti e 15 gli scenari del
+punto 27 di CLAUDE.md (18 test in 15 file) sono verdi INSIEME in un'unica run, non solo nei run
+mirati dei giri precedenti -- vedi DECISIONS.md, "Task #190 chiuso", per il riepilogo completo
+del percorso (4 giri di run reali, 2 bug reali nel prodotto trovati e corretti lungo la strada).
 
 Automatizzano con Playwright alcuni dei 15 scenari end-to-end elencati in CLAUDE.md
 ("## 27. Test completo"). Girano SOLO in locale, a comando -- non in CI, non ad ogni push
