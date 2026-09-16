@@ -885,9 +885,9 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       extra di `correggiSeIncongruente`). Corretto marcando system+ultimo strumento con un
       breakpoint di cache, costruiti una sola volta per turno. Zero cambio di comportamento per
       il cliente -- solo di cosa viene fatturato. Verificato `tsc`/`eslint`/`vitest`
-      (469/469)/`build`/`playwright test --list` puliti; il comportamento REALE di caching
-      contro l'API vera va confermato da Gabriel (il sandbox non ha una chiave Anthropic sua
-      funzionante). Vedi DECISIONS.md per il dettaglio completo.
+      (469/469)/`build`/`playwright test --list` puliti. **Confermato dal vivo**: Gabriel ha
+      rilanciato `npm run test:e2e` con l'API reale -- **18/18 ancora verdi**, nessuna
+      regressione. Vedi DECISIONS.md per il dettaglio completo.
 
 ## Fase 3 -- CRM e Dashboard (punti 15, 21, 22)
 - [x] Anagrafica cliente con storico completo: `/dashboard/clienti` (elenco con ricerca per

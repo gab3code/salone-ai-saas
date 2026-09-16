@@ -4916,3 +4916,13 @@ l'account di Gabriel, quindi il comportamento REALE di caching (hit/miss, rispar
 va confermato dal vivo -- consigliato a Gabriel di rilanciare almeno gli scenari E2E che usano
 la chat AI vera (`npx playwright test 01- 02- 04- 05- 06- 07- 08- 09- 10-`, o l'intera suite)
 per confermare che tutto continui a funzionare esattamente come prima con l'API reale.
+
+## 2026-09-16 — Prompt caching confermato dal vivo: 18/18 ancora verdi
+
+Gabriel ha rilanciato `npm run test:e2e` (tutti e 18, API Anthropic reale) dopo il fix di
+prompt caching del giro precedente: **18 passed (3.8m)**, zero fallimenti, tempi nella norma
+(anche leggermente più veloci in alcuni scenari, es. Scenario 3 9.8s contro i 12.5s del run
+precedente -- compatibile con un cache hit su system+strumenti, anche se non è una misura
+controllata). Comportamento del prodotto invariato, come atteso: il caching cambia solo cosa
+Anthropic fattura, non cosa il modello vede o risponde. Nessuna modifica di codice in questo
+giro, solo conferma.
