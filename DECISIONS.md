@@ -4269,3 +4269,27 @@ apposta, perché logo e copertina devono essere visibili a chiunque visiti la pa
 prenotazione senza autenticarsi. Segnalato qui solo per completezza, nessuna azione necessaria.
 
 Con questo, la Fase 4 è chiusa sia lato codice sia lato verifica dal vivo (vedi PIANO.md).
+
+## 2026-09-16 — Osservabilità: Sentry sì (priorità vicina), PostHog sì (molto più in là)
+
+Gabriel ha condiviso uno screenshot di un post social generico ("If you want to build a startup",
+stack a ~$21/mese: Claude, Supabase, Vercel, Namecheap, Stripe, GitHub, Resend, Clerk,
+Cloudflare, PostHog, Sentry, Upstash) chiedendo un parere prima di riprendere il lavoro sui buchi
+delle fasi.
+
+**Parere dato**: la cornice "$21/mese per una startup" è marketing, non realtà -- sono tutti tier
+free con limiti stretti (Vercel free vieta l'uso commerciale nei ToS, Supabase free si mette in
+pausa, Clerk free si ferma a 10k utenti attivi/mese). Nessuno swap sull'esistente: Clerk al posto
+di Supabase Auth e Resend al posto di Mailjet sarebbero solo churn, zero problema reale da
+risolvere. Due voci della lista però mancano davvero e vengono aggiunte al piano (Fase 6):
+
+- **Sentry (error tracking)**: priorità vicina. Oggi un errore reale in produzione si scopre solo
+  se un utente si lamenta o controllando i log Vercel a mano -- rischio concreto con Stripe live
+  in avvicinamento (oggi solo test-mode).
+- **PostHog (analytics di utilizzo)**: priorità molto più lontana, utile solo quando ci sarà
+  acquisizione vera da ottimizzare (funnel di prenotazione pubblica, traffico). Non sostituisce le
+  metriche di prodotto già in `/dashboard` (appuntamenti, occupazione, ecc.) -- è un altro layer,
+  usage/funnel, non prodotto.
+
+Upstash Redis scartato: nessun caso d'uso reale oggi (nessuna coda, nessun rate-limit che il
+database non gestisca già) -- complessità in cerca di un problema.

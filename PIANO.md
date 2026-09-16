@@ -1257,6 +1257,16 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
   "Gruppo B-bis" punto 9 per il ragionamento completo.
 - [ ] Revisione sicurezza (RLS, permessi tool AI, rate limiting, input validation)
 - [ ] Test completo su tutti gli scenari del punto 30
+- [ ] **Sentry (error tracking)** -- deciso il 16/09/2026 (Gabriel ha chiesto un parere su un
+      post generico "stack per startup a $21/mese" visto sui social, vedi DECISIONS.md):
+      unica aggiunta reale di quella lista, priorità vicina -- oggi un errore in produzione si
+      scopre solo da un utente che si lamenta o controllando i log Vercel a mano, rischio
+      concreto con Stripe live in avvicinamento. Nessuno swap sul resto (Clerk/Resend
+      restano fuori, Supabase Auth e Mailjet funzionano già, cambiarli sarebbe solo churn).
+- [ ] **PostHog (analytics di utilizzo)** -- stessa occasione, priorità molto più lontana:
+      utile quando ci sarà acquisizione vera da ottimizzare (funnel di prenotazione, traffico),
+      prematuro con zero clienti paganti. Non uno swap delle metriche di prodotto già in
+      dashboard (quelle restano come sono, è un'altra cosa).
 
 ## Fase 6bis -- Sincronizzazione calendari esterni (deciso con Gabriel il 02/09/2026, non nei 33 punti originali)
 Il calendario del database (`appuntamenti`) resta l'unica fonte di verità (punto 9) -- questa
