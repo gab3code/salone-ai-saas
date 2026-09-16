@@ -130,6 +130,25 @@ export async function creaTenantDiProva(opzioni: OpzioniTenantDiProva = {}): Pro
   }
   const tenantId = profiloDelTrigger.tenant_id;
 
+  /**
+   * Abbandona la creazione riportando il database com'era.
+   *
+   * Serve perché da qui in avanti esistono GIÀ due cose in produzione (un
+   * utente auth e il tenant che il trigger gli ha creato), e prima del
+   * 16/09/2026 i punti di uscita qui sotto lanciavano e basta: il tenant
+   * restava lì per sempre, senza profilo e senza membri, invisibile a
+   * chiunque. Sei tenant orfani "Il mio salone" trovati in produzione dal
+   * pannello admin appena costruito, tutti creati alle 02:18 dello stesso
+   * giorno durante il debug della prima versione di questo helper.
+   * Cancellare il tenant porta via a cascata orari, regole promemoria e
+   * tutto il resto (foreign key `on delete cascade`, migrazione 0001).
+   */
+  async function abbandona(messaggio: string): Promise<never> {
+    await supabase.from("tenants").delete().eq("id", tenantId);
+    await supabase.auth.admin.deleteUser(utenteId);
+    throw new Error(messaggio);
+  }
+
   const { data: tenantAggiornato, error: erroreTenant } = await supabase
     .from("tenants")
     .update({
@@ -143,9 +162,7 @@ export async function creaTenantDiProva(opzioni: OpzioniTenantDiProva = {}): Pro
     .select("id, slug, nome")
     .single();
   if (erroreTenant || !tenantAggiornato) {
-    await supabase.from("tenants").delete().eq("id", tenantId);
-    await supabase.auth.admin.deleteUser(utenteId);
-    throw new Error(`Impossibile aggiornare il tenant creato dal trigger per il test: ${erroreTenant?.message}`);
+    return abbandona(`Impossibile aggiornare il tenant creato dal trigger per il test: ${erroreTenant?.message}`);
   }
   // Copiati in variabili proprie (mai `tenantAggiornato.slug` dentro
   // `pulisci()` sotto): il narrowing di TypeScript sul controllo
@@ -169,7 +186,7 @@ export async function creaTenantDiProva(opzioni: OpzioniTenantDiProva = {}): Pro
       .insert(specServizi.map((s) => ({ tenant_id: tenantId, nome: s.nome, durata_minuti: s.durataMinuti, prezzo_centesimi: s.prezzoCentesimi })))
       .select("id, nome, durata_minuti, prezzo_centesimi");
     if (erroreServizi || !serviziCreati) {
-      throw new Error(`Impossibile creare i servizi di prova: ${erroreServizi?.message}`);
+      return abbandona(`Impossibile creare i servizi di prova: ${erroreServizi?.message}`);
     }
     servizi = serviziCreati.map((s) => ({
       id: s.id,
@@ -187,7 +204,7 @@ export async function creaTenantDiProva(opzioni: OpzioniTenantDiProva = {}): Pro
       .insert(specOperatori.map((o) => ({ tenant_id: tenantId, nome: o.nome })))
       .select("id, nome");
     if (erroreOperatori || !operatoriCreati) {
-      throw new Error(`Impossibile creare gli operatori di prova: ${erroreOperatori?.message}`);
+      return abbandona(`Impossibile creare gli operatori di prova: ${erroreOperatori?.message}`);
     }
     operatori = operatoriCreati.map((o) => ({ id: o.id, nome: o.nome }));
   }
@@ -200,7 +217,7 @@ export async function creaTenantDiProva(opzioni: OpzioniTenantDiProva = {}): Pro
   );
   if (righeCompatibilita.length > 0) {
     const { error: erroreCompat } = await supabase.from("operatori_servizi").insert(righeCompatibilita);
-    if (erroreCompat) throw new Error(`Impossibile collegare operatori/servizi di prova: ${erroreCompat.message}`);
+    if (erroreCompat) return abbandona(`Impossibile collegare operatori/servizi di prova: ${erroreCompat.message}`);
   }
 
   // Il trigger ha già creato le 7 righe (tutte chiuse, vedi commento sopra)
@@ -218,7 +235,7 @@ export async function creaTenantDiProva(opzioni: OpzioniTenantDiProva = {}): Pro
     })),
     { onConflict: "tenant_id,giorno_settimana" }
   );
-  if (erroreOrari) throw new Error(`Impossibile aggiornare gli orari di prova: ${erroreOrari.message}`);
+  if (erroreOrari) return abbandona(`Impossibile aggiornare gli orari di prova: ${erroreOrari.message}`);
 
   async function pulisci() {
     const idOperatori = operatori.map((o) => o.id);
