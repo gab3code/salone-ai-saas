@@ -1758,9 +1758,37 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       togliere un domani: è esattamente ciò che risolve il problema di consenso GDPR già
       identificato il 12/09/2026 sul follow-up oltre i 60 giorni.
 
-- **NON fare, deciso 16/09/2026**: contenuti marketing generati dall'AI, "insight" automatici
-  sulla dashboard, chatbot sulla landing. Rumore che sembra AI senza risolvere un problema che
-  qualcuno ha davvero. Annotato qui perché sono le tre idee che tornano sempre.
+- [ ] **Riempire i buchi dell'agenda, non "fare contenuti".** Correzione del 16/09/2026 a una
+      riga scritta troppo grossolana poche ore prima (Gabriel ha chiesto il perché del divieto e
+      aveva ragione a insistere). La distinzione che conta non è "contenuti sì o no", è **generato
+      dal nulla contro generato dai dati veri**:
+      - Un post Instagram generico è un no: lo fa ChatGPT gratis in un'altra scheda, non c'è
+        nessun vantaggio a rivenderlo, si compete con Canva su un terreno che non è il nostro, ed
+        è invendibile perché il risultato non è misurabile (una prenotazione o c'è o non c'è, un
+        post è "insomma" e la colpa se la prende il prodotto).
+      - Un messaggio che nasce dall'agenda -- "giovedì pomeriggio tre posti liberi per il colore",
+        "questo servizio non lo prenota più nessuno da tre settimane" -- **ChatGPT non lo può
+        scrivere**, perché quei dati non ce li ha. E non è marketing: è riempire l'agenda, cioè il
+        lavoro per cui il salone paga.
+      Da costruire nella seconda forma, mai nella prima. Si lega al recupero dei clienti fermi
+      qui sopra: stesso principio, l'AI scrive e il titolare manda.
+
+- [ ] **Estendere i segnali sulla dashboard del SALONE.** Stessa idea dei segnali costruiti il
+      16/09/2026 per il pannello admin (onboarding incompleto, vicina al tetto, ferma da N
+      giorni), ma rivolta al titolare: occupazione bassa in una fascia oraria, servizio che
+      nessuno prenota più, clienti che si stanno perdendo. Qualcosa c'è già ("N clienti non
+      prenotano da oltre 60 giorni" con il pulsante per contattarli), ed è la direzione giusta.
+
+- **NON fare, deciso 16/09/2026 e precisato lo stesso giorno**: far scrivere a un modello un
+  paragrafo di ANALISI sopra i numeri del salone ("i tuoi clienti preferiscono il martedì"), e il
+  chatbot sulla landing.
+  Il motivo del primo divieto, che è quello meno ovvio: un salone fa 100-300 prenotazioni al mese,
+  e su quei volumi quasi tutto ciò che sembra un andamento è rumore -- caso vestito da scoperta.
+  Un'osservazione sbagliata scritta con sicurezza fa più danno del silenzio, perché non è
+  verificabile prima di mostrarla, e quando il titolare si accorge che è falsa smette di fidarsi
+  anche dei numeri veri che ha accanto.
+  **La linea è: regola deterministica sì, prosa generata sopra i numeri no.** Una regola o è giusta
+  o è sbagliata e si può controllare; un paragrafo è un'opinione che sembra un dato.
 
 - [ ] **Demo pubblica e video di sessanta secondi.** Non esiste un solo cliente vero da mostrare e
       la landing promette senza provare. Un salone demo credibile a un URL fisso, che chiunque può
