@@ -1294,6 +1294,18 @@ calendario personale, E bloccare uno slot se l'operatore ha già un impegno pers
 ## Fase 7 -- Parità/superiorità estetica con Estetia, responsive completo (punti 25, 26, 27, 28)
 Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davvero "fatto" e non
 "abbastanza carino":
+- [ ] **Direzione colore già scelta il 16/09/2026, da implementare qui**: verde smeraldo
+      (`#0d7a5f`), un solo accento condiviso tra landing e dashboard, base scura ed espressiva
+      sulla landing e chiara/funzionale sulla dashboard. Riferimento visivo: canvas Artifact
+      https://claude.ai/artifact/Ge38ZrtWuLSxD2ocrRTfEf ("Salone AI — direzioni colore",
+      direzione A rifinita) -- nav reale, texture leggera, indicatore live, bottoni ad accento
+      usato con parsimonia (badge/icone/toggle) invece che come riempimento pieno ovunque
+      (bug di contrasto WCAG trovato e corretto durante la rifinitura, vedi DECISIONS.md).
+      Decisione esplicita di Gabriel: "per ora va bene, salvalo per la fase 7" -- nessun codice
+      del repository toccato finora, il lavoro vero di redesign (landing E dashboard, skill
+      `salone-ai-taste`/`frontend-design-brief` come riferimento tattico durante
+      l'implementazione) parte da qui. Dettaglio completo della scelta in DECISIONS.md,
+      "2026-09-16 — Redesign landing+dashboard: direzione colore scelta (verde smeraldo)".
 - [ ] Design system definito (tipografia, spaziature, colori, componenti shadcn/ui) applicato a
       TUTTE le schermate esistenti, non solo alle nuove
 - [ ] Ogni schermata che Estetia ha, la nostra la eguaglia o supera -- confronto punto per punto

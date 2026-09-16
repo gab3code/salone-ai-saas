@@ -4037,3 +4037,77 @@ generale sono preesistenti su file non toccati da questa voce -- primitives di U
 vero e proprio (via cron o chiamata diretta della funzione server contro un cliente di test con
 data di nascita impostata su oggi) non è stato ancora osservato in produzione -- da fare dopo il
 deploy di Gabriel, stesso ordine già seguito per la Fase 4.
+
+---
+
+## 2026-09-16 — Redesign landing+dashboard: direzione colore scelta (verde smeraldo), lavoro
+rimandato alla Fase 7
+
+**Contesto**: Gabriel ha chiesto di valutare la UI attuale contro il sospetto "sembra AI slop",
+partendo da tre skill proposte da lui (`Leonxlnx/taste-skill`, il registro
+`bergside/awesome-design-skills`, i connettori Figma/v0). Verifica fatta prima di installare
+nulla: `taste-skill` legittima e utile (dial di variance/motion/density, disciplina anti-default
+dettagliata) -- adottata. Il registro di preset (`awesome-design-skills`) scartato: è pensato per
+scegliere uno stile da zero su un progetto greenfield, mentre Salone AI ha già un'identità da
+far evolvere, non da sostituire con un preset rigido -- l'approccio adattivo di taste-skill è più
+adatto. Aggiunta anche la skill ufficiale Anthropic `frontend-design` (via GitHub, non nel
+registro citato da Gabriel) come complemento di processo. Figma risultava già connesso in questa
+sessione, v0 no; non installato nulla di nuovo lato connettori, la richiesta di Gabriel era solo
+esplorativa su quel punto.
+
+**Decisione presa insieme a Gabriel, in ordine**:
+1. Diagnosi condivisa: il viola/fucsia con glow attuale è il tell "AI slop" più riconoscibile
+   citato sia da `taste-skill` sia dalla skill ufficiale Anthropic -- motivo sufficiente per
+   cambiare, non solo un'impressione soggettiva di Gabriel.
+2. Perimetro esteso da "solo landing" a landing+dashboard, con la richiesta esplicita che
+   condividano lo stesso accento ma basi diverse (landing scura ed espressiva, dashboard chiara e
+   funzionale) -- niente fretta ("mesi di lavoro davanti"), a differenza del vincolo iniziale
+   "meno di un giorno".
+3. Bersaglio dichiarato: non solo "non sembrare fatto dall'AI" ma "assolutamente breathtaking",
+   calibrato su awwwards.com (Site of the Day/Nominees) sfogliato dal vivo via estensione Chrome,
+   non solo sulla lista di default da evitare.
+4. Foto vere richieste nei punti chiave (non solo decorazione astratta) per il calore
+   "accogliente" richiesto -- finché non esistono foto reali del salone di Gabriel, ogni mockup le
+   marca esplicitamente come placeholder, mai una finta foto stock spacciata per vera.
+
+**Esplorazione**: costruito un canvas Claude Design con 3 direzioni a parità di struttura e copy
+(cambia solo l'accento, confronto onesto): A verde smeraldo, B bordeaux, C indaco profondo --
+tutte scelte per allontanarsi sia dal viola/fucsia sia dal cliché opposto beige+ottone+espresso
+tipico dei brief wellness. Canvas pubblicato come Artifact:
+https://claude.ai/artifact/Ge38ZrtWuLSxD2ocrRTfEf ("Salone AI — direzioni colore"), colore
+modificabile dal vivo su ogni riquadro.
+
+**Scelta di Gabriel**: direzione A (verde smeraldo), con richiesta di rifinitura generale prima
+di considerarla definitiva. Rifinita aggiungendo: nav reale (logo+link+CTA) al posto del solo
+frammento hero, texture di grana leggerissima, anelli concentrici sottili dietro al testo
+(ispirati a un pattern osservato su awwwards, es. Sharplink, riadattato in tono smeraldo),
+indicatore "live" pulsante sul claim "aperti anche di notte" (rispetta
+`prefers-reduced-motion`), striscia dashboard con un secondo elemento interattivo vero (toggle
+del Promemoria di compleanno, funzionalità reale già in produzione, non inventata) al posto di
+un numero finto.
+
+**Bug di contrasto trovato e corretto durante la rifinitura**: Gabriel ha segnalato che il
+bottone "Gestisci" nella card dashboard era "troppo scuro rispetto al bianco che lo circonda".
+Verifica del contrasto (WCAG) ha confermato un problema reale e più ampio: il testo quasi-nero
+usato su sfondo verde pieno (`onAccent` su `accent`) restava sotto la soglia AA (~3,55:1,
+insufficiente per testo normale) su TUTTI i bottoni pieni, non solo quello segnalato -- il verde
+scelto (`#0d7a5f`) è troppo di media luminosità per ospitare testo scuro leggibile a norma.
+Corretto in due modi diversi, non con un'unica tinta universale: sui bottoni su sfondo scuro
+(hero, nav) il testo è passato da quasi-nero a chiaro (`onAccentSolid`, stesso valore di
+`textStrong`), risolvendo il contrasto mantenendo il riempimento pieno; sul bottone "Gestisci"
+(sfondo chiaro) il riempimento pieno è stato sostituito da un trattamento soft-tint (stesso
+linguaggio del badge "Confermato" già esistente: sfondo verde chiarissimo, testo verde, bordo
+sottile) invece di schiarire semplicemente il testo, perché il problema segnalato da Gabriel era
+il peso visivo del blocco scuro contro il bianco, non solo la leggibilità. Effetto collaterale
+positivo allineato ai principi già raccolti da awwwards/Vercel: l'accento ora compare come
+segnale (badge, icona, toggle, indicatore live) invece che come riempimento su ogni elemento
+cliccabile -- pattern di "un solo accento usato con parsimonia" osservato più volte durante la
+ricerca, non solo una toppa al bug di contrasto.
+
+**Decisione esplicita di Gabriel su questa voce**: "per ora va bene, salvalo per la fase 7" --
+la direzione A rifinita è la base di lavoro per il redesign, ma l'implementazione vera nel
+codice (`salone-ai-saas`) NON parte ora: è rimandata all'inizio della Fase 7 (vedi PIANO.md).
+Nessun file del repository è stato toccato da questa voce -- il canvas vive solo come Artifact
+esterno, punto di riferimento per quando la Fase 7 comincia. Bordeaux e indaco restano come
+confronto di base, non rifinite: da riconsiderare solo se Gabriel torna sulla scelta prima di
+allora.

@@ -1,6 +1,24 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 15/09/2026, quarantacinquesimo giro -- costruito il Promemoria di
+Ultimo aggiornamento: 16/09/2026, quarantaseiesimo giro -- giro di sola esplorazione visiva
+(nessun codice nel repository), richiesto da Gabriel dopo aver approvato il Promemoria di
+compleanno: valutata la UI attuale (sospetto "AI slop" sul viola/fucsia con glow, confermato da
+due fonti indipendenti) e costruito un canvas Claude Design con 3 direzioni colore a parità di
+struttura/copy (verde smeraldo, bordeaux, indaco). Gabriel ha scelto la direzione verde
+smeraldo e ha chiesto una rifinitura generale ispirata ad awwwards.com (sfogliato dal vivo via
+estensione Chrome): aggiunti nav reale, texture, anelli concentrici, indicatore live, un
+elemento interattivo vero nella striscia dashboard (toggle Promemoria compleanno). Durante la
+rifinitura, Gabriel ha segnalato che il bottone "Gestisci" era troppo scuro/pesante contro il
+bianco della card: verifica del contrasto WCAG ha trovato un problema reale su tutti i bottoni
+pieni (non solo quello segnalato), corretto passando a testo chiaro sui bottoni su sfondo scuro
+e a un trattamento soft-tint (come il badge "Confermato") su quello a sfondo chiaro. Canvas
+pubblicato/aggiornato come Artifact: https://claude.ai/artifact/Ge38ZrtWuLSxD2ocrRTfEf. **Su
+richiesta esplicita di Gabriel ("per ora va bene, salvalo per la fase 7") il lavoro resta qui**:
+nessuna implementazione nel codice del prodotto, la direzione scelta è il riferimento per
+quando comincia la Fase 7 (vedi PIANO.md e DECISIONS.md, "2026-09-16 — Redesign
+landing+dashboard: direzione colore scelta").
+
+Aggiornamento precedente, 15/09/2026, quarantacinquesimo giro -- costruito il Promemoria di
 compleanno (Pro/Enterprise), dopo che Gabriel ha approvato la funzione ("va bene ma rendi tutto
 personalizzabile dallo staff") in risposta alla spiegazione del meccanismo. Risolve il CONFLITTO
 Prezzi.tsx/compleanno trovato nel giro precedente (quarantatreesimo). Costruito:
