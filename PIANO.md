@@ -190,9 +190,10 @@ reale delle fasi è:
   DECISIONS.md 15/09/2026 per tutti i dettagli di design), testato (451/451), migrato in
   produzione, **VERIFICATO DAL VIVO 16/09/2026** (vedi DECISIONS.md, "2026-09-16 — Promemoria di
   compleanno verificato dal vivo"). Risolve il CONFLITTO Pro/`Prezzi.tsx` descritto più sotto.
-  **Resta solo la galleria foto/upload immagini come unico punto aperto della Fase 4** (vedi voce
-  dedicata più sotto), ora più urgente perché il redesign (Fase 7) vuole foto vere nei punti
-  chiave.
+  Galleria foto/upload immagini: **CODICE FATTO 16/09/2026** (vedi voce dedicata più sotto),
+  **non ancora verificato dal vivo** (sessione dashboard scaduta al momento del test, serve un
+  login di Gabriel dopo il deploy). **Fase 4 quindi chiusa lato codice, resta solo la verifica dal
+  vivo della galleria foto.**
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni
   AI cliente-salone -- vincolo legale reale (Salone AI è processore di dati per conto del
   titolare, non proprietario di quella conversazione), dettaglio in CLAUDE.md punto 21 e
@@ -908,8 +909,30 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       usavano markdown (`**grassetto**`) che il widget (testo semplice) mostrava con gli
       asterischi letterali -- aggiunta una regola assoluta al system prompt
       (`src/lib/ai/agente.ts`): mai markdown, solo testo semplice.
-- [ ] Galleria/upload immagini (Supabase Storage) -- zero codice, colonne `logo_url`/`cover_url`
-      esistono nello schema ma senza upload configurato.
+- [x] ~~Galleria/upload immagini (Supabase Storage)~~ **CODICE FATTO 16/09/2026** (le colonne
+      `logo_url`/`cover_url` esistevano dallo schema iniziale ma senza nessun modo di caricarle,
+      gap trovato mentre si riprendeva la Fase 4 con Gabriel dopo la verifica del promemoria di
+      compleanno -- vedi DECISIONS.md, "2026-09-16 — Galleria foto: upload logo/copertina"). Nuovo
+      bucket Storage `media-tenant` (migrazione `0024_storage_media_tenant.sql`, pubblico in
+      lettura, scrittura riservata al proprio tenant via lo stesso helper `auth_tenant_id()` già
+      usato per isolare tutte le altre tabelle -- limite 4MB, solo jpg/png/webp lato bucket).
+      Percorso fisso senza estensione (`<tenant_id>/logo`, `<tenant_id>/cover`, upsert: un nuovo
+      caricamento sovrascrive il precedente, niente file orfani) con cache-busting nell'URL
+      salvato (altrimenti un browser/CDN continuerebbe a mostrare l'immagine vecchia dopo un
+      nuovo upload, visto che il percorso non cambia mai). Nuova pagina staff
+      `/dashboard/impostazioni/pagina-pubblica` (disponibile su TUTTI i piani, nessun gate: ogni
+      salone ha una pagina pubblica fin dal piano Free), con upload/sostituzione/rimozione per
+      logo e copertina, che alimentano `/s/[slug]` (già pronta a mostrarle da prima, mai
+      collegata). Nessuna libreria di elaborazione immagini in questo giro (niente resize/crop
+      server-side): scope tenuto volutamente piccolo, validazione solo su tipo/dimensione.
+      10 nuovi test sul modulo puro di validazione (`src/lib/storage/media-tenant.ts`), 461/461
+      totali, `tsc`/`eslint`/`build` puliti, bucket e policy applicati al database reale via
+      `execute_sql` (`apply_migration` bloccato dal classificatore, stesso workaround di sempre).
+      **Non ancora verificato dal vivo**: la sessione della dashboard su
+      `salone-ai-saas.vercel.app` risultava scaduta al momento del test (mai inserite credenziali
+      per conto di Gabriel, come da regola) -- serve che Gabriel faccia login almeno una volta
+      dopo il deploy, poi la verifica del caricamento vero di un file può essere fatta dal vivo
+      via estensione Chrome sul suo browser autenticato, stesso metodo di sempre.
 - [x] ~~PWA installabile~~ **BASE FATTA 13/09/2026, rifinitura in Fase 7** (notifiche push
       ancora NON incluse -- richiedono un provider push + permesso utente, lavoro a parte):
       `src/app/manifest.ts` (file speciale dell'App Router, Next lo serve da solo su
@@ -1387,3 +1410,7 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
    Console -- vedi punto 3 sopra) per poter provare dal vivo "Collega Google" in
    `/dashboard/impostazioni/calendari`. Unico passo rimasto per chiudere la verifica dal vivo
    di Fase 6bis (import/blocco).
+7. Dopo il prossimo deploy: fare login una volta sulla dashboard vera
+   (`salone-ai-saas.vercel.app`) -- la sessione risultava scaduta durante il test della galleria
+   foto (16/09/2026) e senza il tuo login non posso verificare dal vivo un caricamento vero in
+   `/dashboard/impostazioni/pagina-pubblica` (non inserisco mai le tue credenziali per te).

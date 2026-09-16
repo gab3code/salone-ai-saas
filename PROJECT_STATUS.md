@@ -1,6 +1,24 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, quarantasettesimo giro -- giro di sola verifica (nessun codice
+Ultimo aggiornamento: 16/09/2026, quarantottesimo giro -- costruita la galleria foto/upload
+immagini, ultimo punto aperto della Fase 4. Le colonne `tenants.logo_url`/`cover_url`
+esistevano dallo schema iniziale (la pagina pubblica `/s/[slug]` le mostra già se valorizzate)
+ma senza nessun modo di caricarle. Costruito: bucket Supabase Storage `media-tenant`
+(migrazione `0024_storage_media_tenant.sql`, pubblico in lettura, scrittura riservata al proprio
+tenant via lo stesso helper `auth_tenant_id()` di tutte le altre tabelle, limite 4MB, solo
+jpg/png/webp), modulo puro di validazione `src/lib/storage/media-tenant.ts` (10 test), azione
+server e nuova pagina staff `/dashboard/impostazioni/pagina-pubblica` (upload/sostituzione/
+rimozione di logo e copertina, disponibile su TUTTI i piani). URL salvato con cache-busting
+(`?v=<timestamp>`) per evitare di mostrare l'immagine vecchia dopo un nuovo upload, dato che il
+percorso di Storage è fisso. Scope tenuto volutamente piccolo: solo logo+copertina (non una
+galleria con più foto per salone, lo schema non la prevede), nessuna elaborazione immagini
+lato server. Test 461/461 (451 + 10 nuovi), `tsc`/`eslint`/`build` puliti, bucket e policy
+applicati al database reale via `execute_sql`. **Non ancora verificato dal vivo**: la sessione
+della dashboard risultava scaduta al momento del test (nessuna credenziale di Gabriel inserita,
+come da regola) -- serve un suo login dopo il deploy per la verifica vera del caricamento file.
+Dettaglio completo in DECISIONS.md, "2026-09-16 — Galleria foto: upload logo/copertina".
+
+Aggiornamento precedente, 16/09/2026, quarantasettesimo giro -- giro di sola verifica (nessun codice
 nel repository), richiesto da Gabriel dopo aver confermato il pull/push del giro precedente:
 "stavamo finendo la 4 giusto?". Riletto lo stato reale invece di fidarsi delle sole etichette in
 PIANO.md: alla Fase 4 restavano due punti aperti, il promemoria di compleanno mai verificato dal
@@ -2328,8 +2346,6 @@ l'11/09/2026 via MCP diretto).
   salone sul calendario personale dell'operatore non è ancora scritto per nessuno dei due
   provider -- la tabella `eventi_calendario_esterni` esiste già in previsione di questo (vedi
   sopra per la direzione import/blocco, quella già costruita).
-- **Foto/galleria**: zero codice. Colonne `logo_url`/`cover_url` esistono sullo schema
-  `tenants` ma senza upload né Supabase Storage configurato.
 - **Automazioni**: tabella `automazioni` esiste nello schema, nessun motore che la legga o
   scriva.
 - **Analytics**: zero codice oltre ai dati grezzi già in tabella (appuntamenti/clienti).

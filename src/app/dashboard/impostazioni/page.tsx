@@ -68,6 +68,9 @@ export default async function PaginaImpostazioni() {
       <a href="/dashboard/impostazioni/informazioni-attivita" className="text-sm underline">
         Informazioni per l&apos;AI (receptionist)
       </a>
+      <a href="/dashboard/impostazioni/pagina-pubblica" className="text-sm underline">
+        Logo e foto di copertina
+      </a>
     </div>
   );
 }
