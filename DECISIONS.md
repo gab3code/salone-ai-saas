@@ -4364,7 +4364,7 @@ automatici sopra è comunque la stessa profondità usata finora per la logica de
 prenotazione (mai fidarsi solo dei test unitari per una modifica di questa portata, ma qui la
 verifica dal vivo end-to-end è bloccata dal deploy, non saltata per pigrizia).
 
-## 2026-09-16 — Rimossa la regola "npm/git solo dal sandbox, mai da device_bash sul Mac"
+## 2026-09-16 — Regola "npm/git solo dal sandbox" allentata SOLO per eseguire i test Playwright
 
 Per gli scenari E2E Playwright del punto 30 serve eseguire `npm run dev`/`npx playwright test`
 contro un database vero, cosa impossibile dal sandbox (egress verso Supabase bloccato). L'unica
@@ -4376,15 +4376,19 @@ probabilmente causato `node_modules` corrotto e un repo git bloccato (`.git/inde
 "Resource deadlock avoided") -- mai confermato al 100% (iCloud restava una causa concorrente
 possibile), ma un rischio concreto già capitato una volta.
 
-Ho segnalato esplicitamente il rischio a Gabriel prima di procedere (non un dettaglio da
-nascondere solo perché lui aveva già detto "eliminala") e proposto un compromesso più sicuro
-(bridge permesso solo per eseguire test, mai per `npm install`/scritture pesanti su
-`node_modules`/`.git`). Gabriel, informato del rischio, ha scelto comunque **la rimozione
-completa**: `npm install`, `git push`, build, tutto ora permesso anche tramite `device_bash` sul
-suo Mac, non solo dal sandbox.
+Ho segnalato esplicitamente il rischio a Gabriel prima di procedere e proposto un compromesso
+più sicuro (bridge permesso solo per *eseguire* test, mai per `npm install`/scritture pesanti su
+`node_modules`/`.git`). Prima risposta di Gabriel: rimozione completa della regola. Ripensandoci
+subito dopo ("allora solo per il test"), ha confermato il compromesso più stretto invece della
+rimozione totale.
 
-**Effetto pratico**: la regola "git/npm solo via sandbox Bash, mai `device_bash`" nelle note
-operative di sessione non vale più a partire da oggi. Se in futuro riappaiono sintomi di
-corruzione (`node_modules` con errori di parsing, `.git/index.lock` bloccato, "Resource deadlock
-avoided"), il sospetto principale resta questo compromesso -- vale la pena rivalutarlo con
-Gabriel invece di dare per scontato che sia iCloud.
+**Effetto pratico, decisione finale**: `device_bash` sul Mac di Gabriel è permesso SOLO per
+comandi che eseguono i test già scritti (es. `npx playwright test`, avviare `npm run dev` per
+tenerlo acceso durante la run) -- **mai** per `npm install`/`npm ci` (installazione dipendenze,
+il caso che ha causato l'incidente) né per `git push`/altre scritture pesanti sul repo, che
+restano SOLO dal sandbox via bundle come sempre. Se Playwright/le sue dipendenze non sono ancora
+installate sul Mac di Gabriel, o serve un `npm install` per aggiornarle, va lanciato da Gabriel
+stesso nel Terminal reale, non da qui. Se in futuro riappaiono sintomi di corruzione
+(`node_modules` con errori di parsing, `.git/index.lock` bloccato, "Resource deadlock avoided"),
+il sospetto principale resta l'uso di `device_bash` per scritture pesanti -- da rivalutare con
+Gabriel, non da escludere a priori come "solo iCloud".
