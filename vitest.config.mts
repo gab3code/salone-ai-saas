@@ -17,4 +17,12 @@ export default defineConfig({
       "server-only": path.resolve(__dirname, "./src/test/server-only-stub.ts"),
     },
   },
+  test: {
+    // tests/e2e/*.spec.ts sono scenari Playwright (Task #190, punto 30),
+    // NON test vitest: usano `test`/`expect` di "@playwright/test", che
+    // fuori dal runner di Playwright (`npx playwright test`) non funziona --
+    // senza questa esclusione il pattern di default di vitest
+    // ("**/*.{test,spec}.ts") proverebbe comunque a raccoglierli e fallirebbe.
+    exclude: ["**/node_modules/**", "tests/e2e/**"],
+  },
 });

@@ -4392,3 +4392,61 @@ stesso nel Terminal reale, non da qui. Se in futuro riappaiono sintomi di corruz
 (`node_modules` con errori di parsing, `.git/index.lock` bloccato, "Resource deadlock avoided"),
 il sospetto principale resta l'uso di `device_bash` per scritture pesanti -- da rivalutare con
 Gabriel, non da escludere a priori come "solo iCloud".
+
+## 2026-09-16 — Scenari E2E (punto 30): solo locali, AI vera, prime 6 scelte e perché
+
+Task #190. Prima di scrivere test, due decisioni chieste esplicitamente a Gabriel (troppo
+costose da disfare per deciderle da solo):
+
+1. **Dove girano**: solo in locale, a comando (`npm run test:e2e`), non in CI su ogni push.
+   Motivo scelto da Gabriel: zero setup aggiuntivo (nessuna credenziale Supabase/Anthropic da
+   mettere come secret GitHub) e zero costo ricorrente -- ha senso rivalutarlo solo se in
+   futuro più persone lavorano sul codice o si vuole un cancello automatico pre-merge.
+2. **AI reale o simulata negli scenari che coinvolgono la chat**: Claude vero. Motivo: questi
+   scenari valgono la pena solo se verificano che l'AI capisca davvero la conversazione, non
+   solo che "se chiama questo tool succede la cosa giusta nel DB" -- quello lo fa già
+   `tools.test.ts` con un'AI finta (mockata). Costo per run: pochi centesimi di token,
+   trascurabile per un run a comando.
+
+**Infrastruttura** (`tests/e2e/helpers/`): `tenant-di-prova.ts` crea un tenant completo e
+usa-e-getta (utente auth + profilo owner, servizi, operatori, compatibilità operatore/servizio,
+orari di apertura) con `service_role` (bypassa RLS, stesso approccio di `src/lib/supabase/admin.ts`
+ma senza l'import `server-only`, che non serve/non va bene fuori dal bundler di Next) e una
+`pulisci()` che cancella tutto nell'ordine giusto -- stessa disciplina "mai lasciare dati di
+test in produzione" delle verifiche manuali fatte finora, ma ora automatica e ripetibile invece
+che a mano ogni volta. `chat.ts`/`login.ts`/`date.ts` incapsulano le interazioni ricorrenti
+(scrivere in chat e aspettare la risposta rispettando l'anti-burst di 2 secondi, login da
+`/accedi`, calcolo di "il prossimo giorno aperto" per non hardcodare date che scadono).
+
+Aggiunta `vitest.config.mts` → `test.exclude: ["tests/e2e/**"]`: senza, il pattern di default
+di vitest (`**/*.{test,spec}.ts`) avrebbe provato a raccogliere anche i file Playwright (che
+usano `test`/`expect` di `@playwright/test`, non eseguibili fuori dal runner di Playwright) e
+avrebbe rotto `npm test`.
+
+**6 scenari scelti per il primo giro** (dei 15 del punto 30), criterio: massima diversità di
+percorso di codice esercitato, non il primo che capita:
+- **#1** (nuovo cliente via chat) e **#9** (servizi consecutivi via chat): unica prova end-to-end
+  reale della chat AI pubblica finora, oltre alle verifiche manuali sporadiche di Gabriel.
+- **#3** (doppia prenotazione simultanea): l'unit test "23P01" in `booking-engine.server.test.ts`
+  SIMULA l'errore Postgres con un client finto -- qui invece sono due richieste HTTP concorrenti
+  VERE contro il database reale, quello che un unit test non può per costruzione mettere alla
+  prova. Due contesti browser, stesso slot, submit lanciati con `Promise.all`.
+- **#5** (professionista assente) e **#6** (attività chiusa): asserzioni sullo STATO nel database
+  (mai sul testo esatto della risposta AI, non deterministico) -- #6 in particolare ri-verifica
+  end-to-end un bug reale già trovato e corretto (lista d'attesa proposta su un giorno
+  completamente chiuso, vedi PIANO.md), da qui in poi con un guardiano automatico invece che
+  solo affidato alla revisione manuale.
+- **#12** (prenotazione manuale da dashboard): copre il percorso senza AI, checkbox multipli
+  inclusi (funzionalità servizi consecutivi appena costruita, stesso giorno).
+
+**Non ancora scritti**: scenari 2, 4, 7, 8, 10, 11, 13, 14, 15. Nota per #14/#15 (upgrade e
+cancellazione abbonamento): passano dal Customer Portal ospitato da Stripe
+(`pulsante-portale-abbonamento.tsx`) -- una UI che non controlliamo noi. Da decidere nel
+prossimo giro se automatizzarla con le carte di test Stripe (più fedele, più fragile: è UI di
+un terzo che può cambiare) o limitarsi a verificare che il nostro codice generi l'URL del
+portale e reagisca correttamente al webhook di Stripe, lasciando la UI del portale stesso fuori
+dal perimetro dei nostri test (probabilmente la scelta più sensata, ma non ancora presa).
+
+Suite esistente confermata verde durante questo lavoro (469/469 vitest, `tsc`/`eslint`/`build`
+puliti) -- nessuna modifica al codice applicativo in questo giro, solo test e infrastruttura di
+test.

@@ -13,6 +13,11 @@
 # testing
 /coverage
 
+# playwright (Task #190, tests/e2e/) -- output generato ad ogni run, mai da committare
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
 # next.js
 /.next/
 /out/

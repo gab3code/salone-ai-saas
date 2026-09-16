@@ -752,7 +752,18 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       credenziale di push in sandbox, consegna via bundle come sempre) -- una volta che lo
       pushi/Vercel lo pubblica, verifico io stesso la UI dal vivo se preferisci, oppure la provi
       tu direttamente.
-- [ ] Test su tutti gli scenari del punto 30 rilevanti alla prenotazione, contro il DB vero
+- [~] Test su tutti gli scenari del punto 30 rilevanti alla prenotazione, contro il DB vero --
+      **IN CORSO 16/09/2026**, Task #190. Infrastruttura Playwright pronta (`playwright.config.ts`,
+      `tests/e2e/helpers/`: tenant di prova usa-e-getta creato/ripulito per ogni test, login,
+      chat AI, calcolo date) e 6 dei 15 scenari scritti: #1 (nuovo cliente via chat AI vera),
+      #3 (doppia prenotazione simultanea, RACE VERA contro il DB, non simulata come nell'unit
+      test), #5 (professionista assente), #6 (attività chiusa, ri-verifica un bug già corretto),
+      #9 (servizi consecutivi via chat AI, la funzionalità appena costruita), #12 (prenotazione
+      manuale da dashboard). Girano SOLO in locale a comando (`npm run test:e2e`), non in CI
+      (decisione con Gabriel, vedi DECISIONS.md 16/09/2026): toccano un database vero e gli
+      scenari con l'AI chiamano il vero Claude (costo reale, seppur minimo, per run). Dettaglio
+      completo, incluso perché non in CI e cosa manca ancora (scenari 2, 4, 7, 8, 10, 11, 13, 14,
+      15), in `tests/e2e/README.md` e in DECISIONS.md.
 - [x] ~~Semplificazione consapevole: fuso orario trattato come UTC~~ **FATTO 11/09/2026**
       (corretto qui il 12/09/2026, questa riga era rimasta indietro): colonna
       `tenants.fuso_orario` (migrazione 0010, default `Europe/Rome`, applicata al DB reale),

@@ -1,6 +1,21 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, cinquantesimo giro -- primo buco di fase chiuso dopo
+Ultimo aggiornamento: 16/09/2026, cinquantunesimo giro -- Task #190, secondo buco di fase:
+infrastruttura Playwright per i 15 scenari E2E del punto 30, 6 scritti (nuovo cliente via
+chat AI vera, doppia prenotazione simultanea con race VERA contro il DB, professionista
+assente, attività chiusa, servizi consecutivi via chat AI, prenotazione manuale da
+dashboard). Girano solo in locale a comando (`npm run test:e2e`), mai in CI -- decisione
+con Gabriel, insieme alla scelta di chiamare il vero Claude negli scenari con la chat
+(altrimenti questi test non aggiungerebbero nulla ai `tools.test.ts` già esistenti con
+un'AI finta). Regola "npm/git solo dal sandbox" allentata SOLO per eseguire questi test
+tramite `device_bash` sul Mac di Gabriel (mai per `npm install`/`git push`, che restano dal
+sandbox) -- dopo un ripensamento di Gabriel a metà conversazione, corretto subito. Nessuna
+modifica al codice applicativo in questo giro, solo test/infrastruttura. Dettaglio completo
+in DECISIONS.md e `tests/e2e/README.md`. Restano da scrivere gli scenari 2, 4, 7, 8, 10, 11,
+13, 14, 15 (nota su 14/15: passano dal Customer Portal Stripe, una UI di terzi -- da
+decidere se automatizzarla con carte di test o limitarsi a verificare solo il nostro codice).
+
+Aggiornamento precedente, 16/09/2026, cinquantesimo giro -- primo buco di fase chiuso dopo
 l'istruzione di Gabriel ("inizia a lavorare sui buchi delle fasi"): servizi consecutivi (Fase 1).
 Prima di scrivere codice, verificato sul codice vero (non sulla descrizione in PIANO.md) che 2
 dei 3 sotto-punti della riga aperta erano già completi ovunque (operatore non specificato,
