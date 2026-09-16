@@ -4363,3 +4363,28 @@ verifico io stesso la UI dal vivo se vuoi, oppure la provi tu direttamente -- la
 automatici sopra è comunque la stessa profondità usata finora per la logica del motore di
 prenotazione (mai fidarsi solo dei test unitari per una modifica di questa portata, ma qui la
 verifica dal vivo end-to-end è bloccata dal deploy, non saltata per pigrizia).
+
+## 2026-09-16 — Rimossa la regola "npm/git solo dal sandbox, mai da device_bash sul Mac"
+
+Per gli scenari E2E Playwright del punto 30 serve eseguire `npm run dev`/`npx playwright test`
+contro un database vero, cosa impossibile dal sandbox (egress verso Supabase bloccato). L'unica
+alternativa era usare `device_bash` sul Mac di Gabriel per queste operazioni -- ma una regola in
+vigore da settimane lo vietava esplicitamente per npm/git, nata da un incidente reale (vedi
+PROJECT_STATUS.md, "Problemi noti aperti" #3, 11-12/09/2026): il bridge gira su una VM Linux
+separata che monta la stessa cartella del Mac, e un `npm install`/comando git lanciato da lì ha
+probabilmente causato `node_modules` corrotto e un repo git bloccato (`.git/index.lock`,
+"Resource deadlock avoided") -- mai confermato al 100% (iCloud restava una causa concorrente
+possibile), ma un rischio concreto già capitato una volta.
+
+Ho segnalato esplicitamente il rischio a Gabriel prima di procedere (non un dettaglio da
+nascondere solo perché lui aveva già detto "eliminala") e proposto un compromesso più sicuro
+(bridge permesso solo per eseguire test, mai per `npm install`/scritture pesanti su
+`node_modules`/`.git`). Gabriel, informato del rischio, ha scelto comunque **la rimozione
+completa**: `npm install`, `git push`, build, tutto ora permesso anche tramite `device_bash` sul
+suo Mac, non solo dal sandbox.
+
+**Effetto pratico**: la regola "git/npm solo via sandbox Bash, mai `device_bash`" nelle note
+operative di sessione non vale più a partire da oggi. Se in futuro riappaiono sintomi di
+corruzione (`node_modules` con errori di parsing, `.git/index.lock` bloccato, "Resource deadlock
+avoided"), il sospetto principale resta questo compromesso -- vale la pena rivalutarlo con
+Gabriel invece di dare per scontato che sia iCloud.
