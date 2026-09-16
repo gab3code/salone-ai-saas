@@ -1703,6 +1703,90 @@ calendario personale, E bloccare uno slot se l'operatore ha già un impegno pers
       cifraggio a riposo prima della revisione di sicurezza di Fase 6 (punto 29), non prima di
       avere clienti paganti reali con dati qui dentro.
 
+## Fase 6ter -- Quello che manca per vendere davvero (aggiunta 16/09/2026)
+
+Nata da una domanda di Gabriel ("hai qualche consiglio generale sul sito? processi che possiamo
+automatizzare con l'AI, e altri consigli dopo aver esaminato bene progetto e situazione attuale"),
+e messa PRIMA della Fase 7 su sua richiesta esplicita: il redesign è l'ultima cosa che serve a un
+prodotto che non ha ancora un cliente.
+
+**La diagnosi da cui nasce tutta questa fase, scritta senza addolcirla**: il prodotto è già più
+completo di quanto serva ai primi dieci clienti -- booking, assistente, CRM, recensioni,
+promemoria, caparre, lista d'attesa, calendari, fatturazione, ruoli, multi-sede, pannello admin --
+e i clienti sono zero. Il vincolo non è più una funzione mancante. Ogni funzione aggiunta da qui
+in avanti allarga la distanza fra quanto il prodotto è pronto e quanto è venduto, invece di
+ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
+
+- [ ] **P.IVA -- il collo di bottiglia vero, e non è sviluppo.** Blocca la verifica business Meta
+      (quindi WhatsApp), le credenziali Skebby (quindi gli SMS), Stripe in modalità live, il
+      `[NOME_TITOLARE]` nelle pagine legali e la possibilità di firmare l'accordo sul trattamento
+      con un cliente. WhatsApp in particolare non è una funzione fra tante: è IL differenziale su
+      cui è costruito tutto il posizionamento. Senza, si sta vendendo un booking online contro
+      Fresha, che lo dà gratis. È pura amministrazione e va avviata prima di qualunque altra cosa
+      in questa lista.
+
+- [ ] **Import della rubrica clienti, assistito dall'AI -- la funzione più importante che manca.**
+      Il motivo per cui un salone NON cambia gestionale non è il prezzo: è che ha trecento clienti
+      su un quaderno, in un Excel fatto male o dentro la cronologia di WhatsApp, e spostarli a mano
+      è una serata di lavoro che nessuno farà mai. Un'AI che prende quel disastro -- un incolla
+      sporco, un CSV con le colonne sbagliate, **la foto di una pagina dell'agenda** -- e ne ricava
+      clienti strutturati da rivedere e confermare prima di salvare, è letteralmente ciò che rende
+      possibile il passaggio da un altro strumento.
+      L'export CSV esiste già (`src/lib/csv.ts`); l'import è segnato come mancante da sempre e non
+      è mai stato fatto. Stesso schema dell'onboarding AI già costruito: l'AI propone una bozza, il
+      titolare la corregge e conferma, nessuna scrittura senza revisione umana.
+      Attenzione al confine legale: quei contatti sono dati di terzi che il salone possiede come
+      titolare del trattamento -- Salone AI li importa per suo conto, e l'accordo art. 28 copre
+      già questo caso.
+
+- [ ] **Note vocali che diventano scheda cliente.** Un parrucchiere non digita: ha le mani
+      occupate e le unghie di qualcun altro davanti. Detta trenta secondi a fine servizio e l'AI ne
+      ricava formula colore, preferenze, cosa ha funzionato e cosa no.
+      **Perché è un differenziale vero e non un vezzo**: la formula colore è il dato che i saloni
+      tengono su carta da decenni ed è una delle ragioni per cui non cambiano strumento.
+      Confine da rispettare: preferenze e formule sì, condizioni di salute no -- sono categorie
+      particolari (art. 9), e l'informativa dichiara già che il prodotto non le prevede.
+
+- [ ] **Bozze di risposta alle recensioni.** La risposta pubblica del titolare esiste già
+      (`rispondiRecensione`, Fase 3): aggiungere una bozza generata è poco lavoro e alto valore
+      percepito, perché rispondere alle recensioni è una cosa che tutti sanno di dover fare e
+      quasi nessuno fa. La bozza si modifica sempre prima di pubblicare, mai invio automatico.
+
+- [ ] **Recupero dei clienti fermi, con l'uomo nel mezzo.** Si lega al punto "retention e no-show
+      reale" ancora aperto in Fase 3. L'AI scrive il messaggio personalizzato sullo storico del
+      cliente, **il titolare lo manda**. La persona nel mezzo non è una limitazione tecnica da
+      togliere un domani: è esattamente ciò che risolve il problema di consenso GDPR già
+      identificato il 12/09/2026 sul follow-up oltre i 60 giorni.
+
+- **NON fare, deciso 16/09/2026**: contenuti marketing generati dall'AI, "insight" automatici
+  sulla dashboard, chatbot sulla landing. Rumore che sembra AI senza risolvere un problema che
+  qualcuno ha davvero. Annotato qui perché sono le tre idee che tornano sempre.
+
+- [ ] **Demo pubblica e video di sessanta secondi.** Non esiste un solo cliente vero da mostrare e
+      la landing promette senza provare. Un salone demo credibile a un URL fisso, che chiunque può
+      aprire e provare a prenotare, più un video breve in cui l'assistente prende un appuntamento,
+      sono l'unico materiale di vendita che conta davvero -- e costano un pomeriggio. Oggi non
+      esistono. Da tenere popolato con dati verosimili ma palesemente finti, mai con dati di una
+      persona reale.
+
+- [ ] **Voci di Pro ancora senza codice: costruirle o toglierle.** "Supporto prioritario" e
+      "Report e analytics avanzati" sono su `Prezzi.tsx` dal 14/09/2026 e non hanno una riga sotto.
+      Prima del primo cliente pagante va chiuso in un senso o nell'altro -- è la stessa disciplina
+      che il 16/09/2026 ha fatto trovare il claim falso sul multi-sede in `PerChi.tsx`.
+
+- [ ] **Verificare il backup del database, prima del primo cliente vero.** Tutto il progetto vive
+      su un'istanza Supabase e su un portatile. Finché i dati che si possono perdere sono di
+      Gabriel è un fastidio; dal primo salone in poi sono i dati dei SUOI clienti, e l'accordo sul
+      trattamento scritto il 16/09/2026 impegna formalmente a proteggerli. Da controllare: che
+      piano Supabase è attivo e se include il ripristino a un punto nel tempo. Se non lo include,
+      un export periodico automatico è meglio di niente.
+
+- [ ] **Separare il database dei test da quello di produzione.** La suite Playwright crea e
+      cancella tenant veri sul database di produzione. Oggi è accettabile (zero clienti reali) ed
+      è anche il motivo per cui quei test sono credibili, visto che non simulano nulla. Dal primo
+      cliente vero non lo è più: un run interrotto ha già lasciato sei tenant orfani il
+      16/09/2026. Serve un secondo progetto Supabase per i test, con le stesse migrazioni.
+
 ## Fase 7 -- Parità/superiorità estetica con Estetia, responsive completo (punti 25, 26, 27, 28)
 Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davvero "fatto" e non
 "abbastanza carino":
@@ -1738,7 +1822,9 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
          non stanno solo negli elenchi puntati, e quella era sfuggita proprio per questo.
       5. **Voci di Pro ancora non costruite**: "Supporto prioritario" e "Report e analytics
          avanzati" sono sulla pagina dal 14/09/2026 e non esistono in codice. O si costruiscono
-         prima di aprire i pagamenti veri, o escono dalla lista.
+         prima di aprire i pagamenti veri, o escono dalla lista. **Tracciato come voce a sé in
+         Fase 6ter**: va chiuso prima, non quando si rifà la grafica -- qui resta solo perché
+         tocca il copy della pagina.
 
 - [ ] **Direzione colore già scelta il 16/09/2026, da implementare qui**: verde smeraldo
       (`#0d7a5f`), un solo accento condiviso tra landing e dashboard, base scura ed espressiva
