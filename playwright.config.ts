@@ -29,7 +29,14 @@ export default defineConfig({
   // Anthropic ha risposto con qualche secondo di ritardo, non per un bug.
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  fullyParallel: false, // i test toccano lo stesso database: eseguirli in sequenza evita interferenze tra tenant di test creati/ripuliti in parallelo
+  fullyParallel: false,
+  // `fullyParallel: false` da solo NON basta a serializzare -- Playwright fa
+  // comunque girare file DIVERSI in worker paralleli di default (visto dal
+  // vivo il 16/09/2026: "Running 6 tests using 4 workers" nonostante questa
+  // opzione). Ogni tenant di prova è isolato (suffisso casuale), quindi
+  // andrebbe bene anche in parallelo, ma un solo worker rende log/costo
+  // Anthropic più prevedibili mentre si stabilizzano ancora questi scenari.
+  workers: 1,
   retries: 0, // un retry nasconderebbe una vera race condition intermittente (proprio quello che alcuni scenari, es. lo Scenario 3, vogliono scoprire)
   reporter: [["list"]],
   use: {

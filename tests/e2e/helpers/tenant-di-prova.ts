@@ -79,11 +79,12 @@ function generaSuffisso(): string {
 }
 
 /**
- * Crea un tenant di prova completo: riga `tenants`, utente auth + `profiles`
- * (owner), `servizi`, `operatori` (con compatibilità in `operatori_servizi`),
- * `orari_apertura` per tutti i 7 giorni. Ritorna gli id generati e una
- * `pulisci()` che cancella tutto nell'ordine giusto (figli prima dei
- * genitori, per via delle foreign key).
+ * Crea un tenant di prova completo: utente auth (che fa scattare il trigger
+ * `al_nuovo_utente` -- crea da solo tenant + `profiles` owner + 7 righe
+ * `orari_apertura`, vedi commento più sotto), poi `servizi`, `operatori`
+ * (con compatibilità in `operatori_servizi`) e gli orari voluti. Ritorna gli
+ * id generati e una `pulisci()` che cancella tutto nell'ordine giusto (figli
+ * prima dei genitori, per via delle foreign key).
  */
 export async function creaTenantDiProva(opzioni: OpzioniTenantDiProva = {}): Promise<TenantDiProva> {
   const supabase = creaClientAdminTest();
@@ -93,51 +94,66 @@ export async function creaTenantDiProva(opzioni: OpzioniTenantDiProva = {}): Pro
   const email = `e2e-${suffisso}@example.com`;
   const password = `TestE2E-${suffisso}!`;
 
-  const { data: tenant, error: erroreTenant } = await supabase
+  // La migrazione 0004 (provisioning_automatico) installa un trigger
+  // (`al_nuovo_utente`) che scatta DA SOLO non appena viene creato un utente
+  // in `auth.users`: crea GIÀ un tenant, la riga `profiles` (stesso id
+  // dell'utente) e le 7 righe `orari_apertura` (tutte chiuse), esattamente
+  // come fa il vero `/registrati`. La prima versione di questo helper
+  // creava un tenant a parte PRIMA dell'utente e poi provava a inserire
+  // anche lei una riga `profiles` con lo stesso id -- violazione della
+  // chiave primaria, scoperta lanciando i test per la prima volta il
+  // 16/09/2026 (vedi DECISIONS.md). Corretto: si lascia fare al trigger
+  // (passandogli il nome voluto nei metadata, come fa il form di
+  // registrazione vero) e poi si AGGIORNA il tenant che ha creato lui con le
+  // impostazioni del test, invece di inserirne uno concorrente.
+  const { data: utenteCreato, error: erroreUtente } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { nome_salone: nome, nome_persona: "Titolare Test E2E" },
+  });
+  if (erroreUtente || !utenteCreato?.user) {
+    throw new Error(`Impossibile creare l'utente di prova: ${erroreUtente?.message}`);
+  }
+  const utenteId = utenteCreato.user.id;
+
+  const { data: profiloDelTrigger, error: erroreProfiloTrigger } = await supabase
+    .from("profiles")
+    .select("tenant_id")
+    .eq("id", utenteId)
+    .single();
+  if (erroreProfiloTrigger || !profiloDelTrigger) {
+    await supabase.auth.admin.deleteUser(utenteId);
+    throw new Error(
+      `Il trigger al_nuovo_utente non ha creato il profilo atteso per l'utente di prova: ${erroreProfiloTrigger?.message}`
+    );
+  }
+  const tenantId = profiloDelTrigger.tenant_id;
+
+  const { data: tenantAggiornato, error: erroreTenant } = await supabase
     .from("tenants")
-    .insert({
+    .update({
       slug,
-      nome,
       piano: opzioni.piano ?? "growth",
       caparra_attiva: opzioni.caparraAttiva ?? false,
       caparra_valore: opzioni.caparraValore ?? 20,
       telefono: opzioni.telefono ?? "0219999999",
     })
+    .eq("id", tenantId)
     .select("id, slug, nome")
     .single();
-  if (erroreTenant || !tenant) {
-    throw new Error(`Impossibile creare il tenant di prova: ${erroreTenant?.message}`);
-  }
-  // Copiati in variabili proprie (mai `tenant.id` dentro `pulisci()` sotto):
-  // il narrowing di TypeScript sul controllo `!tenant` qui sopra non si
-  // propaga dentro una funzione annidata come `pulisci`, che verrebbe
-  // altrimenti considerata "tenant potrebbe essere null" da tsc.
-  const tenantId = tenant.id;
-  const tenantSlug = tenant.slug;
-  const tenantNome = tenant.nome;
-
-  const { data: utenteCreato, error: erroreUtente } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-  if (erroreUtente || !utenteCreato?.user) {
+  if (erroreTenant || !tenantAggiornato) {
     await supabase.from("tenants").delete().eq("id", tenantId);
-    throw new Error(`Impossibile creare l'utente di prova: ${erroreUtente?.message}`);
-  }
-  const utenteId = utenteCreato.user.id;
-
-  const { error: erroreProfilo } = await supabase.from("profiles").insert({
-    id: utenteId,
-    tenant_id: tenantId,
-    ruolo: "owner",
-    nome: "Titolare Test E2E",
-  });
-  if (erroreProfilo) {
     await supabase.auth.admin.deleteUser(utenteId);
-    await supabase.from("tenants").delete().eq("id", tenantId);
-    throw new Error(`Impossibile creare il profilo di prova: ${erroreProfilo.message}`);
+    throw new Error(`Impossibile aggiornare il tenant creato dal trigger per il test: ${erroreTenant?.message}`);
   }
+  // Copiati in variabili proprie (mai `tenantAggiornato.slug` dentro
+  // `pulisci()` sotto): il narrowing di TypeScript sul controllo
+  // `!tenantAggiornato` qui sopra non si propaga dentro una funzione
+  // annidata come `pulisci`, che verrebbe altrimenti considerata "potrebbe
+  // essere null" da tsc.
+  const tenantSlug = tenantAggiornato.slug;
+  const tenantNome = tenantAggiornato.nome;
 
   const specServizi = opzioni.servizi ?? [{ nome: "Taglio", durataMinuti: 30, prezzoCentesimi: 2500 }];
   const { data: serviziCreati, error: erroreServizi } = await supabase
@@ -175,17 +191,22 @@ export async function creaTenantDiProva(opzioni: OpzioniTenantDiProva = {}): Pro
     if (erroreCompat) throw new Error(`Impossibile collegare operatori/servizi di prova: ${erroreCompat.message}`);
   }
 
+  // Il trigger ha già creato le 7 righe (tutte chiuse, vedi commento sopra)
+  // -- un `insert` qui violerebbe lo stesso vincolo unique
+  // (tenant_id, giorno_settimana) che usa l'upsert in azioni.ts, quindi si
+  // aggiorna con lo stesso `upsert`/`onConflict` invece di inserire di nuovo.
   const orari = opzioni.orari ?? ORARI_DEFAULT;
-  const { error: erroreOrari } = await supabase.from("orari_apertura").insert(
+  const { error: erroreOrari } = await supabase.from("orari_apertura").upsert(
     orari.map((o) => ({
       tenant_id: tenantId,
       giorno_settimana: o.giornoSettimana,
       chiuso: o.chiuso ?? false,
       apertura: o.chiuso ? null : (o.apertura ?? "09:00"),
       chiusura: o.chiuso ? null : (o.chiusura ?? "19:00"),
-    }))
+    })),
+    { onConflict: "tenant_id,giorno_settimana" }
   );
-  if (erroreOrari) throw new Error(`Impossibile creare gli orari di prova: ${erroreOrari.message}`);
+  if (erroreOrari) throw new Error(`Impossibile aggiornare gli orari di prova: ${erroreOrari.message}`);
 
   async function pulisci() {
     const idOperatori = operatori.map((o) => o.id);
