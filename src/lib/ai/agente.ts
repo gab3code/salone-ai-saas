@@ -201,7 +201,7 @@ async function correggiSeIncongruente(
   messages: Anthropic.MessageParam[],
   contenutoRisposta: Anthropic.Message["content"],
   clientAnthropic: ClienteAnthropic,
-  system: string,
+  system: Anthropic.TextBlockParam[],
   tools: Anthropic.Tool[],
   importoCaparraReale: number | null,
   adesso: Date
@@ -292,6 +292,33 @@ async function correggiSeIncongruente(
 }
 
 /**
+ * Prompt caching (16/09/2026, vedi DECISIONS.md): system prompt (REGOLE
+ * ASSOLUTE, tabella giorni...) e definizioni degli strumenti sono enormi
+ * (qualche migliaio di token insieme) e RESTANO IDENTICI per tutta la durata
+ * di un turno -- il loop di tool-calling qui sotto può richiamare il modello
+ * fino a `MAX_ITERAZIONI_TOOL` volte per un solo messaggio del cliente, più
+ * un'eventuale chiamata extra in `correggiSeIncongruente`, sempre con lo
+ * stesso system+tools in testa. Senza un breakpoint di cache, quel prefisso
+ * viene ritrasmesso e rifatturato per intero a ogni chiamata; con un
+ * breakpoint (`cache_control: {type: "ephemeral"}` sull'ultimo blocco system
+ * e sull'ultimo strumento), Anthropic riusa il prefisso a una frazione del
+ * prezzo pieno se già visto di recente -- stesso identico system e stessi
+ * strumenti arrivano al modello, cambia solo cosa viene fatturato. Costruiti
+ * una sola volta per turno (non a ogni iterazione del loop) così il
+ * contenuto è byte-per-byte identico tra tutte le chiamate di quel turno,
+ * requisito per un cache hit.
+ */
+function conCacheControl(testo: string): Anthropic.TextBlockParam[] {
+  return [{ type: "text", text: testo, cache_control: { type: "ephemeral" } }];
+}
+
+function strumentiConCacheControl(strumenti: readonly Anthropic.Tool[]): Anthropic.Tool[] {
+  return strumenti.map((strumento, indice) =>
+    indice === strumenti.length - 1 ? { ...strumento, cache_control: { type: "ephemeral" } } : strumento
+  );
+}
+
+/**
  * Gestisce un turno di conversazione: prende lo storico + il nuovo
  * messaggio del cliente, esegue il ciclo di tool-calling finché il modello
  * non produce una risposta testuale finale (o finché non si supera il
@@ -350,12 +377,22 @@ export async function rispondiConversazione(
     ? STRUMENTI_AI
     : STRUMENTI_AI.filter((s) => s.name !== "info_attivita");
 
+  // Costruiti una sola volta per l'intero turno (non a ogni iterazione del
+  // loop sotto, né duplicati nella chiamata a correggiSeIncongruente più in
+  // basso): stesso identico system+tools byte-per-byte a ogni chiamata di
+  // questo turno, requisito per un vero cache hit -- vedi il commento su
+  // conCacheControl/strumentiConCacheControl sopra.
+  const systemPerQuestoTurno = conCacheControl(
+    costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita, ctx.telefono)
+  );
+  const strumentiPerQuestoTurno = strumentiConCacheControl(strumentiDisponibili as unknown as Anthropic.Tool[]);
+
   for (let iterazione = 0; iterazione < MAX_ITERAZIONI_TOOL; iterazione++) {
     const risposta = await clientAnthropic.messages.create({
       model: MODELLO,
       max_tokens: 1024,
-      system: costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita, ctx.telefono),
-      tools: strumentiDisponibili as unknown as Anthropic.Tool[],
+      system: systemPerQuestoTurno,
+      tools: strumentiPerQuestoTurno,
       messages,
     });
 
@@ -384,8 +421,8 @@ export async function rispondiConversazione(
               messages,
               risposta.content,
               clientAnthropic,
-              costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita, ctx.telefono),
-              strumentiDisponibili as unknown as Anthropic.Tool[],
+              systemPerQuestoTurno,
+              strumentiPerQuestoTurno,
               importoCaparraRichiesto,
               adesso
             )

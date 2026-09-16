@@ -877,6 +877,17 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       stesso appuntamento) NON testato dal vivo -- il salone di test ha un solo servizio
       attivo; la logica pura lo supporta già (`calcolaSlotServiziConsecutivi`, testata in
       isolamento) ma manca una verifica end-to-end reale con più servizi.
+- [x] ~~Prompt caching sul system prompt e sugli strumenti (nuovo task, 16/09/2026)~~ **FATTO**:
+      Gabriel ha chiesto se il progetto sprecasse crediti AI da qualche parte -- trovato che
+      `agente.ts` non usava mai `cache_control` di Anthropic, pur avendo un SDK che lo supporta,
+      ritrasmettendo a prezzo pieno system prompt (~1.500 token) e strumenti (~8KB) identici a
+      ogni chiamata di un turno (fino a 8 per il loop di tool-calling, più un'eventuale chiamata
+      extra di `correggiSeIncongruente`). Corretto marcando system+ultimo strumento con un
+      breakpoint di cache, costruiti una sola volta per turno. Zero cambio di comportamento per
+      il cliente -- solo di cosa viene fatturato. Verificato `tsc`/`eslint`/`vitest`
+      (469/469)/`build`/`playwright test --list` puliti; il comportamento REALE di caching
+      contro l'API vera va confermato da Gabriel (il sandbox non ha una chiave Anthropic sua
+      funzionante). Vedi DECISIONS.md per il dettaglio completo.
 
 ## Fase 3 -- CRM e Dashboard (punti 15, 21, 22)
 - [x] Anagrafica cliente con storico completo: `/dashboard/clienti` (elenco con ricerca per

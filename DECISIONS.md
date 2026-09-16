@@ -4873,3 +4873,46 @@ esauriti a metà sessione). Ogni fix è stato guidato da prove concrete (error-c
 screenshot, log diagnostici temporanei poi rimossi) mai da un tentativo alla cieca.
 
 **Task #190 chiuso.**
+
+## 2026-09-16 — Prompt caching sulla chat AI: system prompt + strumenti non più ritrasmessi a prezzo pieno a ogni chiamata
+
+Gabriel ha chiesto se il progetto spreca crediti AI da qualche parte. Trovato un caso reale e
+concreto: `src/lib/ai/agente.ts` non usava mai il prompt caching di Anthropic (`cache_control`),
+pur avendo un SDK (`@anthropic-ai/sdk` 0.123.0) che lo supporta senza bisogno di header beta.
+Il system prompt (REGOLE ASSOLUTE, tabella giorni -- ~1.500 token) e le definizioni dei 9
+strumenti (`STRUMENTI_AI`, ~8KB di JSON) restano IDENTICI per tutta la durata di un turno, ma
+venivano ritrasmessi e rifatturati per intero a ogni chiamata al modello -- e in un solo turno
+il loop di tool-calling può chiamare il modello fino a `MAX_ITERAZIONI_TOOL` (8) volte, più
+un'eventuale chiamata extra di `correggiSeIncongruente` quando scatta il controllo di coerenza
+su prezzi/giorni.
+
+**Fix**: aggiunte due funzioni (`conCacheControl`, `strumentiConCacheControl` in `agente.ts`)
+che marcano rispettivamente l'unico blocco del system prompt e l'ultimo strumento con
+`cache_control: {type: "ephemeral"}`. Costruiti UNA SOLA VOLTA per l'intero turno (prima del
+loop, non a ogni iterazione) così il contenuto è byte-per-byte identico tra tutte le chiamate
+dello stesso turno -- requisito per un cache hit -- e riusati sia nel loop principale sia nella
+chiamata di `correggiSeIncongruente` (che prima ricostruiva lo stesso system prompt daccapo con
+una seconda chiamata a `costruisciSystemPrompt`, ora eliminata: stesso testo, una chiamata in
+meno). Zero cambio di comportamento per il cliente: stesso identico system e stessi strumenti
+arrivano al modello, cambia solo cosa viene fatturato da Anthropic quando il prefisso è già in
+cache (tipicamente una frazione del prezzo pieno).
+
+**Cosa NON è cambiato**: nessuna cache su singoli messaggi della conversazione (solo su
+system+tools) -- il vero risparmio principale è dentro il loop di un singolo turno, dove il
+prefisso è garantito identico; tra un turno e l'altro della stessa conversazione il prefisso
+resta comunque identico (stesso tenant, stesso giorno) quindi beneficia comunque se le chiamate
+cadono nella finestra di cache di Anthropic, ma non è stato ottimizzato apposta per quel caso
+(nessun breakpoint incrementale sullo storico messaggi, complessità/rischio non giustificati per
+conversazioni tipicamente brevi come quelle viste negli scenari E2E).
+
+**Verificato**: `correggiSeIncongruente` ora accetta `system` come blocchi già pronti invece di
+una stringa -- aggiornati i test in `agente.test.ts` (14 assert su `.system`) con un helper
+`testoSystem()` che estrae il testo indipendentemente dal formato (stringa o array di blocchi),
+nessun cambio di cosa viene verificato, solo di come si legge il valore. `tsc`/`eslint`/`vitest`
+(469/469, inclusi i 27 di `agente.test.ts`)/`build`/`playwright test --list` (18 test) puliti.
+
+**Non verificabile da qui**: il sandbox non ha una vera `ANTHROPIC_API_KEY` funzionante contro
+l'account di Gabriel, quindi il comportamento REALE di caching (hit/miss, risparmio effettivo)
+va confermato dal vivo -- consigliato a Gabriel di rilanciare almeno gli scenari E2E che usano
+la chat AI vera (`npx playwright test 01- 02- 04- 05- 06- 07- 08- 09- 10-`, o l'intera suite)
+per confermare che tutto continui a funzionare esattamente come prima con l'API reale.

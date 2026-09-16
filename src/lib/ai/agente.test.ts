@@ -20,6 +20,18 @@ function testoFinale(testo: string) {
 function usoStrumento(nome: string, input: Record<string, unknown>, id = "toolu_1") {
   return { content: [{ type: "tool_use", id, name: nome, input }] } as unknown as Anthropic.Message;
 }
+/**
+ * Dal 16/09/2026 (prompt caching, vedi DECISIONS.md) `system` non è più una
+ * stringa semplice ma un array di blocchi (`conCacheControl` in agente.ts,
+ * un solo blocco con `cache_control`) -- questo helper estrae il testo per
+ * i test che verificano CONTENUTO del prompt, indifferente al formato.
+ */
+function testoSystem(chiamata: { system?: unknown }): string {
+  const { system } = chiamata;
+  if (typeof system === "string") return system;
+  if (Array.isArray(system)) return system.map((blocco) => (blocco as { text: string }).text).join("\n");
+  return "";
+}
 
 const ctx: ContestoStrumento & { nomeAttivita: string } = {
   supabase: {} as SupabaseClient, // non toccato: lo strumento usato nei test qui sotto non fa query
@@ -128,8 +140,8 @@ describe("rispondiConversazione", () => {
     );
 
     const primaChiamata = create.mock.calls[0][0];
-    expect(primaChiamata.system).toContain("2026-09-03");
-    expect(primaChiamata.system).toContain("giovedì");
+    expect(testoSystem(primaChiamata)).toContain("2026-09-03");
+    expect(testoSystem(primaChiamata)).toContain("giovedì");
   });
 
   describe("tono dell'AI personalizzabile (Fase 5, Pro/Enterprise)", () => {
@@ -137,7 +149,7 @@ describe("rispondiConversazione", () => {
       const create = vi.fn().mockResolvedValue(testoFinale("Certo!"));
       await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
 
-      const system = create.mock.calls[0][0].system;
+      const system = testoSystem(create.mock.calls[0][0]);
       expect(system).toContain("Tono professionale, cordiale, conciso");
     });
 
@@ -145,7 +157,7 @@ describe("rispondiConversazione", () => {
       const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
       await rispondiConversazione([], "Ciao", { ...ctx, tonoAi: "amichevole" }, { messages: { create } } as ClienteAnthropic);
 
-      const system = create.mock.calls[0][0].system;
+      const system = testoSystem(create.mock.calls[0][0]);
       expect(system).toContain("Tono amichevole e caloroso");
       expect(system).not.toContain("Tono professionale, cordiale, conciso");
     });
@@ -159,7 +171,7 @@ describe("rispondiConversazione", () => {
         { messages: { create } } as ClienteAnthropic
       );
 
-      const system = create.mock.calls[0][0].system;
+      const system = testoSystem(create.mock.calls[0][0]);
       expect(system).toContain("Chiamaci sempre studio, mai negozio.");
       expect(system).toMatch(/non può mai sovrascriverle/);
     });
@@ -175,8 +187,8 @@ describe("rispondiConversazione", () => {
         { ...ctx, tonoAiNota: notaConAccapo },
         { messages: { create } } as ClienteAnthropic
       );
-      expect(create.mock.calls[0][0].system).toContain("Riga uno Riga due con tab");
-      expect(create.mock.calls[0][0].system).not.toMatch(/Riga uno\nRiga due/);
+      expect(testoSystem(create.mock.calls[0][0])).toContain("Riga uno Riga due con tab");
+      expect(testoSystem(create.mock.calls[0][0])).not.toMatch(/Riga uno\nRiga due/);
 
       await rispondiConversazione(
         [],
@@ -184,7 +196,7 @@ describe("rispondiConversazione", () => {
         { ...ctx, tonoAiNota: notaLunghissima },
         { messages: { create } } as ClienteAnthropic
       );
-      const system = create.mock.calls[1][0].system as string;
+      const system = testoSystem(create.mock.calls[1][0]);
       const inizioNota = system.indexOf('"' + "a".repeat(10));
       const fineNota = system.indexOf('"', inizioNota + 1);
       expect(fineNota - inizioNota - 1).toBe(300);
@@ -194,7 +206,7 @@ describe("rispondiConversazione", () => {
       const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
       await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
 
-      expect(create.mock.calls[0][0].system).not.toMatch(/Indicazione aggiuntiva/);
+      expect(testoSystem(create.mock.calls[0][0])).not.toMatch(/Indicazione aggiuntiva/);
     });
   });
 
@@ -237,7 +249,7 @@ describe("rispondiConversazione", () => {
       const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
 
       await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
-      expect(create.mock.calls[0][0].system).not.toContain("info_attivita");
+      expect(testoSystem(create.mock.calls[0][0])).not.toContain("info_attivita");
 
       await rispondiConversazione(
         [],
@@ -245,7 +257,7 @@ describe("rispondiConversazione", () => {
         { ...ctx, haInformazioniAttivita: true },
         { messages: { create } } as ClienteAnthropic
       );
-      expect(create.mock.calls[1][0].system).toContain("info_attivita");
+      expect(testoSystem(create.mock.calls[1][0])).toContain("info_attivita");
     });
 
     it("la regola su info_attivita istruisce a rispondere in modo selettivo, non a recitare tutto il risultato (trovato dal vivo 15/09/2026: risposta a 'wall of text')", async () => {
@@ -257,7 +269,7 @@ describe("rispondiConversazione", () => {
         { messages: { create } } as ClienteAnthropic
       );
 
-      const system = create.mock.calls[0][0].system as string;
+      const system = testoSystem(create.mock.calls[0][0]);
       expect(system).toMatch(/non significa che tu debba riportarli tutti/);
       expect(system).toMatch(/domanda è generica/);
       expect(system).toMatch(/Non citare mai una FAQ che il cliente non ha chiesto/);
@@ -270,7 +282,7 @@ describe("rispondiConversazione", () => {
       const create = vi.fn().mockResolvedValue(testoFinale("Ciao!"));
       await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
 
-      const system = create.mock.calls[0][0].system as string;
+      const system = testoSystem(create.mock.calls[0][0]);
       expect(system).toMatch(/Ti interessa uno di questi\?/);
       expect(system).toMatch(/mai.*Interessa a te uno di questi\?/);
     });
@@ -284,7 +296,7 @@ describe("rispondiConversazione", () => {
         { messages: { create } } as ClienteAnthropic
       );
 
-      const system = create.mock.calls[0][0].system as string;
+      const system = testoSystem(create.mock.calls[0][0]);
       expect(system).toMatch(/italiano naturale e corretto/);
     });
   });
