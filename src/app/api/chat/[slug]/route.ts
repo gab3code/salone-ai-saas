@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
-import { risolviTenantIdDaSlug } from "@/lib/ai/tools";
+import { risolviTenantDaSlug, MESSAGGIO_ATTIVITA_SOSPESA } from "@/lib/ai/tools";
 import { rispondiConversazione } from "@/lib/ai/agente";
 import {
   ottieniOCreaConversazione,
@@ -57,10 +57,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const supabase = creaClientAdmin();
 
-  const tenantId = await risolviTenantIdDaSlug(supabase, slug);
-  if (!tenantId) {
+  const tenantRisolto = await risolviTenantDaSlug(supabase, slug);
+  if (!tenantRisolto) {
     return NextResponse.json({ errore: "Attività non trovata." }, { status: 404 });
   }
+  // L'assistente AI prenota davvero: su un'attività sospesa va zittito come
+  // il form pubblico, altrimenti resterebbe l'unica porta ancora aperta.
+  if (tenantRisolto.sospesa) {
+    return NextResponse.json({ errore: MESSAGGIO_ATTIVITA_SOSPESA }, { status: 403 });
+  }
+  const tenantId = tenantRisolto.id;
 
   const { data: tenant } = await supabase
     .from("tenants")

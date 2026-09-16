@@ -66,22 +66,40 @@ export interface ContestoStrumento {
  * problema persistente (che continuerebbe a fallire anche al secondo giro
  * e finirebbe comunque nel log sottostante).
  */
-export async function risolviTenantIdDaSlug(
+export async function risolviTenantDaSlug(
   supabase: SupabaseClient,
   slug: string
-): Promise<string | null> {
-  let { data, error } = await supabase.from("tenants").select("id").eq("slug", slug).maybeSingle();
+): Promise<{ id: string; sospesa: boolean } | null> {
+  const colonne = "id, sospesa";
+  let { data, error } = await supabase.from("tenants").select(colonne).eq("slug", slug).maybeSingle();
   if (error) {
     await new Promise((resolve) => setTimeout(resolve, 300));
-    ({ data, error } = await supabase.from("tenants").select("id").eq("slug", slug).maybeSingle());
+    ({ data, error } = await supabase.from("tenants").select(colonne).eq("slug", slug).maybeSingle());
   }
   if (error) {
     // Non silenziare un errore reale (es. service_role key mancante/errata) dietro
     // un fuorviante "tenant non trovato": logghiamo per capire davvero cosa è successo.
     console.error("Errore risolvendo il tenant dallo slug (anche dopo un retry):", slug, error);
   }
-  return data?.id ?? null;
+  if (!data) return null;
+  return { id: data.id as string, sospesa: Boolean(data.sospesa) };
 }
+
+export async function risolviTenantIdDaSlug(
+  supabase: SupabaseClient,
+  slug: string
+): Promise<string | null> {
+  return (await risolviTenantDaSlug(supabase, slug))?.id ?? null;
+}
+
+/**
+ * Messaggio mostrato al CLIENTE FINALE quando un'attività è sospesa
+ * (migrazione 0029). Volutamente neutro: il cliente del salone non c'entra
+ * niente con il motivo della sospensione, e non deve leggere sulla pagina
+ * pubblica che il suo parrucchiere non ha pagato l'abbonamento.
+ */
+export const MESSAGGIO_ATTIVITA_SOSPESA =
+  "Le prenotazioni online non sono al momento disponibili. Contatta direttamente l'attività.";
 
 // Parsing dell'orario che arriva dall'AI ("2026-09-05T15:00", senza fuso):
 // stessa funzione condivisa e validata in modo rigido usata dalla dashboard

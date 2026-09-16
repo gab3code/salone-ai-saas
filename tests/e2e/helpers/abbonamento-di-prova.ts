@@ -14,11 +14,17 @@ import { priceIdPerPiano, type PianoPagante } from "@/lib/stripe/piani";
  * fallirebbe e il test passerebbe per il motivo sbagliato (la funzione è
  * fail-open: inghiotte gli errori e non lancia mai).
  *
- * `payment_behavior: "default_incomplete"` è il punto chiave: crea un
- * abbonamento completo di line item SENZA bisogno di un metodo di pagamento
- * e senza muovere un centesimo, nemmeno finto. Resta in stato "incomplete",
- * che va benissimo -- nessuna parte del codice sotto test guarda lo stato,
- * solo gli item.
+ * Il punto chiave è come si crea un abbonamento manovrabile senza un metodo
+ * di pagamento e senza muovere un centesimo: **con un trial**.
+ * Il primo tentativo (16/09/2026) usava `payment_behavior:
+ * "default_incomplete"`, e i tre scenari fallivano tutti con lo stesso
+ * errore di Stripe: "You cannot update a subscription in `incomplete` status
+ * in a way that results in a new invoice or invoice items". Giusto così: su
+ * un abbonamento incompleto Stripe vieta proprio l'operazione che questi
+ * test devono verificare, cioè aggiungere e togliere line item.
+ * Un abbonamento in prova invece è `trialing`, accetta modifiche agli item, e
+ * con `trial_settings.end_behavior.missing_payment_method: "cancel"` si crea
+ * senza alcun metodo di pagamento associato.
  */
 export interface AbbonamentoDiProva {
   customerId: string;
@@ -45,7 +51,8 @@ export async function creaAbbonamentoDiProva(
   const subscription = await stripe.subscriptions.create({
     customer: customer.id,
     items: [{ price: priceIdPerPiano(piano), quantity: 1 }],
-    payment_behavior: "default_incomplete",
+    trial_period_days: 30,
+    trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
     metadata: { e2e: "true" },
   });
 

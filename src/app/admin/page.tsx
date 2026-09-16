@@ -1,51 +1,103 @@
 import Link from "next/link";
-import { caricaAttivitaPiattaforma } from "@/lib/admin.server";
+import { caricaAttivitaPiattaforma, elencaInterventi } from "@/lib/admin.server";
+import { calcolaRicavi, formatoEuroDaCentesimi, segnaliAttivita } from "@/lib/admin";
 import { PannelloAdmin } from "./pannello-admin";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Pannello di piattaforma (Fase 5, punto "pannello admin per te" di
- * PIANO.md): tutte le attività registrate, con piano, stato abbonamento,
- * utilizzo reale e la possibilità di intervenire a mano sul piano.
+ * Pannello di piattaforma (Fase 5): tutte le attività registrate, con piano,
+ * stato abbonamento, utilizzo reale, segnali che meritano uno sguardo e gli
+ * interventi manuali possibili.
  *
- * Cosa NON c'è, di proposito: nessun "entra come questo salone"
- * (impersonificazione). È la funzione più comoda di un pannello del genere
- * ed è anche la più pericolosa -- un bug lì dentro vale l'accesso completo a
- * qualunque attività, e per l'assistenza al primo cliente basta guardare i
- * dati da qui e farsi raccontare il problema. Da rivalutare quando i clienti
- * saranno abbastanza da rendere il supporto un lavoro vero.
+ * Cosa NON c'è, e non ci sarà: nessun "entra come questo salone"
+ * (impersonificazione) e nessun dato personale dei clienti finali -- né
+ * nomi, né contatti, né trascrizioni delle conversazioni con l'AI. Su quei
+ * dati Salone AI è responsabile del trattamento per conto del salone, non
+ * titolare: contarli serve (i tetti dei piani e la fatturazione per
+ * operatore si applicano su quei numeri), leggerli uno per uno no. È la
+ * stessa linea decisa da Gabriel quando ha escluso le trascrizioni, e vale
+ * per ogni funzione che verrà aggiunta qui dentro.
  */
 export default async function PaginaAdmin() {
-  const righe = await caricaAttivitaPiattaforma();
+  const [righe, interventi] = await Promise.all([caricaAttivitaPiattaforma(), elencaInterventi(30)]);
 
-  const totali = righe.reduce(
-    (acc, riga) => ({
-      attivita: acc.attivita + 1,
-      paganti: acc.paganti + (riga.piano !== "free" ? 1 : 0),
-      appuntamenti30: acc.appuntamenti30 + riga.appuntamenti30Giorni,
-      clienti: acc.clienti + riga.clienti,
-    }),
-    { attivita: 0, paganti: 0, appuntamenti30: 0, clienti: 0 }
-  );
+  const ricavi = calcolaRicavi(righe);
+  const daGuardare = righe.filter((r) => segnaliAttivita(r).length > 0).length;
+  const appuntamenti30 = righe.reduce((n, r) => n + r.appuntamenti30Giorni, 0);
 
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Piattaforma</h1>
-        <p className="text-sm text-zinc-500">
-          Tutte le attività registrate su Salone AI.
-        </p>
+        <p className="text-sm text-zinc-500">Tutte le attività registrate su Salone AI.</p>
       </header>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Riepilogo etichetta="Attività" valore={String(totali.attivita)} />
-        <Riepilogo etichetta="Su un piano a pagamento" valore={String(totali.paganti)} />
-        <Riepilogo etichetta="Appuntamenti (30gg)" valore={String(totali.appuntamenti30)} />
-        <Riepilogo etichetta="Clienti totali" valore={String(totali.clienti)} />
+        <Riepilogo
+          etichetta="Ricavo mensile stimato"
+          valore={formatoEuroDaCentesimi(ricavi.mrrCentesimi)}
+          nota={
+            ricavi.aPreventivo > 0
+              ? `${ricavi.paganti} paganti, ${ricavi.aPreventivo} a preventivo esclusi`
+              : `${ricavi.paganti} attività paganti`
+          }
+        />
+        <Riepilogo
+          etichetta="Attività"
+          valore={String(righe.length)}
+          nota={ricavi.inProva > 0 ? `${ricavi.inProva} in prova` : undefined}
+        />
+        <Riepilogo
+          etichetta="Da guardare"
+          valore={String(daGuardare)}
+          nota={daGuardare > 0 ? "hanno almeno un segnale" : "nessun segnale"}
+        />
+        <Riepilogo etichetta="Appuntamenti (30gg)" valore={String(appuntamenti30)} />
       </div>
 
+      <p className="text-xs text-zinc-400">
+        Il ricavo è una stima calcolata sui prezzi di listino e sugli operatori configurati, contando
+        solo gli abbonamenti attivi. La verità sulla fatturazione resta Stripe.
+      </p>
+
       <PannelloAdmin righe={righe} />
+
+      <section>
+        <h2 className="text-sm font-medium text-zinc-500">Registro degli interventi</h2>
+        <p className="mt-1 text-xs text-zinc-400">
+          Ogni modifica fatta da questo pannello, con chi l&apos;ha fatta e quando. Le righe restano
+          anche quando l&apos;attività a cui si riferiscono non esiste più.
+        </p>
+        {interventi.length === 0 ? (
+          <p className="mt-3 text-sm text-zinc-500">Nessun intervento registrato.</p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {interventi.map((i) => (
+              <li key={i.id} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-medium text-zinc-800">
+                    {etichettaAzione(i.azione)} · {i.tenantNome ?? "attività cancellata"}
+                  </span>
+                  <span className="text-zinc-400">
+                    {new Date(i.quando).toLocaleString("it-IT", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-zinc-500">
+                  {i.adminEmail ?? "autore sconosciuto"}
+                  {descriviDettaglio(i.azione, i.dettaglio) && ` · ${descriviDettaglio(i.azione, i.dettaglio)}`}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <Link href="/dashboard" className="text-sm underline">
         Torna alla dashboard
@@ -54,11 +106,43 @@ export default async function PaginaAdmin() {
   );
 }
 
-function Riepilogo({ etichetta, valore }: { etichetta: string; valore: string }) {
+function etichettaAzione(azione: string): string {
+  switch (azione) {
+    case "piano_manuale":
+      return "Piano cambiato a mano";
+    case "ripristino_stripe":
+      return "Controllo restituito a Stripe";
+    case "sospensione":
+      return "Sospesa";
+    case "riattivazione":
+      return "Riattivata";
+    case "cancellazione_attivita":
+      return "Cancellata";
+    default:
+      return azione;
+  }
+}
+
+function descriviDettaglio(azione: string, dettaglio: Record<string, unknown>): string | null {
+  if (azione === "piano_manuale") {
+    return `da ${dettaglio.piano_prima} (${dettaglio.stato_prima}) a ${dettaglio.piano_dopo} (${dettaglio.stato_dopo})`;
+  }
+  if (azione === "sospensione" && typeof dettaglio.motivo === "string") {
+    return dettaglio.motivo;
+  }
+  if (azione === "cancellazione_attivita") {
+    const account = Array.isArray(dettaglio.account_cancellati) ? dettaglio.account_cancellati.length : 0;
+    return `${dettaglio.clienti} clienti, ${dettaglio.appuntamenti} appuntamenti, ${account} account`;
+  }
+  return null;
+}
+
+function Riepilogo({ etichetta, valore, nota }: { etichetta: string; valore: string; nota?: string }) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-4">
       <p className="text-xs text-zinc-500">{etichetta}</p>
       <p className="mt-1 text-lg font-semibold">{valore}</p>
+      {nota && <p className="mt-0.5 text-xs text-zinc-400">{nota}</p>}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { creaClientAdmin } from "@/lib/supabase/admin";
-import { risolviTenantIdDaSlug } from "@/lib/ai/tools";
+import { risolviTenantDaSlug, risolviTenantIdDaSlug, MESSAGGIO_ATTIVITA_SOSPESA } from "@/lib/ai/tools";
 import {
   trovaSlotEStatoGiornoTenant,
   creaAppuntamentoTenant,
@@ -86,8 +86,13 @@ export async function cercaSlotPubblici(
   }
 
   const supabase = creaClientAdmin();
-  const tenantId = await risolviTenantIdDaSlug(supabase, slug);
-  if (!tenantId) return { ok: false, errore: "Attività non trovata." };
+  const tenant = await risolviTenantDaSlug(supabase, slug);
+  if (!tenant) return { ok: false, errore: "Attività non trovata." };
+  // Attività sospesa (migrazione 0029): si blocca la SCRITTURA, qui, e non
+  // la lettura degli slot -- chi ha già l'appuntamento deve poter continuare
+  // a vedere la pagina del salone.
+  if (tenant.sospesa) return { ok: false, errore: MESSAGGIO_ATTIVITA_SOSPESA };
+  const tenantId = tenant.id;
 
   const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
 
@@ -168,8 +173,13 @@ export async function prenotaPubblico(
   if (!inizio) return { ok: false, errore: "Orario non valido, riprova la ricerca." };
 
   const supabase = creaClientAdmin();
-  const tenantId = await risolviTenantIdDaSlug(supabase, slug);
-  if (!tenantId) return { ok: false, errore: "Attività non trovata." };
+  const tenant = await risolviTenantDaSlug(supabase, slug);
+  if (!tenant) return { ok: false, errore: "Attività non trovata." };
+  // Attività sospesa (migrazione 0029): si blocca la SCRITTURA, qui, e non
+  // la lettura degli slot -- chi ha già l'appuntamento deve poter continuare
+  // a vedere la pagina del salone.
+  if (tenant.sospesa) return { ok: false, errore: MESSAGGIO_ATTIVITA_SOSPESA };
+  const tenantId = tenant.id;
 
   const importoCaparra = await caricaImportoCaparraServizio(supabase, tenantId, dati.servizioId);
   if (importoCaparra > 0) {
@@ -236,8 +246,13 @@ export async function avviaPagamentoCaparra(
   if (!inizio) return { ok: false, errore: "Orario non valido, riprova la ricerca." };
 
   const supabase = creaClientAdmin();
-  const tenantId = await risolviTenantIdDaSlug(supabase, slug);
-  if (!tenantId) return { ok: false, errore: "Attività non trovata." };
+  const tenant = await risolviTenantDaSlug(supabase, slug);
+  if (!tenant) return { ok: false, errore: "Attività non trovata." };
+  // Attività sospesa (migrazione 0029): si blocca la SCRITTURA, qui, e non
+  // la lettura degli slot -- chi ha già l'appuntamento deve poter continuare
+  // a vedere la pagina del salone.
+  if (tenant.sospesa) return { ok: false, errore: MESSAGGIO_ATTIVITA_SOSPESA };
+  const tenantId = tenant.id;
 
   const intestazioni = await headers();
   const proto = intestazioni.get("x-forwarded-proto") ?? "https";
@@ -320,8 +335,13 @@ export async function iscrivitiListaAttesaPubblico(
   }
 
   const supabase = creaClientAdmin();
-  const tenantId = await risolviTenantIdDaSlug(supabase, slug);
-  if (!tenantId) return { ok: false, errore: "Attività non trovata." };
+  const tenant = await risolviTenantDaSlug(supabase, slug);
+  if (!tenant) return { ok: false, errore: "Attività non trovata." };
+  // Attività sospesa (migrazione 0029): si blocca la SCRITTURA, qui, e non
+  // la lettura degli slot -- chi ha già l'appuntamento deve poter continuare
+  // a vedere la pagina del salone.
+  if (tenant.sospesa) return { ok: false, errore: MESSAGGIO_ATTIVITA_SOSPESA };
+  const tenantId = tenant.id;
 
   const risultato = await aggiungiListaAttesaTenant(supabase, tenantId, {
     servizioId: dati.servizioId,

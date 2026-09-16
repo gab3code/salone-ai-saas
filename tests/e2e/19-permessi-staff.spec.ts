@@ -49,7 +49,7 @@ test.describe("Scenario 19 -- permessi del collaboratore", () => {
     await expect(page.getByRole("link", { name: "Team" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Impostazioni" })).toHaveCount(0);
     // "collaboratore", non "titolare": è la riga che gli dice chi è.
-    await expect(page.getByText("collaboratore")).toBeVisible();
+    await expect(page.locator("dd", { hasText: "collaboratore" })).toBeVisible();
 
     // --- quello che PUÒ fare: agenda e clienti, per tutti gli operatori ---
     await page.goto("/dashboard/calendario");

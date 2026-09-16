@@ -51,7 +51,10 @@ test.describe("Scenario 18 -- più attività, un solo accesso", () => {
     // compare affatto: un menu a tendina da un elemento è solo rumore).
     const selettore = page.locator("#selettore_sede");
     await expect(selettore).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Salone E2E Sede Centro").first()).toBeVisible();
+    // Si asserisce il VALORE del select, non il testo: il nome della sede sta
+    // dentro un <option>, che Playwright considera sempre nascosto. Ed e'
+    // anche l'asserzione piu' forte delle due -- dice QUALE sede e' attiva.
+    await expect(selettore).toHaveValue(sedeA.id);
 
     // Prova dell'isolamento, versione A: i servizi della sede attiva.
     await page.goto("/dashboard/configura");
@@ -63,7 +66,7 @@ test.describe("Scenario 18 -- più attività, un solo accesso", () => {
     await expect(selettore).toBeVisible({ timeout: 15_000 });
     await selettore.selectOption(sedeB.id);
 
-    await expect(page.getByText("Salone E2E Sede Periferia").first()).toBeVisible({ timeout: 15_000 });
+    await expect(selettore).toHaveValue(sedeB.id, { timeout: 15_000 });
 
     // Prova dell'isolamento, versione B: ora si vede l'altro salone, e
     // soltanto quello. Questa è l'asserzione che conta.

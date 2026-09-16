@@ -53,7 +53,7 @@ test.describe("Scenario 17 -- cambio piano e quota per operatore", () => {
     // Si parte da un salone Starter con 2 operatori: 1 quota da 10€.
     await page.locator("#nome_operatore").fill("Seconda");
     await page.getByRole("button", { name: "Aggiungi" }).first().click();
-    await expect(page.getByText("Seconda")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Seconda").first()).toBeVisible({ timeout: 15_000 });
 
     await expect
       .poll(async () => (await abbonamento!.leggiItem()).map((i) => i.priceId), { timeout: 15_000 })
@@ -72,7 +72,7 @@ test.describe("Scenario 17 -- cambio piano e quota per operatore", () => {
     await page.reload();
     await page.locator("#nome_operatore").fill("Terza");
     await page.getByRole("button", { name: "Aggiungi" }).first().click();
-    await expect(page.getByText("Terza")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Terza").first()).toBeVisible({ timeout: 15_000 });
 
     await expect
       .poll(

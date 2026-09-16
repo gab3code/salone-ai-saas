@@ -62,7 +62,7 @@ test.describe("Scenario 16 -- fatturazione dell'operatore extra", () => {
     // --- secondo operatore -> 1 extra ---
     await page.locator("#nome_operatore").fill("Seconda");
     await page.getByRole("button", { name: "Aggiungi" }).first().click();
-    await expect(page.getByText("Seconda")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Seconda").first()).toBeVisible({ timeout: 15_000 });
 
     await expect
       .poll(async () => await abbonamento!.leggiItem(), {
@@ -79,7 +79,7 @@ test.describe("Scenario 16 -- fatturazione dell'operatore extra", () => {
     // --- terzo operatore -> 2 extra ---
     await page.locator("#nome_operatore").fill("Terza");
     await page.getByRole("button", { name: "Aggiungi" }).first().click();
-    await expect(page.getByText("Terza")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Terza").first()).toBeVisible({ timeout: 15_000 });
 
     await expect
       .poll(async () => (await abbonamento!.leggiItem()).find((i) => i.priceId === priceExtra)?.quantita, {
@@ -127,7 +127,7 @@ test.describe("Scenario 16 -- fatturazione dell'operatore extra", () => {
     await page.goto("/dashboard/configura");
     await page.locator("#nome_operatore").fill("Seconda");
     await page.getByRole("button", { name: "Aggiungi" }).first().click();
-    await expect(page.getByText("Seconda")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Seconda").first()).toBeVisible({ timeout: 15_000 });
 
     await expect
       .poll(async () => (await abbonamento!.leggiItem()).map((i) => i.priceId), { timeout: 15_000 })

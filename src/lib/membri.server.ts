@@ -118,13 +118,29 @@ export async function cambiaSedeAttiva(
 export async function elencaMembri(tenantId: string): Promise<MembroAttivita[]> {
   const admin = creaClientAdmin();
 
+  // Niente join annidato `profiles ( nome )` qui: `membri_tenant.user_id`
+  // punta a `auth.users`, non a `profiles`, quindi PostgREST non ha nessuna
+  // foreign key da attraversare fra le due tabelle e fallisce l'INTERA query
+  // -- restituendo una lista vuota invece di un errore visibile, cioè una
+  // pagina Team che dice "nessuno lavora qui" mentre il database dice il
+  // contrario. Scoperto dallo Scenario 19 il 16/09/2026, non in produzione.
+  // I nomi si leggono con una seconda query esplicita.
   const { data, error } = await admin
     .from("membri_tenant")
-    .select("user_id, ruolo, created_at, profiles ( nome )")
+    .select("user_id, ruolo, created_at")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: true });
 
   if (error || !data) return [];
+
+  const idMembri = data.map((riga) => riga.user_id as string);
+  const nomePerUtente = new Map<string, string | null>();
+  if (idMembri.length > 0) {
+    const { data: profili } = await admin.from("profiles").select("id, nome").in("id", idMembri);
+    for (const profilo of profili ?? []) {
+      nomePerUtente.set(profilo.id as string, (profilo.nome as string) ?? null);
+    }
+  }
 
   // L'email non sta in `profiles` ma in auth.users: si legge una volta sola
   // per l'elenco, non una chiamata per riga.
@@ -134,16 +150,13 @@ export async function elencaMembri(tenantId: string): Promise<MembroAttivita[]> 
     emailPerUtente.set(utente.id, utente.email ?? null);
   }
 
-  return data.map((riga) => {
-    const profilo = riga.profiles as unknown as { nome: string | null } | null;
-    return {
-      userId: riga.user_id as string,
-      nome: profilo?.nome ?? null,
-      email: emailPerUtente.get(riga.user_id as string) ?? null,
-      ruolo: normalizzaRuolo(riga.ruolo as string),
-      daQuando: riga.created_at as string,
-    };
-  });
+  return data.map((riga) => ({
+    userId: riga.user_id as string,
+    nome: nomePerUtente.get(riga.user_id as string) ?? null,
+    email: emailPerUtente.get(riga.user_id as string) ?? null,
+    ruolo: normalizzaRuolo(riga.ruolo as string),
+    daQuando: riga.created_at as string,
+  }));
 }
 
 export async function elencaInvitiPendenti(tenantId: string): Promise<InvitoPendente[]> {

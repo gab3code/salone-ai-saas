@@ -64,13 +64,20 @@ export async function creaMembroDiProva(
     throw new Error(`Impossibile impostare la sede attiva del membro: ${erroreProfilo.message}`);
   }
 
+  // L'attività "di scarto" creata dal trigger va tolta SUBITO, non alla
+  // pulizia finale: finché esiste, questa persona risulta membro di DUE
+  // attività e la dashboard le mostra il selettore di sede -- uno stato che
+  // in produzione non ha, e che falsa gli scenari (visto dal vivo il
+  // 16/09/2026: lo Scenario 19 trovava due elementi con scritto
+  // "collaboratore", uno dei quali era un'opzione del selettore).
+  // A questo punto `profiles.tenant_id` punta già al tenant vero, quindi la
+  // cancellazione non tocca il profilo (foreign key `set null`, migrazione
+  // 0029) e si porta via a cascata orari e regole promemoria.
+  if (tenantDiScarto && tenantDiScarto !== tenantId) {
+    await supabase.from("tenants").delete().eq("id", tenantDiScarto);
+  }
+
   async function pulisci() {
-    if (tenantDiScarto && tenantDiScarto !== tenantId) {
-      await supabase.from("orari_apertura").delete().eq("tenant_id", tenantDiScarto);
-      await supabase.from("regole_promemoria").delete().eq("tenant_id", tenantDiScarto);
-      await supabase.from("profiles").delete().eq("tenant_id", tenantDiScarto);
-      await supabase.from("tenants").delete().eq("id", tenantDiScarto);
-    }
     // `membri_tenant` sparisce da sé (on delete cascade su auth.users).
     await supabase.auth.admin.deleteUser(utenteId);
   }
