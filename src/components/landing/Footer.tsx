@@ -42,6 +42,13 @@ export function Footer() {
           <a href="/cookie" className="transition-colors hover:text-white">
             Cookie
           </a>
+          {/* Accordo sul trattamento (art. 28 GDPR, 16/09/2026): linkato dal
+              footer perche' si applica a chiunque usi il servizio, non solo a
+              chi lo chiede -- ed e' la prima cosa che cerca un cliente
+              strutturato prima di affidarci i dati dei suoi clienti. */}
+          <a href="/trattamento-dati" className="transition-colors hover:text-white">
+            Trattamento dati
+          </a>
         </div>
       </div>
     </footer>

@@ -85,18 +85,41 @@ export default function PaginaPrivacy() {
       </P>
 
       <H2>Chi riceve i tuoi dati (fornitori terzi)</H2>
-      <P>Ci appoggiamo ad alcuni fornitori specializzati, ognuno con il proprio ruolo:</P>
+      <P>
+        Ci appoggiamo ad alcuni fornitori specializzati, che agiscono come sub-responsabili del trattamento.
+        Questo è l&apos;elenco completo e aggiornato: se un domani se ne aggiunge uno, lo comunichiamo alle
+        attività che usano Salone AI prima che inizi a trattare dati, e chi non è d&apos;accordo può opporsi.
+      </P>
       <Ul>
         <li>
-          <strong className="text-white">Supabase</strong> (database e autenticazione), infrastruttura nella
-          regione UE (Irlanda, eu-west-1).
+          <strong className="text-white">Supabase</strong> (database, autenticazione e archiviazione delle
+          immagini): infrastruttura nella regione UE, Irlanda (eu-west-1).
         </li>
         <li>
-          <strong className="text-white">Stripe</strong> (pagamenti), che può trattare dati anche fuori dall&apos;UE
-          sulla base di clausole contrattuali standard approvate dalla Commissione Europea.
+          <strong className="text-white">Vercel</strong> (hosting dell&apos;applicazione ed esecuzione del codice
+          che serve le pagine): società statunitense.
         </li>
         <li>
-          <strong className="text-white">Mailjet</strong> (invio email transazionali di conferma/notifica).
+          <strong className="text-white">Anthropic</strong> (il modello che fa funzionare l&apos;assistente AI):
+          società statunitense. Quando un cliente parla con l&apos;assistente, il contenuto della conversazione --
+          che può contenere nome, numero di telefono e richieste di appuntamento -- viene inviato ad Anthropic
+          per generare la risposta. Anthropic non usa quei contenuti per addestrare i propri modelli.
+        </li>
+        <li>
+          <strong className="text-white">Stripe</strong> (pagamenti dell&apos;abbonamento e delle caparre): può
+          trattare dati anche fuori dall&apos;UE. Salone AI non vede né memorizza mai i dati della carta.
+        </li>
+        <li>
+          <strong className="text-white">Mailjet</strong> (invio delle email di conferma, promemoria e richiesta
+          di recensione).
+        </li>
+        <li>
+          <strong className="text-white">Skebby</strong> (invio degli SMS, usati solo come alternativa quando un
+          cliente non ha lasciato un&apos;email): società italiana.
+        </li>
+        <li>
+          <strong className="text-white">Upstash</strong> (programmazione dei messaggi differiti, per esempio la
+          richiesta di recensione qualche ora dopo l&apos;appuntamento).
         </li>
         <li>
           <strong className="text-white">Google</strong> (solo se colleghi volontariamente il tuo Google Calendar).
@@ -108,11 +131,38 @@ export default function PaginaPrivacy() {
       </Ul>
       <P>Nessuno di questi fornitori è autorizzato a usare i tuoi dati per scopi propri.</P>
 
-      <H2>Per quanto tempo conserviamo i dati</H2>
+      <H2>Trasferimenti fuori dall&apos;Unione Europea</H2>
       <P>
-        Per tutta la durata del tuo account, più il tempo necessario ad adempiere obblighi di legge (es. fiscali)
-        dopo la sua chiusura. Se cancelli l&apos;account, i dati vengono cancellati o anonimizzati entro un tempo
-        ragionevole, salvo quanto la legge richiede di conservare più a lungo.
+        Il database, dove vivono i dati tuoi e dei tuoi clienti, è in Irlanda: non lascia l&apos;Unione Europea.
+        Alcuni dei fornitori elencati sopra sono però società statunitensi -- in particolare Anthropic, Vercel e
+        Stripe -- e per quei trasferimenti ci appoggiamo alle clausole contrattuali standard approvate dalla
+        Commissione Europea, previste dall&apos;art. 46 del GDPR.
+      </P>
+
+      <H2>Per quanto tempo conserviamo i dati</H2>
+      <Ul>
+        <li>
+          <strong className="text-white">Dati di account e dell&apos;attività</strong>: per tutta la durata
+          dell&apos;abbonamento. Alla chiusura dell&apos;account vengono cancellati entro 30 giorni.
+        </li>
+        <li>
+          <strong className="text-white">Dati dei clienti finali e appuntamenti</strong>: finché l&apos;attività
+          li tiene nel proprio CRM. Sono dati suoi, e la decisione di cancellarli è sua -- alla chiusura
+          dell&apos;account vengono cancellati insieme al resto.
+        </li>
+        <li>
+          <strong className="text-white">Documenti fiscali e di fatturazione</strong>: 10 anni, come impone la
+          legge italiana. Questi restano anche dopo la cancellazione dell&apos;account, ed è l&apos;unica
+          eccezione.
+        </li>
+        <li>
+          <strong className="text-white">Log tecnici</strong>: pochi giorni, il tempo di diagnosticare un
+          problema.
+        </li>
+      </Ul>
+      <P>
+        La cancellazione è reale, non una disattivazione: la riga sparisce dal database e con lei tutto quello che
+        vi era collegato, comprese le foto caricate.
       </P>
 
       <H2>I tuoi diritti</H2>
