@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
+import { puoConfigurareAttivita } from "@/lib/ruoli";
 import { collegaCaldav, scollegaCalendario } from "@/lib/calendario-esterno/collegamenti.server";
 
 /**
@@ -13,8 +14,9 @@ import { collegaCaldav, scollegaCalendario } from "@/lib/calendario-esterno/coll
 
 export async function collegaCalendarioApple(formData: FormData) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessun salone associato a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const operatoreId = String(formData.get("operatore_id") || "");
   const username = String(formData.get("apple_id") || "").trim();
@@ -38,8 +40,9 @@ export async function collegaCalendarioApple(formData: FormData) {
 
 export async function scollegaCalendarioAzione(collegamentoId: string) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessun salone associato a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const risultato = await scollegaCalendario(supabase, tenantId, collegamentoId);
   revalidatePath("/dashboard/impostazioni/calendari");

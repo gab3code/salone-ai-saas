@@ -44,7 +44,12 @@ describe("sincronizzaAbbonamento", () => {
 
   it("un abbonamento attivo aggiorna piano e stato in base al Price ID reale", async () => {
     const supabase = creaSupabaseFinto({
-      tenants: { update: [{ data: null, error: null }] },
+      tenants: {
+        // Lettura di `piano_manuale` (migrazione 0028): false = il tenant è
+        // gestito da Stripe come sempre.
+        select: [{ data: { piano_manuale: false }, error: null }],
+        update: [{ data: null, error: null }],
+      },
     });
 
     await sincronizzaAbbonamento(supabase, subscriptionFinta({ status: "active" }));
@@ -56,7 +61,12 @@ describe("sincronizzaAbbonamento", () => {
 
   it("un abbonamento cancellato riporta SEMPRE il tenant a Free, anche se il Price ID è ancora quello di Pro", async () => {
     const supabase = creaSupabaseFinto({
-      tenants: { update: [{ data: null, error: null }] },
+      tenants: {
+        // Lettura di `piano_manuale` (migrazione 0028): false = il tenant è
+        // gestito da Stripe come sempre.
+        select: [{ data: { piano_manuale: false }, error: null }],
+        update: [{ data: null, error: null }],
+      },
     });
 
     await sincronizzaAbbonamento(
@@ -71,7 +81,12 @@ describe("sincronizzaAbbonamento", () => {
 
   it("un Price ID non riconosciuto (non ancora mappato in env) aggiorna lo stato ma NON tocca il piano esistente", async () => {
     const supabase = creaSupabaseFinto({
-      tenants: { update: [{ data: null, error: null }] },
+      tenants: {
+        // Lettura di `piano_manuale` (migrazione 0028): false = il tenant è
+        // gestito da Stripe come sempre.
+        select: [{ data: { piano_manuale: false }, error: null }],
+        update: [{ data: null, error: null }],
+      },
     });
 
     await sincronizzaAbbonamento(
@@ -84,7 +99,12 @@ describe("sincronizzaAbbonamento", () => {
 
   it("un abbonamento Pro con 2 line item (base + operatore extra) riconosce il piano anche se il Price base NON è il primo dell'array", async () => {
     const supabase = creaSupabaseFinto({
-      tenants: { update: [{ data: null, error: null }] },
+      tenants: {
+        // Lettura di `piano_manuale` (migrazione 0028): false = il tenant è
+        // gestito da Stripe come sempre.
+        select: [{ data: { piano_manuale: false }, error: null }],
+        update: [{ data: null, error: null }],
+      },
     });
 
     await sincronizzaAbbonamento(
@@ -106,5 +126,18 @@ describe("sincronizzaAbbonamento", () => {
     expect(supabase.registro.update).toEqual([
       { tabella: "tenants", payload: { stato_abbonamento: "attivo", piano: "pro" } },
     ]);
+  });
+  it("un tenant con piano gestito a mano NON viene toccato da Stripe (migrazione 0028)", async () => {
+    // Il caso per cui esiste `piano_manuale`: Enterprise è a preventivo e gli
+    // account omaggio non hanno un abbonamento Stripe che dica la verità sul
+    // loro piano. Senza questa guardia, il primo evento della loro vecchia
+    // subscription li riporterebbe a free da solo.
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [{ data: { piano_manuale: true }, error: null }] },
+    });
+
+    await sincronizzaAbbonamento(supabase, subscriptionFinta({ status: "canceled" }));
+
+    expect(supabase.registro.update).toEqual([]);
   });
 });

@@ -1,0 +1,94 @@
+import { test, expect } from "@playwright/test";
+import { creaTenantDiProva, type TenantDiProva } from "./helpers/tenant-di-prova";
+import { accediComeTitolare } from "./helpers/login";
+import { creaAbbonamentoDiProva, type AbbonamentoDiProva } from "./helpers/abbonamento-di-prova";
+import { priceIdOperatoreExtra } from "@/lib/stripe/piani";
+
+/**
+ * Scenario 17 (Fase 5, 16/09/2026): quando un salone cambia piano, la riga
+ * "operatore extra" del piano vecchio viene SOSTITUITA da quella del piano
+ * nuovo, non affiancata.
+ *
+ * È il caso più facile da sbagliare di tutta la fatturazione per operatore,
+ * ed è nato il giorno stesso in cui la quota è passata da una sola cifra
+ * (20€ su Pro) a tre diverse (10/15/20). Un salone che passa da Starter a
+ * Growth con 3 operatori si porta dietro la riga da 10€: se la
+ * sincronizzazione cerca solo il price del piano ATTUALE, non la riconosce,
+ * ne aggiunge una seconda da 15€ e il cliente si ritrova a pagare entrambe.
+ * Da qui `tuttiPriceIdOperatoreExtra()` in stripe/piani.ts, di cui questo
+ * scenario è la verifica dal vivo.
+ */
+test.describe("Scenario 17 -- cambio piano e quota per operatore", () => {
+  let tenant: TenantDiProva;
+  let abbonamento: AbbonamentoDiProva | null = null;
+
+  test.afterEach(async () => {
+    await abbonamento?.pulisci();
+    abbonamento = null;
+    await tenant?.pulisci();
+  });
+
+  test("da Starter a Growth la quota da 10€ sparisce e resta solo quella da 15€", async ({ page }) => {
+    const priceExtraStarter = priceIdOperatoreExtra("starter");
+    const priceExtraGrowth = priceIdOperatoreExtra("growth");
+    expect(priceExtraStarter, "serve STRIPE_PRICE_STARTER_OPERATORE_EXTRA in .env.local").toBeTruthy();
+    expect(priceExtraGrowth, "serve STRIPE_PRICE_GROWTH_OPERATORE_EXTRA in .env.local").toBeTruthy();
+
+    tenant = await creaTenantDiProva({
+      nome: "Salone Test E2E Scenario17",
+      piano: "starter",
+      servizi: [{ nome: "Taglio", durataMinuti: 30, prezzoCentesimi: 2500 }],
+      operatori: [{ nome: "Prima", servizi: [0] }],
+    });
+
+    abbonamento = await creaAbbonamentoDiProva("starter", "Scenario17");
+    await tenant.supabase
+      .from("tenants")
+      .update({ stripe_subscription_id: abbonamento.subscriptionId })
+      .eq("id", tenant.id);
+
+    await accediComeTitolare(page, tenant.email, tenant.password);
+    await page.goto("/dashboard/configura");
+
+    // Si parte da un salone Starter con 2 operatori: 1 quota da 10€.
+    await page.locator("#nome_operatore").fill("Seconda");
+    await page.getByRole("button", { name: "Aggiungi" }).first().click();
+    await expect(page.getByText("Seconda")).toBeVisible({ timeout: 15_000 });
+
+    await expect
+      .poll(async () => (await abbonamento!.leggiItem()).map((i) => i.priceId), { timeout: 15_000 })
+      .toContain(priceExtraStarter!);
+
+    // Il salone passa a Growth. Nella realtà lo fa il webhook Stripe
+    // (`sincronizzaAbbonamento`), che scrive solo `piano`/`stato_abbonamento`
+    // sul tenant senza toccare i line item: quindi scriverlo qui riproduce
+    // esattamente lo stato in cui il sistema si trova subito dopo un upgrade
+    // reale, con la riga del piano vecchio ancora attaccata.
+    await tenant.supabase.from("tenants").update({ piano: "growth" }).eq("id", tenant.id);
+
+    // Prima occasione utile in cui la sincronizzazione rigira: un altro
+    // operatore. È anche il caso peggiore -- la quantità cambia E il price
+    // cambia nello stesso giro.
+    await page.reload();
+    await page.locator("#nome_operatore").fill("Terza");
+    await page.getByRole("button", { name: "Aggiungi" }).first().click();
+    await expect(page.getByText("Terza")).toBeVisible({ timeout: 15_000 });
+
+    await expect
+      .poll(
+        async () => {
+          const item = await abbonamento!.leggiItem();
+          return {
+            starter: item.some((i) => i.priceId === priceExtraStarter),
+            growth: item.find((i) => i.priceId === priceExtraGrowth)?.quantita ?? null,
+          };
+        },
+        {
+          timeout: 20_000,
+          message:
+            "dopo il passaggio a Growth deve restare SOLO la quota da 15€, con la quantità giusta -- mai le due insieme",
+        }
+      )
+      .toEqual({ starter: false, growth: 2 });
+  });
+});

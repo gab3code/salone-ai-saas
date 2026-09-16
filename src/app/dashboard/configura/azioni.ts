@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
+import { puoConfigurareAttivita } from "@/lib/ruoli";
 import { limiteOperatori } from "@/lib/piani";
 import { sincronizzaQuantitaOperatoriStripe } from "@/lib/stripe/operatori.server";
 
@@ -17,8 +18,9 @@ const GIORNI = [0, 1, 2, 3, 4, 5, 6] as const;
 
 export async function salvaOrari(formData: FormData) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessun salone associato a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const righe = GIORNI.map((giorno) => {
     const chiuso = formData.get(`chiuso_${giorno}`) === "on";
@@ -49,8 +51,9 @@ export async function salvaOrari(formData: FormData) {
 
 export async function creaOperatore(formData: FormData) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessun salone associato a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const nome = String(formData.get("nome") || "").trim();
   if (!nome) return { errore: "Il nome dell'operatore è obbligatorio." };
@@ -93,7 +96,7 @@ export async function creaOperatore(formData: FormData) {
   if (error) return { errore: `Errore creando l'operatore: ${error.message}` };
 
   // Su Pro il prezzo scala con gli operatori (il prezzo base include il
-  // primo, poi 20€/mese ciascuno, vedi priceIdOperatoreExtraPro in
+  // primo, poi 10/15/20€ ciascuno a seconda del piano, vedi priceIdOperatoreExtra in
   // stripe/piani.ts) --
   // DOPO che la scrittura sopra è già andata a buon fine, mai prima (fail-open,
   // vedi il docblock della funzione).
@@ -105,11 +108,14 @@ export async function creaOperatore(formData: FormData) {
 
 export async function eliminaOperatore(id: string) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
+
   const { error } = await supabase.from("operatori").delete().eq("id", id);
   if (error) return { errore: `Errore eliminando l'operatore: ${error.message}` };
 
-  if (tenantId) await sincronizzaQuantitaOperatoriStripe(supabase, tenantId);
+  await sincronizzaQuantitaOperatoriStripe(supabase, tenantId);
 
   revalidatePath("/dashboard/configura");
   return { ok: true };
@@ -117,8 +123,9 @@ export async function eliminaOperatore(id: string) {
 
 export async function creaServizio(formData: FormData) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessun salone associato a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const nome = String(formData.get("nome") || "").trim();
   const durataMinuti = Number(formData.get("durata_minuti") || 0);
@@ -151,6 +158,9 @@ export async function creaServizio(formData: FormData) {
 
 export async function eliminaServizio(id: string) {
   const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+
   const { error } = await supabase.from("servizi").delete().eq("id", id);
   if (error) return { errore: `Errore eliminando il servizio: ${error.message}` };
   revalidatePath("/dashboard/configura");
@@ -169,6 +179,8 @@ export async function impostaAssociazioneOperatoreServizio(
   associato: boolean
 ) {
   const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
 
   if (associato) {
     const { error } = await supabase

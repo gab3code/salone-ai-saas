@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
 import { generaBozzaOnboarding } from "@/lib/onboarding-ai.server";
 import type { BozzaOnboarding } from "@/lib/onboarding-ai";
 import { creaOperatore, creaServizio, impostaAssociazioneOperatoreServizio, salvaOrari } from "./azioni";
@@ -18,7 +18,10 @@ import { applicaBozzaOnboarding, generaBozzaOnboardingAction } from "./onboardin
  * onboarding-ai.server.test.ts.
  */
 vi.mock("@/lib/supabase/server", () => ({ creaClientServer: vi.fn() }));
-vi.mock("@/lib/supabase/tenant", () => ({ ottieniTenantCorrente: vi.fn() }));
+vi.mock("@/lib/supabase/tenant", () => ({
+  ottieniTenantCorrente: vi.fn(),
+  ottieniSessioneTenant: vi.fn(),
+}));
 vi.mock("@/lib/onboarding-ai.server", () => ({ generaBozzaOnboarding: vi.fn() }));
 vi.mock("./azioni", () => ({
   salvaOrari: vi.fn().mockResolvedValue({ ok: true }),
@@ -66,7 +69,12 @@ function supabaseFinto(rigaTenant: Record<string, unknown> | null) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(ottieniTenantCorrente).mockResolvedValue(TENANT_ID);
+  vi.mocked(ottieniSessioneTenant).mockResolvedValue({
+    userId: "utente-1",
+    tenantId: TENANT_ID,
+    ruolo: "owner",
+    ruoloProfilo: "owner",
+  });
 });
 
 describe("generaBozzaOnboardingAction", () => {
@@ -89,7 +97,7 @@ describe("generaBozzaOnboardingAction", () => {
   });
 
   it("restituisce un errore gestito se non c'è un tenant associato, senza chiamare il modello", async () => {
-    vi.mocked(ottieniTenantCorrente).mockResolvedValue(null);
+    vi.mocked(ottieniSessioneTenant).mockResolvedValue(null);
     vi.mocked(creaClientServer).mockResolvedValue(supabaseFinto(null));
 
     const risultato = await generaBozzaOnboardingAction("Test");

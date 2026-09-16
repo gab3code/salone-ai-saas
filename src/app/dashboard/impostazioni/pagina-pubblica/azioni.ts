@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
+import { puoConfigurareAttivita } from "@/lib/ruoli";
 import {
   BUCKET_MEDIA_TENANT,
   colonnaUrlMedia,
@@ -27,8 +28,9 @@ const PERCORSO = "/dashboard/impostazioni/pagina-pubblica";
  */
 export async function caricaMediaTenant(tipo: TipoMediaTenant, formData: FormData) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessuna attività associata a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -70,8 +72,9 @@ export async function caricaMediaTenant(tipo: TipoMediaTenant, formData: FormDat
  * solo al prossimo upload dello stesso tipo). */
 export async function rimuoviMediaTenant(tipo: TipoMediaTenant) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessuna attività associata a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const { data: tenantAggiornato, error } = await supabase
     .from("tenants")

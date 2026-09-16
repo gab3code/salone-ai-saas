@@ -36,7 +36,7 @@ import { LiquidMetal } from "./LiquidMetal";
  * più (deciso con Gabriel dopo aver introdotto l'SMS come canale di
  * fallback -- il costo Skebby reale scala con quanti appuntamenti/promemoria
  * un salone genera, che scala a sua volta con gli operatori, vedi
- * DECISIONS.md e priceIdOperatoreExtraPro in stripe/piani.ts). `notaPrezzo`
+ * DECISIONS.md e priceIdOperatoreExtra in stripe/piani.ts). `notaPrezzo`
  * sotto rende esplicita questa condizione, altrimenti "€xx,90/mese" letto da
  * solo sarebbe una promessa scritta diversa da quella che il checkout
  * applica davvero (stesso principio del controllo promesse del sito del
@@ -72,9 +72,25 @@ const PIANI = [
     nome: "Starter",
     prezzo: "€19,90",
     periodo: "/mese",
-    descrizione: "Quando il salone cresce.",
-    voci: ["Prenotazioni illimitate", "Operatori illimitati", "CRM completo"],
+    // Aggiornamento 16/09/2026: la descrizione era "Quando il salone cresce",
+    // che però descrive Growth -- crescere è esattamente il momento in cui
+    // serve l'assistente. E nessuna delle tre voci di prima ("prenotazioni
+    // illimitate, operatori illimitati, CRM completo") era un motivo per
+    // pagare 19,90€ invece di usare Fresha gratis, che quelle cose le dà.
+    // Il motivo vero -- zero commissioni, nessun marketplace, i clienti
+    // restano del salone e non devono scaricare nessuna app -- non era
+    // scritto nella scheda ma solo sparso nel resto della pagina.
+    descrizione: "Il gestionale, senza l'AI.",
+    voci: [
+      "Zero commissioni sulle prenotazioni",
+      "I tuoi clienti restano tuoi, nessuna app da far scaricare",
+      "Prenotazioni illimitate",
+      "Operatori illimitati",
+      "CRM completo",
+      "Accessi per il personale, con permessi",
+    ],
     consigliato: false,
+    notaPrezzo: "1 operatore incluso, +10€/mese ciascuno in più",
   },
   {
     nome: "Growth",
@@ -83,6 +99,7 @@ const PIANI = [
     descrizione: "Con l'assistente AI.",
     voci: ["Tutto di Starter", "Assistente AI via chat web", "Analytics", "Promemoria automatici"],
     consigliato: true,
+    notaPrezzo: "1 operatore incluso, +15€/mese ciascuno in più",
     // 10 giorni di prova prima del primo addebito (decisione con Gabriel
     // dell'11/09/2026, vedi giorniDiProva in src/lib/stripe/piani.ts).
     // Ristretto al solo Growth il 12/09/2026 (richiesta di Gabriel: "metti
@@ -117,7 +134,25 @@ const PIANI = [
     prezzo: "Su misura",
     periodo: "",
     descrizione: "Per catene e gruppi.",
-    voci: ["Tutto di Pro", "Multi-sede e ruoli avanzati", "App installabile (PWA)", "Supporto dedicato"],
+    // Aggiornamento 16/09/2026 (Fase 5, migrazione 0027): "Multi-sede e
+    // ruoli avanzati" era una promessa senza niente sotto. Ora esiste
+    // davvero, ma non nella forma che quella riga lasciava immaginare, e le
+    // due voci separate dicono esattamente cosa si compra:
+    //   - "Più sedi, un solo accesso": ogni sede resta un'attività a sé (con
+    //     la sua pagina pubblica, i suoi orari, il suo personale) e un unico
+    //     account ci passa in mezzo con un selettore. La seconda sede la
+    //     collega Gabriel in fase di onboarding, che su un piano "su misura"
+    //     è esattamente come deve funzionare -- non c'è un pulsante
+    //     self-service, e non va promesso.
+    //   - "Ruoli e permessi": owner/staff applicati per davvero (vedi
+    //     src/lib/ruoli.ts) -- un collaboratore lavora sull'agenda ma non
+    //     vede il fatturato, non cambia prezzi e non tocca l'abbonamento.
+    voci: [
+      "Tutto di Pro",
+      "Più sedi, un solo accesso",
+      "App installabile (PWA)",
+      "Supporto dedicato",
+    ],
     consigliato: false,
   },
 ];

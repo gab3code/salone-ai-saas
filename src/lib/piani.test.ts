@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   limiteMensilePrenotazioni,
   limiteMensileSms,
+  limiteMembri,
   limiteOperatori,
   pianoHaAnalytics,
   pianoHaKnowledgeBaseAi,
   pianoHaListaAttesaAutomatica,
   pianoHaSms,
+  pianoHaTeam,
 } from "./piani";
 
 describe("limiteMensilePrenotazioni", () => {
@@ -125,5 +127,41 @@ describe("pianoHaKnowledgeBaseAi", () => {
 
   it("un piano sconosciuto/malformato non ha accesso -- fail-closed, stesso principio di pianoHaAnalytics", () => {
     expect(pianoHaKnowledgeBaseAi("qualcosa-di-strano")).toBe(false);
+  });
+});
+
+describe("limiteMembri / pianoHaTeam (Fase 5, deciso con Gabriel il 16/09/2026)", () => {
+  it("ogni piano a pagamento può dare accessi al personale", () => {
+    // Il personale è già monetizzato dalla quota per operatore (10/15/20€,
+    // vedi priceIdOperatoreExtra in stripe/piani.ts): mettere ANCHE un tetto
+    // agli accessi vorrebbe dire far pagare due volte la stessa cosa.
+    for (const piano of ["starter", "growth", "pro", "enterprise"]) {
+      expect(limiteMembri(piano)).toBe(Infinity);
+      expect(pianoHaTeam(piano)).toBe(true);
+    }
+  });
+
+  it("Free resta a un solo accesso -- è già un piano da una persona sola", () => {
+    expect(limiteMembri("free")).toBe(1);
+    expect(pianoHaTeam("free")).toBe(false);
+  });
+
+  it("un piano sconosciuto NON viene limitato -- fail-open, al contrario dei gate di funzione", () => {
+    // Scelta deliberata e opposta a pianoHaAnalytics/pianoHaSms: qui un piano
+    // illeggibile non deve impedire a un titolare legittimo di invitare un
+    // collaboratore che sta già lavorando. Stesso principio di
+    // `limiteOperatori`, che per un piano sconosciuto restituisce Infinity.
+    expect(limiteMembri("qualcosa-di-strano")).toBe(Infinity);
+    expect(limiteOperatori("qualcosa-di-strano")).toBe(Infinity);
+  });
+
+  it("un membro non è un operatore: su Starter gli operatori sono illimitati come record, ma ognuno oltre il primo si paga", () => {
+    // Confusione facile e costosa da chiarire una volta sola: "operatore" è un
+    // record dell'agenda (nessun tetto da Starter in su), "membro" è un
+    // account che entra in dashboard. Quello che scala col personale è il
+    // PREZZO, non un limite.
+    expect(limiteOperatori("starter")).toBe(Infinity);
+    expect(limiteMembri("starter")).toBe(Infinity);
+    expect(limiteOperatori("free")).toBe(1);
   });
 });

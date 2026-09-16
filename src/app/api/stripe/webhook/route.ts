@@ -130,12 +130,27 @@ export async function POST(request: NextRequest) {
         const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
         if (tenantId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+          // Piano gestito a mano dal pannello admin (migrazione 0028): si
+          // salva comunque l'id della subscription -- serve al Customer
+          // Portal e alla sincronizzazione futura -- ma piano e stato
+          // restano quelli decisi da Gabriel.
+          const { data: tenantEsistente } = await admin
+            .from("tenants")
+            .select("piano_manuale")
+            .eq("id", tenantId)
+            .maybeSingle();
+
           await admin
             .from("tenants")
             .update({
               stripe_subscription_id: subscription.id,
-              stato_abbonamento: statoAbbonamentoDaStripe(subscription.status),
-              ...(session.metadata?.piano ? { piano: session.metadata.piano } : {}),
+              ...(tenantEsistente?.piano_manuale
+                ? {}
+                : {
+                    stato_abbonamento: statoAbbonamentoDaStripe(subscription.status),
+                    ...(session.metadata?.piano ? { piano: session.metadata.piano } : {}),
+                  }),
             })
             .eq("id", tenantId);
         }

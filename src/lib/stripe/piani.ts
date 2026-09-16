@@ -53,20 +53,59 @@ export function priceIdPerPiano(piano: PianoPagante): string {
 }
 
 /**
- * Price ID del secondo line item su Pro: "operatore extra" (Fase 5+SMS,
- * deciso con Gabriel il 14/09/2026 -- vedi DECISIONS.md per il ragionamento
- * completo sul perché il costo SMS reale per operatore ha reso necessario
- * far pagare di più i saloni Pro con più operatori). Il prezzo base include
- * 1 operatore, ognuno oltre il primo costa 20€/mese in più. Prodotto/Price
- * separato dal Price base di Pro (non una fascia di quantità sullo stesso
- * Price) apposta: sono concettualmente due cose diverse (abbonamento base +
- * add-on quantificabile), e Stripe fattura più chiaramente così sulla
- * ricevuta del cliente. Usata SOLO per Pro -- Starter/Growth/Enterprise non
- * hanno operatori a pagamento extra (Starter/Growth: operatori illimitati
- * già nel prezzo base, vedi Prezzi.tsx; Enterprise: a preventivo).
+ * Price ID del secondo line item, "operatore extra": il prezzo base include
+ * 1 operatore, ognuno oltre il primo costa una quota fissa in più.
+ *
+ * Storia, perché il perimetro è cambiato due volte:
+ *  - 14/09/2026: introdotto SOLO su Pro, a 20€/operatore, per il costo SMS
+ *    reale (Skebby) che scala con gli appuntamenti, che scalano con gli
+ *    operatori -- vedi DECISIONS.md.
+ *  - 16/09/2026: esteso a Starter (10€) e Growth (15€) su richiesta di
+ *    Gabriel, dopo che era emersa l'asimmetria rimasta aperta su Starter
+ *    ("operatori illimitati" a 19,90€ a prescindere da quanti sono).
+ *    Attenzione: su Starter e Growth NON c'è nessun costo SMS da recuperare
+ *    (`PIANI_CON_SMS` è solo pro/enterprise), quindi quelle due quote sono
+ *    quasi interamente margine. Non è recupero di costo, è cattura di valore
+ *    per posto di lavoro -- lo stesso modello di Booksy, che fa pagare per
+ *    operatore già dal piano d'ingresso. Le cifre sono più basse proprio
+ *    perché il costo sottostante non c'è.
+ *
+ * Prodotto/Price separato dal Price base (non una fascia di quantità sullo
+ * stesso Price) apposta: sono due cose diverse (abbonamento base + add-on
+ * quantificabile) e Stripe le fattura più chiaramente così sulla ricevuta.
+ *
+ * Restituisce `null` invece di lanciare quando la variabile non c'è: le
+ * quote di Starter e Growth richiedono due Price nuovi che Gabriel deve
+ * creare a mano su Stripe (Claude non può creare oggetti su un account
+ * Stripe, vedi il commento in testa al file). Finché non esistono, quei due
+ * piani semplicemente non hanno l'add-on e tutto il resto continua a
+ * funzionare -- meglio di un errore che blocca la creazione di un operatore.
  */
-export function priceIdOperatoreExtraPro(): string {
-  return priceIdDaEnv(process.env.STRIPE_PRICE_PRO_OPERATORE_EXTRA, "STRIPE_PRICE_PRO_OPERATORE_EXTRA");
+export function priceIdOperatoreExtra(piano: PianoPagante): string | null {
+  switch (piano) {
+    case "starter":
+      return process.env.STRIPE_PRICE_STARTER_OPERATORE_EXTRA || null;
+    case "growth":
+      return process.env.STRIPE_PRICE_GROWTH_OPERATORE_EXTRA || null;
+    case "pro":
+      return process.env.STRIPE_PRICE_PRO_OPERATORE_EXTRA || null;
+  }
+}
+
+/**
+ * Tutti i Price ID "operatore extra" configurati, qualunque piano.
+ *
+ * Serve a riconoscere un add-on GIÀ presente su un abbonamento anche quando
+ * appartiene a un piano diverso da quello attuale: un salone che passa da
+ * Starter a Growth con 4 operatori si porta dietro la riga "operatore extra
+ * Starter" a 10€, e senza questo elenco la sincronizzazione non la
+ * riconoscerebbe come add-on da sostituire -- continuerebbe a pagare 10€
+ * invece di 15€, aggiungendo una seconda riga accanto alla prima.
+ */
+export function tuttiPriceIdOperatoreExtra(): string[] {
+  return PIANI_PAGANTI.map((piano) => priceIdOperatoreExtra(piano)).filter(
+    (id): id is string => id !== null
+  );
 }
 
 // Trial prima del primo addebito, SOLO su Growth (decisione con Gabriel

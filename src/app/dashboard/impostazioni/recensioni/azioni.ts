@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
+import { puoConfigurareAttivita } from "@/lib/ruoli";
 import { rispondiRecensioneTenant } from "@/lib/recensioni.server";
 
 /**
@@ -14,8 +15,9 @@ import { rispondiRecensioneTenant } from "@/lib/recensioni.server";
  */
 export async function aggiornaToggleRecensioni(formData: FormData) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessuna attività associata a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const attivo = formData.get("attivo") === "on";
 
@@ -34,8 +36,9 @@ export async function aggiornaToggleRecensioni(formData: FormData) {
  */
 export async function rispondiRecensione(recensioneId: string, risposta: string) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessuna attività associata a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const risultato = await rispondiRecensioneTenant(tenantId, recensioneId, risposta);
   revalidatePath("/dashboard/impostazioni/recensioni");

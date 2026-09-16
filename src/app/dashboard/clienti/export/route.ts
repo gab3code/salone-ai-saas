@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
+import { puoEsportareClienti, ERRORE_PERMESSO_NEGATO } from "@/lib/ruoli";
 import { elencaClientiInattivi } from "@/lib/metriche";
 import { clientiACsv } from "@/lib/csv";
 import { originePerCliente } from "@/lib/origine-cliente";
@@ -14,17 +15,26 @@ import { originePerCliente } from "@/lib/origine-cliente";
  * scaricare un file vero con `Content-Disposition: attachment`, non ricevere
  * una risposta JSON.
  *
- * Autenticazione: `ottieniTenantCorrente` verifica già l'utente loggato al
+ * Autenticazione: `ottieniSessioneTenant` verifica già l'utente loggato al
  * suo interno (vedi supabase/tenant.ts) -- nessun controllo duplicato qui.
  * RLS resta comunque la rete di sicurezza finale sulla query sotto, come in
  * ogni altra pagina della dashboard.
+ *
+ * Riservato al titolare (Fase 5, migrazione 0027): lo staff i clienti li
+ * vede uno per uno dentro il prodotto, ma portarsi via l'intera rubrica in
+ * un file è un'altra cosa -- ed è quella che un titolare non si aspetta che
+ * un dipendente possa fare.
  */
 export async function GET(request: NextRequest) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) {
+  const sessione = await ottieniSessioneTenant(supabase);
+  if (!sessione) {
     return NextResponse.json({ errore: "Nessun salone associato a questo utente." }, { status: 401 });
   }
+  if (!puoEsportareClienti(sessione.ruolo)) {
+    return NextResponse.json({ errore: ERRORE_PERMESSO_NEGATO }, { status: 403 });
+  }
+  const tenantId = sessione.tenantId;
 
   const { searchParams } = request.nextUrl;
   const q = searchParams.get("q")?.trim();

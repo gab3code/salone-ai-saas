@@ -1,7 +1,8 @@
 "use server";
 
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
+import { puoConfigurareAttivita } from "@/lib/ruoli";
 import { pianoHaKnowledgeBaseAi } from "@/lib/piani";
 import { generaBozzaOnboarding, type RisultatoGenerazioneBozza } from "@/lib/onboarding-ai.server";
 import type { BozzaOnboarding } from "@/lib/onboarding-ai";
@@ -22,8 +23,9 @@ import { aggiornaFinestraCancellazione } from "../impostazioni/cancellazione/azi
 
 export async function generaBozzaOnboardingAction(descrizione: string): Promise<RisultatoGenerazioneBozza> {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { ok: false, errore: "Nessuna attività associata a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { ok: false, errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const { data: tenant } = await supabase.from("tenants").select("piano").eq("id", tenantId).single();
   const haKnowledgeBaseAi = pianoHaKnowledgeBaseAi(tenant?.piano ?? "");
@@ -65,11 +67,12 @@ export async function applicaBozzaOnboarding(bozza: BozzaOnboarding): Promise<Ri
   };
 
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) {
-    risultato.errori.push("Nessuna attività associata a questo utente.");
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) {
+    risultato.errori.push(accesso.errore);
     return risultato;
   }
+  const tenantId = accesso.tenantId;
 
   // Un'unica lettura per tutto quello che serve dopo: il piano (per il gate
   // knowledge base, ricontrollato qui esattamente come dentro

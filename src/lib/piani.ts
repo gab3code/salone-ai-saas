@@ -43,6 +43,39 @@ export function limiteOperatori(piano: string): number {
 }
 
 /**
+ * Quante persone possono avere un accesso alla dashboard di un'attività
+ * (Fase 5, migrazione 0027). Il numero include il TITOLARE: 1 significa
+ * "solo lui, nessun invito possibile".
+ *
+ * Da non confondere con `limiteOperatori` sopra: un "operatore" è un record
+ * dell'agenda (chi eroga i servizi), un "membro" è un account che entra in
+ * dashboard. Sono davvero due cose diverse -- una receptionist ha un accesso
+ * e non eroga servizi, un collaboratore può erogare servizi e non usare mai
+ * il gestionale.
+ *
+ * **Perché solo Free è limitato** (deciso con Gabriel il 16/09/2026, dopo
+ * essere passati da un'ipotesi di gate su Pro e poi su Growth): dal
+ * 16/09/2026 ogni operatore oltre il primo si paga su TUTTI i piani a
+ * pagamento (10€ Starter, 15€ Growth, 20€ Pro -- vedi `priceIdOperatoreExtra`
+ * in stripe/piani.ts). Il personale è quindi già monetizzato lì. Mettere
+ * ANCHE un tetto agli accessi vorrebbe dire far pagare due volte la stessa
+ * cosa e, peggio, frenare esattamente ciò che l'add-on per operatore serve a
+ * vendere. Free resta a un solo accesso perché è già un piano da una persona
+ * sola (un operatore, 60 prenotazioni al mese).
+ */
+const LIMITE_MEMBRI_PER_PIANO: Record<string, number> = {
+  free: 1,
+};
+
+export function limiteMembri(piano: string): number {
+  return LIMITE_MEMBRI_PER_PIANO[piano] ?? Infinity;
+}
+
+export function pianoHaTeam(piano: string): boolean {
+  return limiteMembri(piano) === Infinity;
+}
+
+/**
  * Gate di piano per Analytics (Fase 3, trovato nel controllo promesse del
  * sito 13/09/2026, costruito il 14/09/2026): `Prezzi.tsx`/`Funzionalita.tsx`
  * pubblicizzano "Analytics -- Andamento prenotazioni e clienti nel tempo"
@@ -118,7 +151,7 @@ export function pianoHaSms(piano: string): boolean {
  * davvero attivo, che ha prenotazioni illimitate: vedi DECISIONS.md per il
  * confronto costi Skebby/Twilio/WhatsApp e per come si è arrivati alla
  * scelta "il prezzo base include 1 operatore, +20€/mese ciascuno oltre il primo" in
- * priceIdOperatoreExtraPro, stripe/piani.ts). Un salone con più operatori
+ * priceIdOperatoreExtra, stripe/piani.ts). Un salone con più operatori
  * gestisce più appuntamenti e quindi manda più SMS a chi non ha lasciato
  * un'email, e paga già di più su Stripe per quegli operatori extra --
  * scalare anche la quota SMS con lo stesso numero mantiene il margine per

@@ -45,7 +45,7 @@ export function statoAbbonamentoDaStripe(status: Stripe.Subscription.Status): st
  */
 export async function sincronizzaAbbonamento(supabase: SupabaseClient, subscription: Stripe.Subscription) {
   // Da quando Pro può avere un secondo line item ("operatore extra", vedi
-  // priceIdOperatoreExtraPro in piani.ts, Fase 5+SMS 14/09/2026), leggere solo
+  // priceIdOperatoreExtra in piani.ts, Fase 5+SMS 14/09/2026), leggere solo
   // items.data[0] non basta più: Stripe non garantisce che il Price base sia
   // il primo dell'array. Si cerca in TUTTI gli item quello che corrisponde a
   // un piano riconosciuto -- l'item dell'operatore extra non è mai in
@@ -62,6 +62,20 @@ export async function sincronizzaAbbonamento(supabase: SupabaseClient, subscript
   // (altrimenti si lascia quello che c'era, invece di azzerarlo per un
   // prezzo che magari non abbiamo ancora mappato in env).
   const nuovoPiano = stato === "cancellato" ? "free" : piano;
+
+  // Piano gestito a mano dal pannello admin (migrazione 0028): Enterprise è
+  // a preventivo e gli account omaggio non hanno un abbonamento Stripe che
+  // racconti la verità sul loro piano. Per quei tenant Stripe resta la fonte
+  // di verità su tutto il resto, ma non su piano/stato_abbonamento --
+  // altrimenti il primo evento della loro vecchia subscription li
+  // riporterebbe a free senza che nessuno l'abbia chiesto.
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("piano_manuale")
+    .eq("stripe_subscription_id", subscription.id)
+    .maybeSingle();
+
+  if (tenant?.piano_manuale) return;
 
   await supabase
     .from("tenants")

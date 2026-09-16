@@ -1,33 +1,42 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { creaClientStripe } from "./server";
-import { priceIdOperatoreExtraPro } from "./piani";
+import { pianoEPagante, priceIdOperatoreExtra, tuttiPriceIdOperatoreExtra } from "./piani";
 
 /**
- * Tiene allineata la quantità del line item "operatore extra" su Stripe
- * (vedi priceIdOperatoreExtraPro in piani.ts) ogni volta che il numero di
- * operatori di un tenant Pro cambia -- chiamata da creaOperatore ed
- * eliminaOperatore in dashboard/configura/azioni.ts, DOPO che la scrittura
- * su Supabase è già andata a buon fine (mai prima: un fallimento Stripe non
- * deve mai impedire di creare/eliminare un operatore vero, vedi fail-open
- * sotto).
+ * Tiene allineato il line item "operatore extra" su Stripe (vedi
+ * `priceIdOperatoreExtra` in piani.ts) ogni volta che il numero di operatori
+ * di un tenant cambia -- chiamata da creaOperatore ed eliminaOperatore in
+ * dashboard/configura/azioni.ts, DOPO che la scrittura su Supabase è già
+ * andata a buon fine (mai prima: un fallimento Stripe non deve mai impedire
+ * di creare/eliminare un operatore vero, vedi fail-open sotto).
  *
  * Non tocca il checkout iniziale (quello aggiunge già il line item giusto,
  * vedi /api/stripe/checkout/route.ts) -- questa funzione gestisce SOLO i
- * cambi successivi al primo abbonamento: un salone Pro che assume un nuovo
+ * cambi successivi al primo abbonamento: un salone che assume un nuovo
  * operatore o ne licenzia uno mentre è già abbonato.
  *
- * Fail-open totale: se il tenant non è Pro, non ha un abbonamento Stripe
- * attivo (piano appena scelto, checkout non ancora completato), o qualsiasi
- * chiamata Stripe fallisce (rete, subscription cancellata nel frattempo,
- * ecc.), la funzione logga e torna senza lanciare -- stesso principio già
- * seguito da mailjet.server.ts e skebby.server.ts. Il caso "Stripe e
- * Supabase finiscono disallineati" esiste comunque (nessuna vera transazione
- * distribuita tra i due sistemi), ma è lo stesso compromesso già accettato
- * altrove nel progetto: il prossimo webhook di sincronizzaAbbonamento, o un
- * controllo manuale, lo riallinea. Bloccare la creazione di un operatore per
- * un problema di fatturazione sarebbe un danno peggiore per Gabriel e per i
- * suoi clienti.
+ * **Cambio piano (16/09/2026)**: da quando la quota per operatore esiste su
+ * tutti e tre i piani a pagamento con cifre diverse (10/15/20€), non basta
+ * più cercare UN solo price id. Un salone che passa da Starter a Growth con 4
+ * operatori si porta dietro la riga "operatore extra Starter" a 10€: va
+ * riconosciuta (`tuttiPriceIdOperatoreExtra`) e SOSTITUITA con quella di
+ * Growth, non affiancata. Senza, quel salone continuerebbe a pagare la quota
+ * del piano vecchio oppure si ritroverebbe due add-on sulla stessa fattura --
+ * il tipo di bug di fatturazione che un cliente scopre prima di te.
+ *
+ * Fail-open totale: se il tenant non è su un piano pagante, non ha un
+ * abbonamento Stripe attivo (piano appena scelto, checkout non ancora
+ * completato), il Price dell'add-on non è ancora configurato in env, o
+ * qualsiasi chiamata Stripe fallisce (rete, subscription cancellata nel
+ * frattempo, ecc.), la funzione logga e torna senza lanciare -- stesso
+ * principio già seguito da mailjet.server.ts e skebby.server.ts. Il caso
+ * "Stripe e Supabase finiscono disallineati" esiste comunque (nessuna vera
+ * transazione distribuita tra i due sistemi), ma è lo stesso compromesso già
+ * accettato altrove nel progetto: il prossimo webhook di
+ * sincronizzaAbbonamento, o un controllo manuale, lo riallinea. Bloccare la
+ * creazione di un operatore per un problema di fatturazione sarebbe un danno
+ * peggiore per Gabriel e per i suoi clienti.
  */
 export async function sincronizzaQuantitaOperatoriStripe(
   supabase: SupabaseClient,
@@ -39,36 +48,60 @@ export async function sincronizzaQuantitaOperatoriStripe(
       .select("piano, stripe_subscription_id")
       .eq("id", tenantId)
       .single();
-    if (!tenant || tenant.piano !== "pro" || !tenant.stripe_subscription_id) return;
+    if (!tenant || !tenant.stripe_subscription_id) return;
+    if (!pianoEPagante(tenant.piano)) return;
 
     const { count } = await supabase
       .from("operatori")
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", tenantId);
+    // Il prezzo base include sempre il primo operatore.
     const quantitaVoluta = Math.max(0, (count ?? 0) - 1);
 
     const stripe = creaClientStripe();
-    const priceIdExtra = priceIdOperatoreExtraPro();
+    const priceIdVoluto = priceIdOperatoreExtra(tenant.piano);
+    const priceIdNoti = new Set(tuttiPriceIdOperatoreExtra());
+
     const subscription = await stripe.subscriptions.retrieve(tenant.stripe_subscription_id);
-    const itemEsistente = subscription.items.data.find((item) => item.price.id === priceIdExtra);
+    // Qualunque add-on "operatore extra" già presente, anche di un altro
+    // piano: sono quelli da rimuovere o sostituire.
+    const addOnPresenti = subscription.items.data.filter((item) => priceIdNoti.has(item.price.id));
+    const itemDelPianoAttuale = priceIdVoluto
+      ? addOnPresenti.find((item) => item.price.id === priceIdVoluto)
+      : undefined;
+    const itemDiAltriPiani = addOnPresenti.filter((item) => item.id !== itemDelPianoAttuale?.id);
+
+    // Prima si puliscono le righe dei piani vecchi, sempre: che il salone
+    // abbia 0 o 5 operatori extra, una quota di un piano che non ha più non
+    // deve restare sulla fattura.
+    for (const item of itemDiAltriPiani) {
+      await stripe.subscriptionItems.del(item.id, { proration_behavior: "create_prorations" });
+    }
+
+    // Price non ancora creato su Stripe per questo piano (Starter e Growth
+    // finché Gabriel non li crea): niente add-on, e quello eventualmente
+    // ereditato è già stato tolto sopra.
+    if (!priceIdVoluto) return;
 
     if (quantitaVoluta === 0) {
-      if (itemEsistente) {
-        await stripe.subscriptionItems.del(itemEsistente.id, { proration_behavior: "create_prorations" });
+      if (itemDelPianoAttuale) {
+        await stripe.subscriptionItems.del(itemDelPianoAttuale.id, {
+          proration_behavior: "create_prorations",
+        });
       }
       return;
     }
 
-    if (itemEsistente) {
-      if (itemEsistente.quantity !== quantitaVoluta) {
-        await stripe.subscriptionItems.update(itemEsistente.id, {
+    if (itemDelPianoAttuale) {
+      if (itemDelPianoAttuale.quantity !== quantitaVoluta) {
+        await stripe.subscriptionItems.update(itemDelPianoAttuale.id, {
           quantity: quantitaVoluta,
           proration_behavior: "create_prorations",
         });
       }
     } else {
       await stripe.subscriptions.update(tenant.stripe_subscription_id, {
-        items: [{ price: priceIdExtra, quantity: quantitaVoluta }],
+        items: [{ price: priceIdVoluto, quantity: quantitaVoluta }],
         proration_behavior: "create_prorations",
       });
     }

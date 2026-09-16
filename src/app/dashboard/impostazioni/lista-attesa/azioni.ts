@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
+import { puoConfigurareAttivita } from "@/lib/ruoli";
 import { pianoHaListaAttesaAutomatica } from "@/lib/piani";
 
 /**
@@ -21,8 +22,9 @@ import { pianoHaListaAttesaAutomatica } from "@/lib/piani";
  */
 export async function aggiornaListaAttesaContattoAutomatico(formData: FormData) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessuna attività associata a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const attivo = formData.get("attivo") === "on";
 

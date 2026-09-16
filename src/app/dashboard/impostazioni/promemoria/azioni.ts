@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
+import { puoConfigurareAttivita } from "@/lib/ruoli";
 import { pianoHaPromemoria } from "@/lib/piani";
 import { MAX_REGOLE_PROMEMORIA_PER_TENANT } from "@/lib/promemoria";
 
@@ -17,8 +18,9 @@ import { MAX_REGOLE_PROMEMORIA_PER_TENANT } from "@/lib/promemoria";
  */
 export async function aggiungiRegolaPromemoria(formData: FormData) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessuna attività associata a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const { data: tenant } = await supabase.from("tenants").select("piano").eq("id", tenantId).single();
   if (!tenant || !pianoHaPromemoria(tenant.piano)) {
@@ -55,8 +57,9 @@ export async function aggiungiRegolaPromemoria(formData: FormData) {
  * comunque di toccare regole di un altro tenant, vedi migrazione 0017). */
 export async function eliminaRegolaPromemoria(regolaId: string) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessuna attività associata a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const { error } = await supabase.from("regole_promemoria").delete().eq("id", regolaId).eq("tenant_id", tenantId);
 

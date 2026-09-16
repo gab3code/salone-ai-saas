@@ -3,7 +3,9 @@ import type Stripe from "stripe";
 import { creaClientServer } from "@/lib/supabase/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { creaClientStripe } from "@/lib/stripe/server";
-import { pianoEPagante, priceIdPerPiano, priceIdOperatoreExtraPro, giorniDiProva } from "@/lib/stripe/piani";
+import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
+import { puoGestireFatturazione, ERRORE_PERMESSO_NEGATO } from "@/lib/ruoli";
+import { pianoEPagante, priceIdPerPiano, priceIdOperatoreExtra, giorniDiProva } from "@/lib/stripe/piani";
 
 /**
  * Crea una Checkout Session Stripe per il tenant dell'utente loggato
@@ -36,10 +38,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ errore: "Piano non valido." }, { status: 400 });
   }
 
-  const { data: profilo } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
-  if (!profilo) {
+  // Solo il titolare paga: un dipendente con accesso staff (Fase 5,
+  // migrazione 0027) non deve poter aprire un checkout a nome dell'attività.
+  const sessione = await ottieniSessioneTenant(supabase);
+  if (!sessione) {
     return NextResponse.json({ errore: "Nessuna attività trovata per questo utente." }, { status: 404 });
   }
+  if (!puoGestireFatturazione(sessione.ruolo)) {
+    return NextResponse.json({ errore: ERRORE_PERMESSO_NEGATO }, { status: 403 });
+  }
+  const profilo = { tenant_id: sessione.tenantId };
 
   // Da qui in poi client ADMIN: serve scrivere stripe_customer_id, un campo
   // che il tenant owner non può toccare direttamente via RLS (di proposito,
@@ -76,25 +84,32 @@ export async function POST(request: NextRequest) {
   const origin = request.nextUrl.origin;
   const trialDays = giorniDiProva(piano);
 
-  // Pro: il prezzo base include 1 operatore, ognuno oltre il primo costa
-  // 20€/mese in più (deciso con Gabriel il 14/09/2026, prezzo base rivisto
-  // il 14/09/2026, vedi DECISIONS.md) --
-  // secondo line item aggiunto SOLO se il salone ha già più di un operatore
-  // configurato al momento del checkout (tipicamente 0 se sta ancora
-  // facendo l'onboarding, ma un tenant che passa a Pro da un altro piano
-  // può già averne). `count` conta sul client ADMIN (non RLS-limitato,
-  // stesso client già in uso qui sopra per leggere/scrivere il tenant).
+  // Su tutti e tre i piani a pagamento il prezzo base include 1 operatore,
+  // ognuno oltre il primo costa una quota fissa in più: 10€ su Starter, 15€
+  // su Growth, 20€ su Pro (deciso con Gabriel il 16/09/2026, estendendo a
+  // Starter/Growth la regola che dal 14/09/2026 valeva solo su Pro -- vedi
+  // `priceIdOperatoreExtra` in stripe/piani.ts e DECISIONS.md).
+  // Secondo line item aggiunto SOLO se il salone ha già più di un operatore
+  // configurato al momento del checkout (tipicamente 0 se sta ancora facendo
+  // l'onboarding, ma un tenant che cambia piano può già averne). `count`
+  // conta sul client ADMIN (non RLS-limitato, stesso client già in uso qui
+  // sopra per leggere/scrivere il tenant).
+  // `priceIdOperatoreExtra` può restituire null finché Gabriel non ha creato
+  // il Price su Stripe per quel piano: in quel caso il checkout parte senza
+  // add-on invece di fallire, e la sincronizzazione lo aggiungerà da sé
+  // appena la variabile d'ambiente esiste.
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
     { price: priceIdPerPiano(piano), quantity: 1 },
   ];
-  if (piano === "pro") {
+  const priceIdExtra = priceIdOperatoreExtra(piano);
+  if (priceIdExtra) {
     const { count } = await admin
       .from("operatori")
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", tenant.id);
     const operatoriExtra = Math.max(0, (count ?? 0) - 1);
     if (operatoriExtra > 0) {
-      lineItems.push({ price: priceIdOperatoreExtraPro(), quantity: operatoriExtra });
+      lineItems.push({ price: priceIdExtra, quantity: operatoriExtra });
     }
   }
 

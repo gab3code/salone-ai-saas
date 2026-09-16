@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { creaClientServer } from "@/lib/supabase/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { creaClientStripe } from "@/lib/stripe/server";
+import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
+import { puoGestireFatturazione, ERRORE_PERMESSO_NEGATO } from "@/lib/ruoli";
 
 /**
  * Apre il Customer Portal Stripe (self-service: cambio piano, aggiornamento
@@ -18,10 +20,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ errore: "Devi accedere." }, { status: 401 });
   }
 
-  const { data: profilo } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
-  if (!profilo) {
+  const sessione = await ottieniSessioneTenant(supabase);
+  if (!sessione) {
     return NextResponse.json({ errore: "Nessuna attività trovata." }, { status: 404 });
   }
+  if (!puoGestireFatturazione(sessione.ruolo)) {
+    return NextResponse.json({ errore: ERRORE_PERMESSO_NEGATO }, { status: 403 });
+  }
+  const profilo = { tenant_id: sessione.tenantId };
 
   const admin = creaClientAdmin();
   const { data: tenant } = await admin

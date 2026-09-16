@@ -86,7 +86,13 @@ const PERSONE: Persona[] = [
   },
   {
     titolo: "Personal trainer e centri fitness",
-    testo: "Sessioni singole o ricorrenti, disponibilità aggiornata anche su più sedi.",
+    // Correzione 16/09/2026: qui c'era "disponibilità aggiornata anche su
+    // più sedi" -- una promessa di multi-sede fatta dentro una card persona,
+    // sfuggita al controllo promesse del 13/09/2026 (che aveva guardato
+    // Prezzi/Funzionalità/FAQ) e tecnicamente falsa su ogni piano. Il
+    // multi-sede oggi esiste solo come "più attività con un unico accesso",
+    // configurato a mano in fase di onboarding su Enterprise (vedi Prezzi.tsx).
+    testo: "Ogni trainer con i suoi orari e i suoi servizi, su un unico link di prenotazione.",
     icona: Dumbbell,
   },
   {

@@ -2,12 +2,17 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
+import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
+import { puoConfigurareAttivita, puoGestireMembri, puoVedereAnalytics } from "@/lib/ruoli";
+import { elencaInvitiRicevuti, elencaSediUtente } from "@/lib/membri.server";
 import { caricaMetriche } from "@/lib/metriche.server";
 import { urlBaseSito } from "@/lib/email/notifiche.server";
 import { generaQrCodeDataUrl } from "@/lib/qrcode.server";
 import { esci } from "./azioni";
 import { AvviaCheckoutSeNecessario } from "./avvia-checkout-se-necessario";
 import { CondividiLink } from "./CondividiLink";
+import { SelettoreSede } from "./SelettoreSede";
+import { InvitiRicevuti } from "./InvitiRicevuti";
 
 /**
  * Prima pagina protetta: prova che l'intera catena funziona davvero, non
@@ -37,10 +42,20 @@ export default async function PaginaDashboard({
     .eq("id", user.id)
     .single();
 
+  // Fase 5 (migrazione 0027): il ruolo decide cosa compare in questa pagina.
+  const sessione = await ottieniSessioneTenant(supabase);
+  const ruolo = sessione?.ruolo ?? "staff";
+  const vedeNumeri = puoVedereAnalytics(ruolo);
+
   const { data: tenant } = await supabase
     .from("tenants")
     .select("nome, slug, piano, stato_abbonamento, created_at")
     .single();
+
+  const [sedi, invitiRicevuti] = await Promise.all([
+    elencaSediUtente(user.id, sessione?.tenantId ?? null),
+    elencaInvitiRicevuti(user.email ?? null),
+  ]);
 
   const metriche = tenant && profilo?.tenant_id ? await caricaMetriche(supabase, profilo.tenant_id) : null;
   const formatoEuro = (centesimi: number) =>
@@ -68,7 +83,19 @@ export default async function PaginaDashboard({
         </form>
       </div>
 
-      {tenant && (
+      {invitiRicevuti.length > 0 && (
+        <div className="mt-4">
+          <InvitiRicevuti inviti={invitiRicevuti} />
+        </div>
+      )}
+
+      {sedi.length > 1 && (
+        <div className="mt-4">
+          <SelettoreSede sedi={sedi} />
+        </div>
+      )}
+
+      {tenant && vedeNumeri && (
         <Suspense fallback={null}>
           <AvviaCheckoutSeNecessario pianoAttuale={tenant.piano} />
         </Suspense>
@@ -91,15 +118,24 @@ export default async function PaginaDashboard({
           <Link href="/dashboard/lista-attesa" className="rounded border border-zinc-300 px-3 py-1.5">
             Lista d&apos;attesa
           </Link>
-          <Link href="/dashboard/analytics" className="rounded border border-zinc-300 px-3 py-1.5">
-            Analytics
-          </Link>
+          {puoVedereAnalytics(ruolo) && (
+            <Link href="/dashboard/analytics" className="rounded border border-zinc-300 px-3 py-1.5">
+              Analytics
+            </Link>
+          )}
           <a href="/dashboard/configura" className="rounded border border-zinc-300 px-3 py-1.5">
             Configura l&apos;attività
           </a>
-          <a href="/dashboard/impostazioni" className="rounded border border-zinc-300 px-3 py-1.5">
-            Impostazioni
-          </a>
+          {puoConfigurareAttivita(ruolo) && (
+            <a href="/dashboard/impostazioni" className="rounded border border-zinc-300 px-3 py-1.5">
+              Impostazioni
+            </a>
+          )}
+          {puoGestireMembri(ruolo) && (
+            <Link href="/dashboard/team" className="rounded border border-zinc-300 px-3 py-1.5">
+              Team
+            </Link>
+          )}
         </div>
       )}
 
@@ -113,13 +149,17 @@ export default async function PaginaDashboard({
           <dl className="mt-6 grid max-w-md grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <dt className="text-zinc-500">Attività</dt>
             <dd>{tenant.nome}</dd>
-            <dt className="text-zinc-500">Piano</dt>
-            <dd>{tenant.piano}</dd>
-            <dt className="text-zinc-500">Stato abbonamento</dt>
-            <dd>{tenant.stato_abbonamento}</dd>
+            {vedeNumeri && (
+              <>
+                <dt className="text-zinc-500">Piano</dt>
+                <dd>{tenant.piano}</dd>
+                <dt className="text-zinc-500">Stato abbonamento</dt>
+                <dd>{tenant.stato_abbonamento}</dd>
+              </>
+            )}
             <dt className="text-zinc-500">Tu</dt>
             <dd>
-              {profilo?.nome || user.email} ({profilo?.ruolo})
+              {profilo?.nome || user.email} ({ruolo === "owner" ? "titolare" : "collaboratore"})
             </dd>
           </dl>
 
@@ -132,10 +172,12 @@ export default async function PaginaDashboard({
               <h2 className="mt-8 text-sm font-medium text-zinc-500">Come sta andando</h2>
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 <CardMetrica etichetta="Appuntamenti oggi" valore={String(metriche.appuntamentiOggi)} />
-                <CardMetrica
-                  etichetta="Valore prenotato oggi"
-                  valore={formatoEuro(metriche.valorePrenotazioniOggiCentesimi)}
-                />
+                {vedeNumeri && (
+                  <CardMetrica
+                    etichetta="Valore prenotato oggi"
+                    valore={formatoEuro(metriche.valorePrenotazioniOggiCentesimi)}
+                  />
+                )}
                 <CardMetrica
                   etichetta="Occupazione oggi"
                   valore={
@@ -159,17 +201,21 @@ export default async function PaginaDashboard({
                   già confermati nei prossimi 7/30 giorni, non un incasso reale registrato --
                   riga separata dalle metriche di "oggi" sopra per non confonderle a colpo
                   d'occhio con un dato già incassato. */}
-              <h2 className="mt-6 text-sm font-medium text-zinc-500">Incassi previsti</h2>
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-md">
-                <CardMetrica
-                  etichetta="Prossimi 7 giorni"
-                  valore={formatoEuro(metriche.incassiPrevistiCentesimi7Giorni)}
-                />
-                <CardMetrica
-                  etichetta="Prossimi 30 giorni"
-                  valore={formatoEuro(metriche.incassiPrevistiCentesimi30Giorni)}
-                />
-              </div>
+              {vedeNumeri && (
+                <>
+                  <h2 className="mt-6 text-sm font-medium text-zinc-500">Incassi previsti</h2>
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-md">
+                    <CardMetrica
+                      etichetta="Prossimi 7 giorni"
+                      valore={formatoEuro(metriche.incassiPrevistiCentesimi7Giorni)}
+                    />
+                    <CardMetrica
+                      etichetta="Prossimi 30 giorni"
+                      valore={formatoEuro(metriche.incassiPrevistiCentesimi30Giorni)}
+                    />
+                  </div>
+                </>
+              )}
 
               {metriche.clientiInattiviDa60Giorni > 0 && (
                 <div className="mt-4 flex items-center justify-between rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm">

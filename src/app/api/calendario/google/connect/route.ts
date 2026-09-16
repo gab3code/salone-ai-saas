@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
+import { puoConfigurareAttivita, ERRORE_PERMESSO_NEGATO } from "@/lib/ruoli";
 import { costruisciUrlAutorizzazione } from "@/lib/calendario-esterno/google.server";
 
 /**
@@ -21,10 +22,14 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) {
+  const sessione = await ottieniSessioneTenant(supabase);
+  if (!sessione) {
     return NextResponse.redirect(new URL("/accedi", request.url));
   }
+  if (!puoConfigurareAttivita(sessione.ruolo)) {
+    return NextResponse.json({ errore: ERRORE_PERMESSO_NEGATO }, { status: 403 });
+  }
+  const tenantId = sessione.tenantId;
 
   const { data: operatore } = await supabase
     .from("operatori")

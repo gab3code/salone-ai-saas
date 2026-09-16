@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
+import { puoConfigurareAttivita } from "@/lib/ruoli";
 import {
   creaOperatore,
   creaServizio,
@@ -40,8 +42,15 @@ interface OrarioRiga {
  */
 export default async function PaginaConfigura() {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) redirect("/accedi");
+  const sessione = await ottieniSessioneTenant(supabase);
+  if (!sessione) redirect("/accedi");
+  const tenantId = sessione.tenantId;
+
+  // Fase 5 (migrazione 0027): un dipendente vede com'è configurata
+  // l'attività -- durate e prezzi gli servono per lavorare -- ma non ha
+  // nessun form davanti. Il blocco vero è comunque nelle azioni
+  // (`richiediPermesso` in azioni.ts), questa è solo l'interfaccia giusta.
+  const soloLettura = !puoConfigurareAttivita(sessione.ruolo);
 
   const {
     data: { user },
@@ -68,6 +77,72 @@ export default async function PaginaConfigura() {
     (opServiziRes.data ?? []).map((r) => `${r.operatore_id}:${r.servizio_id}`)
   );
   const nomeTitolare = profiloRes.data?.nome || "Titolare";
+
+  if (soloLettura) {
+    return (
+      <main className="mx-auto flex max-w-3xl flex-col gap-8 p-6">
+        <header className="flex flex-col gap-1">
+          <h1 className="text-xl font-semibold">Configurazione dell&apos;attività</h1>
+          <p className="text-sm text-zinc-500">
+            Qui vedi come è configurata l&apos;attività. Le modifiche le può fare il titolare.
+          </p>
+        </header>
+
+        <section>
+          <h2 className="text-base font-medium">Orari di apertura</h2>
+          <ul className="mt-3 flex flex-col gap-1 text-sm">
+            {NOMI_GIORNI.map((nome, giorno) => {
+              const riga = orariPerGiorno.get(giorno);
+              const chiuso = riga?.chiuso ?? true;
+              const pausa =
+                riga?.pausa_inizio && riga?.pausa_fine
+                  ? ` (pausa ${riga.pausa_inizio.slice(0, 5)}-${riga.pausa_fine.slice(0, 5)})`
+                  : "";
+              return (
+                <li key={giorno} className="flex gap-3">
+                  <span className="w-24 text-zinc-500">{nome}</span>
+                  <span>
+                    {chiuso
+                      ? "Chiuso"
+                      : `${riga?.apertura?.slice(0, 5) ?? "--"} - ${riga?.chiusura?.slice(0, 5) ?? "--"}${pausa}`}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-base font-medium">Operatori</h2>
+          <ul className="mt-3 flex flex-col gap-1 text-sm">
+            {operatori.map((o) => (
+              <li key={o.id}>
+                {o.nome}
+                {o.descrizione && <span className="ml-2 text-xs text-zinc-500">{o.descrizione}</span>}
+              </li>
+            ))}
+            {operatori.length === 0 && <li className="text-zinc-500">Nessun operatore configurato.</li>}
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-base font-medium">Servizi</h2>
+          <ul className="mt-3 flex flex-col gap-1 text-sm">
+            {servizi.map((s) => (
+              <li key={s.id}>
+                {s.nome} · {s.durata_minuti} min · {(s.prezzo_centesimi / 100).toFixed(2)}€
+              </li>
+            ))}
+            {servizi.length === 0 && <li className="text-zinc-500">Nessun servizio configurato.</li>}
+          </ul>
+        </section>
+
+        <Link href="/dashboard" className="text-sm underline">
+          Torna alla dashboard
+        </Link>
+      </main>
+    );
+  }
 
   // Onboarding a domande guidate (richiesta esplicita di Gabriel, 15/09/2026,
   // dopo aver provato di persona il flusso): un'attività ancora vuota (zero

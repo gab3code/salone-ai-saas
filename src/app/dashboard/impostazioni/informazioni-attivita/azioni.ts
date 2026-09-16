@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
+import { puoConfigurareAttivita } from "@/lib/ruoli";
 import { pianoHaKnowledgeBaseAi } from "@/lib/piani";
 
 const PERCORSO = "/dashboard/impostazioni/informazioni-attivita";
@@ -37,8 +38,9 @@ function pulisciCampo(valore: FormDataEntryValue | null): string | null {
  */
 export async function aggiornaInformazioniAttivita(formData: FormData) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessuna attività associata a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const { data: tenant } = await supabase.from("tenants").select("piano").eq("id", tenantId).single();
   if (!tenant || !pianoHaKnowledgeBaseAi(tenant.piano)) {
@@ -66,8 +68,9 @@ export async function aggiornaInformazioniAttivita(formData: FormData) {
  */
 export async function aggiungiFaq(formData: FormData) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessuna attività associata a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const { data: tenant } = await supabase.from("tenants").select("piano").eq("id", tenantId).single();
   if (!tenant || !pianoHaKnowledgeBaseAi(tenant.piano)) {
@@ -101,8 +104,9 @@ export async function aggiungiFaq(formData: FormData) {
  * comunque di toccare righe di un altro tenant), stesso principio di `eliminaRegolaPromemoria`. */
 export async function eliminaFaq(faqId: string) {
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) return { errore: "Nessuna attività associata a questo utente." };
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
 
   const { error } = await supabase.from("faq_attivita").delete().eq("id", faqId).eq("tenant_id", tenantId);
 

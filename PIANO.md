@@ -36,8 +36,15 @@ reale delle fasi è:
   chiusura trovato e corretto (fix rivisto e testato indipendentemente, non ancora committato).
   **Ancora aperto**: SMS (credenziali Skebby non ancora impostate, serve un account Skebby
   personale di Gabriel -- vedi DECISIONS.md per il perché non posso crearlo/impostarlo io). Zero
-  codice nuovo per questo ultimo punto, ma blocca la vendita a chiunque finché resta aperto -- va
-  chiuso PRIMA di qualunque fase nuova sotto.
+  codice nuovo per questo ultimo punto.
+  **AGGIORNAMENTO 16/09/2026 (Gabriel)**: "meta e skebby li attivo appena ho p.iva, tu per ora
+  comportati come se gia fossero attivi tenendo conto che non lo sono". Quindi **Skebby e
+  WhatsApp/Meta non sono più trattati come bloccanti di pianificazione**: il codice di entrambi i
+  canali è scritto e resta com'è, si può continuare a costruire e a vendere il prodotto
+  assumendo che ci saranno. L'unica conseguenza pratica che resta è sui test: **non sono
+  verificabili dal vivo finché non arriva la P.IVA** -- nessun SMS reale può partire (Skebby
+  senza credenziali, fail-open) e nessun messaggio WhatsApp reale può arrivare (App Review Meta).
+  Va ricordato solo prima di dire "verificato dal vivo" su qualcosa che passa da quei due canali.
 - **Fase 1 = contatto automatico (opzionale) del cliente in lista d'attesa** -- **FATTO e
   VERIFICATO 14-15/09/2026** (vedi DECISIONS.md per il dettaglio completo): un solo toggle per
   tenant in Dashboard -> Impostazioni -> "Contatto automatico lista d'attesa" (default `manuale`,
@@ -484,8 +491,23 @@ sono nella loro Fase con `[x]`.
 4. ~~Analytics / "andamento nel tempo" (Growth)~~ **CODICE FATTO 14/09/2026** -- vedi Fase 3.
 5. ~~Promemoria automatici (Growth, e usati nel calcolo ROI di `ImpattoEconomico.tsx`)~~ **CODICE
    FATTO 14/09/2026** -- vedi Fase 6.
-6. Multi-sede e ruoli avanzati (Enterprise) -- task in Fase 5 (bloccante prima di vendere
-   Enterprise).
+6. ~~Multi-sede e ruoli avanzati (Enterprise) -- task in Fase 5 (bloccante prima di vendere
+   Enterprise).~~ **CODICE FATTO 16/09/2026** -- vedi Fase 5. La voce di `Prezzi.tsx` è stata
+   riscritta nello stesso giro in due righe che dicono esattamente cosa si compra: "Più sedi, un
+   solo accesso" e "Ruoli e permessi per il personale", al posto dell'unico "Multi-sede e ruoli
+   avanzati" che lasciava immaginare un multi-sede dentro un'unica attività.
+10. **"disponibilità aggiornata anche su più sedi"** nella card "Personal trainer e centri
+   fitness" di `PerChi.tsx` -- **TROVATO E CORRETTO 16/09/2026**, durante il controllo completo
+   chiesto da Gabriel ("verifica anche le funzioni che abbiamo menzionato sul sito se ci sono
+   tutte"). Era una promessa di multi-sede fatta dentro una card persona, su OGNI piano e senza
+   nessun gate, quando nello schema non esisteva alcun concetto di sede. **Perché era sfuggita al
+   giro del 13/09/2026** (che pure aveva letto "l'intero copy della landing riga per riga): la
+   verifica si era concentrata sulle sezioni dove le promesse sono elencate come tali -- Prezzi,
+   Funzionalità, FAQ, ImpattoEconomico -- e una capacità promessa in mezzo a una frase
+   descrittiva di una persona di marketing non era stata riconosciuta come promessa. Lezione per
+   i prossimi controlli: le promesse non stanno solo negli elenchi puntati.
+   Sostituita con "Ogni trainer con i suoi orari e i suoi servizi, su un unico link di
+   prenotazione", che è coperto dal multi-operatore già esistente.
 7. App installabile/PWA (elencata sia come funzione generale in `Funzionalita.tsx` sia come voce
    specifica Enterprise in `Prezzi.tsx`) -- task già in Fase 4/7, **non era ancora collegato
    esplicitamente al fatto che è anche una voce di prezzo Enterprise**: stesso livello di urgenza
@@ -985,7 +1007,23 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       `eslint`/`vitest` (478/478, +9 da questo giro)/`build`/`playwright test --list` (18 test,
       invariato) puliti. **Non incluso in questo giro**: nessun nuovo scenario Playwright
       dedicato (richiederebbe simulare il trigger QStash e l'attesa delle 2 ore) -- verificato
-      solo con test unitari sulla logica pura e a mano dal vivo da Gabriel dopo il deploy.
+      solo con test unitari sulla logica pura.
+      **VERIFICATO DAL VIVO 16/09/2026** (Claude in prima persona via Chrome, richiesta esplicita
+      di Gabriel, tenant "Salone Test Fase1"): prenotazione reale con l'email di Gabriel, QStash
+      conferma la chiamata `publishJSON` riuscita (log Vercel, nessun errore) ma con `notBefore`
+      reale a ~2h di distanza -- per non aspettare in sessione, pubblicato lo stesso identico
+      messaggio JSON in modalità immediata dal Request Builder della console QStash (nessuna
+      modifica al database: `elaboraRichiestaRecensione` non controlla affatto i timestamp
+      dell'appuntamento, solo stato/toggle/email cliente). Email ricevuta e recensione lasciata
+      da Gabriel stesso (5 stelle, commento) prima ancora che Claude completasse la verifica.
+      Confermato via query dirette: claim `recensione_richiesta_inviata_at` scattato una sola
+      volta, riga in `recensioni` corretta. Pagina pubblica: media "5 su 5 (1 recensioni)", nome
+      in formato "Nome I." corretto. Link monouso: riaprendolo dopo l'invio mostra "Hai già
+      lasciato una recensione", invio bloccato come da design. Risposta pubblica del titolare da
+      dashboard NON verificata dal vivo in questo giro (nessun accesso disponibile all'account di
+      quel tenant di test durante la sessione) -- UI semplice, stesso pattern già in uso altrove,
+      rischio basso. Dati di test ripuliti dal database subito dopo (appuntamento e recensione di
+      prova cancellati, email dell'account di test riportata al placeholder originale).
 
 ## Fase 4 -- Pagina pubblica, foto, PWA (punti 18, 19, 20)
 - [x] Pagina pubblica per-salone generata automaticamente, condivisibile -- **scritta
@@ -1179,8 +1217,34 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       dettaglio. Resta da fare solo quando si aprono i pagamenti veri: stessa procedura in modalità
       live (chiavi `sk_live_...`, webhook live, price ID live) -- oggi tutto test-mode, zero soldi
       veri.
-- [ ] Pannello admin per te: saloni, abbonamenti, utilizzo, interventi manuali quando serve --
-      zero codice.
+- [x] ~~Pannello admin per te: saloni, abbonamenti, utilizzo, interventi manuali quando serve --
+      zero codice.~~ **CODICE FATTO 16/09/2026**: `/admin`, protetto da
+      `profiles.ruolo = 'admin_piattaforma'` -- il ruolo esisteva nello schema dalla migrazione
+      0001 ma non era mai stato controllato da nessuna parte, questo è il primo posto che lo usa
+      (`eAdminPiattaforma` in `src/lib/ruoli.ts`). Mostra TUTTE le attività registrate con piano,
+      stato abbonamento, data di registrazione, email dei titolari, numero di membri/operatori/
+      clienti e appuntamenti totali + ultimi 30 giorni, con ricerca e quattro totali di
+      piattaforma in cima. Legge con il service_role (RLS mostrerebbe solo l'attività attiva di
+      chi guarda): `src/lib/admin.server.ts`, tipi puri separati in `src/lib/admin.ts` perché un
+      componente client non può importare un valore da un modulo "server-only".
+      **Intervento manuale sul piano** (migrazione `0028_piano_manuale.sql`): il webhook Stripe
+      resta "unica fonte di verità", ma esistono due casi in cui Stripe non sa nulla del piano --
+      Enterprise è a preventivo e non passa mai dal checkout, e gli account omaggio/demo non
+      hanno un abbonamento. La nuova colonna `tenants.piano_manuale` a true fa sì che il webhook
+      lasci stare piano e stato di quel tenant e continui a fare tutto il resto (guardia in
+      `sincronizzaAbbonamento` e nel ramo `checkout.session.completed`). Deliberatamente NON una
+      seconda colonna da leggere al posto di `piano`: `piano` resta l'unico campo che tutto il
+      codice legge, quindi non c'è nessun punto del progetto in cui ci si possa dimenticare
+      dell'override. Il pannello mostra l'etichetta "manuale" su quei tenant e ha il pulsante per
+      ridare il controllo a Stripe. `profiles.ruolo` di Gabriel messo a `admin_piattaforma` sul
+      database reale nella stessa sessione (la sua dashboard non cambia:
+      `normalizzaRuolo('admin_piattaforma')` restituisce 'owner').
+      **Non incluso di proposito**: nessuna impersonificazione ("entra come questo salone"). È la
+      funzione più comoda di un pannello del genere ed è anche la più pericolosa -- un bug lì
+      vale l'accesso completo a qualunque attività, e per assistere i primi clienti bastano i
+      dati letti da qui. Da rivalutare quando il supporto sarà un lavoro vero.
+      **Non verificato dal vivo**: nessun giro nel browser su produzione (la pagina compila, le
+      migrazioni sono applicate al database reale, ma il pannello non è ancora stato aperto).
 - [x] ~~**"1 operatore" sul piano Free pubblicizzato ma non applicato tecnicamente**~~ **CODICE
       FATTO 13/09/2026** (trovato nel controllo promesse del sito 13/09/2026): aggiunta
       `limiteOperatori(piano)` in `src/lib/piani.ts` (stessa forma di `limiteMensilePrenotazioni`),
@@ -1207,13 +1271,183 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       `agente.test.ts` + 1 su `limiti.test.ts`)/`build` puliti. Non ancora verificato dal vivo
       con un salone di test reale (nessun cliente Pro reale ancora, coerente con "non bloccante
       finché Stripe non è verificato dal vivo").
-- [ ] **BLOCCANTE prima di vendere Enterprise a un cliente vero** (stesso problema del Tono AI,
+- [x] ~~**BLOCCANTE prima di vendere Enterprise a un cliente vero** (stesso problema del Tono AI,
       trovato nel secondo giro del mega-controllo, 12/09/2026): `Prezzi.tsx` pubblicizza
       "Multi-sede e ruoli avanzati" su Enterprise, ma nello schema non esiste NESSUN concetto di
       "sede" (un tenant è un unico luogo fisico) e la colonna `profiles.ruolo` (owner/staff/
       admin_piattaforma) non è controllata da nessuna parte del codice -- ogni account che entra
-      in dashboard ha accesso pieno, non esiste un vero "staff" con permessi limitati. Vedi anche
-      il task "Multi-utente/team reale" in Fase 6 sotto, che è il prerequisito dei ruoli.
+      in dashboard ha accesso pieno, non esiste un vero "staff" con permessi limitati.~~
+      **CODICE FATTO 16/09/2026** (migrazione `0027_membri_tenant.sql`). Chiude anche
+      "Multi-utente/team reale" di Fase 6, che era il prerequisito dei ruoli: un lavoro solo
+      invece di due.
+
+      **Decisione sul multi-sede, presa con Gabriel il 16/09/2026** dopo che lui ha chiesto la
+      cosa giusta ("qual è la cosa che funziona meglio per il cliente, quella che gli fa
+      scegliere noi e non un competitor?"): una catena con più negozi NON diventa un tenant con
+      dentro tante "sedi", ma resta più tenant separati collegati a un unico account che ci passa
+      in mezzo con un selettore. Tre ragioni, in ordine di peso:
+      1) `auth_tenant_id()` è il perno di OGNI policy RLS del progetto -- restando "un tenant = un
+         luogo", quella funzione e tutte le policy esistenti non vengono toccate: zero rischio di
+         aprire un buco di isolamento sui dati già in produzione;
+      2) è come lavorano davvero due negozi della stessa catena (orari propri, personale proprio,
+         numero di telefono proprio), e ogni sede mantiene la SUA pagina pubblica `/s/[slug]` con
+         il suo indirizzo -- due pagine indicizzabili su Google invece di una sola con un menu a
+         tendina;
+      3) la versione "vera" (tabella `sedi` + `sede_id` su orari/operatori/servizi/appuntamenti +
+         scelta della sede nel booking engine, nella pagina pubblica e nell'AI) sarebbe la
+         migrazione più invasiva mai fatta sul progetto, sul codice più delicato e testato, per un
+         piano che oggi è a preventivo, senza checkout Stripe e senza un solo cliente.
+      Nota commerciale messa a verbale nella stessa conversazione: il multi-sede NON è il motivo
+      per cui un cliente sceglie Salone AI -- è una casella da spuntare per non essere scartati a
+      priori. Chi ha 2+ sedi oggi sta su Fresha o Booksy, che ce l'hanno maturo da anni e gratis.
+      Il differenziale vero resta l'assistente AI e zero commissioni.
+      **Limite dichiarato e accettato**: niente report aggregati fra sedi e niente rubrica clienti
+      condivisa fra sedi. Si aggiungono sopra questa stessa struttura il giorno in cui un cliente
+      vero li chiede, non prima.
+
+      **Cosa è stato costruito**: tabella `membri_tenant(user_id, tenant_id, ruolo)` con backfill
+      da `profiles` (3 righe sul database reale, tutte owner, verificate dopo l'applicazione) più
+      `inviti_membro` per far entrare una seconda persona. `profiles.tenant_id` non cambia
+      significato per il database -- resta quello che RLS legge -- e diventa "la sede attiva" per
+      l'applicazione: cambiare sede è aggiornare quella colonna dopo aver verificato
+      l'appartenenza. `profiles.tenant_id` reso nullable: serve perché un dipendente rimosso che
+      non fa parte di nient'altro resti davvero senza accesso (con `auth_tenant_id()` a null ogni
+      policy confronta `tenant_id = null`, che non è mai vero -- nessuna policy toccata).
+      Gli inviti NON passano dai metadata di `auth.signUp`, che li sceglie il browser di chi si
+      registra: chiunque potrebbe registrarsi dichiarando "sono staff del tenant X". Una riga di
+      invito può nascere solo da una server action eseguita da un owner ed è legata all'email, che
+      Supabase verifica. Il trigger `gestisci_nuovo_utente` controlla se esiste un invito valido
+      per quell'email PRIMA di creare una nuova attività -- senza, ogni dipendente invitato si
+      ritroverebbe un salone fantasma vuoto collegato al proprio account. Chi ha già un account
+      trova l'invito in cima alla dashboard, da accettare.
+      Nessuna policy di scrittura su `membri_tenant`/`inviti_membro`, di proposito: ogni scrittura
+      passa dal service_role in `src/lib/membri.server.ts` dopo un controllo di ruolo, così un
+      client autenticato non può aggiungersi a un'attività né promuoversi da staff a owner
+      chiamando direttamente le API REST di Supabase.
+
+      **Permessi dello staff, scelti da Gabriel il 16/09/2026** (`src/lib/ruoli.ts`, logica pura,
+      9 test in `ruoli.test.ts`). Uno staff NON vede fatturato e analytics (è il motivo più citato
+      dai titolari per cui non danno un accesso ai dipendenti sugli altri gestionali: preferiscono
+      non darlo affatto), NON tocca servizi/prezzi/orari/impostazioni (un prezzo cambiato per
+      sbaglio si propaga su pagina pubblica, AI e caparre), NON gestisce abbonamento e
+      fatturazione, e NON esporta l'intera rubrica clienti in CSV (aggiunto da Claude e segnalato:
+      guardare i clienti dentro il prodotto e portarsi via il database in un file sono due cose
+      diverse). Uno staff PUÒ vedere e gestire l'agenda di TUTTI gli operatori, deciso
+      esplicitamente contro l'alternativa "solo la propria": in un salone piccolo chi è alla cassa
+      risponde al telefono e deve poter prenotare per la collega.
+      `normalizzaRuolo` fa cadere qualunque valore non riconosciuto su 'staff' (concedere MENO
+      potere, mai di più) e tratta `admin_piattaforma` come owner della propria attività.
+      **Dove il permesso è applicato davvero**: `richiediPermesso` in `src/lib/permessi.server.ts`,
+      dentro ogni server action di configurazione e impostazioni (13 file), nelle route Stripe
+      checkout/portal, nell'export CSV clienti e nel collegamento Google Calendar. I `layout.tsx`
+      su `/dashboard/impostazioni` e `/dashboard/analytics` e la vista di sola lettura su
+      `/dashboard/configura` sono comodità, non sicurezza: una server action è un endpoint POST
+      richiamabile da chiunque abbia una sessione valida, anche senza mai aprire la pagina.
+      Trovati e chiusi nello stesso giro due punti che non avevano NESSUN controllo applicativo e
+      si affidavano solo a RLS: `eliminaServizio` e `impostaAssociazioneOperatoreServizio`.
+
+      **Gate di piano -- la conclusione è "nessun gate", e ci si è arrivati per gradi** nella
+      stessa sessione: prima si era ipotizzato Pro in su, poi Gabriel ha detto Growth, poi ha
+      cambiato impostazione decidendo la quota per operatore su tutti i piani (vedi il task sulla
+      asimmetria Starter sotto). Con il personale già monetizzato lì, mettere ANCHE un tetto agli
+      accessi vorrebbe dire far pagare due volte la stessa cosa e frenare esattamente ciò che
+      l'add-on per operatore serve a vendere. Quindi `limiteMembri` limita **solo Free** a un
+      accesso (è già un piano da una persona sola: un operatore, 60 prenotazioni al mese) e tutti
+      i piani a pagamento hanno accessi liberi. La voce è su Starter in `Prezzi.tsx`, ereditata a
+      cascata dagli altri.
+      Resta agli atti la risposta alla domanda di Gabriel ("ma il margine rimane alto?"), perché
+      vale anche per decisioni future: **un accesso in più non incide sul margine**. Gli utenti
+      Supabase Auth sono gratis a questi volumi, e i costi reali -- messaggi AI, SMS Skebby, email
+      Mailjet, cron -- scalano con appuntamenti e operatori, non con quante persone fanno login.
+      Qualunque gate sugli accessi sarebbe stato una leva di prezzo, mai una difesa di costo.
+      **Comportamento in downgrade** (vale per Free, e per qualunque tetto futuro): si conta e si
+      blocca solo il PROSSIMO invito, non si rimuove mai nessuno. Togliere di colpo l'accesso a un
+      dipendente che sta lavorando sarebbe un danno al salone, non una difesa del ricavo.
+      Fail-open sulla lettura del piano, come in `creaOperatore`.
+      **Multi-sede solo su Enterprise** (Gabriel, 16/09/2026): nessun gate tecnico, di proposito.
+      Non esiste alcun modo self-service di creare una seconda attività -- la collega Gabriel a
+      mano in fase di onboarding -- quindi un controllo di piano difenderebbe una porta che non
+      c'è. Se un giorno si aggiunge un pulsante "crea un'altra attività", quel gate va messo
+      CONTESTUALMENTE, altrimenti si apre anche un buco sul piano Free (N attività gratuite da 60
+      prenotazioni ciascuna per lo stesso account).
+
+      **Non verificato dal vivo**: nessun giro nel browser (invito reale, accettazione, cambio
+      sede, dipendente che prova ad aprire le impostazioni, upsell del team su un tenant non Pro).
+      `tsc`/`vitest` (493/493, +15 da questo giro)/`build` puliti; `eslint` riporta 9 errori
+      preesistenti in `src/components/primitives/` (file non toccati in questo giro). Migrazioni
+      0027 e 0028 applicate al database reale, backfill verificato con query dirette (3 profili ->
+      3 appartenenze, tutte owner) e `profiles.ruolo` di Gabriel portato a `admin_piattaforma`.
+
+- [x] ~~**Asimmetria di margine su Starter**: "Operatori illimitati" a 19,90€/mese a prescindere
+      da quanti sono -- la stessa asimmetria "chi genera il costo non è chi lo paga" chiusa su Pro
+      il 14/09/2026, rimasta aperta su Starter.~~ **DECISA E IMPLEMENTATA 16/09/2026**, stessa
+      sessione in cui è stata trovata: la quota per operatore si estende a tutti e tre i piani a
+      pagamento. **10€ Starter, 15€ Growth, 20€ Pro**, sempre con il primo operatore incluso nel
+      prezzo base. Gli operatori restano illimitati come numero da Starter in su (il tetto a 1
+      resta solo su Free): quello che scala è il prezzo, non un limite.
+      **Onestà sul perché**: su Starter e Growth NON c'è nessun costo SMS da recuperare
+      (`PIANI_CON_SMS` è solo pro/enterprise), quindi quelle due quote sono quasi interamente
+      margine. Non è recupero di costo come su Pro, è cattura di valore per posto di lavoro --
+      lo stesso modello di Booksy, che fa pagare per operatore già dal piano d'ingresso. Le cifre
+      sono più basse proprio perché il costo sottostante non c'è.
+      **Numeri tondi, non civetta** (Gabriel aveva proposto 9,99/14,99/19,99, poi ha scelto i
+      tondi): il prezzo civetta serve sul cartellino, cioè sul prezzo base, dove il cliente
+      confronta a colpo d'occhio -- e lì c'è già (19,90/39,90/89,90). Sull'add-on serve la
+      leggibilità, perché viene MOLTIPLICATO: 4 operatori a 19,99€ fanno 79,96€, un numero che il
+      cliente deve calcolare e che nessuno ripete in trattativa; a 20€ fanno 80€. Stessa scelta di
+      Booksy (base 29,99$, operatore aggiuntivo 20$ tondi). Da non "sistemare" in futuro mettendo
+      i ,99 per coerenza: la coerenza giusta è base civetta + unità tonda.
+      **Implementazione**: `priceIdOperatoreExtra(piano)` e `tuttiPriceIdOperatoreExtra()` in
+      `stripe/piani.ts` (al posto di `priceIdOperatoreExtraPro`), checkout e
+      `sincronizzaQuantitaOperatoriStripe` aggiornati, 5 test nuovi. Il pezzo delicato è il CAMBIO
+      PIANO: chi passa da Starter a Growth con 4 operatori si porta dietro la riga "operatore
+      extra Starter" a 10€, che va riconosciuta e SOSTITUITA con quella da 15€, non affiancata --
+      altrimenti continua a pagare la quota vecchia o si ritrova due add-on sulla stessa fattura.
+      È il motivo per cui `tuttiPriceIdOperatoreExtra` esiste.
+      **Ancora da fare, blocca l'attivazione ma non il codice**: Gabriel deve creare su Stripe due
+      prodotti/prezzi nuovi -- `Starter - Operatore extra` (10,00€/mese) e `Growth - Operatore
+      extra` (15,00€/mese), stessa forma di `Pro - Operatore extra`
+      (`price_1UFYAXCTPsGON8WAVPINXkXj`, 20,00€/mese): prezzo ricorrente mensile in EUR, prodotto
+      separato, nessuna fascia di quantità. Poi vanno in
+      `STRIPE_PRICE_STARTER_OPERATORE_EXTRA`/`STRIPE_PRICE_GROWTH_OPERATORE_EXTRA`. Finché quelle
+      variabili non esistono, `priceIdOperatoreExtra` restituisce null e quei due piani
+      semplicemente non applicano la quota, senza errori. Claude non può creare oggetti su un
+      account Stripe (vedi il commento in testa a `stripe/piani.ts`: azione bloccata da un
+      classificatore di sicurezza, e passare dal browser invece che dall'API sarebbe aggirare quel
+      blocco, non rispettarlo).
+
+- [ ] **Riquadro di upsell Starter -> Growth dentro la dashboard** (idea di Claude accettata da
+      Gabriel il 16/09/2026, non ancora costruita): il momento giusto per vendere l'assistente a
+      un cliente Starter è subito dopo che ha risposto LUI a mano a una richiesta -- lì gli si
+      mostra cosa avrebbe risposto l'AI al posto suo. Converte più di qualunque tabella prezzi
+      perché arriva mentre sta facendo la fatica che l'AI gli toglierebbe.
+      Da progettare con attenzione su un punto: mostrare una risposta AI vera costa una chiamata
+      al modello per un tenant che l'AI non la paga -- va deciso se vale (probabilmente sì, è
+      marketing a pochi centesimi) o se basta un esempio statico ben scritto.
+- **Vincolo di prodotto, non un task** (deciso 16/09/2026): a Starter non va data MAI "un po' di
+  AI", nemmeno una quota simbolica di messaggi omaggio. L'AI è l'unica linea netta della scala dei
+  piani e, a differenza di tutto il resto, ha un costo per messaggio: diluirla toglie a Starter la
+  sua identità e a Growth la sua ragione. Linea dura più una demo, mai una quota simbolica.
+
+- [ ] **Starter: tenerlo, ma con la scheda giusta** -- decisione di Gabriel del 16/09/2026, contro
+      il mio consiglio di cancellarlo. La sua motivazione ("è il piano con più margine") non regge
+      da sola e va corretta in fase di vendita: il margine percentuale non è il profitto. Starter
+      al 95% lascia ~18,90€/mese, Growth anche stimando l'80% ne lascia ~31,90€: Growth rende il
+      70% in più per cliente. Quello che si incassa è margine × prezzo × numero di clienti, e
+      Starter ottimizza solo il primo dei tre fattori.
+      **Le due ragioni vere per tenerlo, entrambe solide**: intercetta chi a 39,90€ non pagherebbe
+      affatto (0€ -> 18,90€ è sempre meglio), ed è una destinazione di DOWNGRADE invece che di
+      abbandono -- chi lascia Growth atterra su Starter anziché cancellare.
+      **Correzione a un'obiezione mia, sbagliata**: avevo scritto che Starter senza AI non ha armi
+      contro Fresha. Falso: Fresha gratis non lo è davvero, monetizza su commissioni e marketplace
+      e spinge i clienti dentro il suo. "Zero commissioni, i tuoi clienti restano tuoi" è un
+      differenziale vero anche senza AI, ed è l'argomento di vendita di Starter -- non il prezzo.
+      Scheda di `Prezzi.tsx` già riscritta di conseguenza nella stessa sessione (descrizione da
+      "Quando il salone cresce", che descrive Growth, a "Il gestionale, senza l'AI"; aggiunte in
+      cima le due voci sul differenziale vero, che prima non comparivano nella card).
+      **Tensione da tenere d'occhio in trattativa**: Starter è il piano "economico" ma con +10€ per
+      operatore un salone con 4 poltrone paga 49,90€. Resta davvero a buon mercato solo per chi
+      lavora da solo o in due.
 
 ## Fase 6 -- Automazioni e sicurezza (punti 16, 29, 30)
 - [x] **Promemoria automatici -- CODICE FATTO 14/09/2026** (era bloccante prima di aprire
@@ -1345,11 +1579,27 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       `parsaOrarioLocale` rifiutava i millisecondi che `cercaSlotPubblici` genera con
       `Date.toISOString()`, quindi la prenotazione pubblica diretta falliva SEMPRE per
       qualunque tenant (vedi DECISIONS.md 13/09/2026) -- corretto e riverificato in produzione.
-- [ ] **Multi-utente/team reale** (nuovo task, secondo giro mega-controllo 12/09/2026): dare a
+- [x] ~~**Multi-utente/team reale** (nuovo task, secondo giro mega-controllo 12/09/2026): dare a
       ogni "operatore" un proprio login (invito via email, permessi limitati alla propria
       agenda) invece di essere solo un record gestito dal titolare -- prerequisito tecnico dei
       "ruoli avanzati" venduti su Enterprise (vedi Fase 5) e della persona di marketing "salone
-      con team" già usata in `PerChi.tsx`, che oggi non è ancora mantenuta tecnicamente.
+      con team" già usata in `PerChi.tsx`, che oggi non è ancora mantenuta tecnicamente.~~
+      **CODICE FATTO 16/09/2026 insieme ai ruoli di Fase 5** (migrazione
+      `0027_membri_tenant.sql`): invito via email da `/dashboard/team`, ruoli owner/staff
+      applicati per davvero, pagina Team riservata al titolare. Vedi Fase 5 per il dettaglio
+      completo.
+      **Una correzione rispetto a come era scritto qui**: i permessi NON sono "limitati alla
+      propria agenda". Gabriel ha scelto esplicitamente il contrario il 16/09/2026 -- uno staff
+      vede e gestisce l'agenda di TUTTI gli operatori, perché in un salone piccolo chi è alla
+      cassa risponde al telefono e deve poter prenotare per la collega. I limiti veri sono
+      altrove: niente fatturato/analytics, niente configurazione, niente fatturazione, niente
+      export CSV della rubrica.
+      **Nota**: un "operatore" (record dell'agenda) e un "membro del team" (account che entra in
+      dashboard) restano due cose separate, non collegate fra loro. Sono davvero distinte -- un
+      salone può avere un operatore che non usa mai il gestionale e una receptionist che lo usa
+      senza erogare servizi -- ma se un giorno si vorrà dire "questo login È questo operatore"
+      (per esempio per aprire il calendario già filtrato sulla propria agenda) servirà un
+      collegamento esplicito fra `membri_tenant.user_id` e `operatori.id`, che oggi non esiste.
 - [ ] **Pacchetti prepagati/tessera fedeltà digitale** (nuovo task, stesso giro): visto su
       CutApp, comune nel settore beauty ("10 sedute prepagate", punti fedeltà). Non urgente, ma
       differenziale vero per i saloni che già usano questo modello di vendita su carta.
@@ -1440,6 +1690,40 @@ calendario personale, E bloccare uno slot se l'operatore ha già un impegno pers
 ## Fase 7 -- Parità/superiorità estetica con Estetia, responsive completo (punti 25, 26, 27, 28)
 Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davvero "fatto" e non
 "abbastanza carino":
+
+- [ ] **Landing: modifiche di contenuto accumulate, da applicare quando si rifà la pagina**
+      (richiesta esplicita di Gabriel il 16/09/2026: "segnati le modifiche da fare alla landing
+      page per quando la rifaremo al punto 7"). Non sono scelte di grafica: sono cose che il sito
+      dice e che il prodotto adesso fa diversamente. Nella sessione del 16/09/2026 sono state
+      applicate SOLO come modifiche minime ai dati dell'array `PIANI`/`PERSONE` (una riga, non un
+      ridisegno), perché lasciare un prezzo o una funzione dichiarati male è peggio che
+      aspettare. Qui resta il lavoro vero di riscrittura, da fare con la pagina nuova davanti:
+      1. **Starter va raccontato, non elencato.** La card ora dice "Il gestionale, senza l'AI" e
+         mette in cima "Zero commissioni" e "I tuoi clienti restano tuoi, nessuna app da far
+         scaricare". È il minimo sindacale: quel piano compete contro Fresha, che il booking lo
+         dà gratis, e l'unica cosa che lo giustifica è che Fresha gratis non lo è davvero
+         (monetizza su commissioni e marketplace, e i clienti se li tiene lui). Quel confronto
+         oggi non è spiegato da nessuna parte sulla pagina e merita una sezione sua, non tre
+         parole in una card.
+      2. **La quota per operatore va spiegata una volta sola, bene.** Adesso è una riga piccola
+         sotto ogni prezzo (`notaPrezzo`: "1 operatore incluso, +10/15/20€ ciascuno in più"),
+         ripetuta tre volte con tre cifre diverse. Con tre numeri diversi serve un modo di
+         mostrarlo che non faccia sembrare il prezzo un trucco -- idealmente un selettore
+         "quanti operatori siete?" che ricalcola i tre prezzi davanti agli occhi. È anche la
+         risposta alla tensione nota: Starter è il piano "economico" ma a 4 poltrone costa
+         49,90€, e scoprirlo dopo è peggio che vederlo subito.
+      3. **La voce Enterprise è stata riscritta ma va ripensata.** Da "Multi-sede e ruoli
+         avanzati" (promessa senza niente sotto) a "Più sedi, un solo accesso". Resta il fatto
+         che Enterprise ha poche argomentazioni proprie ora che i ruoli sono su tutti i piani
+         paganti: il multi-sede è l'unica esclusiva vera.
+      4. **`PerChi.tsx`, card "Personal trainer e centri fitness"**: conteneva una promessa di
+         multi-sede falsa su ogni piano, già corretta (vedi Gruppo E punto 10). Quando si
+         riscrivono le persone, ricontrollare TUTTE le card con lo stesso criterio -- le promesse
+         non stanno solo negli elenchi puntati, e quella era sfuggita proprio per questo.
+      5. **Voci di Pro ancora non costruite**: "Supporto prioritario" e "Report e analytics
+         avanzati" sono sulla pagina dal 14/09/2026 e non esistono in codice. O si costruiscono
+         prima di aprire i pagamenti veri, o escono dalla lista.
+
 - [ ] **Direzione colore già scelta il 16/09/2026, da implementare qui**: verde smeraldo
       (`#0d7a5f`), un solo accento condiviso tra landing e dashboard, base scura ed espressiva
       sulla landing e chiara/funzionale sulla dashboard. Riferimento visivo: canvas Artifact

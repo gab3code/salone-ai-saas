@@ -47,7 +47,21 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        // Ambienti che hanno GIÀ un Chromium installato (container CI, sandbox
+        // di sviluppo) possono indicarlo con PLAYWRIGHT_CHROMIUM_PATH invece
+        // di far scaricare a Playwright la sua build esatta -- serve quando la
+        // build presente non coincide con quella attesa dalla versione di
+        // @playwright/test del progetto, un disallineamento che altrimenti fa
+        // fallire ogni scenario con "Executable doesn't exist" prima ancora di
+        // aprire una pagina.
+        // Sulla macchina di Gabriel la variabile non esiste e non cambia
+        // niente: Playwright usa i suoi browser come sempre.
+        ...(process.env.PLAYWRIGHT_CHROMIUM_PATH
+          ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } }
+          : {}),
+      },
     },
   ],
   webServer: {
