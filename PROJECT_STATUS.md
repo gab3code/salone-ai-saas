@@ -1,6 +1,17 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, sessantesimo giro -- Task #190, terzo run reale: **16/18
+Ultimo aggiornamento: 16/09/2026, sessantunesimo giro -- Task #190, Scenario 8 e 10 confermati
+verdi dal vivo (`npx playwright test 08- 10-`, 2 passed). Il log diagnostico incondizionato
+aggiunto nel giro precedente ha confermato la teoria in modo diretto: il modello ha davvero
+provato prima un `appuntamento_id` non valido (un numero simile a un timestamp Unix, bloccato
+dalla validazione uuid) e si è corretto da solo nello stesso turno richiamando lo strumento con
+l'id vero -- esattamente il fix di REGOLA ASSOLUTA 1 del giro precedente al lavoro. Rimossi
+entrambi i log diagnostici, non più necessari. Verificato di nuovo: `tsc`/`eslint`/`vitest`
+(469/469)/`build` puliti. Resta solo un run completo di tutti e 18 gli scenari insieme, in una
+sola sessione, come conferma finale del Task #190. Dettaglio in DECISIONS.md, "2026-09-16 —
+Scenario 8 e 10 confermati verdi dal vivo".
+
+Aggiornamento precedente, 16/09/2026, sessantesimo giro -- Task #190, terzo run reale: **16/18
 verdi**. Confermati sani senza altre modifiche gli Scenario 2 (era variabilità AI da crediti
 esauriti, non un bug) e 9 (fix del giro precedente ha tenuto). **Scenario 8, terzo bug nello
 stesso punto**: dando un orario esplicito l'AI ora chiede un'ulteriore riconferma prima di

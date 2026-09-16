@@ -796,7 +796,11 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       test ma una lacuna reale del prompt, **corretta** estendendo REGOLA ASSOLUTA 1 a vietare di
       dichiarare un'azione completata senza un risultato di strumento fresco in quel turno.
       Aggiunto anche un secondo log diagnostico incondizionato per confermarlo con certezza al
-      prossimo run. Verificato `tsc`/`eslint`/`vitest`/`build`/`playwright test --list` puliti.
+      prossimo run. **Confermato dal vivo**: rilanciati solo Scenario 8 e 10
+      (`npx playwright test 08- 10-`) -- **2 passed**, il log ha mostrato il modello correggersi
+      da solo un id non valido nello stesso turno, esattamente il comportamento voluto dal fix.
+      Rimossi entrambi i log diagnostici, non più necessari. Resta solo un run completo di tutti
+      e 18 insieme come conferma finale. Verificato `tsc`/`eslint`/`vitest`/`build` puliti.
       Dettaglio completo in `tests/e2e/README.md` e in DECISIONS.md.
 - [x] ~~Semplificazione consapevole: fuso orario trattato come UTC~~ **FATTO 11/09/2026**
       (corretto qui il 12/09/2026, questa riga era rimasta indietro): colonna

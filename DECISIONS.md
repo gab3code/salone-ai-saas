@@ -4828,3 +4828,29 @@ Verificato di nuovo: `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test 
 Prossimo passo: Gabriel rilancia gli scenari 8 e 10 (`npx playwright test 08- 10-`, o la suite
 intera per una verifica completa) e manda l'esito -- in particolare se compare il nuovo log
 `[DIAG] cancella_prenotazione INVOCATO` nello Scenario 10, confermando o smentendo la teoria.
+
+## 2026-09-16 — Scenario 8 e 10 confermati verdi dal vivo: teoria confermata coi log, log diagnostici rimossi
+
+Gabriel ha rilanciato solo `npx playwright test 08- 10-` dopo i fix del giro precedente:
+**2 passed**. Il log diagnostico incondizionato ha confermato la teoria in modo diretto, non per
+sola deduzione: è comparso DUE volte nella stessa conversazione dello Scenario 10, la prima con
+un `appuntamento_id` chiaramente non valido (`"1726578000"`, un numero che assomiglia a un
+timestamp Unix, non un uuid -- bloccato subito dalla validazione `eUuidValido` prima ancora di
+toccare il database, restituendo l'errore "deve essere l'id esatto (uuid)..."), la seconda con
+l'uuid vero e proprio, riuscita. Cioè: il modello aveva sbagliato l'id al primo tentativo, ha
+letto l'errore restituito dallo strumento e si è corretto DA SOLO nello stesso turno chiamando
+di nuovo lo strumento con l'id giusto -- esattamente il comportamento previsto dal commento
+originale in `tools.ts` su `eseguiStrumento` ("un errore reale ... è informazione utile all'AI
+per rispondere onestamente"), e la lacuna reale non era la validazione ma la mancanza di una
+regola esplicita contro il dichiarare un'azione riuscita senza quella seconda chiamata -- confermato
+che la REGOLA ASSOLUTA 1 estesa nel giro precedente sia servita a farglielo fare invece di
+inventare un "già fatto" a memoria come nel run precedente.
+
+**Rimossi entrambi i log diagnostici** (`tools.ts`, caso `cancella_prenotazione`): non più
+necessari, la causa è chiarita con certezza e il fix di prompt regge alla prova coi dati reali.
+Verificato di nuovo: `tsc`/`eslint`/`vitest` (469/469)/`build` puliti.
+
+**Stato Task #190**: 18 scenari scritti, tutti verificati verdi dal vivo almeno una volta nel
+corso dei run di questo giro di lavoro (16/09/2026) -- gli ultimi due (8 e 10) confermati in
+quest'ultimo run mirato. Resta da fare un run completo di tutti e 18 insieme in una sola
+sessione come conferma finale, non ancora eseguito con questa versione esatta del codice.

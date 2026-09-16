@@ -60,7 +60,10 @@ dichiarare una cancellazione riuscita con il database ancora invariato: non un b
 lacuna reale nel prompt (`agente.ts`) che non vietava esplicitamente di dichiarare un'azione
 completata senza aver davvero richiamato lo strumento in quel turno -- **corretto** estendendo
 REGOLA ASSOLUTA 1, con un log diagnostico incondizionato aggiunto in `tools.ts` per confermare la
-diagnosi al prossimo run.
+diagnosi al prossimo run. **Confermato dal vivo subito dopo**: `npx playwright test 08- 10-` --
+**2 passed**, il log ha mostrato il modello correggere da solo un id non valido nello stesso
+turno invece di dichiarare un successo a memoria. Log diagnostici rimossi. Manca solo un run
+completo di tutti e 18 insieme come conferma finale del Task #190.
 
 | `14-upgrade-piano-abbonamento.spec.ts` | 14 | (a) il NOSTRO endpoint `/api/stripe/checkout` genera un vero URL di Checkout Stripe e salva il customer sul tenant; (b) il NOSTRO webhook porta il tenant sul piano corretto quando Stripe conferma l'abbonamento attivo |
 | `15-cliente-cancella-abbonamento.spec.ts` | 15 | (a) il NOSTRO endpoint `/api/stripe/portal` genera un vero URL del Customer Portal per un tenant con abbonamento attivo; (b) il NOSTRO webhook riporta il tenant a Free quando Stripe conferma la cancellazione |
