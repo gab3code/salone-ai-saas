@@ -768,11 +768,16 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       checkbox servizi del pannello dashboard (si spegneva da sola per un re-render prematuro) --
       **CORRETTO 16/09/2026**, vedi DECISIONS.md "Bug vero (non solo di test) trovato dagli
       scenari E2E". Terzo run: **6/6 VERDI** (1.7 min totali) -- questi 6 scenari sono chiusi.
-      Restano da scrivere gli scenari 2, 4, 7, 8, 10, 11, 13, 14, 15 (nota su 14/15: passano dal
-      Customer Portal Stripe, una UI di terzi -- da confermare con Gabriel se automatizzarla con
-      carte di test o limitarsi a verificare solo il nostro codice).
-      Dettaglio completo, incluso perché non in CI e cosa manca ancora (scenari 2, 4, 7, 8, 10, 11,
-      13, 14, 15), in `tests/e2e/README.md` e in DECISIONS.md.
+      Confermato con Gabriel (16/09/2026) come testare 14/15: solo il nostro codice (URL del
+      portale + reazione al webhook), non la UI ospitata da Stripe -- vedi DECISIONS.md.
+      Scritti anche gli scenari #2 (modifica prenotazione via chat), #4 (servizio inesistente),
+      #7 (servizio incompatibile con l'operatore), #8 (slot occupato durante la conversazione),
+      #10 (cliente cancella + avviso lista d'attesa), #11 (no-show, ridotto a solo verifica
+      DB/vincolo Postgres perché non è un flusso di prodotto implementato oggi -- vedi
+      DECISIONS.md), #13 (registrazione reale + completamento onboarding manuale). Verificati
+      `tsc`/`eslint`/`vitest`/`build` e la raccolta Playwright (`--list`), **mai eseguiti dal
+      vivo**: sono i prossimi da far girare a Gabriel. Restano da scrivere solo i due scenari
+      Stripe (14, 15). Dettaglio completo in `tests/e2e/README.md` e in DECISIONS.md.
 - [x] ~~Semplificazione consapevole: fuso orario trattato come UTC~~ **FATTO 11/09/2026**
       (corretto qui il 12/09/2026, questa riga era rimasta indietro): colonna
       `tenants.fuso_orario` (migrazione 0010, default `Europe/Rome`, applicata al DB reale),

@@ -36,12 +36,25 @@ npx playwright show-report        # apre il report HTML dell'ultimo run (screens
 | `09-servizi-consecutivi.spec.ts` | 9 | Chat AI vera prenota due servizi di fila con lo stesso operatore (funzionalità del 16/09/2026) |
 | `12-prenotazione-manuale-dashboard.spec.ts` | 12 | Lo staff crea un appuntamento dal pannello, checkbox+slot+form reali, nessuna AI |
 
-**Scenari 2, 4, 7, 8, 10, 11, 13, 14, 15 non ancora scritti** -- prossimo giro di lavoro su
-Task #190. Nota su 14/15 (upgrade e cancellazione abbonamento): passano dal Customer
-Portal ospitato da Stripe (`pulsante-portale-abbonamento.tsx`), una pagina che non
-controlliamo -- da valutare se automatizzarne l'interazione con le carte di test Stripe o
-limitarsi a verificare che il nostro codice generi l'URL del portale/riceva correttamente
-il webhook, lasciando la UI del portale stesso a Stripe.
+**1-9-12 sono stati eseguiti dal vivo il 16/09/2026 e sono VERDI (6/6)** -- hanno trovato e fatto
+correggere due bug reali lungo il percorso, vedi DECISIONS.md.
+
+| `02-modifica-prenotazione-cliente-esistente.spec.ts` | 2 | L'AI trova per telefono una prenotazione esistente e la sposta al nuovo giorno/ora richiesti |
+| `04-servizio-inesistente.spec.ts` | 4 | L'AI non inventa né prenota un servizio che il tenant non offre |
+| `07-servizio-incompatibile-con-operatore.spec.ts` | 7 | L'AI non prenota mai un servizio con un operatore che non lo esegue |
+| `08-slot-occupato-durante-conversazione.spec.ts` | 8 | Uno slot proposto si occupa PRIMA della conferma (insert diretto tra due turni) -- l'AI si accorge del conflitto e propone un'alternativa |
+| `10-cliente-cancella.spec.ts` | 10 | Cancellazione via chat (mai una delete fisica) + avviso automatico al primo candidato compatibile in lista d'attesa |
+| `11-cliente-non-si-presenta.spec.ts` | 11 | No-show NON è un flusso di prodotto implementato oggi (verificato leggendo il codice) -- il test si limita a verificare che uno stato `no_show` libererebbe davvero lo slot, se mai venisse scritto |
+| `13-nuova-attivita-registrazione-onboarding.spec.ts` | 13 | Registrazione reale da `/registrati` (provisioning automatico verificato a prescindere dalla conferma email) + completamento onboarding sulle sezioni manuali di `/dashboard/configura` |
+
+**Scritti il 16/09/2026, non ancora eseguiti dal vivo nemmeno una volta** -- lecito aspettarsi
+altri bug (di test o reali) al primo giro, come già successo con 1/3/12.
+
+**Restano solo gli scenari 14 e 15** (upgrade e cancellazione abbonamento). Decisione presa con
+Gabriel il 16/09/2026 (vedi DECISIONS.md): passano dal Customer Portal ospitato da Stripe
+(`pulsante-portale-abbonamento.tsx`), una pagina che non controlliamo -- si testa solo il NOSTRO
+codice (URL del portale generato correttamente, reazione corretta al webhook Stripe), mai
+l'interfaccia del portale stessa.
 
 ## Perché non in CI (per ora)
 

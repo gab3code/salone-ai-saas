@@ -155,30 +155,42 @@ export async function creaTenantDiProva(opzioni: OpzioniTenantDiProva = {}): Pro
   const tenantSlug = tenantAggiornato.slug;
   const tenantNome = tenantAggiornato.nome;
 
+  // `servizi`/`operatori` a `[]` (esplicito, non assente) serve allo
+  // Scenario 13 per simulare un tenant appena registrato, ancora vuoto --
+  // un `.insert([])` non è mai stato esercitato prima da questo helper, e
+  // il comportamento di PostgREST su un array vuoto non è garantito da
+  // verificare qui: si salta del tutto la insert quando non c'è nulla da
+  // inserire, invece di scoprirlo in un run reale di Gabriel.
   const specServizi = opzioni.servizi ?? [{ nome: "Taglio", durataMinuti: 30, prezzoCentesimi: 2500 }];
-  const { data: serviziCreati, error: erroreServizi } = await supabase
-    .from("servizi")
-    .insert(specServizi.map((s) => ({ tenant_id: tenantId, nome: s.nome, durata_minuti: s.durataMinuti, prezzo_centesimi: s.prezzoCentesimi })))
-    .select("id, nome, durata_minuti, prezzo_centesimi");
-  if (erroreServizi || !serviziCreati) {
-    throw new Error(`Impossibile creare i servizi di prova: ${erroreServizi?.message}`);
+  let servizi: ServizioDiProva[] = [];
+  if (specServizi.length > 0) {
+    const { data: serviziCreati, error: erroreServizi } = await supabase
+      .from("servizi")
+      .insert(specServizi.map((s) => ({ tenant_id: tenantId, nome: s.nome, durata_minuti: s.durataMinuti, prezzo_centesimi: s.prezzoCentesimi })))
+      .select("id, nome, durata_minuti, prezzo_centesimi");
+    if (erroreServizi || !serviziCreati) {
+      throw new Error(`Impossibile creare i servizi di prova: ${erroreServizi?.message}`);
+    }
+    servizi = serviziCreati.map((s) => ({
+      id: s.id,
+      nome: s.nome,
+      durataMinuti: s.durata_minuti,
+      prezzoCentesimi: s.prezzo_centesimi,
+    }));
   }
-  const servizi: ServizioDiProva[] = serviziCreati.map((s) => ({
-    id: s.id,
-    nome: s.nome,
-    durataMinuti: s.durata_minuti,
-    prezzoCentesimi: s.prezzo_centesimi,
-  }));
 
   const specOperatori = opzioni.operatori ?? [{ nome: "Operatore Test", servizi: servizi.map((_, i) => i) }];
-  const { data: operatoriCreati, error: erroreOperatori } = await supabase
-    .from("operatori")
-    .insert(specOperatori.map((o) => ({ tenant_id: tenantId, nome: o.nome })))
-    .select("id, nome");
-  if (erroreOperatori || !operatoriCreati) {
-    throw new Error(`Impossibile creare gli operatori di prova: ${erroreOperatori?.message}`);
+  let operatori: OperatoreDiProva[] = [];
+  if (specOperatori.length > 0) {
+    const { data: operatoriCreati, error: erroreOperatori } = await supabase
+      .from("operatori")
+      .insert(specOperatori.map((o) => ({ tenant_id: tenantId, nome: o.nome })))
+      .select("id, nome");
+    if (erroreOperatori || !operatoriCreati) {
+      throw new Error(`Impossibile creare gli operatori di prova: ${erroreOperatori?.message}`);
+    }
+    operatori = operatoriCreati.map((o) => ({ id: o.id, nome: o.nome }));
   }
-  const operatori: OperatoreDiProva[] = operatoriCreati.map((o) => ({ id: o.id, nome: o.nome }));
 
   const righeCompatibilita = specOperatori.flatMap((spec, indiceOperatore) =>
     (spec.servizi ?? servizi.map((_, i) => i)).map((indiceServizio) => ({

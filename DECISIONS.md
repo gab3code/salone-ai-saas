@@ -4537,3 +4537,68 @@ vivo**: serve un terzo giro di Gabriel con `npm run test:e2e`.
 **Aggiornamento 16/09/2026 -- confermato dal vivo**: terzo run di Gabriel, 6/6 scenari passati
 (1.7 minuti totali). Ciclo chiuso: infrastruttura + 6 scenari, due bug reali trovati e corretti,
 suite ora verde. Prossimo passo: scrivere gli scenari 2, 4, 7, 8, 10, 11, 13, 14, 15.
+
+## 2026-09-16 — Scenari 14/15 (Stripe): testiamo solo il nostro codice, non la UI del Customer Portal
+
+Decisione chiesta esplicitamente a Gabriel (l'alternativa, automatizzare col vero Customer
+Portal e carte di test, sarebbe stata costosa da disfare se si fosse rivelata troppo fragile).
+Confermata l'opzione più sicura: gli scenari 14 (upgrade piano) e 15 (cancellazione abbonamento)
+verificano che il NOSTRO codice generi l'URL del portale corretto e reagisca bene a un evento
+webhook Stripe (stessa tecnica già usata dagli unit test esistenti su `stripe/webhook`), senza
+cliccare dentro l'interfaccia ospitata da Stripe -- che non è nostra, non possiamo romperla, e se
+Stripe la cambia un test che ci clicca dentro si romperebbe per un motivo che non dipende da noi.
+
+## 2026-09-16 — Scritti gli scenari E2E 2, 4, 7, 8, 10, 11, 13 (Task #190)
+
+Continuazione diretta del lavoro sui 15 scenari del punto 27 di CLAUDE.md, dopo che i primi 6
+sono risultati verdi dal vivo. Prima di scrivere codice, ricerca approfondita sul codice vero
+(tool AI, `booking-engine.server.ts`, azioni dashboard, schema DB) per ogni scenario, invece di
+supporre come funzionasse ciascun caso -- dettaglio completo per scenario nei commenti in testa
+a ciascun file di test. Punti degni di nota:
+
+- **Nuovo helper `tests/e2e/helpers/appuntamento-di-prova.ts`** (`creaAppuntamentoConfermato`):
+  crea direttamente, via service_role, un cliente + un appuntamento con lo stato voluto
+  (confermato/no_show), riusato dagli scenari 2, 8, 10, 11 -- questi partono tutti da "il cliente
+  ha già una prenotazione", che non ha senso far ricreare ogni volta con un giro di chat AI (più
+  lento e non deterministico) quando serve solo un dato di partenza noto. Usa la stessa
+  conversione pseudo-UTC -> istante reale (`pseudoUtcAReale`, `src/lib/fuso-orario.ts`) che usa
+  `creaAppuntamentoTenant`, per restare coerente con cosa scriverebbe davvero l'app.
+- **Scenario 11 (no-show) ridotto per un motivo reale, non di comodo**: verificato leggendo il
+  codice che marcare un appuntamento come no-show NON è un flusso di prodotto implementato oggi
+  -- lo stato esiste solo a livello di schema/tipo, il motore lo tratta già bene (coperto da un
+  unit test esistente), ma nessun pulsante in tutto il prodotto scrive quello stato. Testare
+  "il cliente non si presenta" come interazione utente avrebbe testato un'azione inesistente.
+  Il test si limita quindi a verificare che il sistema si comporti già bene SE quello stato
+  venisse scritto (vincolo Postgres `niente_sovrapposizioni` + query reale della dashboard),
+  senza inventare un flusso UI che non esiste.
+- **Scenario 13 (onboarding) diviso in due test indipendenti**: `/registrati` chiama
+  `supabase.auth.signUp`, il cui esito (sessione immediata vs "controlla la tua email") dipende
+  da un'impostazione del progetto Supabase ospitato non leggibile da questo repo. Il primo test
+  usa la UI REALE di `/registrati` (non `auth.admin.createUser` come fa `creaTenantDiProva`) e
+  verifica solo ciò che è garantito a prescindere dal ramo -- il trigger `al_nuovo_utente` scatta
+  comunque, PRIMA della conferma email -- gestendo entrambi gli esiti possibili con un
+  `Promise.race` invece di assumerne uno. Il secondo test (il vero "completa onboarding") usa
+  l'helper esistente con un tenant esplicitamente vuoto (0 servizi, 0 operatori, tutti i giorni
+  chiusi -- lo stato reale subito dopo una registrazione) per restare deterministico, e compila
+  le sezioni MANUALI di `/dashboard/configura` (non il wizard AI, non deterministico) fino a
+  vedere il servizio configurato comparire sulla pagina pubblica.
+- **`tenant-di-prova.ts` reso più robusto**: `servizi`/`operatori` a `[]` esplicito (necessario
+  per lo Scenario 13) non era mai stato esercitato prima -- aggiunta una guardia che salta del
+  tutto l'`insert` quando l'array è vuoto, invece di scoprire dal vivo se PostgREST accetta un
+  `.insert([])`.
+- **Scenari 4 e 7**: nessun errore di codice dedicato per "servizio inesistente"/"operatore
+  incompatibile" lato AI -- sono la REGOLA ASSOLUTA 1 del prompt e il doppio controllo
+  lettura/scrittura di `verificaOperatoreCompatibile` (quest'ultimo aggiunto in un audit di
+  sicurezza il 15/09/2026) a impedirli. Come sempre in questa suite, mai un confronto sul testo
+  esatto dell'AI: l'unica asserzione dura è che in database non compaia mai la prenotazione
+  sbagliata.
+- **Scenario 8**: la finestra di race "narrativa" (slot libero quando proposto, occupato prima
+  della conferma) è simulata con un insert diretto TRA il primo e il secondo turno della stessa
+  conversazione -- più realistico e deterministico di due browser paralleli (quello è già lo
+  Scenario 3, con una race vera invece che a due turni di distanza).
+
+Verificato: `tsc --noEmit`/`eslint`/`vitest run` (469/469)/`build` puliti, `npx playwright test
+--list` conferma che tutti i 14 test (7 nuovi + 7 esistenti) vengono raccolti correttamente senza
+errori di sintassi/import. **Non ancora eseguiti dal vivo**: servono a Gabriel con
+`npm run test:e2e` -- 7 scenari mai girati nemmeno una volta, quindi è lecito aspettarsi altri
+bug (di test o reali) al primo giro, come già successo con i primi 6.

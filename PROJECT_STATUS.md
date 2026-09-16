@@ -1,6 +1,26 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, cinquantaquattresimo giro -- Task #190, i primi 6 scenari E2E
+Ultimo aggiornamento: 16/09/2026, cinquantacinquesimo giro -- Task #190, scritti i restanti 7
+scenari E2E su 9 (mancano solo i due su Stripe): #2 (modifica prenotazione via chat), #4
+(servizio inesistente), #7 (servizio incompatibile con l'operatore), #8 (slot occupato durante
+la conversazione, simulato con un insert diretto tra due turni della stessa chat), #10 (cliente
+cancella + avviso lista d'attesa), #11 (no-show -- ridotto a sola verifica DB/vincolo Postgres
+perché marcare un appuntamento come no-show non è un flusso implementato oggi, verificato
+leggendo il codice invece di supporlo), #13 (registrazione reale da `/registrati` + completamento
+onboarding sulle sezioni manuali di `/dashboard/configura`). Confermata con Gabriel la scelta più
+sicura per gli scenari 14/15 (Stripe): testare solo il nostro codice, non il Customer Portal
+ospitato. Nuovo helper `tests/e2e/helpers/appuntamento-di-prova.ts` per creare direttamente un
+appuntamento di partenza (confermato o no_show) senza un giro di chat, riusato da 4 scenari.
+Piccola guardia difensiva aggiunta a `tenant-di-prova.ts`: salta l'insert quando l'array
+servizi/operatori è vuoto (mai esercitato prima, serviva per il tenant "vuoto" dello Scenario
+13). Verificato: `tsc`/`eslint`/`vitest` (469/469)/`build` puliti, `npx playwright test --list`
+conferma che tutti i 14 test si raccolgono senza errori di sintassi. **Mai eseguiti dal vivo**:
+7 scenari mai girati nemmeno una volta, prossimo passo è che Gabriel lanci `npm run test:e2e` e
+mandi l'output -- lecito aspettarsi altri bug (di test o reali) al primo giro, come già successo
+con i primi 6. Dettaglio completo in DECISIONS.md, "2026-09-16 — Scritti gli scenari E2E 2, 4,
+7, 8, 10, 11, 13".
+
+Aggiornamento precedente, 16/09/2026, cinquantaquattresimo giro -- Task #190, i primi 6 scenari E2E
 sono VERDI dal vivo: Gabriel ha rilanciato `npm run test:e2e` col fix della checkbox e tutti e 6
 sono passati al primo colpo (1.7 min totali). Chiuso il ciclo "scrivi infrastruttura -> trova bug
 veri -> corregge -> riverifica" durato tre giri (cinquantunesimo-cinquantatreesimo): questi test
