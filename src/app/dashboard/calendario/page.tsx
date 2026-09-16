@@ -30,7 +30,10 @@ export default async function PaginaCalendario({
 }: {
   searchParams: Promise<{
     data?: string;
-    servizio_id?: string;
+    // Servizi consecutivi (punto 12): più valori con la stessa chiave nella
+    // query string (?servizio_id=a&servizio_id=b) -> Next li dà già come
+    // array, un solo valore resta una stringa semplice.
+    servizio_id?: string | string[];
     operatore_id?: string;
     modifica?: string;
     lista_attesa_avviso?: string;
@@ -42,7 +45,7 @@ export default async function PaginaCalendario({
   if (!tenantId) redirect("/accedi");
 
   const dataYMD = sp.data && /^\d{4}-\d{2}-\d{2}$/.test(sp.data) ? sp.data : oggiYMD();
-  const servizioId = sp.servizio_id ?? "";
+  const servizioIds = sp.servizio_id ? (Array.isArray(sp.servizio_id) ? sp.servizio_id : [sp.servizio_id]) : [];
   const operatoreId = sp.operatore_id ?? "";
   const modificaId = sp.modifica ?? "";
 
@@ -104,10 +107,10 @@ export default async function PaginaCalendario({
   }));
 
   let slots: { operatoreId: string; inizio: string }[] = [];
-  if (servizioId) {
+  if (servizioIds.length > 0) {
     const slotsCalcolati = await trovaSlotDisponibiliTenant(supabase, tenantId, {
       data: new Date(`${dataYMD}T00:00:00Z`),
-      servizioIds: [servizioId],
+      servizioIds,
       operatoreId: operatoreId || undefined,
     });
     slots = slotsCalcolati.map((s) => ({
@@ -171,7 +174,7 @@ export default async function PaginaCalendario({
               const cliente = Array.isArray(a.clienti) ? a.clienti[0] : (a.clienti as { nome: string | null; telefono: string } | null);
               const inModifica = modificaId === a.id;
               const parametriSenzaModifica = new URLSearchParams({ data: dataYMD });
-              if (servizioId) parametriSenzaModifica.set("servizio_id", servizioId);
+              for (const id of servizioIds) parametriSenzaModifica.append("servizio_id", id);
               if (operatoreId) parametriSenzaModifica.set("operatore_id", operatoreId);
 
               return (
@@ -282,7 +285,7 @@ export default async function PaginaCalendario({
           operatori={operatori}
           servizi={servizi}
           slots={slots}
-          servizioIdIniziale={servizioId}
+          servizioIdsIniziali={servizioIds}
           operatoreIdIniziale={operatoreId}
           dataIniziale={dataYMD}
         />

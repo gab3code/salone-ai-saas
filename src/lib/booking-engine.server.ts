@@ -439,7 +439,7 @@ async function verificaOperatoreCompatibile(
   supabase: SupabaseClient,
   tenantId: string,
   operatoreId: string,
-  servizioId: string
+  servizioId: string | string[]
 ): Promise<{ ok: true } | { ok: false; errore: string }> {
   const { data: operatore } = await supabase
     .from("operatori")
@@ -450,13 +450,21 @@ async function verificaOperatoreCompatibile(
   if (!operatore) return { ok: false, errore: "Operatore non trovato." };
   if (!operatore.attivo) return { ok: false, errore: "Questo operatore non è più disponibile." };
 
-  const { data: compatibile } = await supabase
-    .from("operatori_servizi")
-    .select("operatore_id")
-    .eq("operatore_id", operatoreId)
-    .eq("servizio_id", servizioId)
-    .maybeSingle();
-  if (!compatibile) return { ok: false, errore: "Questo operatore non esegue il servizio richiesto." };
+  // Servizi consecutivi (punto 12): l'operatore deve saper erogare OGNI
+  // servizio della catena, non solo il primo -- stessa regola già applicata
+  // dal motore puro in calcolaSlotServiziConsecutivi, replicata qui perché la
+  // scrittura passa da una funzione diversa (questa) da quella di sola
+  // lettura (trovaSlotEContestoTenant).
+  const servizioIds = Array.isArray(servizioId) ? servizioId : [servizioId];
+  for (const id of servizioIds) {
+    const { data: compatibile } = await supabase
+      .from("operatori_servizi")
+      .select("operatore_id")
+      .eq("operatore_id", operatoreId)
+      .eq("servizio_id", id)
+      .maybeSingle();
+    if (!compatibile) return { ok: false, errore: "Questo operatore non esegue il servizio richiesto." };
+  }
 
   return { ok: true };
 }
@@ -498,7 +506,11 @@ async function trovaOCreaCliente(
 
 export interface CreaAppuntamentoParams {
   operatoreId: string;
-  servizioId: string;
+  // Più di un id = servizi consecutivi (punto 12): stesso operatore, in
+  // sequenza senza buchi, nell'ordine dato -- una riga `appuntamenti` per
+  // servizio (schema invariato altrove, vedi migrazione 0025), collegate da
+  // `gruppo_prenotazione_id`. Un solo id = comportamento identico a prima.
+  servizioId: string | string[];
   inizio: Date;
   clienteNome?: string;
   clienteTelefono?: string;
@@ -682,23 +694,27 @@ export async function creaAppuntamentoTenant(
     }
   }
 
-  const { data: servizio } = await supabase
-    .from("servizi")
-    .select("durata_minuti")
-    .eq("id", params.servizioId)
-    .eq("tenant_id", tenantId)
-    .single();
-  if (!servizio) return { ok: false, errore: "Servizio non trovato." };
+  const servizioIds = Array.isArray(params.servizioId) ? params.servizioId : [params.servizioId];
+  if (servizioIds.length === 0) return { ok: false, errore: "Nessun servizio specificato." };
 
-  const operatoreCompatibile = await verificaOperatoreCompatibile(supabase, tenantId, params.operatoreId, params.servizioId);
+  const servizi = await caricaServizi(supabase, tenantId, servizioIds);
+  if (servizi.length !== servizioIds.length) return { ok: false, errore: "Servizio non trovato." };
+  const durataPerServizio = new Map(servizi.map((s) => [s.id, s.durataMinuti]));
+
+  const operatoreCompatibile = await verificaOperatoreCompatibile(supabase, tenantId, params.operatoreId, servizioIds);
   if (!operatoreCompatibile.ok) return operatoreCompatibile;
 
   // Durata sommata in spazio pseudo-UTC (timezone-invariante: è
   // un'aritmetica su millisecondi, non su ore civili) -- `fine` resta
   // pseudo qui, coerente con `params.inizio` e con verificaConflittoTenant
   // (che converte in reale internamente). Solo appena prima di scrivere su
-  // Postgres (sotto) i due vengono convertiti nell'istante reale.
-  const fine = new Date(params.inizio.getTime() + servizio.durata_minuti * 60_000);
+  // Postgres (sotto) i due vengono convertiti nell'istante reale. Per i
+  // servizi consecutivi il conflitto si verifica sull'intero blocco (dal
+  // primo servizio all'ultimo), non riga per riga -- stesso principio del
+  // motore puro (calcolaSlotServiziConsecutivi tratta la catena come un
+  // unico slot con un operatore libero ininterrottamente).
+  const durataTotaleMinuti = servizioIds.reduce((somma, id) => somma + (durataPerServizio.get(id) ?? 0), 0);
+  const fine = new Date(params.inizio.getTime() + durataTotaleMinuti * 60_000);
 
   const conflitto = await verificaConflittoTenant(supabase, tenantId, {
     inizio: params.inizio,
@@ -727,46 +743,80 @@ export async function creaAppuntamentoTenant(
   }
 
   const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
-  const { data: appuntamento, error } = await supabase
-    .from("appuntamenti")
-    .insert({
-      tenant_id: tenantId,
-      operatore_id: params.operatoreId,
-      servizio_id: params.servizioId,
-      cliente_id: clienteId,
-      inizio: pseudoUtcAReale(params.inizio, fusoOrario).toISOString(),
-      fine: pseudoUtcAReale(fine, fusoOrario).toISOString(),
-      stato: "confermato",
-      creato_da: params.creatoDa,
-      note: params.note ?? null,
-    })
-    .select("id")
-    .single();
 
-  if (error) {
-    // 23P01 = exclusion_violation: il vincolo "niente_sovrapposizioni" ha
-    // bloccato una race condition sfuggita al controllo applicativo sopra.
-    if (error.code === "23P01") {
-      return {
-        ok: false,
-        errore: "Questo slot è appena stato occupato da un altro appuntamento. Scegli un altro orario.",
-      };
+  // Una riga `appuntamenti` per servizio, in sequenza senza buchi
+  // nell'ordine dato da chi chiama (l'ordine con cui il cliente li ha
+  // chiesti, non riordinato qui). Un solo servizio = esattamente il
+  // comportamento di sempre (gruppo_prenotazione_id resta null, una sola
+  // riga). Nessuna vera transazione multi-riga a livello Postgres qui (il
+  // client Supabase via PostgREST non la espone): se una riga successiva
+  // fallisce (es. race condition intercettata dal vincolo
+  // niente_sovrapposizioni), le righe già scritte di questo stesso gruppo
+  // vengono cancellate a mano prima di restituire l'errore, così non resta
+  // mai una catena parziale/rotta in calendario.
+  const gruppoId = servizioIds.length > 1 ? crypto.randomUUID() : null;
+  const idRigheCreate: string[] = [];
+  let cursoreMinuti = 0;
+
+  for (const servizioId of servizioIds) {
+    const durataMinuti = durataPerServizio.get(servizioId) ?? 0;
+    const inizioServizio = new Date(params.inizio.getTime() + cursoreMinuti * 60_000);
+    const fineServizio = new Date(inizioServizio.getTime() + durataMinuti * 60_000);
+    cursoreMinuti += durataMinuti;
+
+    const { data: appuntamento, error } = await supabase
+      .from("appuntamenti")
+      .insert({
+        tenant_id: tenantId,
+        operatore_id: params.operatoreId,
+        servizio_id: servizioId,
+        cliente_id: clienteId,
+        inizio: pseudoUtcAReale(inizioServizio, fusoOrario).toISOString(),
+        fine: pseudoUtcAReale(fineServizio, fusoOrario).toISOString(),
+        stato: "confermato",
+        creato_da: params.creatoDa,
+        note: params.note ?? null,
+        gruppo_prenotazione_id: gruppoId,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      if (idRigheCreate.length > 0) {
+        await supabase.from("appuntamenti").delete().in("id", idRigheCreate);
+      }
+      // 23P01 = exclusion_violation: il vincolo "niente_sovrapposizioni" ha
+      // bloccato una race condition sfuggita al controllo applicativo sopra.
+      if (error.code === "23P01") {
+        return {
+          ok: false,
+          errore: "Questo slot è appena stato occupato da un altro appuntamento. Scegli un altro orario.",
+        };
+      }
+      return { ok: false, errore: `Errore salvando l'appuntamento: ${error.message}` };
     }
-    return { ok: false, errore: `Errore salvando l'appuntamento: ${error.message}` };
+
+    idRigheCreate.push(appuntamento.id);
   }
 
   // Notifiche email (Fase 6, Gruppo B-bis #1): l'appuntamento è già scritto
   // con successo qui sopra -- fail-open totale, un problema di invio non
   // deve mai far tornare questa funzione come se la prenotazione fosse
   // fallita (la funzione stessa non lancia mai, il try/catch qui è solo
-  // difesa in profondità).
-  try {
-    await inviaNotificheNuovoAppuntamento(tenantId, appuntamento.id);
-  } catch (erroreNotifica) {
-    console.error("[email] Errore inatteso propagato dalle notifiche di nuovo appuntamento:", erroreNotifica);
+  // difesa in profondità). Per servizi consecutivi: una notifica per riga
+  // (una per servizio della catena), non una sola email cumulativa -- scelta
+  // di scope deliberata per non toccare il sistema di notifiche in questo
+  // giro (vedi DECISIONS.md), il cliente riceve più email invece di una,
+  // ognuna corretta sul proprio servizio/orario.
+  for (const id of idRigheCreate) {
+    try {
+      await inviaNotificheNuovoAppuntamento(tenantId, id);
+    } catch (erroreNotifica) {
+      console.error("[email] Errore inatteso propagato dalle notifiche di nuovo appuntamento:", erroreNotifica);
+    }
   }
 
-  return { ok: true, appuntamentoId: appuntamento.id };
+  return { ok: true, appuntamentoId: idRigheCreate[0] };
 }
 
 export interface ModificaAppuntamentoParams {

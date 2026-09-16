@@ -21,7 +21,7 @@ interface Slot {
 }
 
 /**
- * Pannello "nuovo appuntamento": scegliere servizio/operatore/data aggiorna
+ * Pannello "nuovo appuntamento": scegliere servizi/operatore/data aggiorna
  * l'URL (query string) -> il Server Component della pagina ricalcola gli
  * slot veri con il motore di disponibilità e li passa qui come props. Niente
  * stato di disponibilità duplicato lato client: il client component gestisce
@@ -31,19 +31,25 @@ interface Slot {
  * Risponde direttamente a una debolezza osservata in Estetia (vedi
  * docs/analisi-estetia.md, "Primo slot disponibile in un click"): qui lo
  * slot si clicca, non si calcola a mente.
+ *
+ * Servizi consecutivi (punto 12, collegato il 16/09/2026): più caselle
+ * selezionate = una catena di servizi con lo stesso operatore, senza buchi,
+ * nell'ORDINE in cui compaiono nell'elenco (non nell'ordine di selezione --
+ * più semplice da capire per lo staff che spuntare le caselle in un ordine
+ * preciso).
  */
 export function PannelloNuovoAppuntamento({
   operatori,
   servizi,
   slots,
-  servizioIdIniziale,
+  servizioIdsIniziali,
   operatoreIdIniziale,
   dataIniziale,
 }: {
   operatori: Operatore[];
   servizi: Servizio[];
   slots: Slot[];
-  servizioIdIniziale: string;
+  servizioIdsIniziali: string[];
   operatoreIdIniziale: string;
   dataIniziale: string;
 }) {
@@ -65,6 +71,24 @@ export function PannelloNuovoAppuntamento({
     router.push(`/dashboard/calendario?${parametri.toString()}`);
   }
 
+  function alternaServizio(servizioId: string, selezionato: boolean) {
+    const parametri = new URLSearchParams(searchParams.toString());
+    const attuali = servizioIdsIniziali.filter((id) => id !== servizioId);
+    const nuovi = selezionato ? [...attuali, servizioId] : attuali;
+    parametri.delete("servizio_id");
+    for (const id of nuovi) parametri.append("servizio_id", id);
+    setSlotSelezionato(null);
+    router.push(`/dashboard/calendario?${parametri.toString()}`);
+  }
+
+  const servizioIdsSet = new Set(servizioIdsIniziali);
+  // Durata totale della catena selezionata (per mostrarla in chiaro allo
+  // staff, prima ancora di vedere gli slot) -- stessa somma che il motore
+  // di disponibilità calcola lato server.
+  const durataTotaleMinuti = servizi
+    .filter((s) => servizioIdsSet.has(s.id))
+    .reduce((somma, s) => somma + s.durataMinuti, 0);
+
   const operatoriPerId = new Map(operatori.map((o) => [o.id, o.nome]));
 
   async function inviaForm(formData: FormData) {
@@ -85,19 +109,24 @@ export function PannelloNuovoAppuntamento({
 
       <div className="flex flex-wrap gap-3 text-sm">
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-zinc-500">Servizio</label>
-          <select
-            value={servizioIdIniziale}
-            onChange={(e) => aggiornaParametro("servizio_id", e.target.value)}
-            className="rounded border border-zinc-300 px-2 py-1"
-          >
-            <option value="">Scegli...</option>
+          <label className="text-xs text-zinc-500">
+            Servizi {servizioIdsIniziali.length > 1 && "(consecutivi, stesso operatore)"}
+          </label>
+          <div className="flex max-w-xs flex-col gap-1 rounded border border-zinc-300 px-2 py-1.5">
             {servizi.map((s) => (
-              <option key={s.id} value={s.id}>
+              <label key={s.id} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={servizioIdsSet.has(s.id)}
+                  onChange={(e) => alternaServizio(s.id, e.target.checked)}
+                />
                 {s.nome} ({s.durataMinuti} min)
-              </option>
+              </label>
             ))}
-          </select>
+          </div>
+          {servizioIdsIniziali.length > 1 && (
+            <p className="text-xs text-zinc-500">Durata totale: {durataTotaleMinuti} min</p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -127,12 +156,12 @@ export function PannelloNuovoAppuntamento({
         </div>
       </div>
 
-      {servizioIdIniziale && (
+      {servizioIdsIniziali.length > 0 && (
         <div>
           <p className="text-xs text-zinc-500">Orari liberi -- clicca per scegliere:</p>
           {slots.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-500">
-              Nessuno slot libero per questa combinazione. Prova un&apos;altra data o operatore.
+              Nessuno slot libero per questa combinazione. Prova un&apos;altra data, un altro operatore o meno servizi insieme.
             </p>
           ) : (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -164,7 +193,9 @@ export function PannelloNuovoAppuntamento({
       {slotSelezionato && (
         <form action={inviaForm} className="flex flex-wrap items-end gap-2 border-t border-zinc-200 pt-3">
           <input type="hidden" name="operatore_id" value={slotSelezionato.operatoreId} />
-          <input type="hidden" name="servizio_id" value={servizioIdIniziale} />
+          {servizioIdsIniziali.map((id) => (
+            <input key={id} type="hidden" name="servizio_id" value={id} />
+          ))}
           <input type="hidden" name="inizio" value={slotSelezionato.inizio} />
 
           <div className="flex flex-col gap-1">

@@ -439,7 +439,7 @@ describe("creaAppuntamentoTenant", () => {
   it("non blocca un piano diverso da Free anche con molte prenotazioni (nessun tetto per gli altri piani)", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
-      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
       operatori: { select: [rispostaOperatoreValido()] },
       operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
       appuntamenti: { select: [{ data: [], error: null }], insert: [{ data: { id: "nuovo-appuntamento" }, error: null }] },
@@ -470,7 +470,7 @@ describe("creaAppuntamentoTenant", () => {
   it("blocca la creazione se l'operatore ha già un appuntamento in quello slot", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso()] },
-      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
       operatori: { select: [rispostaOperatoreValido()] },
       operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
       appuntamenti: {
@@ -497,7 +497,7 @@ describe("creaAppuntamentoTenant", () => {
   it("scrive l'istante REALE corretto (convertito dal fuso del tenant), non l'orario pseudo-UTC grezzo", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
-      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
       operatori: { select: [rispostaOperatoreValido()] },
       operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
       appuntamenti: {
@@ -522,7 +522,7 @@ describe("creaAppuntamentoTenant", () => {
   it("trova un cliente esistente per telefono invece di duplicarlo", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
-      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
       operatori: { select: [rispostaOperatoreValido()] },
       operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
       appuntamenti: { select: [{ data: [], error: null }], insert: [{ data: { id: "app-1" }, error: null }] },
@@ -546,7 +546,7 @@ describe("creaAppuntamentoTenant", () => {
   it("crea un cliente nuovo se il telefono non corrisponde a nessuno già registrato", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
-      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
       operatori: { select: [rispostaOperatoreValido()] },
       operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
       appuntamenti: { select: [{ data: [], error: null }], insert: [{ data: { id: "app-1" }, error: null }] },
@@ -621,7 +621,7 @@ describe("creaAppuntamentoTenant", () => {
   it("non blocca il canale pubblico se un cliente nuovo (mai visto) prenota, anche senza volume pregresso", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
-      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
       operatori: { select: [rispostaOperatoreValido()] },
       operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
       appuntamenti: {
@@ -655,7 +655,7 @@ describe("creaAppuntamentoTenant", () => {
   it("il canale pubblico procede normalmente se sotto entrambe le soglie anti-abuso", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
-      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
       operatori: { select: [rispostaOperatoreValido()] },
       operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
       appuntamenti: {
@@ -678,7 +678,7 @@ describe("creaAppuntamentoTenant", () => {
   it("traduce il vincolo Postgres 23P01 (race condition sfuggita al controllo applicativo) in un messaggio chiaro", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
-      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
       operatori: { select: [rispostaOperatoreValido()] },
       operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
       appuntamenti: {
@@ -698,6 +698,173 @@ describe("creaAppuntamentoTenant", () => {
     });
   });
 
+  // Servizi consecutivi (punto 12, collegato il 16/09/2026): la logica pura
+  // (calcolaSlotServiziConsecutivi) esisteva già e aveva già i suoi test --
+  // questi verificano lo strato di SCRITTURA (creaAppuntamentoTenant), che
+  // prima accettava solo un servizioId singolo.
+  describe("servizi consecutivi (più id in servizioId)", () => {
+    const SERVIZIO_ID_2 = "servizio-2";
+
+    it("crea una riga per servizio, in sequenza senza buchi, con lo stesso gruppo_prenotazione_id", async () => {
+      const supabase = creaSupabaseFinto({
+        tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
+        servizi: {
+          select: [
+            { data: [{ id: SERVIZIO_ID, durata_minuti: 30 }, { id: SERVIZIO_ID_2, durata_minuti: 45 }], error: null },
+          ],
+        },
+        operatori: { select: [rispostaOperatoreValido()] },
+        operatori_servizi: {
+          select: [rispostaOperatoreCompatibileConServizio(), rispostaOperatoreCompatibileConServizio()],
+        },
+        appuntamenti: {
+          select: [{ data: [], error: null }],
+          insert: [
+            { data: { id: "riga-1" }, error: null },
+            { data: { id: "riga-2" }, error: null },
+          ],
+        },
+      });
+      const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
+        operatoreId: OPERATORE_ID,
+        servizioId: [SERVIZIO_ID, SERVIZIO_ID_2],
+        inizio: INIZIO_PSEUDO, // 2026-07-15T16:00 civile Roma
+        creatoDa: "manuale",
+      });
+      expect(risultato).toEqual({ ok: true, appuntamentoId: "riga-1" });
+
+      const scritture = supabase.registro.insert.filter(
+        (c: ChiamataScrittura) => c.tabella === "appuntamenti"
+      ) as { payload: Record<string, unknown> }[];
+      expect(scritture).toHaveLength(2);
+
+      const gruppoId = scritture[0].payload.gruppo_prenotazione_id;
+      expect(gruppoId).toBeTruthy();
+      expect(scritture[1].payload.gruppo_prenotazione_id).toBe(gruppoId);
+
+      // Primo servizio: 16:00-16:30 civile -> 14:00-14:30 UTC reale.
+      expect(scritture[0].payload.servizio_id).toBe(SERVIZIO_ID);
+      expect(scritture[0].payload.inizio).toBe("2026-07-15T14:00:00.000Z");
+      expect(scritture[0].payload.fine).toBe("2026-07-15T14:30:00.000Z");
+      // Secondo servizio: riprende esattamente dove finisce il primo, nessun
+      // buco -- 16:30-17:15 civile -> 14:30-15:15 UTC reale.
+      expect(scritture[1].payload.servizio_id).toBe(SERVIZIO_ID_2);
+      expect(scritture[1].payload.inizio).toBe("2026-07-15T14:30:00.000Z");
+      expect(scritture[1].payload.fine).toBe("2026-07-15T15:15:00.000Z");
+    });
+
+    it("un solo servizio (array di un elemento) si comporta esattamente come una stringa singola: gruppo_prenotazione_id null", async () => {
+      const supabase = creaSupabaseFinto({
+        tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
+        servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+        operatori: { select: [rispostaOperatoreValido()] },
+        operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
+        appuntamenti: { select: [{ data: [], error: null }], insert: [{ data: { id: "riga-1" }, error: null }] },
+      });
+      const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
+        operatoreId: OPERATORE_ID,
+        servizioId: [SERVIZIO_ID],
+        inizio: INIZIO_PSEUDO,
+        creatoDa: "manuale",
+      });
+      expect(risultato).toEqual({ ok: true, appuntamentoId: "riga-1" });
+      const scrittura = supabase.registro.insert[0] as { payload: Record<string, unknown> };
+      expect(scrittura.payload.gruppo_prenotazione_id).toBeNull();
+    });
+
+    it("rifiuta la catena se l'operatore non esegue TUTTI i servizi (non solo il primo)", async () => {
+      const supabase = creaSupabaseFinto({
+        tenants: { select: [rispostaTenantPiano("growth")] },
+        servizi: {
+          select: [
+            { data: [{ id: SERVIZIO_ID, durata_minuti: 30 }, { id: SERVIZIO_ID_2, durata_minuti: 45 }], error: null },
+          ],
+        },
+        operatori: { select: [rispostaOperatoreValido()] },
+        // Compatibile col primo servizio, NON col secondo.
+        operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio(), { data: null, error: null }] },
+      });
+      const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
+        operatoreId: OPERATORE_ID,
+        servizioId: [SERVIZIO_ID, SERVIZIO_ID_2],
+        inizio: INIZIO_PSEUDO,
+        creatoDa: "manuale",
+      });
+      expect(risultato).toEqual({ ok: false, errore: "Questo operatore non esegue il servizio richiesto." });
+      expect(supabase.registro.insert.some((c: ChiamataScrittura) => c.tabella === "appuntamenti")).toBe(false);
+    });
+
+    it("verifica il conflitto sull'intera durata della catena, non solo sul primo servizio", async () => {
+      const supabase = creaSupabaseFinto({
+        tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso()] },
+        servizi: {
+          select: [
+            { data: [{ id: SERVIZIO_ID, durata_minuti: 30 }, { id: SERVIZIO_ID_2, durata_minuti: 45 }], error: null },
+          ],
+        },
+        operatori: { select: [rispostaOperatoreValido()] },
+        operatori_servizi: {
+          select: [rispostaOperatoreCompatibileConServizio(), rispostaOperatoreCompatibileConServizio()],
+        },
+        appuntamenti: {
+          // Un appuntamento esistente che si sovrappone SOLO con la finestra
+          // del secondo servizio (14:45-15:00 reale) -- se il controllo
+          // guardasse solo il primo servizio (14:00-14:30), lo lascerebbe
+          // passare per errore.
+          select: [
+            {
+              data: [{ id: "x", operatore_id: OPERATORE_ID, inizio: "2026-07-15T14:45:00.000Z", fine: "2026-07-15T15:00:00.000Z", stato: "confermato" }],
+              error: null,
+            },
+          ],
+        },
+      });
+      const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
+        operatoreId: OPERATORE_ID,
+        servizioId: [SERVIZIO_ID, SERVIZIO_ID_2],
+        inizio: INIZIO_PSEUDO,
+        creatoDa: "manuale",
+      });
+      expect(risultato.ok).toBe(false);
+      if (!risultato.ok) expect(risultato.errore).toMatch(/già un appuntamento/);
+    });
+
+    it("se una riga della catena fallisce a metà (race condition), cancella quelle già create dello stesso gruppo prima di restituire l'errore", async () => {
+      const supabase = creaSupabaseFinto({
+        tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
+        servizi: {
+          select: [
+            { data: [{ id: SERVIZIO_ID, durata_minuti: 30 }, { id: SERVIZIO_ID_2, durata_minuti: 45 }], error: null },
+          ],
+        },
+        operatori: { select: [rispostaOperatoreValido()] },
+        operatori_servizi: {
+          select: [rispostaOperatoreCompatibileConServizio(), rispostaOperatoreCompatibileConServizio()],
+        },
+        appuntamenti: {
+          select: [{ data: [], error: null }],
+          insert: [
+            { data: { id: "riga-1" }, error: null },
+            { data: null, error: { message: "conflitto", code: "23P01" } },
+          ],
+        },
+      });
+      const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
+        operatoreId: OPERATORE_ID,
+        servizioId: [SERVIZIO_ID, SERVIZIO_ID_2],
+        inizio: INIZIO_PSEUDO,
+        creatoDa: "manuale",
+      });
+      expect(risultato).toEqual({
+        ok: false,
+        errore: "Questo slot è appena stato occupato da un altro appuntamento. Scegli un altro orario.",
+      });
+      // La prima riga (già scritta con successo) deve essere cancellata --
+      // non deve restare una catena parziale/rotta in calendario.
+      expect(supabase.registro.delete).toEqual([{ tabella: "appuntamenti" }]);
+    });
+  });
+
   // Bug di isolamento multi-tenant trovato in un audit del 15/09/2026 (vedi
   // il commento su verificaOperatoreCompatibile in booking-engine.server.ts):
   // niente, prima di questo controllo, impediva di scrivere un appuntamento
@@ -706,7 +873,7 @@ describe("creaAppuntamentoTenant", () => {
     it("rifiuta un operatore che non esiste (o appartiene a un altro tenant)", async () => {
       const supabase = creaSupabaseFinto({
         tenants: { select: [rispostaTenantPiano("growth")] },
-        servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+        servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
         operatori: { select: [{ data: null, error: null }] },
       });
       const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
@@ -723,7 +890,7 @@ describe("creaAppuntamentoTenant", () => {
     it("rifiuta un operatore disattivato", async () => {
       const supabase = creaSupabaseFinto({
         tenants: { select: [rispostaTenantPiano("growth")] },
-        servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+        servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
         operatori: { select: [{ data: { id: OPERATORE_ID, attivo: false }, error: null }] },
       });
       const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
@@ -738,7 +905,7 @@ describe("creaAppuntamentoTenant", () => {
     it("rifiuta un operatore valido per il tenant ma che non esegue questo servizio", async () => {
       const supabase = creaSupabaseFinto({
         tenants: { select: [rispostaTenantPiano("growth")] },
-        servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+        servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
         operatori: { select: [rispostaOperatoreValido()] },
         operatori_servizi: { select: [{ data: null, error: null }] },
       });

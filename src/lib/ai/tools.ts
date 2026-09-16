@@ -146,18 +146,22 @@ export const STRUMENTI_AI = [
   {
     name: "crea_prenotazione",
     description:
-      "Crea una prenotazione reale sul calendario, dopo aver verificato la disponibilità con verifica_disponibilita e dopo aver raccolto nome E telefono del cliente (chiedili entrambi se non li conosci già in questa conversazione, non solo il telefono). Se il cliente non esiste ancora, viene creato automaticamente. Se questa attività richiede una caparra per confermare (non tutte la richiedono), lo strumento NON crea la prenotazione subito: restituisce invece richiede_pagamento=true con un url_pagamento e l'importo in euro -- la prenotazione vera si conferma da sola automaticamente al pagamento, non richiamare questo strumento dopo aver condiviso il link.",
+      "Crea una prenotazione reale sul calendario, dopo aver verificato la disponibilità con verifica_disponibilita e dopo aver raccolto nome E telefono del cliente (chiedili entrambi se non li conosci già in questa conversazione, non solo il telefono). Se il cliente non esiste ancora, viene creato automaticamente. Passa più id in servizio_ids (nello stesso ordine con cui il cliente li vuole) per prenotare servizi consecutivi con lo stesso operatore nello stesso appuntamento -- stessi id già usati in verifica_disponibilita. Se questa attività richiede una caparra per confermare (non tutte la richiedono), lo strumento NON crea la prenotazione subito: restituisce invece richiede_pagamento=true con un url_pagamento e l'importo in euro -- la prenotazione vera si conferma da sola automaticamente al pagamento, non richiamare questo strumento dopo aver condiviso il link. La caparra oggi non è supportata su una catena di più servizi: se l'attività la richiede e il cliente vuole più servizi consecutivi, prenotali uno alla volta oppure invitalo a contattare l'attività direttamente.",
     input_schema: {
       type: "object",
       properties: {
-        servizio_id: { type: "string" },
+        servizio_ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "Uno o più id di servizio (più di uno = servizi consecutivi nello stesso appuntamento, stesso operatore).",
+        },
         operatore_id: { type: "string" },
         inizio: { type: "string", description: "Data e ora di inizio, formato YYYY-MM-DDTHH:MM." },
         cliente_nome: { type: "string" },
         cliente_telefono: { type: "string" },
         note: { type: "string" },
       },
-      required: ["servizio_id", "operatore_id", "inizio", "cliente_nome", "cliente_telefono"],
+      required: ["servizio_ids", "operatore_id", "inizio", "cliente_nome", "cliente_telefono"],
     },
   },
   {
@@ -394,17 +398,18 @@ async function eseguiStrumentoInterno(
     }
 
     case "crea_prenotazione": {
-      const { servizio_id, operatore_id, inizio, cliente_nome, cliente_telefono, note } = input as Record<
+      const { servizio_ids, operatore_id, inizio, cliente_nome, cliente_telefono, note } = input as Record<
         string,
         unknown
       >;
       if (
-        typeof servizio_id !== "string" ||
+        !Array.isArray(servizio_ids) ||
+        servizio_ids.length === 0 ||
         typeof operatore_id !== "string" ||
         typeof inizio !== "string" ||
         typeof cliente_telefono !== "string"
       ) {
-        return { errore: "servizio_id, operatore_id, inizio e cliente_telefono sono obbligatori." };
+        return { errore: "servizio_ids, operatore_id, inizio e cliente_telefono sono obbligatori." };
       }
       // Nome obbligatorio (non solo il telefono): richiesta di Gabriel dal
       // vivo 15/09/2026, vedi DECISIONS.md -- prima di generare qualunque
@@ -415,10 +420,10 @@ async function eseguiStrumentoInterno(
       if (typeof cliente_nome !== "string" || !cliente_nome.trim()) {
         return { errore: "cliente_nome è obbligatorio: chiedi il nome del cliente prima di procedere." };
       }
-      if (!eUuidValido(servizio_id) || !eUuidValido(operatore_id)) {
+      if (!servizio_ids.every(eUuidValido) || !eUuidValido(operatore_id)) {
         return {
           errore:
-            "servizio_id e operatore_id devono essere gli id esatti (uuid) restituiti da elenca_servizi/elenca_operatori, non i loro nomi.",
+            "servizio_ids e operatore_id devono essere gli id esatti (uuid) restituiti da elenca_servizi/elenca_operatori, non i loro nomi.",
         };
       }
       const inizioData = parsaOrarioLocale(inizio);
@@ -426,13 +431,26 @@ async function eseguiStrumentoInterno(
 
       // Gate caparra (Fase 6, bug trovato dal vivo il 15/09/2026, vedi
       // DECISIONS.md): PRIMA di creare qualunque cosa, controlla se questa
-      // attività la richiede per questo servizio -- se sì, NON confermare
-      // mai direttamente, stesso comportamento del form pubblico manuale
+      // attività la richiede -- se sì, NON confermare mai direttamente,
+      // stesso comportamento del form pubblico manuale
       // (src/app/s/[slug]/azioni.ts, prenotaPubblico) tramite la stessa
       // funzione condivisa (src/lib/stripe/caparra.server.ts): un'unica
       // fonte di verità, l'AI non deve avere una scappatoia che il form non
-      // ha.
-      const importoCaparra = await caricaImportoCaparraServizio(supabase, tenantId, servizio_id);
+      // ha. `caparra_attiva` è un interruttore per TENANT, non per servizio
+      // (vedi caricaImportoCaparraServizio): basta controllarlo sul primo
+      // servizio della lista per sapere se questa attività la richiede.
+      // Servizi consecutivi + caparra NON è supportato in questo giro
+      // (sommare/dividere un pagamento anticipato su più servizi è una
+      // decisione di prodotto a parte, vedi DECISIONS.md 16/09/2026): se
+      // richiesta e la catena ha più di un servizio, si chiede di prenotarli
+      // uno alla volta invece di gestire male i soldi del cliente.
+      const importoCaparra = await caricaImportoCaparraServizio(supabase, tenantId, servizio_ids[0]);
+      if (importoCaparra > 0 && servizio_ids.length > 1) {
+        return {
+          errore:
+            "Questa attività richiede una caparra e oggi non posso prenotare più servizi consecutivi con pagamento anticipato in un colpo solo. Prenota un servizio alla volta, oppure invita il cliente a contattare l'attività direttamente per più servizi insieme.",
+        };
+      }
       if (importoCaparra > 0) {
         if (!ctx.slug || !ctx.origin) {
           // Non dovrebbe mai succedere in produzione (route.ts li passa
@@ -453,7 +471,7 @@ async function eseguiStrumentoInterno(
           tenantId,
           slug: ctx.slug,
           origin: ctx.origin,
-          servizioId: servizio_id,
+          servizioId: servizio_ids[0],
           operatoreId: operatore_id,
           inizio: inizioData,
           inizioIso: inizio,
@@ -469,7 +487,7 @@ async function eseguiStrumentoInterno(
       }
 
       const risultato = await creaAppuntamentoTenant(supabase, tenantId, {
-        servizioId: servizio_id,
+        servizioId: servizio_ids,
         operatoreId: operatore_id,
         inizio: inizioData,
         clienteNome: cliente_nome,

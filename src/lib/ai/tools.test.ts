@@ -56,7 +56,7 @@ describe("eseguiStrumento -- validazione input prima di toccare il database", ()
   it("crea_prenotazione senza cliente_telefono restituisce un errore esplicito", async () => {
     const risultato = await eseguiStrumento(
       "crea_prenotazione",
-      { servizio_id: "s1", operatore_id: "o1", inizio: "2026-09-05T15:00" },
+      { servizio_ids: ["s1"], operatore_id: "o1", inizio: "2026-09-05T15:00" },
       ctx
     );
     expect(risultato.errore).toBeDefined();
@@ -66,7 +66,7 @@ describe("eseguiStrumento -- validazione input prima di toccare il database", ()
     const risultato = await eseguiStrumento(
       "crea_prenotazione",
       {
-        servizio_id: "s1",
+        servizio_ids: ["s1"],
         operatore_id: "o1",
         inizio: "non-una-data",
         cliente_nome: "Mario Rossi",
@@ -81,7 +81,7 @@ describe("eseguiStrumento -- validazione input prima di toccare il database", ()
     const risultato = await eseguiStrumento(
       "crea_prenotazione",
       {
-        servizio_id: "11111111-1111-1111-1111-111111111111",
+        servizio_ids: ["11111111-1111-1111-1111-111111111111"],
         operatore_id: "11111111-1111-1111-1111-111111111111",
         inizio: "2026-09-05T15:00",
         cliente_telefono: "3331234567",
@@ -95,7 +95,7 @@ describe("eseguiStrumento -- validazione input prima di toccare il database", ()
     const risultato = await eseguiStrumento(
       "crea_prenotazione",
       {
-        servizio_id: "11111111-1111-1111-1111-111111111111",
+        servizio_ids: ["11111111-1111-1111-1111-111111111111"],
         operatore_id: "11111111-1111-1111-1111-111111111111",
         inizio: "2026-09-05T15:00",
         cliente_nome: "   ",
@@ -153,7 +153,7 @@ describe("eseguiStrumento -- validazione input prima di toccare il database", ()
     const risultato = await eseguiStrumento(
       "crea_prenotazione",
       {
-        servizio_id: "taglio",
+        servizio_ids: ["taglio"],
         operatore_id: "mario",
         inizio: "2026-09-05T15:00",
         cliente_nome: "Mario Rossi",
@@ -421,7 +421,7 @@ describe("eseguiStrumento -- crea_prenotazione con caparra attiva (bug trovato d
   const SERVIZIO_ID = "44444444-4444-4444-4444-444444444444";
   const OPERATORE_ID = "55555555-5555-5555-5555-555555555555";
   const INPUT_VALIDO = {
-    servizio_id: SERVIZIO_ID,
+    servizio_ids: [SERVIZIO_ID],
     operatore_id: OPERATORE_ID,
     inizio: "2026-09-19T12:00",
     cliente_nome: "Mario Rossi",
@@ -512,6 +512,77 @@ describe("eseguiStrumento -- crea_prenotazione con caparra attiva (bug trovato d
       expect.anything(),
       TENANT_ID,
       expect.objectContaining({ creatoDa: "ai" })
+    );
+  });
+});
+
+describe("eseguiStrumento -- crea_prenotazione con servizi consecutivi (più id in servizio_ids)", () => {
+  const SERVIZIO_ID = "44444444-4444-4444-4444-444444444444";
+  const SERVIZIO_ID_2 = "66666666-6666-6666-6666-666666666666";
+  const OPERATORE_ID = "55555555-5555-5555-5555-555555555555";
+  const INPUT_DUE_SERVIZI = {
+    servizio_ids: [SERVIZIO_ID, SERVIZIO_ID_2],
+    operatore_id: OPERATORE_ID,
+    inizio: "2026-09-19T12:00",
+    cliente_nome: "Mario Rossi",
+    cliente_telefono: "3331234567",
+  };
+  const CTX_CON_SLUG: ContestoStrumento = {
+    supabase: supabaseNonDovrebbeEssereChiamato,
+    tenantId: TENANT_ID,
+    slug: "salone-test",
+    origin: "https://esempio.it",
+  };
+
+  beforeEach(() => {
+    caricaImportoCaparraServizioFinto.mockReset();
+    avviaPagamentoCaparraTenantFinto.mockReset();
+    creaAppuntamentoTenantFinto.mockReset();
+  });
+
+  it("senza caparra, inoltra l'array servizio_ids intero (nell'ordine dato) a creaAppuntamentoTenant", async () => {
+    caricaImportoCaparraServizioFinto.mockResolvedValueOnce(0);
+    creaAppuntamentoTenantFinto.mockResolvedValueOnce({ ok: true, appuntamentoId: "appt-1" });
+
+    const risultato = await eseguiStrumento("crea_prenotazione", INPUT_DUE_SERVIZI, CTX_CON_SLUG);
+
+    expect(risultato).toEqual({ creato: true, appuntamento_id: "appt-1" });
+    // La caparra si calcola solo sul primo servizio della catena (limite noto,
+    // vedi commento nel codice sorgente): verifica che sia proprio quell'id a
+    // essere passato a caricaImportoCaparraServizio, non un array o l'ultimo.
+    expect(caricaImportoCaparraServizioFinto).toHaveBeenCalledWith(expect.anything(), TENANT_ID, SERVIZIO_ID);
+    expect(creaAppuntamentoTenantFinto).toHaveBeenCalledWith(
+      expect.anything(),
+      TENANT_ID,
+      expect.objectContaining({ servizioId: [SERVIZIO_ID, SERVIZIO_ID_2], creatoDa: "ai" })
+    );
+  });
+
+  it("se l'attività richiede una caparra e il cliente vuole più servizi insieme, rifiuta con un errore esplicito invece di ignorare la caparra o prenotare un solo servizio", async () => {
+    caricaImportoCaparraServizioFinto.mockResolvedValueOnce(500); // 5,00€ sul primo servizio
+
+    const risultato = await eseguiStrumento("crea_prenotazione", INPUT_DUE_SERVIZI, CTX_CON_SLUG);
+
+    expect(risultato.errore).toBeDefined();
+    expect(avviaPagamentoCaparraTenantFinto).not.toHaveBeenCalled();
+    expect(creaAppuntamentoTenantFinto).not.toHaveBeenCalled();
+  });
+
+  it("un solo id in servizio_ids (caso normale) continua a funzionare come prima", async () => {
+    caricaImportoCaparraServizioFinto.mockResolvedValueOnce(0);
+    creaAppuntamentoTenantFinto.mockResolvedValueOnce({ ok: true, appuntamentoId: "appt-2" });
+
+    const risultato = await eseguiStrumento(
+      "crea_prenotazione",
+      { ...INPUT_DUE_SERVIZI, servizio_ids: [SERVIZIO_ID] },
+      CTX_CON_SLUG
+    );
+
+    expect(risultato).toEqual({ creato: true, appuntamento_id: "appt-2" });
+    expect(creaAppuntamentoTenantFinto).toHaveBeenCalledWith(
+      expect.anything(),
+      TENANT_ID,
+      expect.objectContaining({ servizioId: [SERVIZIO_ID], creatoDa: "ai" })
     );
   });
 });

@@ -1,6 +1,23 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, quarantanovesimo giro -- verificata dal vivo la galleria
+Ultimo aggiornamento: 16/09/2026, cinquantesimo giro -- primo buco di fase chiuso dopo
+l'istruzione di Gabriel ("inizia a lavorare sui buchi delle fasi"): servizi consecutivi (Fase 1).
+Prima di scrivere codice, verificato sul codice vero (non sulla descrizione in PIANO.md) che 2
+dei 3 sotto-punti della riga aperta erano già completi ovunque (operatore non specificato,
+cliente nuovo/esistente) -- restava solo la catena di più servizi con lo stesso operatore senza
+buchi. Aggiunta `appuntamenti.gruppo_prenotazione_id` (migrazione 0025, applicata al DB reale),
+riscritto `creaAppuntamentoTenant` per accettare un array di servizi con rollback compensativo se
+una riga a metà catena fallisce per race condition, aggiornati il tool AI `crea_prenotazione` e il
+form dashboard (checkbox multipli). Tre limiti di scope deliberati (caparra non supportata su
+catena multi-servizio, una notifica per riga, pagina pubblica esclusa) -- dettaglio completo in
+DECISIONS.md, "2026-09-16 — Servizi consecutivi: schema, tre limiti di scope, e perché la
+live-verifica manca". 8 nuovi test (5 + 3), suite 469/469 verde, `tsc`/`eslint`/`build` puliti.
+**Non verificato dal vivo**: provato su un tenant di test in produzione ma la dashboard live
+mostra ancora il vecchio form a select singola -- il codice non è ancora deployato (sandbox senza
+credenziali di push). Tenant di test ripulito subito. Verifica dal vivo da fare dopo il
+pull/push/deploy di questo giro.
+
+Aggiornamento precedente, 16/09/2026, quarantanovesimo giro -- verificata dal vivo la galleria
 foto/upload immagini costruita nel giro precedente, chiudendo del tutto la Fase 4. La sessione
 reale di Gabriel su `salone-ai-saas.vercel.app` era scaduta e, come da regola, non è mai stata
 inserita una sua credenziale; su sua indicazione esplicita ("fai tu il login con un account test

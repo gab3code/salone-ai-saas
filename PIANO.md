@@ -400,9 +400,9 @@ per quanto sono urgenti/dovute, non per quanto sarebbero belle da avere.
    ce l'ha.
 
 ### Gruppo C -- Completare le fasi già aperte (dettaglio nelle fasi sotto)
-1. Fase 1: collegare alle schermate/AI la gestione di servizi consecutivi e operatore non
-   specificato (la logica pura c'è già); test sugli scenari di prenotazione del punto 30 contro
-   il DB vero.
+1. Fase 1: ~~collegare alle schermate/AI la gestione di servizi consecutivi e operatore non
+   specificato (la logica pura c'è già)~~ **FATTO 16/09/2026**, vedi dettaglio nella fase sotto;
+   resta da fare: test sugli scenari di prenotazione del punto 30 contro il DB vero.
 2. Fase 2: collegare WhatsApp/Telegram non appena la business verification Meta si sblocca
    (fuori dal nostro controllo); valutare se serve davvero strutturare
    `conversazioni.slot_in_costruzione` invece di rileggere sempre lo storico.
@@ -726,8 +726,32 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       iCloud che sincronizza la cartella Desktop), risolto con un `npm install` pulito -- non
       un bug del nostro codice. Nota per dopo: valutare di spostare il progetto fuori da una
       cartella sincronizzata iCloud per eliminare la causa alla radice.
-- [ ] Gestione servizi consecutivi, operatore non specificato, cliente nuovo/esistente --
-      la logica pura li gestisce già (test verdi), manca collegarli alle schermate/AI
+- [x] Gestione servizi consecutivi, operatore non specificato, cliente nuovo/esistente --
+      **FATTO 16/09/2026**. Alla verifica del codice, 2 dei 3 punti erano già completi ovunque
+      (operatore non specificato: `verificaOperatoreCompatibile` già gestiva "qualsiasi
+      operatore compatibile"; cliente nuovo/esistente: `trovaOCreaClienteTenant` già in uso da
+      dashboard e tool AI). Restava solo "servizi consecutivi" (es. manicure + pedicure con la
+      stessa operatrice, senza buchi tra i due): nuova colonna nullable
+      `appuntamenti.gruppo_prenotazione_id` (migrazione 0025, applicata al DB reale) invece di
+      un array `servizio_id[]` o una tabella ponte -- così tutto il resto (metriche, CRM, export
+      CSV, notifiche) continua a leggere "un appuntamento = un servizio" senza modifiche, una
+      prenotazione multi-servizio diventa N righe che condividono lo stesso
+      `gruppo_prenotazione_id`. Scritta ovunque si crea un appuntamento (single source of truth,
+      punto 9): `creaAppuntamentoTenant`, tool AI `crea_prenotazione` (`servizio_ids: string[]`),
+      form dashboard (checkbox multipli in `/dashboard/calendario`). Tre limiti di scope
+      deliberati, vedi DECISIONS.md 16/09/2026: (1) caparra non supportata su una catena
+      multi-servizio (errore esplicito invece di gestirla male); (2) una notifica per riga
+      invece di una cumulativa; (3) la pagina pubblica `/s/[slug]` NON permette ancora di
+      scegliere più servizi insieme (resta a un servizio per prenotazione lato cliente finale,
+      da valutare in futuro). 5 nuovi test su `booking-engine.server.test.ts` (creazione multi-
+      riga, compatibilità singolo servizio, operatore non compatibile con tutta la catena,
+      conflitto sull'intera durata, rollback se una riga a metà catena fallisce per race
+      condition) + 3 su `tools.test.ts` (array inoltrato intero, blocco caparra+multi-servizio,
+      singolo servizio invariato) -- suite completa 469/469 verde, `tsc`/`eslint`/`build` puliti.
+      **Non verificato dal vivo su produzione**: il codice non è ancora deployato (nessuna
+      credenziale di push in sandbox, consegna via bundle come sempre) -- una volta che lo
+      pushi/Vercel lo pubblica, verifico io stesso la UI dal vivo se preferisci, oppure la provi
+      tu direttamente.
 - [ ] Test su tutti gli scenari del punto 30 rilevanti alla prenotazione, contro il DB vero
 - [x] ~~Semplificazione consapevole: fuso orario trattato come UTC~~ **FATTO 11/09/2026**
       (corretto qui il 12/09/2026, questa riga era rimasta indietro): colonna

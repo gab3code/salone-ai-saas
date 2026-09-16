@@ -27,6 +27,7 @@ interface OperazioniTabella {
   select?: RispostaFinta[];
   insert?: RispostaFinta[];
   update?: RispostaFinta[];
+  delete?: RispostaFinta[];
 }
 
 export interface ChiamataScrittura {
@@ -34,9 +35,14 @@ export interface ChiamataScrittura {
   payload: unknown;
 }
 
+export interface ChiamataCancellazione {
+  tabella: string;
+}
+
 export interface RegistroChiamate {
   insert: ChiamataScrittura[];
   update: ChiamataScrittura[];
+  delete: ChiamataCancellazione[];
 }
 
 const RISPOSTA_VUOTA: RispostaFinta = { data: null, error: null };
@@ -44,18 +50,22 @@ const RISPOSTA_VUOTA: RispostaFinta = { data: null, error: null };
 export function creaSupabaseFinto(tabelle: Record<string, OperazioniTabella>) {
   // Copia le code così ogni test parte da uno stato pulito anche se
   // `tabelle` viene riutilizzato tra i test (shift() muta l'array).
-  const code: Record<string, { select: RispostaFinta[]; insert: RispostaFinta[]; update: RispostaFinta[] }> = {};
+  const code: Record<
+    string,
+    { select: RispostaFinta[]; insert: RispostaFinta[]; update: RispostaFinta[]; delete: RispostaFinta[] }
+  > = {};
   for (const [nome, ops] of Object.entries(tabelle)) {
     code[nome] = {
       select: [...(ops.select ?? [])],
       insert: [...(ops.insert ?? [])],
       update: [...(ops.update ?? [])],
+      delete: [...(ops.delete ?? [RISPOSTA_VUOTA])],
     };
   }
 
-  const registro: RegistroChiamate = { insert: [], update: [] };
+  const registro: RegistroChiamate = { insert: [], update: [], delete: [] };
 
-  function costruisciChain(tabella: string, operazione: "select" | "insert" | "update", payload?: unknown) {
+  function costruisciChain(tabella: string, operazione: "select" | "insert" | "update" | "delete", payload?: unknown) {
     const chain = {
       select() {
         return chain;
@@ -97,6 +107,7 @@ export function creaSupabaseFinto(tabelle: Record<string, OperazioniTabella>) {
         try {
           if (operazione === "insert") registro.insert.push({ tabella, payload });
           if (operazione === "update") registro.update.push({ tabella, payload });
+          if (operazione === "delete") registro.delete.push({ tabella });
           const coda = code[tabella]?.[operazione];
           if (!coda) {
             throw new Error(
@@ -125,6 +136,7 @@ export function creaSupabaseFinto(tabelle: Record<string, OperazioniTabella>) {
         select: () => costruisciChain(tabella, "select"),
         insert: (payload: unknown) => costruisciChain(tabella, "insert", payload),
         update: (payload: unknown) => costruisciChain(tabella, "update", payload),
+        delete: () => costruisciChain(tabella, "delete"),
       };
     },
     registro,

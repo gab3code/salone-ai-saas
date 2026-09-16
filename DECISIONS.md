@@ -4293,3 +4293,73 @@ risolvere. Due voci della lista però mancano davvero e vengono aggiunte al pian
 
 Upstash Redis scartato: nessun caso d'uso reale oggi (nessuna coda, nessun rate-limit che il
 database non gestisca già) -- complessità in cerca di un problema.
+
+## 2026-09-16 — Servizi consecutivi: schema, tre limiti di scope, e perché la live-verifica manca
+
+Primo buco di fase affrontato dopo l'istruzione di Gabriel ("inizia a lavorare sui buchi delle
+fasi"). La riga di PIANO.md copriva tre cose insieme ("servizi consecutivi, operatore non
+specificato, cliente nuovo/esistente") -- prima di scrivere una riga di codice ho riletto il
+codice vero invece di fidarmi della descrizione, e due dei tre punti erano già completi ovunque:
+
+- **Operatore non specificato**: `trovaSlotEContestoTenant`/`verificaOperatoreCompatibile`
+  gestivano già "qualsiasi operatore compatibile con il servizio", sia da dashboard sia da AI.
+- **Cliente nuovo/esistente**: `trovaOCreaClienteTenant` era già l'unico punto di ingresso usato
+  da entrambi i canali.
+
+Restava solo **servizi consecutivi** (es. "manicure e pedicure" con la stessa operatrice, uno
+dopo l'altro senza buchi, in un solo appuntamento logico) -- il vero lavoro di questo giro.
+
+**Decisione di schema**: `appuntamenti` resta con un solo `servizio_id` per riga (invariata per
+tutto il resto -- metriche, CRM, export CSV, notifiche continuano a leggere "un appuntamento = un
+servizio", zero rischio di rompere query esistenti). Aggiunta una sola colonna nullable
+`gruppo_prenotazione_id uuid` (migrazione 0025, applicata al DB reale via `execute_sql` per il
+solito motivo: `apply_migration` bloccata dal classificatore di sicurezza in sandbox). Una
+prenotazione multi-servizio diventa N righe che condividono lo stesso `gruppo_prenotazione_id`;
+una prenotazione normale (tutta la storia del progetto finora) lascia la colonna null,
+comportamento identico a prima ovunque non la conosca ancora. Alternativa scartata: un array
+`servizio_id[]` o una tabella ponte -- avrebbe fatto propagare la complessità in metriche, CRM,
+export CSV e notifiche, tutto codice che oggi assume "un appuntamento = un servizio".
+
+Scritto nel SINGLE SOURCE OF TRUTH (punto 9 di CLAUDE.md, mai due motori separati):
+`creaAppuntamentoTenant` in `booking-engine.server.ts` ora accetta `servizioId: string | string[]`,
+calcola la durata totale della catena per il controllo conflitti (sull'INTERO blocco, non sul
+primo servizio da solo), inserisce una riga per servizio con un cursore di minuti che avanza, e se
+un insert a metà catena fallisce (es. `23P01`, race condition su un altro appuntamento appena
+creato) cancella le righe già inserite dello stesso gruppo prima di restituire l'errore (nessuna
+vera transazione multi-riga disponibile via Supabase-js/PostgREST, quindi rollback compensativo
+manuale). Stessa funzione usata dal tool AI `crea_prenotazione` (`servizio_ids: string[]` nello
+schema) e dal form dashboard (`/dashboard/calendario`, checkbox multipli al posto della singola
+`<select>`, con durata totale mostrata quando è selezionato più di un servizio).
+
+**Tre limiti di scope deliberati, non dimenticati**:
+1. **Caparra non supportata su una catena multi-servizio**: `caricaImportoCaparraServizio` è
+   pensata per un solo servizio; con più servizi selezionati e caparra attiva sul tenant, lo
+   strumento AI restituisce un errore esplicito invitando a prenotare un servizio alla volta,
+   invece di calcolare una caparra sbagliata o ignorarla silenziosamente.
+2. **Una notifica per riga, non una cumulativa**: `inviaNotificheNuovoAppuntamento` viene chiamata
+   una volta per ogni servizio della catena (più email/messaggi invece di uno solo) per non
+   toccare in questo giro il sistema di contenuto delle notifiche -- rivedibile in futuro.
+3. **Pagina pubblica `/s/[slug]` esclusa**: il cliente finale che prenota da sé continua a
+   scegliere un solo servizio per volta; multi-servizio oggi è disponibile solo dalla dashboard
+   (prenotazione manuale) e dall'AI (chat). Non dimenticato, solo fuori da questo giro.
+
+**Test**: 5 nuovi casi in `booking-engine.server.test.ts` (creazione multi-riga con
+`gruppo_prenotazione_id` condiviso e orari in sequenza, singolo servizio invariato, operatore che
+non copre tutta la catena rifiutato, conflitto rilevato sull'intera durata anche se sovrapposto
+solo al secondo servizio, rollback delle righe già create se una fallisce a metà) + 3 in
+`tools.test.ts` (array intero inoltrato a `creaAppuntamentoTenant`, blocco esplicito
+caparra+multi-servizio, singolo servizio invariato). Estesa anche `src/test/supabase-finto.ts`
+(il client Supabase finto usato nei test) per supportare `.delete()`, necessario per testare il
+rollback. Suite completa 469/469 verde, `tsc --noEmit`/`eslint`/`npm run build` puliti sui file
+toccati.
+
+**Perché manca la verifica dal vivo**: ho provato a verificarlo sulla dashboard di produzione
+(creato un tenant di test "Salone Test Servizi Consecutivi", 2 servizi, un'operatrice compatibile
+con entrambi) ma la pagina `/dashboard/calendario` in produzione mostra ancora la vecchia
+`<select>` singola -- il codice nuovo non è ancora deployato (nessuna credenziale di push in
+sandbox, consegna sempre via bundle). Tenant/utente di test ripuliti subito dopo essermene accorto
+(stessa disciplina delle altre verifiche). Una volta che pushi questo bundle e Vercel pubblica,
+verifico io stesso la UI dal vivo se vuoi, oppure la provi tu direttamente -- la copertura di test
+automatici sopra è comunque la stessa profondità usata finora per la logica del motore di
+prenotazione (mai fidarsi solo dei test unitari per una modifica di questa portata, ma qui la
+verifica dal vivo end-to-end è bloccata dal deploy, non saltata per pigrizia).

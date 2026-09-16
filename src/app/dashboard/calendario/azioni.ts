@@ -23,13 +23,16 @@ export async function creaAppuntamento(formData: FormData) {
   if (!tenantId) return { errore: "Nessun salone associato a questo utente." };
 
   const operatoreId = String(formData.get("operatore_id") || "");
-  const servizioId = String(formData.get("servizio_id") || "");
+  // Servizi consecutivi (punto 12): il form manda un campo hidden
+  // "servizio_id" per ogni servizio della catena, nell'ordine scelto --
+  // getAll li recupera tutti (un solo campo = comportamento di sempre).
+  const servizioIds = formData.getAll("servizio_id").map(String).filter(Boolean);
   const inizioStr = String(formData.get("inizio") || "");
   const clienteNome = String(formData.get("cliente_nome") || "").trim();
   const clienteTelefono = String(formData.get("cliente_telefono") || "").trim();
 
-  if (!operatoreId || !servizioId || !inizioStr) {
-    return { errore: "Scegli operatore, servizio e orario." };
+  if (!operatoreId || servizioIds.length === 0 || !inizioStr) {
+    return { errore: "Scegli operatore, almeno un servizio e l'orario." };
   }
 
   const inizio = new Date(inizioStr);
@@ -39,7 +42,7 @@ export async function creaAppuntamento(formData: FormData) {
 
   const risultato = await creaAppuntamentoTenant(supabase, tenantId, {
     operatoreId,
-    servizioId,
+    servizioId: servizioIds,
     inizio,
     clienteNome: clienteNome || undefined,
     clienteTelefono: clienteTelefono || undefined,
