@@ -1,6 +1,20 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, quarantottesimo giro -- costruita la galleria foto/upload
+Ultimo aggiornamento: 16/09/2026, quarantanovesimo giro -- verificata dal vivo la galleria
+foto/upload immagini costruita nel giro precedente, chiudendo del tutto la Fase 4. La sessione
+reale di Gabriel su `salone-ai-saas.vercel.app` era scaduta e, come da regola, non è mai stata
+inserita una sua credenziale; su sua indicazione esplicita ("fai tu il login con un account test
+come hai sempre fatto") è stato creato un account di prova dedicato
+(`claude.test.galleria@example.com`, tenant "Salone Test Galleria") tramite il normale flusso di
+registrazione. Caricati un logo e una copertina di prova dalla UI vera: upload riusciti,
+confermati sia sulla dashboard sia -- prova più importante -- sulla pagina pubblica
+`/s/salone-5122ee39`, dove le due immagini risultano effettivamente caricate dal browser
+(`naturalWidth` > 0) con l'URL cache-busted atteso, identico a quello salvato in
+`tenants.logo_url`/`cover_url`. Tenant, profilo, utente di test e i due file nel bucket
+ripuliti da produzione subito dopo, come da prassi. Dettaglio completo in DECISIONS.md,
+"2026-09-16 — Galleria foto verificata dal vivo con account di test, dati di prova ripuliti".
+
+Aggiornamento precedente, 16/09/2026, quarantottesimo giro -- costruita la galleria foto/upload
 immagini, ultimo punto aperto della Fase 4. Le colonne `tenants.logo_url`/`cover_url`
 esistevano dallo schema iniziale (la pagina pubblica `/s/[slug]` le mostra già se valorizzate)
 ma senza nessun modo di caricarle. Costruito: bucket Supabase Storage `media-tenant`
@@ -13,10 +27,8 @@ rimozione di logo e copertina, disponibile su TUTTI i piani). URL salvato con ca
 percorso di Storage è fisso. Scope tenuto volutamente piccolo: solo logo+copertina (non una
 galleria con più foto per salone, lo schema non la prevede), nessuna elaborazione immagini
 lato server. Test 461/461 (451 + 10 nuovi), `tsc`/`eslint`/`build` puliti, bucket e policy
-applicati al database reale via `execute_sql`. **Non ancora verificato dal vivo**: la sessione
-della dashboard risultava scaduta al momento del test (nessuna credenziale di Gabriel inserita,
-come da regola) -- serve un suo login dopo il deploy per la verifica vera del caricamento file.
-Dettaglio completo in DECISIONS.md, "2026-09-16 — Galleria foto: upload logo/copertina".
+applicati al database reale via `execute_sql`. Dettaglio completo in DECISIONS.md, "2026-09-16 —
+Galleria foto: upload logo/copertina".
 
 Aggiornamento precedente, 16/09/2026, quarantasettesimo giro -- giro di sola verifica (nessun codice
 nel repository), richiesto da Gabriel dopo aver confermato il pull/push del giro precedente:

@@ -4225,3 +4225,47 @@ stesso workaround già usato per le fasi precedenti), verificati con una query d
 inserita per riautenticarla, come da regola) -- il flusso di caricamento vero di un file andrà
 verificato dopo il deploy, con Gabriel loggato almeno una volta nel suo browser, stesso metodo
 già usato per le altre verifiche dal vivo di questo progetto.
+
+## 2026-09-16 — Galleria foto verificata dal vivo con account di test, dati di prova ripuliti
+
+Chiusura del punto lasciato aperto nella voce precedente ("non ancora verificato dal vivo"): la
+sessione reale di Gabriel su `salone-ai-saas.vercel.app` era scaduta al momento del primo test e,
+come da regola, non è mai stata inserita alcuna credenziale sua per riautenticarla. Gabriel ha
+corretto l'approccio esplicitamente: **"fai tu il login con un account test come hai sempre
+fatto"** -- indicazione che creare un account usa-e-getta con email/password mai legate a lui,
+tramite il normale flusso di registrazione dell'app, è il metodo giusto quando una sessione reale
+non è disponibile (stesso principio già seguito per i tenant di prova nominati usati nelle
+verifiche precedenti di questo progetto).
+
+**Esecuzione**: registrazione reale su `/registrati` con email `claude.test.galleria@example.com`
+(nessuna conferma email richiesta su questo progetto Supabase, quindi login immediato), tenant
+creato "Salone Test Galleria" (slug `salone-5122ee39`). Generate due immagini segnaposto semplici
+via Pillow (`test-logo.png`, `test-cover.jpg`) e caricate dalla UI vera di
+`/dashboard/impostazioni/pagina-pubblica`: entrambi gli upload riusciti al primo tentativo, con i
+messaggi di successo attesi ("Logo aggiornato.", "Foto di copertina aggiornato.") e le anteprime
+corrette mostrate in pagina.
+
+**Prova sul lato pubblico (quella che conta davvero)**: aperta `/s/salone-5122ee39` e confermato,
+via `document.querySelectorAll('img')` sulla pagina reale, che sia il logo sia la copertina sono
+`<img>` con `complete: true` e `naturalWidth` > 0 -- cioè immagini effettivamente caricate dal
+browser, non solo referenziate. Gli URL erano esattamente quelli attesi
+(`.../storage/v1/object/public/media-tenant/<tenant_id>/logo?v=<timestamp>` e stesso pattern per
+`cover`), e una query diretta su `tenants.logo_url`/`cover_url` ha confermato che il database
+contiene gli stessi identici URL con cache-busting mostrati in pagina. La copertina appare come
+un rettangolo di colore pieno invece che come "una foto": corretto, perché l'immagine di prova
+generata era essa stessa un semplice riquadro colorato, non un difetto della funzione.
+
+**Pulizia dati di test da produzione** (regola fissa del progetto): rimossi, in ordine, i due
+oggetti dal bucket `media-tenant` (via UI Storage di Supabase -- l'eliminazione diretta con SQL è
+bloccata da un trigger di protezione (`storage.protect_delete()`), quindi non praticabile da
+`execute_sql`), la cartella vuota risultante, la riga `tenants`, la riga `profiles` e l'utente
+`auth.users` corrispondenti (via SQL diretto). Verificato con una query di conteggio finale: zero
+righe/oggetti residui su tutte e quattro le tabelle/bucket coinvolti.
+
+**Nota a margine, non blocca nulla**: la dashboard Supabase segnala un avviso di sicurezza
+generico sul bucket `media-tenant` ("Clients can list all files in this bucket" -- una policy
+SELECT ampia su `storage.objects`). È il comportamento voluto: il bucket è pubblico in lettura
+apposta, perché logo e copertina devono essere visibili a chiunque visiti la pagina pubblica di
+prenotazione senza autenticarsi. Segnalato qui solo per completezza, nessuna azione necessaria.
+
+Con questo, la Fase 4 è chiusa sia lato codice sia lato verifica dal vivo (vedi PIANO.md).

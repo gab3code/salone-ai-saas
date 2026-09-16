@@ -190,10 +190,9 @@ reale delle fasi è:
   DECISIONS.md 15/09/2026 per tutti i dettagli di design), testato (451/451), migrato in
   produzione, **VERIFICATO DAL VIVO 16/09/2026** (vedi DECISIONS.md, "2026-09-16 — Promemoria di
   compleanno verificato dal vivo"). Risolve il CONFLITTO Pro/`Prezzi.tsx` descritto più sotto.
-  Galleria foto/upload immagini: **CODICE FATTO 16/09/2026** (vedi voce dedicata più sotto),
-  **non ancora verificato dal vivo** (sessione dashboard scaduta al momento del test, serve un
-  login di Gabriel dopo il deploy). **Fase 4 quindi chiusa lato codice, resta solo la verifica dal
-  vivo della galleria foto.**
+  Galleria foto/upload immagini: **CODICE FATTO 16/09/2026, VERIFICATO DAL VIVO 16/09/2026**
+  (vedi voce dedicata più sotto e DECISIONS.md, "2026-09-16 — Galleria foto verificata dal vivo con
+  account di test"). **Fase 4 quindi chiusa del tutto, sia lato codice sia lato verifica.**
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni
   AI cliente-salone -- vincolo legale reale (Salone AI è processore di dati per conto del
   titolare, non proprietario di quella conversazione), dettaglio in CLAUDE.md punto 21 e
@@ -928,11 +927,15 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       10 nuovi test sul modulo puro di validazione (`src/lib/storage/media-tenant.ts`), 461/461
       totali, `tsc`/`eslint`/`build` puliti, bucket e policy applicati al database reale via
       `execute_sql` (`apply_migration` bloccato dal classificatore, stesso workaround di sempre).
-      **Non ancora verificato dal vivo**: la sessione della dashboard su
-      `salone-ai-saas.vercel.app` risultava scaduta al momento del test (mai inserite credenziali
-      per conto di Gabriel, come da regola) -- serve che Gabriel faccia login almeno una volta
-      dopo il deploy, poi la verifica del caricamento vero di un file può essere fatta dal vivo
-      via estensione Chrome sul suo browser autenticato, stesso metodo di sempre.
+      **VERIFICATO DAL VIVO 16/09/2026**: sessione della dashboard reale scaduta al momento del
+      test (mai inserite credenziali di Gabriel, come da regola) -- verificato invece con un
+      account di test creato ad hoc (`claude.test.galleria@example.com`, tenant "Salone Test
+      Galleria"), su indicazione esplicita di Gabriel ("fai tu il login con un account test come
+      hai sempre fatto"). Upload di logo e copertina riusciti dalla UI reale, entrambi confermati
+      anche sulla pagina pubblica `/s/[slug]` (`<img>` caricate correttamente, URL con
+      cache-busting corretto) e via query diretta su `tenants.logo_url`/`cover_url`. Tenant,
+      profilo, utente auth e i due file nel bucket ripuliti da produzione subito dopo, come da
+      prassi per ogni account di test. Dettaglio completo in DECISIONS.md.
 - [x] ~~PWA installabile~~ **BASE FATTA 13/09/2026, rifinitura in Fase 7** (notifiche push
       ancora NON incluse -- richiedono un provider push + permesso utente, lavoro a parte):
       `src/app/manifest.ts` (file speciale dell'App Router, Next lo serve da solo su
@@ -1410,7 +1413,7 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
    Console -- vedi punto 3 sopra) per poter provare dal vivo "Collega Google" in
    `/dashboard/impostazioni/calendari`. Unico passo rimasto per chiudere la verifica dal vivo
    di Fase 6bis (import/blocco).
-7. Dopo il prossimo deploy: fare login una volta sulla dashboard vera
-   (`salone-ai-saas.vercel.app`) -- la sessione risultava scaduta durante il test della galleria
-   foto (16/09/2026) e senza il tuo login non posso verificare dal vivo un caricamento vero in
-   `/dashboard/impostazioni/pagina-pubblica` (non inserisco mai le tue credenziali per te).
+7. ~~Dopo il prossimo deploy: fare login una volta sulla dashboard vera~~ **NON PIÙ
+   NECESSARIO**: la galleria foto è stata verificata dal vivo il 16/09/2026 con un account di
+   test creato ad hoc, come da tua indicazione ("fai tu il login con un account test come hai
+   sempre fatto") -- vedi PIANO.md Fase 4 e DECISIONS.md per il dettaglio.
