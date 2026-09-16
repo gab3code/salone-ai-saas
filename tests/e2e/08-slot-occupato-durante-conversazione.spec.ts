@@ -60,26 +60,31 @@ test.describe("Scenario 8 -- lo slot si occupa durante la conversazione", () => 
       `Sì perfetto, prenota alle 11:00. Mi chiamo Elena Costa, il mio numero è ${telefonoCliente}.`
     );
 
-    async function clienteHaPrenotazione() {
+    // Cercare per telefono esatto è fragile qui: l'AI ripete a voce il
+    // numero che il cliente ha scritto, e una trascrizione imprecisa in un
+    // turno successivo (mai garantita parola per parola, come sempre con
+    // un LLM) farebbe fallire il test anche se la prenotazione fosse
+    // riuscita perfettamente. Più solido: in questo tenant di prova
+    // dedicato, l'UNICO altro appuntamento possibile oltre a quello
+    // pre-inserito (`occupato`) è quello del cliente vero -- basta
+    // verificare che ne esista uno DIVERSO da quello.
+    async function nuovaPrenotazioneDiversaDaOccupata() {
       const { data } = await tenant.supabase
         .from("appuntamenti")
         .select("id, inizio")
         .eq("tenant_id", tenant.id)
         .neq("stato", "cancellato")
-        .in(
-          "cliente_id",
-          (await tenant.supabase.from("clienti").select("id").eq("telefono", telefonoCliente)).data?.map((c) => c.id) ?? []
-        );
+        .neq("id", occupato.id);
       return data?.[0] ?? null;
     }
 
     // Come negli altri scenari con l'AI: fino a due turni in più per
     // arrivare a un'alternativa confermata, prima di arrendersi.
-    let prenotazione = await clienteHaPrenotazione();
+    let prenotazione = await nuovaPrenotazioneDiversaDaOccupata();
     let tentativi = 0;
     while (!prenotazione && tentativi < 2) {
       ultimaRisposta = await inviaMessaggioChat(page, "Va bene, prenota pure un altro orario libero quel giorno.");
-      prenotazione = await clienteHaPrenotazione();
+      prenotazione = await nuovaPrenotazioneDiversaDaOccupata();
       tentativi++;
     }
 

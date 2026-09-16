@@ -127,7 +127,13 @@ test.describe("Scenario 13 -- nuova attività si registra e completa l'onboardin
       await formServizio.locator("#durata").fill("45");
       await formServizio.locator("#prezzo").fill("25");
       await formServizio.getByRole("button", { name: "Aggiungi" }).click();
-      await expect(page.getByText("Manicure", { exact: false })).toBeVisible();
+      // getByText("Manicure") da solo è ambiguo non appena esiste anche un
+      // operatore (trovato lanciando il test il 16/09/2026, strict mode
+      // violation): compare sia nella riga elenco servizi ("Manicure · 45
+      // min · 25.00€") sia come intestazione di colonna nella tabella "Chi
+      // eroga quale servizio" -- la sottostringa con la durata esiste solo
+      // nella riga elenco, quindi è univoca.
+      await expect(page.getByText("Manicure · 45 min")).toBeVisible();
 
       // Un solo operatore e un solo servizio -> una sola cella nella
       // tabella "Chi eroga quale servizio", nessuna ambiguità.

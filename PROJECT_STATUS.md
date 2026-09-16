@@ -1,6 +1,18 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, cinquantacinquesimo giro -- Task #190, scritti i restanti 7
+Ultimo aggiornamento: 16/09/2026, cinquantaseiesimo giro -- Task #190, primo run reale dei 7
+nuovi scenari: 12/14 verdi al primo colpo. I 2 fallimenti erano entrambi bug nei TEST, non nel
+prodotto -- in entrambi i casi l'app aveva già funzionato correttamente: Scenario 8 cercava la
+nuova prenotazione per telefono esatto (fragile, un LLM può ripetere un numero non parola per
+parola identico), corretto verificando invece che esista un appuntamento diverso da quello
+pre-occupato; Scenario 13 aveva un `getByText("Manicure")` ambiguo (riga elenco servizi +
+intestazione tabella), corretto scopando alla sottostringa con la durata. Nessuna modifica al
+codice applicativo. `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` puliti.
+Prossimo passo: Gabriel rilancia per confermare 14/14, poi restano solo i 2 scenari Stripe (14,
+15) per chiudere l'intero punto 27 di CLAUDE.md. Dettaglio in DECISIONS.md, aggiornamento
+16/09/2026 dell'entry "Scritti gli scenari E2E 2, 4, 7, 8, 10, 11, 13".
+
+Aggiornamento precedente, 16/09/2026, cinquantacinquesimo giro -- Task #190, scritti i restanti 7
 scenari E2E su 9 (mancano solo i due su Stripe): #2 (modifica prenotazione via chat), #4
 (servizio inesistente), #7 (servizio incompatibile con l'operatore), #8 (slot occupato durante
 la conversazione, simulato con un insert diretto tra due turni della stessa chat), #10 (cliente

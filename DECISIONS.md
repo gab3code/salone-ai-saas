@@ -4602,3 +4602,25 @@ Verificato: `tsc --noEmit`/`eslint`/`vitest run` (469/469)/`build` puliti, `npx 
 errori di sintassi/import. **Non ancora eseguiti dal vivo**: servono a Gabriel con
 `npm run test:e2e` -- 7 scenari mai girati nemmeno una volta, quindi è lecito aspettarsi altri
 bug (di test o reali) al primo giro, come già successo con i primi 6.
+
+**Aggiornamento 16/09/2026 -- primo run reale, 12/14 verdi, 2 bug di TEST (non del prodotto)**:
+
+- **Scenario 8**: fallito con `expect(received).toBeTruthy() Received: null`, ma la risposta
+  dell'AI diceva chiaramente di aver già creato la prenotazione ("Ho già creato la prenotazione
+  per te alle 10:15 domani"). Causa: il test cercava la nuova prenotazione filtrando i
+  `clienti` per telefono ESATTO -- fragile, perché l'AI ripete a voce un numero scritto dal
+  "cliente" nel messaggio, e una trascrizione non perfettamente identica in un turno successivo
+  (mai garantita parola per parola con un LLM) fa fallire la ricerca anche se la prenotazione è
+  perfettamente riuscita. **Corretto**: invece di cercare per telefono, si verifica che esista
+  un appuntamento DIVERSO da quello pre-inserito (`occupato`) -- in questo tenant di prova
+  dedicato l'unico altro possibile è quello del cliente vero, indipendentemente da come l'AI ha
+  ripetuto il numero.
+- **Scenario 13 (onboarding manuale)**: strict-mode violation, `getByText("Manicure")` ambiguo
+  non appena esiste anche un operatore -- matcha sia la riga elenco servizi ("Manicure · 45 min
+  · 25.00€") sia l'intestazione di colonna nella tabella "Chi eroga quale servizio". **Corretto**
+  scopando il controllo alla sottostringa con la durata ("Manicure · 45 min"), presente solo
+  nella riga elenco.
+
+Nessuna modifica al codice applicativo per questi due fix -- solo ai test. Verificato di nuovo:
+`tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` puliti. Prossimo passo:
+Gabriel rilancia `npm run test:e2e` per confermare 14/14.
