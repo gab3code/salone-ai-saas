@@ -1,6 +1,24 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, cinquantasettesimo giro -- Task #190, scritti anche gli ultimi
+Ultimo aggiornamento: 16/09/2026, cinquantottesimo giro -- Task #190, primo run reale di TUTTI e
+18 i test. **I 4 test Stripe (scenari 14 e 15) verdi al primo colpo**: configurate le variabili
+mancanti (Price ID reali presi dalla Dashboard Stripe di Gabriel via estensione Chrome -- Pro
+aveva un prezzo vecchio archiviato e uno nuovo attivo, preso quello giusto; `STRIPE_WEBHOOK_SECRET`
+generato al volo, questi due scenari non hanno bisogno del vero signing secret di Stripe perché
+test e server locale si verificano a vicenda sullo stesso `.env.local`, niente Stripe CLI). Sui
+14 scenari precedenti, **15/18 verdi**, 3 fallimenti: Scenario 8 e 13 erano di nuovo bug nei TEST
+(non nel prodotto) -- **CORRETTI**: Scenario 8 aveva un margine di soli 100ms nel buffer
+anti-burst di `chat.ts` (troppo risicato, sistemato a 2600ms) più un retry che non rispondeva
+davvero alla domanda di conferma dell'AI; Scenario 13 di nuovo un `getByText("Manicure")`
+ambiguo, stavolta sulla pagina pubblica invece che in dashboard, corretto con `.first()`.
+**Scenario 10 (cliente cancella) resta senza causa certa**: l'AI si scusa e rimanda al telefono,
+segno che `cancella_prenotazione` fallisce per un motivo reale non ancora isolato -- aggiunto
+solo un log diagnostico temporaneo in `tools.ts` (nessuna modifica di comportamento), il
+prossimo run dirà se è un id sbagliato passato dal modello o un vero errore Postgres.
+Verificato: `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` puliti. Dettaglio
+completo in DECISIONS.md, "2026-09-16 — Primo run reale di tutti e 18 i test".
+
+Aggiornamento precedente, 16/09/2026, cinquantasettesimo giro -- Task #190, scritti anche gli ultimi
 2 scenari Stripe (14 upgrade piano, 15 cancellazione abbonamento): **tutti e 15 gli scenari del
 punto 27 di CLAUDE.md sono ora coperti** (18 test in 15 file). Rispettata alla lettera la
 decisione presa con Gabriel ("l'opzione più sicura"): mai una navigazione dentro il

@@ -79,11 +79,19 @@ test.describe("Scenario 8 -- lo slot si occupa durante la conversazione", () => 
     }
 
     // Come negli altri scenari con l'AI: fino a due turni in più per
-    // arrivare a un'alternativa confermata, prima di arrendersi.
+    // arrivare a un'alternativa confermata, prima di arrendersi. Trovato dal
+    // vivo il 16/09/2026: ripetere SEMPRE la stessa frase generica ("prenota
+    // pure un altro orario") non basta quando l'AI ha già proposto un orario
+    // specifico e chiede conferma ("Ti prenoto alle 9:00, va bene?") -- un
+    // "sì" esplicito è la risposta corretta a quella domanda, non un secondo
+    // giro della stessa richiesta vaga (che oltretutto, ripetuta identica,
+    // rischia anche di far scattare l'anti-burst per il messaggio successivo
+    // troppo simile/ravvicinato).
+    const risposteConferma = ["Sì, va bene, confermalo pure.", "Sì, confermo, prenota pure quell'orario."];
     let prenotazione = await nuovaPrenotazioneDiversaDaOccupata();
     let tentativi = 0;
     while (!prenotazione && tentativi < 2) {
-      ultimaRisposta = await inviaMessaggioChat(page, "Va bene, prenota pure un altro orario libero quel giorno.");
+      ultimaRisposta = await inviaMessaggioChat(page, risposteConferma[tentativi]);
       prenotazione = await nuovaPrenotazioneDiversaDaOccupata();
       tentativi++;
     }

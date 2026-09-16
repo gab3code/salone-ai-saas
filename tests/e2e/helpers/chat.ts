@@ -12,6 +12,16 @@ import type { Page } from "@playwright/test";
  * (che richiede comunque una chiamata di rete reale a Claude) basta quasi
  * sempre a rispettare il minimo da sola; `attendiAlmenoDueSecondi` esiste
  * solo per il caso limite di una risposta anomalmente rapida.
+ *
+ * Il controllo lato server confronta il `created_at` del messaggio cliente
+ * PRECEDENTE con quello di questo nuovo messaggio -- non il tempo trascorso
+ * dentro questa singola chiamata. Un margine di soli 100ms sopra la soglia
+ * server (2100ms qui contro 2000ms in limiti.ts, trovato dal vivo il
+ * 16/09/2026 nello Scenario 8: l'anti-burst è scattato per davvero,
+ * mostrando in chat "Stai scrivendo troppo velocemente...") è troppo
+ * risicato: il tempo di `fill`+`click`+round-trip di rete tra la fine di
+ * una chiamata e l'inizio della successiva basta da solo a mangiarselo.
+ * 2600ms lascia un margine reale (500ms) invece di uno solo teorico.
  */
 
 export async function apriChat(page: Page) {
@@ -20,7 +30,7 @@ export async function apriChat(page: Page) {
 
 async function attendiAlmenoDueSecondi(dallaPartenza: number) {
   const trascorsi = Date.now() - dallaPartenza;
-  if (trascorsi < 2100) await new Promise((r) => setTimeout(r, 2100 - trascorsi));
+  if (trascorsi < 2600) await new Promise((r) => setTimeout(r, 2600 - trascorsi));
 }
 
 /**

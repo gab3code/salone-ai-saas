@@ -175,9 +175,15 @@ test.describe("Scenario 13 -- nuova attività si registra e completa l'onboardin
       expect(associazione, "l'associazione operatore/servizio deve essere salvata").toBeTruthy();
 
       // Prova finale, end-to-end: il servizio appena configurato a mano è
-      // davvero visibile sulla pagina pubblica del salone.
+      // davvero visibile sulla pagina pubblica del salone. "Manicure" compare
+      // DUE volte su questa pagina (bottone step-1 "Scegli il servizio" +
+      // riga statica in "I nostri servizi") -- entrambe sono prova valida di
+      // visibilità, quindi `.first()` invece di un secondo strict-mode
+      // violation come già capitato sulla tabella "Chi eroga quale servizio"
+      // in dashboard (16/09/2026, vedi DECISIONS.md): qui l'intento del test
+      // è "è visibile da qualche parte", non "in questo punto preciso".
       await page.goto(`/s/${tenant.slug}`);
-      await expect(page.getByText("Manicure", { exact: false })).toBeVisible();
+      await expect(page.getByText("Manicure", { exact: false }).first()).toBeVisible();
     });
   });
 });

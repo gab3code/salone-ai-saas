@@ -47,9 +47,13 @@ correggere due bug reali lungo il percorso, vedi DECISIONS.md.
 | `11-cliente-non-si-presenta.spec.ts` | 11 | No-show NON è un flusso di prodotto implementato oggi (verificato leggendo il codice) -- il test si limita a verificare che uno stato `no_show` libererebbe davvero lo slot, se mai venisse scritto |
 | `13-nuova-attivita-registrazione-onboarding.spec.ts` | 13 | Registrazione reale da `/registrati` (provisioning automatico verificato a prescindere dalla conferma email) + completamento onboarding sulle sezioni manuali di `/dashboard/configura` |
 
-**Primo run reale (16/09/2026): 12/14 verdi.** I 2 fallimenti (Scenario 8 e 13) erano bug nei
-TEST, non nel prodotto -- corretti, vedi DECISIONS.md. In attesa di conferma 14/14 col fix
-applicato.
+**Primo run reale (16/09/2026): 12/14 verdi**, poi un secondo run di TUTTI e 18 i test: **15/18
+verdi**. Scenario 8 e 13 erano ancora bug nei TEST (un margine anti-burst troppo risicato in
+`chat.ts` + un retry che non rispondeva alla domanda di conferma dell'AI; un locator ambiguo
+sulla pagina pubblica) -- **corretti**, vedi DECISIONS.md. **Scenario 10 resta aperto**: l'AI si
+scusa e rimanda al telefono, segno che `cancella_prenotazione` fallisce per una causa reale non
+ancora isolata -- aggiunto un log diagnostico temporaneo in `tools.ts` (nessuna modifica di
+comportamento), il prossimo run dirà di più.
 
 | `14-upgrade-piano-abbonamento.spec.ts` | 14 | (a) il NOSTRO endpoint `/api/stripe/checkout` genera un vero URL di Checkout Stripe e salva il customer sul tenant; (b) il NOSTRO webhook porta il tenant sul piano corretto quando Stripe conferma l'abbonamento attivo |
 | `15-cliente-cancella-abbonamento.spec.ts` | 15 | (a) il NOSTRO endpoint `/api/stripe/portal` genera un vero URL del Customer Portal per un tenant con abbonamento attivo; (b) il NOSTRO webhook riporta il tenant a Free quando Stripe conferma la cancellazione |
@@ -61,11 +65,10 @@ firmato con `stripe.webhooks.generateTestHeaderString`), MAI navigando dentro qu
 completando un pagamento vero (solo chiamate test-mode: Sessioni/Customer creati e ripuliti in
 `afterEach`, zero rischio finanziario).
 
-**Tutti e 15 gli scenari del punto 27 di CLAUDE.md sono ora scritti** (18 test in 15 file).
-Scenari 2, 4, 7, 8, 10, 11, 13 e 14, 15 sono **scritti e verificati localmente
-(`tsc`/`eslint`/`vitest`/`build`/`playwright test --list`), ma non ancora eseguiti dal vivo** --
-14 e 15 richiedono anche `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`STRIPE_PRICE_*` in
-`.env.local`.
+**Tutti e 15 gli scenari del punto 27 di CLAUDE.md sono ora scritti E i 4 test Stripe (14/15)
+sono verdi dal vivo al primo colpo** (Price ID reali presi dalla Dashboard, `STRIPE_WEBHOOK_SECRET`
+generato al volo -- questi due scenari non hanno bisogno del vero signing secret di Stripe, vedi
+DECISIONS.md).
 
 ## Perché non in CI (per ora)
 

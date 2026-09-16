@@ -774,15 +774,19 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       #7 (servizio incompatibile con l'operatore), #8 (slot occupato durante la conversazione),
       #10 (cliente cancella + avviso lista d'attesa), #11 (no-show, ridotto a solo verifica
       DB/vincolo Postgres perché non è un flusso di prodotto implementato oggi -- vedi
-      DECISIONS.md), #13 (registrazione reale + completamento onboarding manuale). Verificati
-      `tsc`/`eslint`/`vitest`/`build` e la raccolta Playwright (`--list`). Primo run reale di
-      questi 7: **12/14 verdi**, i 2 fallimenti erano bug nei TEST (Scenario 8 e 13), non nel
-      prodotto -- **CORRETTI 16/09/2026**, vedi DECISIONS.md. In attesa che Gabriel confermi
-      14/14 col fix applicato. Scritti anche gli ultimi due scenari, #14 (upgrade piano) e #15
-      (cancellazione abbonamento): stessa disciplina "solo il nostro codice" concordata --
+      DECISIONS.md), #13 (registrazione reale + completamento onboarding manuale). Scritti
+      anche gli ultimi due scenari, #14 (upgrade piano) e #15 (cancellazione abbonamento) --
       **tutti e 15 gli scenari del punto 27 di CLAUDE.md sono ora scritti** (18 test in 15
-      file), verificati `tsc`/`eslint`/`vitest`/`build`/`playwright test --list`, **mai
-      eseguiti dal vivo**. Dettaglio completo in `tests/e2e/README.md` e in DECISIONS.md.
+      file). **Primo run reale di tutti e 18, 16/09/2026: i 4 test Stripe verdi al primo colpo**
+      (Price ID reali presi dalla Dashboard, `STRIPE_WEBHOOK_SECRET` generato al volo -- non
+      serve il vero secret di Stripe per questi due scenari). Sui 14 rimanenti, **15/18 verdi**
+      in totale: Scenario 8 e 13 erano ancora bug nei TEST (margine anti-burst troppo risicato +
+      retry che non rispondeva alla domanda dell'AI; locator ambiguo sulla pagina pubblica) --
+      **CORRETTI**. **Scenario 10 (cliente cancella) resta aperto**: causa reale non ancora
+      isolata, aggiunto un log diagnostico temporaneo (nessuna modifica di comportamento), in
+      attesa del prossimo run per capire se è un id sbagliato dal modello o un errore Postgres.
+      Verificato `tsc`/`eslint`/`vitest`/`build`/`playwright test --list` puliti. Dettaglio
+      completo in `tests/e2e/README.md` e in DECISIONS.md.
 - [x] ~~Semplificazione consapevole: fuso orario trattato come UTC~~ **FATTO 11/09/2026**
       (corretto qui il 12/09/2026, questa riga era rimasta indietro): colonna
       `tenants.fuso_orario` (migrazione 0010, default `Europe/Rome`, applicata al DB reale),

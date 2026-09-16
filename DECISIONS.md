@@ -4659,3 +4659,58 @@ Verificato: `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` p
 ancora eseguiti dal vivo**: servono a Gabriel `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/
 `STRIPE_PRICE_*` già in `.env.local` (dovrebbero esserci dalla Fase 5) perché girino -- se
 mancasse qualcosa, l'errore lo dice chiaramente invece di fallire in modo oscuro.
+
+## 2026-09-16 — Primo run reale di tutti e 18 i test: 15/18 verdi, Stripe (14/15) verdi al primo colpo
+
+Gabriel non aveva ancora i 3 Price ID né `STRIPE_WEBHOOK_SECRET` in `.env.local` (mai
+configurati, coerente con PROJECT_STATUS: il checkout non era mai stato provato con un
+pagamento di test reale). Presi i Price ID reali dalla sua Dashboard Stripe (via estensione
+Chrome): **Pro aveva 2 prezzi**, uno vecchio da 69,90€ ormai archiviato e uno nuovo da 89,90€
+diventato il default il 14/09 -- usato quello attivo, un prezzo archiviato non è utilizzabile
+per nuove Sessioni di Checkout. Per `STRIPE_WEBHOOK_SECRET`, capito rileggendo
+`src/app/api/stripe/webhook/route.ts` che questi due scenari non hanno bisogno del vero
+signing secret di Stripe: il test firma un evento finto con lo stesso valore che l'endpoint
+locale legge dal suo stesso `.env.local` per verificarlo -- un segreto generato al momento
+(`openssl rand -hex 24`) basta, senza Stripe CLI né `stripe listen`. **Risultato: scenari 14 e
+15 (tutti e 4 i test Stripe) verdi al primo colpo.**
+
+Sui 14 scenari già scritti prima, **15/18 totali verdi**, 3 fallimenti, diagnosticati leggendo
+screenshot + `error-context.md` di Playwright (mai indovinati):
+
+- **Scenario 8** (slot occupato durante la conversazione): **due bug di TEST, non del
+  prodotto** -- la trascrizione mostra l'AI comportarsi ESATTAMENTE come da REGOLA ASSOLUTA 6
+  (si scusa, verifica di nuovo la disponibilità, propone alternative reali), poi propone un
+  orario specifico e chiede conferma ("Ti prenoto alle 9:00, va bene?"). Il test però continuava
+  a rimandare la stessa frase generica ("prenota pure un altro orario") invece di rispondere di
+  sì a quella domanda precisa -- e il secondo invio di quella frase ha fatto scattare per
+  davvero l'anti-burst (`INTERVALLO_MINIMO_MS_TRA_MESSAGGI`, 2000ms): il buffer di sicurezza in
+  `chat.ts` (`attendiAlmenoDueSecondi`) lasciava solo 100ms di margine (2100ms contro la soglia
+  di 2000ms) sopra un confronto fatto sul `created_at` del messaggio PRECEDENTE, non sul tempo
+  interno alla chiamata -- il tempo di `fill`+`click`+round-trip tra una chiamata e l'altra basta
+  da solo a mangiarsi 100ms. **Corretto**: buffer alzato a 2600ms (margine reale ~500ms) e il
+  test ora risponde con una conferma esplicita ("Sì, va bene, confermalo pure.") invece di
+  ripetere la stessa richiesta vaga.
+- **Scenario 13** (onboarding manuale, di nuovo): stessa famiglia di bug della volta scorsa, ma
+  in un punto diverso -- questa volta l'assert finale sulla pagina PUBBLICA (`/s/[slug]`), dove
+  "Manicure" compare sia nel bottone step-1 "Scegli il servizio" sia nella lista statica "I
+  nostri servizi": due elementi legittimi, l'intento del test è "è visibile da qualche parte" non
+  "in questo punto preciso". **Corretto** con `.first()` invece di un'altra sottostringa ad hoc
+  (qui non aiuterebbe: entrambi i punti sono validi).
+- **Scenario 10** (cliente cancella): **non ancora diagnosticato con certezza** -- la
+  trascrizione mostra l'AI scusarsi e rimandare al telefono del salone (comportamento onesto da
+  REGOLA ASSOLUTA 8 quando non riesce a fare qualcosa), segno che lo strumento
+  `cancella_prenotazione` è stato chiamato ma ha restituito un esito negativo -- non l'anti-burst
+  (il testo mostrato è tutt'altro, chiaramente generato dal modello, non la stringa fissa
+  dell'errore 429). Le due cause plausibili lette nel codice (`booking-engine.server.ts`) sono
+  "Appuntamento non trovato" (id sbagliato passato dal modello) o un vero errore Postgres
+  sull'update -- senza log server non si può distinguere le due, e la traccia Playwright cattura
+  solo le richieste di rete del browser, non le chiamate interne tool-calling lato server.
+  **Non toccato il codice applicativo alla cieca**: aggiunto solo un `console.error` diagnostico
+  in `tools.ts` (caso `cancella_prenotazione`, quando `!risultato.ok`) che logga
+  `tenantId`/`appuntamentoId`/`errore` -- temporaneo, da togliere una volta chiarita la causa.
+  Se lo scenario fallisce di nuovo, quel log dirà subito quale delle due cause è.
+
+Nessuna modifica di comportamento per un cliente reale in nessuno dei tre casi. Verificato di
+nuovo: `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` puliti. Prossimo
+passo: Gabriel rilancia `npm run test:e2e` (o solo `npx playwright test 08- 10- 13-` per
+velocità) e manda l'esito, in particolare l'eventuale riga di log per lo Scenario 10.
