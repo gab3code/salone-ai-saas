@@ -1,6 +1,15 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, cinquantatreesimo giro -- Task #190, secondo giro di
+Ultimo aggiornamento: 16/09/2026, cinquantaquattresimo giro -- Task #190, i primi 6 scenari E2E
+sono VERDI dal vivo: Gabriel ha rilanciato `npm run test:e2e` col fix della checkbox e tutti e 6
+sono passati al primo colpo (1.7 min totali). Chiuso il ciclo "scrivi infrastruttura -> trova bug
+veri -> corregge -> riverifica" durato tre giri (cinquantunesimo-cinquantatreesimo): questi test
+hanno già ripagato il lavoro, trovando 2 bug reali mai visti da una verifica manuale (la
+collisione col trigger di provisioning e la checkbox che si spegneva da sola). Restano da
+scrivere gli scenari 2, 4, 7, 8, 10, 11, 13 (nessuna dipendenza da decisioni ancora aperte) e 14,
+15 (Customer Portal Stripe, decisione sull'approccio ancora da confermare con Gabriel).
+
+Aggiornamento precedente, 16/09/2026, cinquantatreesimo giro -- Task #190, secondo giro di
 correzione sui 6 scenari E2E. Gabriel ha ri-lanciato `npm run test:e2e` col fix del giro
 precedente: da 6/6 falliti a 3/6 passati. Restavano 2 fallimenti identici (Scenario 3 e 12) su
 `getByRole("checkbox").check()` ("Clicking the checkbox did not change its state") -- stavolta

@@ -4533,3 +4533,7 @@ nello stesso pannello -- risolto scopando il controllo alla riga `<li>` specific
 
 Verificato: `tsc`/`eslint`/`build` puliti, `vitest run` 469/469. **Non ancora riverificato dal
 vivo**: serve un terzo giro di Gabriel con `npm run test:e2e`.
+
+**Aggiornamento 16/09/2026 -- confermato dal vivo**: terzo run di Gabriel, 6/6 scenari passati
+(1.7 minuti totali). Ciclo chiuso: infrastruttura + 6 scenari, due bug reali trovati e corretti,
+suite ora verde. Prossimo passo: scrivere gli scenari 2, 4, 7, 8, 10, 11, 13, 14, 15.

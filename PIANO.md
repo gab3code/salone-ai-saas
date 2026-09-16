@@ -767,7 +767,10 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       "Bug profiles_pkey nei test E2E". Secondo run: 3/6 passati, 2 falliti per un bug VERO nella
       checkbox servizi del pannello dashboard (si spegneva da sola per un re-render prematuro) --
       **CORRETTO 16/09/2026**, vedi DECISIONS.md "Bug vero (non solo di test) trovato dagli
-      scenari E2E". Ancora da riverificare dal vivo col fix applicato (terzo giro).
+      scenari E2E". Terzo run: **6/6 VERDI** (1.7 min totali) -- questi 6 scenari sono chiusi.
+      Restano da scrivere gli scenari 2, 4, 7, 8, 10, 11, 13, 14, 15 (nota su 14/15: passano dal
+      Customer Portal Stripe, una UI di terzi -- da confermare con Gabriel se automatizzarla con
+      carte di test o limitarsi a verificare solo il nostro codice).
       Dettaglio completo, incluso perché non in CI e cosa manca ancora (scenari 2, 4, 7, 8, 10, 11,
       13, 14, 15), in `tests/e2e/README.md` e in DECISIONS.md.
 - [x] ~~Semplificazione consapevole: fuso orario trattato come UTC~~ **FATTO 11/09/2026**
