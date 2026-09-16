@@ -775,9 +775,14 @@ design vera arriva quando c'è un funnel intero da vestire, non prima (Fase 4/7 
       #10 (cliente cancella + avviso lista d'attesa), #11 (no-show, ridotto a solo verifica
       DB/vincolo Postgres perché non è un flusso di prodotto implementato oggi -- vedi
       DECISIONS.md), #13 (registrazione reale + completamento onboarding manuale). Verificati
-      `tsc`/`eslint`/`vitest`/`build` e la raccolta Playwright (`--list`), **mai eseguiti dal
-      vivo**: sono i prossimi da far girare a Gabriel. Restano da scrivere solo i due scenari
-      Stripe (14, 15). Dettaglio completo in `tests/e2e/README.md` e in DECISIONS.md.
+      `tsc`/`eslint`/`vitest`/`build` e la raccolta Playwright (`--list`). Primo run reale di
+      questi 7: **12/14 verdi**, i 2 fallimenti erano bug nei TEST (Scenario 8 e 13), non nel
+      prodotto -- **CORRETTI 16/09/2026**, vedi DECISIONS.md. In attesa che Gabriel confermi
+      14/14 col fix applicato. Scritti anche gli ultimi due scenari, #14 (upgrade piano) e #15
+      (cancellazione abbonamento): stessa disciplina "solo il nostro codice" concordata --
+      **tutti e 15 gli scenari del punto 27 di CLAUDE.md sono ora scritti** (18 test in 15
+      file), verificati `tsc`/`eslint`/`vitest`/`build`/`playwright test --list`, **mai
+      eseguiti dal vivo**. Dettaglio completo in `tests/e2e/README.md` e in DECISIONS.md.
 - [x] ~~Semplificazione consapevole: fuso orario trattato come UTC~~ **FATTO 11/09/2026**
       (corretto qui il 12/09/2026, questa riga era rimasta indietro): colonna
       `tenants.fuso_orario` (migrazione 0010, default `Europe/Rome`, applicata al DB reale),

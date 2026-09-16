@@ -4624,3 +4624,38 @@ bug (di test o reali) al primo giro, come già successo con i primi 6.
 Nessuna modifica al codice applicativo per questi due fix -- solo ai test. Verificato di nuovo:
 `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` puliti. Prossimo passo:
 Gabriel rilancia `npm run test:e2e` per confermare 14/14.
+
+## 2026-09-16 — Scritti gli ultimi 2 scenari E2E (14, 15): tutto il punto 27 è coperto
+
+Ultimo pezzo del Task #190. Applicata la decisione già presa con Gabriel per 14/15 (testare
+SOLO il nostro codice, mai il Checkout/Customer Portal ospitati da Stripe): ogni scenario è
+diviso in DUE test indipendenti invece di un unico flusso UI, perché sono due cose diverse da
+verificare con tecniche diverse:
+
+1. **Generazione URL reale**: chiamata VERA (test-mode) al nostro `/api/stripe/checkout` o
+   `/api/stripe/portal` via `page.request` (stessi cookie di sessione della UI, autenticato come
+   titolare) -- verifica che l'URL restituito sia davvero `checkout.stripe.com`/
+   `billing.stripe.com` e che il customer Stripe venga salvato sul tenant. Mai una navigazione
+   dentro quell'URL: crea solo una Sessione/un Customer, mai un pagamento (zero rischio
+   finanziario anche testando contro l'account Stripe reale, purché in modalità test).
+2. **Reazione al webhook**: un evento Stripe (`customer.subscription.updated`/`.deleted`)
+   costruito a mano e FIRMATO con `stripe.webhooks.generateTestHeaderString` (helper ufficiale
+   della SDK pensato apposta per firmare payload di prova, nuovo helper
+   `tests/e2e/helpers/stripe-webhook.ts`), spedito via HTTP vero al nostro `/api/stripe/webhook`
+   in esecuzione. Il tenant di prova riceve PRIMA uno `stripe_subscription_id` finto (il webhook
+   -- `sincronizzaAbbonamento` -- cerca il tenant per quello): non serve un vero abbonamento
+   Stripe per testare che IL NOSTRO CODICE reagisca bene, e il test resta deterministico e
+   veloce invece di dipendere dal ciclo di vita reale di una subscription su Stripe. Stessa
+   tecnica logica degli unit test già esistenti su `stripe/webhook`, ma qui contro il server HTTP
+   reale in esecuzione (route completa: lettura del corpo grezzo, verifica firma, business logic),
+   non la funzione chiamata direttamente in memoria.
+
+Pulizia: i customer Stripe di test creati per questi scenari (test-mode, zero costo) vengono
+comunque eliminati in `afterEach`, stessa disciplina "mai lasciare dati di test in giro" usata
+per Supabase.
+
+**Tutti e 15 gli scenari del punto 27 di CLAUDE.md sono ora scritti** (18 test in 15 file).
+Verificato: `tsc`/`eslint`/`vitest` (469/469)/`build`/`playwright test --list` puliti. **Non
+ancora eseguiti dal vivo**: servono a Gabriel `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/
+`STRIPE_PRICE_*` già in `.env.local` (dovrebbero esserci dalla Fase 5) perché girino -- se
+mancasse qualcosa, l'errore lo dice chiaramente invece di fallire in modo oscuro.

@@ -1,6 +1,24 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, cinquantaseiesimo giro -- Task #190, primo run reale dei 7
+Ultimo aggiornamento: 16/09/2026, cinquantasettesimo giro -- Task #190, scritti anche gli ultimi
+2 scenari Stripe (14 upgrade piano, 15 cancellazione abbonamento): **tutti e 15 gli scenari del
+punto 27 di CLAUDE.md sono ora coperti** (18 test in 15 file). Rispettata alla lettera la
+decisione presa con Gabriel ("l'opzione più sicura"): mai una navigazione dentro il
+Checkout/Customer Portal ospitati da Stripe, ogni scenario diviso in due test indipendenti --
+generazione URL reale (chiamata test-mode vera a `/api/stripe/checkout`/`/api/stripe/portal`,
+verifica solo che l'URL sia `checkout.stripe.com`/`billing.stripe.com`, zero pagamento) e
+reazione al webhook (evento `customer.subscription.updated`/`.deleted` costruito e firmato con
+l'helper ufficiale `stripe.webhooks.generateTestHeaderString`, nuovo file
+`tests/e2e/helpers/stripe-webhook.ts`, spedito al vero `/api/stripe/webhook` in esecuzione senza
+bisogno di un abbonamento Stripe reale). Pulizia dei customer Stripe di test in `afterEach`,
+stessa disciplina già usata per Supabase. `tsc`/`eslint`/`vitest` (469/469)/`build`/
+`playwright test --list` puliti (18 test raccolti senza errori). **Non ancora eseguiti dal
+vivo**: servono a Gabriel `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`STRIPE_PRICE_*` già in
+`.env.local` -- se mancasse qualcosa l'errore lo dice chiaramente. Ancora da confermare: il
+14/14 dei 7 scenari del giro precedente. Dettaglio in DECISIONS.md, "2026-09-16 — Scritti gli
+ultimi 2 scenari E2E (14, 15): tutto il punto 27 è coperto".
+
+Aggiornamento precedente, 16/09/2026, cinquantaseiesimo giro -- Task #190, primo run reale dei 7
 nuovi scenari: 12/14 verdi al primo colpo. I 2 fallimenti erano entrambi bug nei TEST, non nel
 prodotto -- in entrambi i casi l'app aveva già funzionato correttamente: Scenario 8 cercava la
 nuova prenotazione per telefono esatto (fragile, un LLM può ripetere un numero non parola per

@@ -47,14 +47,25 @@ correggere due bug reali lungo il percorso, vedi DECISIONS.md.
 | `11-cliente-non-si-presenta.spec.ts` | 11 | No-show NON è un flusso di prodotto implementato oggi (verificato leggendo il codice) -- il test si limita a verificare che uno stato `no_show` libererebbe davvero lo slot, se mai venisse scritto |
 | `13-nuova-attivita-registrazione-onboarding.spec.ts` | 13 | Registrazione reale da `/registrati` (provisioning automatico verificato a prescindere dalla conferma email) + completamento onboarding sulle sezioni manuali di `/dashboard/configura` |
 
-**Scritti il 16/09/2026, non ancora eseguiti dal vivo nemmeno una volta** -- lecito aspettarsi
-altri bug (di test o reali) al primo giro, come già successo con 1/3/12.
+**Primo run reale (16/09/2026): 12/14 verdi.** I 2 fallimenti (Scenario 8 e 13) erano bug nei
+TEST, non nel prodotto -- corretti, vedi DECISIONS.md. In attesa di conferma 14/14 col fix
+applicato.
 
-**Restano solo gli scenari 14 e 15** (upgrade e cancellazione abbonamento). Decisione presa con
-Gabriel il 16/09/2026 (vedi DECISIONS.md): passano dal Customer Portal ospitato da Stripe
-(`pulsante-portale-abbonamento.tsx`), una pagina che non controlliamo -- si testa solo il NOSTRO
-codice (URL del portale generato correttamente, reazione corretta al webhook Stripe), mai
-l'interfaccia del portale stessa.
+| `14-upgrade-piano-abbonamento.spec.ts` | 14 | (a) il NOSTRO endpoint `/api/stripe/checkout` genera un vero URL di Checkout Stripe e salva il customer sul tenant; (b) il NOSTRO webhook porta il tenant sul piano corretto quando Stripe conferma l'abbonamento attivo |
+| `15-cliente-cancella-abbonamento.spec.ts` | 15 | (a) il NOSTRO endpoint `/api/stripe/portal` genera un vero URL del Customer Portal per un tenant con abbonamento attivo; (b) il NOSTRO webhook riporta il tenant a Free quando Stripe conferma la cancellazione |
+
+Decisione presa con Gabriel il 16/09/2026 (vedi DECISIONS.md, "l'opzione più sicura"): questi due
+scenari passano dal Checkout/Customer Portal ospitati da Stripe, pagine che non controlliamo --
+si testa solo il NOSTRO codice (URL generato correttamente, reazione corretta al webhook Stripe
+firmato con `stripe.webhooks.generateTestHeaderString`), MAI navigando dentro quelle pagine e MAI
+completando un pagamento vero (solo chiamate test-mode: Sessioni/Customer creati e ripuliti in
+`afterEach`, zero rischio finanziario).
+
+**Tutti e 15 gli scenari del punto 27 di CLAUDE.md sono ora scritti** (18 test in 15 file).
+Scenari 2, 4, 7, 8, 10, 11, 13 e 14, 15 sono **scritti e verificati localmente
+(`tsc`/`eslint`/`vitest`/`build`/`playwright test --list`), ma non ancora eseguiti dal vivo** --
+14 e 15 richiedono anche `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`STRIPE_PRICE_*` in
+`.env.local`.
 
 ## Perché non in CI (per ora)
 
