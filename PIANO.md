@@ -188,8 +188,11 @@ reale delle fasi è:
   di compleanno: **CODICE FATTO 15/09/2026** (Gabriel ha approvato la funzione con "va bene ma
   rendi tutto personalizzabile dallo staff" dopo la spiegazione del meccanismo -- vedi
   DECISIONS.md 15/09/2026 per tutti i dettagli di design), testato (451/451), migrato in
-  produzione, non ancora verificato dal vivo. Risolve il CONFLITTO Pro/`Prezzi.tsx` descritto
-  più sotto.
+  produzione, **VERIFICATO DAL VIVO 16/09/2026** (vedi DECISIONS.md, "2026-09-16 — Promemoria di
+  compleanno verificato dal vivo"). Risolve il CONFLITTO Pro/`Prezzi.tsx` descritto più sotto.
+  **Resta solo la galleria foto/upload immagini come unico punto aperto della Fase 4** (vedi voce
+  dedicata più sotto), ora più urgente perché il redesign (Fase 7) vuole foto vere nei punti
+  chiave.
 - **Rimosso dal piano attivo**: un pannello che mostri le trascrizioni vere delle conversazioni
   AI cliente-salone -- vincolo legale reale (Salone AI è processore di dati per conto del
   titolare, non proprietario di quella conversazione), dettaglio in CLAUDE.md punto 21 e
@@ -489,8 +492,8 @@ sono nella loro Fase con `[x]`.
    degli altri bloccanti sopra, non solo un "nice to have" generico.
 8. ~~"1 operatore" sul piano Free~~ **CODICE FATTO 13/09/2026** -- vedi Fase 5 (`limiteOperatori`
    in `piani.ts`, applicato in `creaOperatore`).
-9. ~~**Automazioni extra / promemoria di compleanno (Pro)**~~ **CODICE FATTO 15/09/2026, non
-   ancora verificato dal vivo** -- aggiunta 14/09/2026 (rielaborazione prezzi/margini, prezzo Pro
+9. ~~**Automazioni extra / promemoria di compleanno (Pro)**~~ **CODICE FATTO 15/09/2026,
+   VERIFICATO DAL VIVO 16/09/2026** -- aggiunta 14/09/2026 (rielaborazione prezzi/margini, prezzo Pro
    portato a 89,90€ in cambio di "vantaggi seri" scelti da Gabriel, vedi DECISIONS.md), poi
    rimandata a dopo il lancio il 15/09/2026 e infine approvata lo stesso giorno con la richiesta
    esplicita "rendi tutto personalizzabile dallo staff" -- vedi DECISIONS.md 15/09/2026 per il

@@ -4111,3 +4111,51 @@ Nessun file del repository è stato toccato da questa voce -- il canvas vive sol
 esterno, punto di riferimento per quando la Fase 7 comincia. Bordeaux e indaco restano come
 confronto di base, non rifinite: da riconsiderare solo se Gabriel torna sulla scelta prima di
 allora.
+
+---
+
+## 2026-09-16 — Promemoria di compleanno verificato dal vivo, Fase 4 chiusa del tutto (a parte
+## la galleria foto)
+
+**Contesto**: dopo aver confermato di aver tirato giù/pushato il giro precedente (colore del
+redesign), Gabriel ha chiesto di riprendere le fasi ("stavamo finendo la 4 giusto?"). Riletto lo
+stato reale prima di rispondere invece di fidarmi della sola etichetta in testa a ogni sezione di
+PIANO.md (alcune sono rimaste indietro): Fase 4 aveva solo due punti davvero aperti, il
+promemoria di compleanno mai verificato dal vivo e la galleria foto/upload mai iniziata. Gabriel
+ha scelto di chiudere prima il compleanno, poi passare alla galleria.
+
+**Setup del test**: riusato il tenant di prova già esistente di Gabriel ("prova gabriel", piano
+Pro, id `2b574e30-...`) invece di crearne uno nuovo -- aveva già un cliente di test
+("Test Utente") con l'email vera di Gabriel
+(`gabrielmazzucchelli3@gmail.com`), comodo per una verifica end-to-end reale. Impostato
+temporaneamente via `execute_sql`: `tenants.compleanno_attivo = true` sul tenant, e su quel
+cliente `data_nascita = '1995-09-16'` (mese/giorno di oggi) con
+`compleanno_ultimo_anno_avvisato = null`.
+
+**Esecuzione**: il cron `/api/cron/promemoria` è protetto da `CRON_SECRET` (header aggiunto solo
+da Vercel), quindi non richiamabile a mano con una semplice richiesta -- usato invece il pulsante
+"Run" della pagina Cron Jobs del progetto su Vercel via estensione Chrome sul browser autenticato
+di Gabriel, stesso identico metodo già usato e validato il 14/09/2026 per il promemoria
+pre-appuntamento.
+
+**Verificato nel reale**:
+- Log della funzione: risposta 200, "Response finished in 3.8s", una chiamata esterna
+  `POST api.mailjet.com/v3.1/send` registrata tra le "External APIs" -- prova diretta che
+  l'invio è partito, non solo che la funzione ha girato senza errori. L'unico log a livello
+  "Error" è lo stesso `DeprecationWarning` innocuo su `url.parse()` già visto il 14/09 (rumore di
+  una dipendenza, non del codice del progetto).
+- Database reale: `clienti.compleanno_ultimo_anno_avvisato` passato da `null` a `2026` sul
+  cliente di test -- il lucchetto claim-before-send si è attivato come progettato, prova che la
+  query di selezione ha trovato il cliente giusto ed eseguito il percorso di invio, non solo che
+  l'endpoint ha risposto 200.
+- Non verificato da qui l'arrivo effettivo dell'email nella casella di Gabriel (nessun accesso a
+  Gmail da questa sessione) -- ma la combinazione "Mailjet ha ricevuto la richiesta di invio" +
+  "il lucchetto si è attivato" è la stessa prova indiretta già accettata il 14/09/2026 per il
+  promemoria pre-appuntamento (lì la consegna era stata confermata da Gabriel stesso più tardi).
+
+**Cleanup**: ripristinati `clienti.data_nascita`/`compleanno_ultimo_anno_avvisato` a `null` e
+`tenants.compleanno_attivo` a `false` sul tenant di prova, stato tornato uguale a prima del test.
+
+**Esito**: Promemoria di compleanno dichiarato verificato dal vivo. **Fase 4 ora chiusa del
+tutto tranne la galleria foto/upload immagini**, mai iniziata (zero codice) -- prossimo passo
+scelto da Gabriel nello stesso giro.

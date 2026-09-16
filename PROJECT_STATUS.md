@@ -1,6 +1,22 @@
 # Stato del progetto
 
-Ultimo aggiornamento: 16/09/2026, quarantaseiesimo giro -- giro di sola esplorazione visiva
+Ultimo aggiornamento: 16/09/2026, quarantasettesimo giro -- giro di sola verifica (nessun codice
+nel repository), richiesto da Gabriel dopo aver confermato il pull/push del giro precedente:
+"stavamo finendo la 4 giusto?". Riletto lo stato reale invece di fidarsi delle sole etichette in
+PIANO.md: alla Fase 4 restavano due punti aperti, il promemoria di compleanno mai verificato dal
+vivo e la galleria foto mai iniziata. Su scelta di Gabriel, verificato per primo il compleanno:
+riusato il tenant di prova esistente ("prova gabriel", Pro) con un cliente che ha l'email vera
+di Gabriel, impostata la data di nascita di oggi, lanciato il cron `/api/cron/promemoria` dal
+pulsante "Run" di Vercel (stesso metodo già validato il 14/09/2026, il cron è protetto da
+`CRON_SECRET` e non richiamabile a mano altrimenti). Confermato nei log Vercel (200, chiamata
+reale a `api.mailjet.com/v3.1/send`) e nel database (lucchetto anti-doppio-invio scattato
+correttamente). Dati di test ripristinati subito dopo. **Promemoria di compleanno verificato,
+Fase 4 ora chiusa del tutto tranne la galleria foto/upload immagini** (mai iniziata, prossimo
+passo scelto da Gabriel nello stesso giro -- ora più rilevante anche per le foto vere richieste
+dal redesign di Fase 7). Dettaglio completo in DECISIONS.md, "2026-09-16 — Promemoria di
+compleanno verificato dal vivo, Fase 4 chiusa del tutto (a parte la galleria foto)".
+
+Aggiornamento precedente, 16/09/2026, quarantaseiesimo giro -- giro di sola esplorazione visiva
 (nessun codice nel repository), richiesto da Gabriel dopo aver approvato il Promemoria di
 compleanno: valutata la UI attuale (sospetto "AI slop" sul viola/fucsia con glow, confermato da
 due fonti indipendenti) e costruito un canvas Claude Design con 3 direzioni colore a parità di
