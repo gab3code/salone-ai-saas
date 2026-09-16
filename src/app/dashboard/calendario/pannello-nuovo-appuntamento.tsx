@@ -60,6 +60,29 @@ export function PannelloNuovoAppuntamento({
   const [erroreInvio, setErroreInvio] = useState<string | null>(null);
   const [invioInCorso, setInvioInCorso] = useState(false);
 
+  // Stato locale per le caselle servizio, invece di leggere `checked`
+  // direttamente da `servizioIdsIniziali` (il prop che arriva dall'URL via il
+  // Server Component). Bug reale trovato il 16/09/2026 lanciando gli scenari
+  // E2E (Playwright: "Clicking the checkbox did not change its state" --
+  // scoperto grazie al test, non a un controllo manuale): cliccare una
+  // casella chiamava `setSlotSelezionato(null)` in modo sincrono, che
+  // provocava un re-render IMMEDIATO con `servizioIdsIniziali` ancora
+  // vecchio (la vera navigazione via `router.push` è asincrona) -- React
+  // rimetteva quindi la checkbox a spenta un istante dopo che il click
+  // l'aveva accesa, prima ancora che la navigazione finisse. Con uno stato
+  // locale aggiornato subito al click, la casella risponde all'istante e
+  // resta coerente quando poi l'URL si allinea.
+  const [servizioIdsSelezionati, setServizioIdsSelezionati] = useState<string[]>(servizioIdsIniziali);
+  // Riallineamento durante il render (pattern "adjusting state when a prop
+  // changes" di React), non in un useEffect: evita un giro di render in più
+  // e l'errore lint react-hooks/set-state-in-effect (setState sincrono
+  // dentro un effetto).
+  const [servizioIdsInizialiPrecedenti, setServizioIdsInizialiPrecedenti] = useState(servizioIdsIniziali);
+  if (servizioIdsIniziali.join(",") !== servizioIdsInizialiPrecedenti.join(",")) {
+    setServizioIdsInizialiPrecedenti(servizioIdsIniziali);
+    setServizioIdsSelezionati(servizioIdsIniziali);
+  }
+
   function aggiornaParametro(chiave: string, valore: string) {
     const parametri = new URLSearchParams(searchParams.toString());
     if (valore) {
@@ -72,16 +95,17 @@ export function PannelloNuovoAppuntamento({
   }
 
   function alternaServizio(servizioId: string, selezionato: boolean) {
-    const parametri = new URLSearchParams(searchParams.toString());
-    const attuali = servizioIdsIniziali.filter((id) => id !== servizioId);
+    const attuali = servizioIdsSelezionati.filter((id) => id !== servizioId);
     const nuovi = selezionato ? [...attuali, servizioId] : attuali;
+    setServizioIdsSelezionati(nuovi);
+    setSlotSelezionato(null);
+    const parametri = new URLSearchParams(searchParams.toString());
     parametri.delete("servizio_id");
     for (const id of nuovi) parametri.append("servizio_id", id);
-    setSlotSelezionato(null);
     router.push(`/dashboard/calendario?${parametri.toString()}`);
   }
 
-  const servizioIdsSet = new Set(servizioIdsIniziali);
+  const servizioIdsSet = new Set(servizioIdsSelezionati);
   // Durata totale della catena selezionata (per mostrarla in chiaro allo
   // staff, prima ancora di vedere gli slot) -- stessa somma che il motore
   // di disponibilità calcola lato server.
@@ -110,7 +134,7 @@ export function PannelloNuovoAppuntamento({
       <div className="flex flex-wrap gap-3 text-sm">
         <div className="flex flex-col gap-1">
           <label className="text-xs text-zinc-500">
-            Servizi {servizioIdsIniziali.length > 1 && "(consecutivi, stesso operatore)"}
+            Servizi {servizioIdsSelezionati.length > 1 && "(consecutivi, stesso operatore)"}
           </label>
           <div className="flex max-w-xs flex-col gap-1 rounded border border-zinc-300 px-2 py-1.5">
             {servizi.map((s) => (
@@ -124,7 +148,7 @@ export function PannelloNuovoAppuntamento({
               </label>
             ))}
           </div>
-          {servizioIdsIniziali.length > 1 && (
+          {servizioIdsSelezionati.length > 1 && (
             <p className="text-xs text-zinc-500">Durata totale: {durataTotaleMinuti} min</p>
           )}
         </div>

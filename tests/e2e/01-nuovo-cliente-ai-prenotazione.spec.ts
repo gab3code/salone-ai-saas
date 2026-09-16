@@ -87,10 +87,16 @@ test.describe("Scenario 1 -- nuovo cliente, conversazione AI, prenotazione end-t
     expect(operatoreNome).toBe("Sara");
 
     // Calendario: lo stesso appuntamento visibile dalla dashboard del titolare.
+    // Locator scoperto sul <li> della riga appuntamento (non su tutta la
+    // pagina): "Taglio" compare ANCHE nel pannello "Nuovo appuntamento" a
+    // fianco (la checkbox del servizio), quindi un getByText("Taglio") sulla
+    // pagina intera è ambiguo (strict mode violation, trovato lanciando il
+    // test il 16/09/2026) -- scoping alla riga specifica lo rende univoco.
     await accediComeTitolare(page, tenant.email, tenant.password);
     await page.goto(`/dashboard/calendario?data=${giorno.ymd}`);
-    await expect(page.getByText("Anna Bianchi")).toBeVisible();
-    await expect(page.getByText("Taglio")).toBeVisible();
+    const rigaAppuntamento = page.locator("li", { hasText: "Anna Bianchi" });
+    await expect(rigaAppuntamento).toBeVisible();
+    await expect(rigaAppuntamento).toContainText("Taglio");
 
     // CRM: il cliente creato automaticamente dall'AI compare nella lista clienti.
     await page.goto("/dashboard/clienti");
