@@ -148,6 +148,23 @@ export async function POST(request: NextRequest) {
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: stripeCustomerId,
+    // Solo carte, esplicitamente (17/09/2026, dopo aver guardato la
+    // schermata vera). Senza questa riga la sessione eredita tutti i metodi
+    // accesi sull'account, e su un abbonamento B2B da 39,90 € al mese si
+    // vedeva offrire Klarna, Satispay e Amazon Pay accanto alla carta.
+    //
+    // Non è una questione di gusto. Un abbonamento ricorrente vuole uno
+    // strumento che si possa riaddebitare per mesi senza che il cliente
+    // rifaccia niente, e la carta è quello: i wallet e i "paga a rate" su un
+    // canone mensile o non rinnovano bene o creano stati intermedi che il
+    // nostro webhook dovrebbe gestire uno per uno. In più una schermata di
+    // pagamento con quattro opzioni per un gestionale da usare in salone
+    // sembra un e-commerce, non un contratto di servizio.
+    //
+    // La caparra è un caso diverso -- pagamento singolo di pochi euro fatto
+    // dal cliente finale del salone -- e ha la sua scelta separata in
+    // caparra.server.ts.
+    payment_method_types: ["card"],
     line_items: lineItems,
     success_url: `${origin}/dashboard?checkout=successo`,
     cancel_url: `${origin}/#prezzi`,

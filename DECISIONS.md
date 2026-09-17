@@ -5297,3 +5297,29 @@ SdI** giorni dopo, quando è già stata contata come emessa, e per rimediare ser
 variazione. Controllarlo mentre viene digitato costa niente. Le funzioni verificano che
 l'identificativo sia ben formato, non che appartenga a quella persona: l'esistenza la accertano
 VIES e lo SdI, ed è il livello giusto per un campo di un modulo.
+
+## 2026-09-17 — L'abbonamento si paga solo con carta (verificato guardando la schermata vera)
+
+**Decisione**: `payment_method_types: ["card"]` anche sulla sessione di checkout
+dell'abbonamento, non solo su quella della caparra.
+
+**Perché è emerso**: aprendo il checkout vero di Growth, accanto alla carta comparivano Klarna,
+Satispay e Amazon Pay -- ereditati dai metodi accesi sull'account, perché la sessione non ne
+specificava nessuno.
+
+**Motivazione**: un abbonamento ricorrente vuole uno strumento riaddebitabile per mesi senza che
+il cliente rifaccia niente, e la carta è quello. I wallet e i "paga a rate" su un canone mensile
+o non rinnovano bene o creano stati intermedi che il webhook dovrebbe gestire uno per uno. E una
+schermata con quattro opzioni per un gestionale da usare in salone sembra un e-commerce, non un
+contratto di servizio.
+
+**La caparra resta un caso separato** -- pagamento singolo di pochi euro fatto dal cliente finale
+del salone -- e ha la sua scelta in `caparra.server.ts`. Lì Satispay sarebbe anche sensato
+(immediato, diffuso in Italia per piccoli importi): da rivalutare quando la caparra sarà su
+Stripe Connect e il venditore sarà il salone.
+
+**Verificato nella stessa occasione, ed erano i due dubbi aperti sui dati della fattura**:
+Stripe raccoglie la **provincia** (Bergamo, nel modulo italiano) e, spuntando "Sto acquistando
+come attività", chiede la **ragione sociale** separatamente dal nome sulla carta. Quindi il
+blocco destinatario della fattura elettronica è completo: ragione sociale, partita IVA,
+indirizzo con CAP comune provincia e nazione, più codice destinatario o PEC dai nostri campi.
