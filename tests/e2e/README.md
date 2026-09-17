@@ -96,3 +96,39 @@ progetto è uno solo a lavorarci. Se in futuro servisse (più persone sul codice
 un cancello automatico prima del merge), servirebbe un progetto/branch Supabase DEDICATO
 ai test (mai contro produzione) e le chiavi come secret di GitHub Actions -- discorso a
 parte, non fatto in questo giro.
+
+---
+
+## Il webhook della sandbox punta alla PRODUZIONE (e i test ci girano dentro)
+
+Da sapere prima di scrivere uno scenario che crea un abbonamento Stripe vero.
+
+L'endpoint webhook configurato sull'account sandbox è
+`https://salone-ai-saas.vercel.app/api/stripe/webhook`, cioè il deploy di produzione, che parla
+con **lo stesso progetto Supabase** su cui girano questi test. Quindi ogni oggetto Stripe creato
+da un test fa partire eventi veri, che un secondo dopo tornano dentro al nostro codice e
+possono modificare proprio le righe su cui il test sta per asserire.
+
+Il caso concreto, e non è teorico: `customer.subscription.created` → il webhook chiama
+`sincronizzaQuantitaOperatoriStripe` → se il salone ha più operatori di quanti l'abbonamento ne
+fatturi, **il prodotto aggiunge la quota da sé**. È il suo mestiere. Ma per un test che aveva
+creato l'abbonamento "spoglio" è un terzo incomodo che cambia lo stato a metà corsa.
+
+Ha già rotto due scenari, in momenti diversi:
+
+- **Scenario 17** (16/09/2026): il webhook riscriveva `tenants.piano` dal price della riga base,
+  e il test asseriva uno stato incoerente. Risolto riscrivendo il test perché facesse un cambio
+  piano vero.
+- **Scenario 22** (17/09/2026): il fixture creava un abbonamento Starter senza quota operatore
+  per un salone con due operatori, e il webhook la aggiungeva. Passava o falliva a seconda di
+  quanto ci metteva ad arrivare.
+
+**La regola che ne esce**: un fixture deve partire **già nello stato su cui la sincronizzazione
+converge** -- per questo `creaAbbonamentoDiProva` accetta `operatoriExtra`. E nessuna asserzione
+deve appoggiarsi su uno stato che il prodotto ha il diritto di correggere da solo.
+
+**Cosa resta scoperto, dichiarato invece che nascosto**: il caso "Stripe disallineato rispetto
+agli operatori" (che l'anteprima del cambio piano serve proprio a mostrare) non è verificabile
+in modo stabile finché il webhook della sandbox punta alla produzione. Si sbloccherebbe con un
+secondo endpoint webhook verso un deploy di staging, o con un progetto Supabase separato per i
+test -- entrambi lavori da fare a mente fredda, non dentro un test.

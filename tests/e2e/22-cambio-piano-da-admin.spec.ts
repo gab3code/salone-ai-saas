@@ -39,7 +39,12 @@ test.describe("Scenario 22 -- cambio piano dal pannello admin", () => {
       operatori: [{ nome: "Prima", servizi: [0] }, { nome: "Seconda", servizi: [0] }],
     });
 
-    const sub = await creaAbbonamentoDiProva("starter", "Scenario22");
+    // L'abbonamento parte ALLINEATO ai due operatori: base Starter + una
+    // quota operatore extra. Vedi il docblock di `creaAbbonamentoDiProva`
+    // per il motivo -- in breve: il webhook della sandbox arriva davvero, e
+    // se trovasse un abbonamento disallineato lo correggerebbe da sé nel
+    // mezzo del test.
+    const sub = await creaAbbonamentoDiProva("starter", "Scenario22", { operatoriExtra: 1 });
     await tenant.supabase
       .from("tenants")
       .update({ stripe_subscription_id: sub.subscriptionId, stato_abbonamento: "attivo" })
@@ -81,17 +86,25 @@ test.describe("Scenario 22 -- cambio piano dal pannello admin", () => {
     await expect(bottoneApplica, "senza anteprima non si applica niente").toBeDisabled();
 
     await riga.getByRole("button", { name: /Vedi cosa cambia/ }).click();
-    // Su Stripe questo abbonamento ha la sola riga base di Starter (19,90):
-    // l'helper non gli attacca nessuna quota operatore. Il salone però ha due
-    // operatori configurati, quindi su Growth pagherebbe 39,90 + 15,00 -- ed
-    // è esattamente il tipo di disallineamento che questa anteprima serve a
-    // far vedere PRIMA di applicare, non dopo.
-    // Si punta alla riga di riepilogo e non a "19,90" ovunque: la stessa
+    // Il salone ha due operatori e su Stripe paga Starter allineato:
+    // 19,90 + 10,00 = 29,90. Su Growth diventerebbe 39,90 + 15,00 = 54,90.
+    // L'anteprima legge il totale ATTUALE dai line item veri di Stripe (non
+    // da una formula nostra) e calcola il futuro dal numero di operatori:
+    // è il controllo che dice "quello che vedi è quello che il cliente paga".
+    //
+    // 17/09/2026: qui c'era scritto "19,90", cioè il fixture partiva senza
+    // la quota operatore per far vedere un disallineamento. Non regge in
+    // questo ambiente -- il webhook della sandbox arriva al deploy di
+    // produzione e la quota la aggiunge lui, a metà test. Il caso
+    // "disallineato" non è verificabile finché quel webhook punta lì: è
+    // annotato in tests/e2e/README.md, non dimenticato.
+    //
+    // Si punta alla riga di riepilogo e non a "29,90" ovunque: la stessa
     // cifra compare anche nell'elenco dei line item attuali, e un selettore
     // per solo testo ne pescherebbe due.
     const riepilogoPrezzo = riga.getByText(/al mese →/);
     await expect(riepilogoPrezzo).toBeVisible({ timeout: 20_000 });
-    await expect(riepilogoPrezzo).toContainText("19,90");
+    await expect(riepilogoPrezzo).toContainText("29,90");
     await expect(riepilogoPrezzo).toContainText("54,90");
     // Il salone finirebbe per pagare di più: l'avviso deve esserci.
     await expect(riga.getByText(/fa pagare di più al cliente/)).toBeVisible();
@@ -172,6 +185,13 @@ test.describe("Scenario 22 -- cambio piano dal pannello admin", () => {
     // Il controllo che conta: su Stripe non si deve essere mosso niente.
     // Senza questa asserzione, un bug che aggiorna Stripe anche quando non
     // dovrebbe passerebbe inosservato -- e si scoprirebbe da una fattura.
+    //
+    // Regge perché il fixture parte allineato (Starter + una quota
+    // operatore, per due operatori): anche se il webhook della sandbox
+    // arriva nel frattempo, `sincronizzaQuantitaOperatoriStripe` non trova
+    // niente da correggere e l'abbonamento resta identico. Con un fixture
+    // disallineato questa asserzione fallirebbe per colpa del prodotto che
+    // fa la cosa giusta.
     expect(
       (await abbonamento.leggiItem()).map((i) => `${i.priceId} x${i.quantita}`).sort(),
       "'solo qui' non deve toccare l'abbonamento su Stripe"

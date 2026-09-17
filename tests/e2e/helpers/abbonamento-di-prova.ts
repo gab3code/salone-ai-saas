@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { creaClientStripeTest } from "./stripe-webhook";
-import { priceIdPerPiano, type PianoPagante } from "@/lib/stripe/piani";
+import { priceIdOperatoreExtra, priceIdPerPiano, type PianoPagante } from "@/lib/stripe/piani";
 
 /**
  * Abbonamento Stripe VERO (test-mode) per gli scenari che verificano la
@@ -43,12 +43,42 @@ export interface AbbonamentoDiProva {
   pulisci(): Promise<void>;
 }
 
+/**
+ * Quante quote "operatore extra" attaccare all'abbonamento appena creato
+ * (aggiunto il 17/09/2026).
+ *
+ * PERCHÉ ESISTE, ed è la cosa importante da sapere prima di scrivere un
+ * altro scenario che usa questo helper.
+ *
+ * Il webhook Stripe della sandbox punta al deploy di PRODUZIONE, che parla
+ * con lo stesso progetto Supabase su cui girano questi test. Quindi ogni
+ * abbonamento creato qui fa partire un `customer.subscription.created` vero,
+ * che un secondo dopo arriva al nostro webhook, che chiama
+ * `sincronizzaQuantitaOperatoriStripe`: se il salone ha più operatori di
+ * quanti l'abbonamento ne fatturi, il prodotto **aggiunge la quota da sé**.
+ * È il suo mestiere, non un bug -- è la funzione che impedisce a un salone
+ * di crescere senza che la fattura lo segua.
+ *
+ * Conseguenza pratica: un fixture che lascia l'abbonamento disallineato con
+ * il numero di operatori è instabile per costruzione. Non fallisce sempre,
+ * fallisce quando il webhook arriva prima dell'asserzione -- ed è
+ * esattamente il modo in cui lo Scenario 22 si è rotto il 17/09/2026, dopo
+ * essere passato più volte.
+ *
+ * Regola: **un fixture deve partire già nello stato su cui la
+ * sincronizzazione converge.** Se uno scenario ha bisogno di verificare un
+ * disallineamento, non può crearlo qui e sperare: deve crearlo in un modo
+ * che non faccia partire nessun evento Stripe, e comunque non può poi
+ * asserire su uno stato che la sincronizzazione ha il diritto di correggere.
+ */
 export async function creaAbbonamentoDiProva(
   piano: PianoPagante,
-  nome: string
+  nome: string,
+  opzioni: { operatoriExtra?: number } = {}
 ): Promise<AbbonamentoDiProva> {
   const stripe = creaClientStripeTest();
   const pianoIniziale = piano;
+  const operatoriExtra = opzioni.operatoriExtra ?? 0;
 
   const customer = await stripe.customers.create({
     name: `E2E ${nome}`,
@@ -58,9 +88,19 @@ export async function creaAbbonamentoDiProva(
     metadata: { e2e: "true" },
   });
 
+  const priceExtra = priceIdOperatoreExtra(piano);
+  if (operatoriExtra > 0 && !priceExtra) {
+    throw new Error(
+      `Manca il price "operatore extra" per il piano ${piano} in .env.local: questo fixture non può allinearsi al numero di operatori.`
+    );
+  }
+
   const subscription = await stripe.subscriptions.create({
     customer: customer.id,
-    items: [{ price: priceIdPerPiano(piano), quantity: 1 }],
+    items: [
+      { price: priceIdPerPiano(piano), quantity: 1 },
+      ...(operatoriExtra > 0 && priceExtra ? [{ price: priceExtra, quantity: operatoriExtra }] : []),
+    ],
     trial_period_days: 30,
     trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
     metadata: { e2e: "true" },
