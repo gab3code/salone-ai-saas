@@ -26,6 +26,64 @@ import {
 const COLONNE =
   "denominazione, partita_iva, indirizzo_via, indirizzo_cap, indirizzo_comune, indirizzo_provincia, codice_destinatario, pec_fatturazione";
 
+/**
+ * Esito della verifica VIES (migrazione 0034), già interpretato per la UI.
+ *
+ * `nomeDiverso` è il controllo che vale di più: VIES, quando risponde,
+ * restituisce anche la ragione sociale associata a quella partita IVA.
+ * Se non somiglia a quella dichiarata, o il cliente ha sbagliato a copiare, o
+ * ha messo la partita IVA di qualcun altro. Il confronto è volutamente
+ * grossolano -- VIES scrive "ROSSI MARIO" dove il cliente scrive "Rossi Mario
+ * Acconciature di Rossi M." -- quindi ci si accontenta che una delle due
+ * contenga l'altra, normalizzate.
+ */
+export type VerificaPartitaIva = {
+  stato: "mai_verificata" | "in_corso" | "verificata" | "non_trovata";
+  nomeVerificato: string | null;
+  nomeDiverso: boolean;
+};
+
+function semplifica(valore: string): string {
+  return valore
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export async function leggiVerificaPartitaIva(
+  supabase: SupabaseClient,
+  tenantId: string
+): Promise<VerificaPartitaIva> {
+  const { data } = await supabase
+    .from("tenants")
+    .select("denominazione, partita_iva_verifica, partita_iva_nome_verificato")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  const grezzo = (data?.partita_iva_verifica as string | null) ?? null;
+  const nomeVerificato = (data?.partita_iva_nome_verificato as string | null) ?? null;
+  const denominazione = (data?.denominazione as string | null) ?? "";
+
+  const stato: VerificaPartitaIva["stato"] =
+    grezzo === "verified"
+      ? "verificata"
+      : grezzo === "unverified"
+        ? "non_trovata"
+        : grezzo === "pending"
+          ? "in_corso"
+          : "mai_verificata";
+
+  let nomeDiverso = false;
+  if (stato === "verificata" && nomeVerificato && denominazione) {
+    const a = semplifica(nomeVerificato);
+    const b = semplifica(denominazione);
+    nomeDiverso = !a.includes(b) && !b.includes(a);
+  }
+
+  return { stato, nomeVerificato, nomeDiverso };
+}
+
 export async function leggiDatiFatturazione(
   supabase: SupabaseClient,
   tenantId: string

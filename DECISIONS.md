@@ -5373,3 +5373,32 @@ si leggeranno quei dati per emettere la fattura: si leggono dal nostro database,
 **Nota sulla casella "sto acquistando come attività" di Stripe**: non serviva a niente di quello
 che sembrava. Non decide nessun invio di email; esiste solo perché Stripe possa attaccare una
 partita IVA al cliente. Togliendola non si perde nessun automatismo.
+
+## 2026-09-17 — La partita IVA si verifica su VIES, ma non blocca mai un pagamento
+
+**Domanda di Gabriel**: come facciamo a verificare che una partita IVA non sia sbagliata o
+fasulla, ora che non lo fa più Stripe al checkout?
+
+**Premessa da correggere**: non l'abbiamo persa. Stripe interroga VIES ogni volta che creiamo un
+tax id su un customer, e noi gliene creiamo ancora uno -- quello che è cambiato è solo che
+l'esito non compare più sulla sua schermata. Va letto e mostrato sulla nostra.
+
+**Tre controlli, di severità crescente**:
+1. **Carattere di controllo** (`fiscale.ts`), istantaneo al salvataggio. Intercetta il refuso,
+   che è l'errore di gran lunga più frequente. Non dice nulla sull'esistenza.
+2. **VIES**, asincrono: Stripe lo interroga e l'esito arriva con l'evento
+   `customer.tax_id.updated`, da cui lo salviamo (migrazione 0034). Dice se quel numero esiste.
+3. **Confronto del nome**, ed è quello che vale di più: VIES restituisce la ragione sociale
+   associata alla partita IVA. Se non somiglia a quella dichiarata, o il cliente ha copiato male
+   o ha messo la partita IVA di qualcun altro. Il confronto è volutamente grossolano (VIES scrive
+   "ROSSI MARIO" dove il cliente scrive "Rossi Mario Acconciature di Rossi M."): basta che una
+   contenga l'altra.
+
+**Nessuno dei tre blocca il pagamento**, tranne il primo. VIES è spesso irraggiungibile e una
+partita IVA valida può tornare "non verificabile" per un disservizio del registro: rifiutare un
+abbonamento per quello significherebbe perdere clienti veri per un server altrui che non
+risponde. Gli esiti si mostrano al cliente sulla pagina dei dati di fatturazione e diventano un
+segnale nel pannello admin. Si segnala, non si impedisce.
+
+**Serve aggiungere `customer.tax_id.updated` all'endpoint webhook** (e `customer.tax_id.created`,
+che arriva insieme): senza, l'esito non arriva mai e la colonna resta vuota.

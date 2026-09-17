@@ -31,6 +31,7 @@ function riga(sovrascritture: Partial<RigaAdmin> = {}): RigaAdmin {
     haStripe: true,
     haAbbonamentoStripe: true,
     datiFatturaCompleti: true,
+    verificaPartitaIva: "verified",
     emailTitolari: ["t@esempio.it"],
     membri: 1,
     operatori: 1,

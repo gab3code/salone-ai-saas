@@ -202,6 +202,35 @@ export async function POST(request: NextRequest) {
       break;
     }
 
+    // VIES: Stripe interroga il registro europeo da sé quando creiamo un tax
+    // id, ma lo fa in modo ASINCRONO -- al momento della creazione lo stato è
+    // `pending` e diventa `verified` o `unverified` quando VIES risponde,
+    // qualche secondo o minuto dopo. Questo evento è l'unico momento in cui
+    // l'esito si può leggere senza mettersi a interrogare Stripe a
+    // intervalli, quindi è qui che lo si salva.
+    case "customer.tax_id.created":
+    case "customer.tax_id.updated": {
+      const taxId = evento.data.object as Stripe.TaxId;
+      const customerId =
+        typeof taxId.customer === "string" ? taxId.customer : (taxId.customer?.id ?? null);
+      if (!customerId) break;
+
+      const { error } = await admin
+        .from("tenants")
+        .update({
+          partita_iva_verifica: taxId.verification?.status ?? null,
+          partita_iva_nome_verificato: taxId.verification?.verified_name ?? null,
+        })
+        .eq("stripe_customer_id", customerId);
+      if (error) {
+        console.error("[stripe] Esito verifica partita IVA non salvato", {
+          customerId,
+          errore: error.message,
+        });
+      }
+      break;
+    }
+
     case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {

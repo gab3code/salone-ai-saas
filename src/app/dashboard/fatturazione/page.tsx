@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
 import { puoGestireFatturazione } from "@/lib/ruoli";
-import { leggiDatiFatturazione } from "@/lib/fatturazione.server";
+import { leggiDatiFatturazione, leggiVerificaPartitaIva } from "@/lib/fatturazione.server";
 import { ModuloFatturazione } from "./modulo";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +32,10 @@ export default async function PaginaFatturazione({
   if (!puoGestireFatturazione(sessione.ruolo)) redirect("/dashboard");
 
   const sp = await searchParams;
-  const dati = await leggiDatiFatturazione(supabase, sessione.tenantId);
+  const [dati, verifica] = await Promise.all([
+    leggiDatiFatturazione(supabase, sessione.tenantId),
+    leggiVerificaPartitaIva(supabase, sessione.tenantId),
+  ]);
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-8">
@@ -52,6 +55,31 @@ export default async function PaginaFatturazione({
           senza.
         </p>
       </header>
+
+      {/* L'esito della verifica europea arriva dopo, non mentre si compila:
+          Stripe interroga VIES in modo asincrono. Si mostra qui, alla
+          prossima apertura della pagina, invece di far aspettare qualcuno
+          davanti a un modulo. */}
+      {verifica.stato === "non_trovata" && (
+        <p className="max-w-xl rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Il registro europeo delle partite IVA non trova questo numero. Può succedere se il
+          registro è momentaneamente irraggiungibile, ma controlla di averlo scritto giusto: se è
+          sbagliato, la fattura verrebbe intestata a nessuno.
+        </p>
+      )}
+      {verifica.nomeDiverso && verifica.nomeVerificato && (
+        <p className="max-w-xl rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          A questa partita IVA il registro europeo associa{" "}
+          <strong>{verifica.nomeVerificato}</strong>, che non somiglia alla ragione sociale che hai
+          scritto. Se sono davvero la stessa attività va bene così; altrimenti una delle due è da
+          correggere.
+        </p>
+      )}
+      {verifica.stato === "verificata" && !verifica.nomeDiverso && (
+        <p className="max-w-xl text-sm text-emerald-700">
+          Partita IVA verificata sul registro europeo.
+        </p>
+      )}
 
       <ModuloFatturazione iniziali={dati} piano={sp.piano ?? null} />
     </div>

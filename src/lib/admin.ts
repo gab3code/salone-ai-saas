@@ -86,6 +86,13 @@ export type RigaAdmin = {
    * lì, per non bloccare chi non sa cosa sia davanti al pagamento.
    */
   datiFatturaCompleti: boolean;
+  /**
+   * Esito della verifica VIES della partita IVA (migrazione 0034):
+   * "verified" | "unverified" | "pending" | null. Non blocca niente, ma una
+   * partita IVA che il registro europeo non trova è una fattura che verrà
+   * intestata a nessuno.
+   */
+  verificaPartitaIva: string | null;
   emailTitolari: string[];
   membri: number;
   operatori: number;
@@ -312,6 +319,10 @@ export function segnaliAttivita(riga: RigaAdmin, adesso: Date = new Date()): Seg
   // giorno in cui bisogna emettere, ed è il tipo di cosa che si scopre tardi.
   if (riga.statoAbbonamento === "attivo" && riga.haAbbonamentoStripe && !riga.datiFatturaCompleti) {
     segnali.push({ testo: "Manca il codice destinatario o la PEC per la fattura", gravita: "media" });
+  }
+
+  if (riga.haAbbonamentoStripe && riga.verificaPartitaIva === "unverified") {
+    segnali.push({ testo: "Partita IVA non trovata sul registro europeo", gravita: "media" });
   }
 
   // Un salone su un piano con l'AI che non ne ha mai preso una prenotazione

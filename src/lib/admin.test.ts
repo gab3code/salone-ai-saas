@@ -28,6 +28,7 @@ function riga(sovrascritture: Partial<RigaAdmin> = {}): RigaAdmin {
     haStripe: true,
     haAbbonamentoStripe: true,
     datiFatturaCompleti: true,
+    verificaPartitaIva: "verified",
     emailTitolari: ["t@esempio.it"],
     membri: 1,
     operatori: 1,
@@ -267,6 +268,29 @@ describe("segnale sull'AI mai usata", () => {
     expect(
       segnaliAttivita(riga({ piano: "starter", appuntamenti: 40, appuntamentiAi: 0 })).some((s) =>
         s.testo.includes("non l'ha mai usata")
+      )
+    ).toBe(false);
+  });
+});
+
+describe("segnale sulla partita IVA non verificata", () => {
+  it("avvisa quando il registro europeo non trova la partita IVA di un pagante", () => {
+    const segnali = segnaliAttivita(riga({ verificaPartitaIva: "unverified" }));
+    expect(segnali.some((s) => s.testo.includes("registro europeo"))).toBe(true);
+  });
+
+  it("non avvisa mentre la verifica è ancora in corso: VIES risponde con calma", () => {
+    expect(
+      segnaliAttivita(riga({ verificaPartitaIva: "pending" })).some((s) =>
+        s.testo.includes("registro europeo")
+      )
+    ).toBe(false);
+  });
+
+  it("non avvisa chi non ha un abbonamento: non c'è nessuna fattura da emettergli", () => {
+    expect(
+      segnaliAttivita(riga({ verificaPartitaIva: "unverified", haAbbonamentoStripe: false })).some(
+        (s) => s.testo.includes("registro europeo")
       )
     ).toBe(false);
   });
