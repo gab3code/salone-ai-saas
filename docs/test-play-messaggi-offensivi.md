@@ -52,7 +52,7 @@ Non chiama il modello e non tocca il database, quindi puoi lanciarlo quante
 volte vuoi.
 
 ```bash
-node --experimental-strip-types scripts/prova-messaggi-offensivi.mjs
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/prova-messaggi-offensivi.mjs
 ```
 
 Atteso: `Tutte e 17 le frasi di controllo si comportano come previsto.`
@@ -60,7 +60,7 @@ Atteso: `Tutte e 17 le frasi di controllo si comportano come previsto.`
 E qui puoi provare le TUE frasi, che e' la parte utile:
 
 ```bash
-node --experimental-strip-types scripts/prova-messaggi-offensivi.mjs "una frase tua" "e un'altra"
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/prova-messaggi-offensivi.mjs "una frase tua" "e un'altra"
 ```
 
 Stampa `BLOCCATO` o `passa` per ognuna. Se trovi un insulto che passa, o una

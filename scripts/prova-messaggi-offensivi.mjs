@@ -4,8 +4,14 @@
  * Non chiama nessun modello e non tocca il database: costa zero e si puo'
  * lanciare quante volte si vuole.
  *
- *   node --experimental-strip-types scripts/prova-messaggi-offensivi.mjs
- *   node --experimental-strip-types scripts/prova-messaggi-offensivi.mjs "una frase tua"
+ *   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \\
+ *        --experimental-strip-types scripts/prova-messaggi-offensivi.mjs
+ *   ... stessi flag, piu' una o piu' frasi tue come argomenti
+ *
+ * Il flag --disable-warning serve solo a zittire l'avviso di Node che rilegge
+ * il .ts come modulo ES: il package.json non dichiara "type": "module", e su
+ * un progetto Next non va dichiarato per un avviso estetico -- cambierebbe
+ * come vengono letti i file di configurazione.
  *
  * Senza argomenti passa una lista di frasi di controllo e segnala solo le
  * differenze rispetto a quello che ci si aspetta. Con uno o piu' argomenti

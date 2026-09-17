@@ -127,7 +127,7 @@ rosso li' e' un problema vero.
   `src/lib/ai/messaggio-offensivo.test.ts` e dal banco di prova:
 
 ```bash
-node --experimental-strip-types scripts/prova-messaggi-offensivi.mjs
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/prova-messaggi-offensivi.mjs
 ```
 
 - **Le pagine ospitate da Stripe** (Checkout e Customer Portal): non le
