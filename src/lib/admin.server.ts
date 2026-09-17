@@ -10,6 +10,7 @@ import {
   type AzioneStripe,
 } from "@/lib/stripe/cambio-piano.server";
 import { pianoAssegnabileValido, statoAbbonamentoValido, type RigaAdmin } from "@/lib/admin";
+import type { AzioneIntervento } from "@/lib/admin-interventi";
 import {
   coortiPerMese,
   imbutoAttivazione,
@@ -67,7 +68,7 @@ async function registraIntervento(
   admin: ClientAdmin,
   autore: AutoreIntervento,
   tenant: { id: string; nome: string | null; slug: string | null },
-  azione: string,
+  azione: AzioneIntervento,
   dettaglio: Record<string, unknown>
 ): Promise<void> {
   const { error } = await admin.from("interventi_admin").insert({

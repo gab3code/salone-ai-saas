@@ -29,8 +29,12 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  // data-scroll-behavior: lo `scroll-behavior: smooth` che globals.css mette
+  // sull'html vale anche per i cambi di pagina, e Next avvisa a ogni
+  // navigazione perche' non sa se e' voluto. Qui lo e': serve per le ancore
+  // della landing. Dichiararlo toglie l'avviso senza cambiare niente.
   return (
-    <html lang="it" className="font-sans h-full antialiased">
+    <html lang="it" data-scroll-behavior="smooth" className="font-sans h-full antialiased">
       <body className="min-h-full flex flex-col">
         {children}
         <RegistraServiceWorker />

@@ -40,11 +40,38 @@ function creaClientQstash(): Client | null {
  * quella richiesta di recensione non parte, loggato per non sparire nel
  * nulla in silenzio.
  */
+/**
+ * QStash chiama il nostro endpoint da fuori: un indirizzo che esiste solo
+ * sulla macchina di chi sviluppa non e' raggiungibile, e non ha senso
+ * provarci.
+ */
+function eIndirizzoLocale(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
+  } catch {
+    // Un indirizzo che non si riesce nemmeno ad analizzare non e' locale:
+    // lo si lascia passare e sara' QStash a rifiutarlo, dicendo perche'.
+    return false;
+  }
+}
+
 export async function programmaMessaggioQstash(
   url: string,
   corpo: Record<string, unknown>,
   nonPrimaDi: Date
 ): Promise<void> {
+  // In locale l'indirizzo e' localhost, e QStash -- che e' un servizio
+  // esterno -- non puo' raggiungerlo: risponde 400 "endpoint resolves to a
+  // loopback address". Non e' un errore del prodotto, ma finiva nei log come
+  // uno stack trace a OGNI appuntamento creato in sviluppo e nei test,
+  // sporcando proprio il posto in cui si vanno a cercare i problemi veri.
+  // Meglio non chiamare affatto e dirlo in una riga.
+  if (eIndirizzoLocale(url)) {
+    console.info("[qstash] indirizzo locale, richiesta non programmata (normale in sviluppo).", { url });
+    return;
+  }
+
   const c = creaClientQstash();
   if (!c) {
     console.error("[qstash] QSTASH_TOKEN mancante: richiesta non programmata.", { url });
