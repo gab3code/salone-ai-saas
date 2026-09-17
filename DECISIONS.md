@@ -5199,3 +5199,53 @@ gestirlo si può ed è stato fatto, ma su un anticipo da dieci euro non c'è mot
 quella complessità quando eliminarla costa una riga. In più, offrire il pagamento a rate su una
 caparra da 10 € per una piega fa sembrare il prodotto assemblato senza guardarlo. Apple Pay e
 Google Pay continuano a funzionare: viaggiano sopra il circuito delle carte.
+
+## 2026-09-17 — No-show: resta un clic dello staff, e finisce nella scheda del cliente
+
+**Decisione di Gabriel**: nessun riquadro giornaliero che chiede "si sono presentati tutti?".
+Lo staff segna l'assenza quando capita, sull'appuntamento, e il dato si accumula **sul cliente**.
+
+**Alternativa considerata e scartata**: una domanda una volta al giorno sulla dashboard, con un
+solo clic per il caso normale. Proposta da Claude perché un pulsante che nessuno preme produce
+lo stesso zero di prima; scartata da Gabriel perché aggiunge un rituale quotidiano a chi il
+prodotto lo usa mentre lavora.
+
+**Conseguenza da tenere presente**: la copertura del dato dipende dall'abitudine di ogni salone,
+quindi il tasso di no-show **non è confrontabile fra saloni** e nel pannello di piattaforma va
+mostrato con il suo denominatore, non come percentuale secca.
+
+**Il valore vero non è la statistica, è la scheda cliente**: "questa persona non si è presentata
+3 volte su 12" è l'informazione su cui un titolare agisce davvero — chiedendole una caparra, o
+chiamandola il giorno prima. Il numero aggregato serve a noi, quello per cliente serve a lui.
+
+## 2026-09-17 — Dati di fatturazione raccolti al checkout, e fatturazione elettronica automatizzata
+
+**Decisione di Gabriel**: partita IVA, indirizzo e dati SdI si chiedono **dentro la schermata di
+pagamento Stripe**, non alla registrazione; e la fattura elettronica va automatizzata, non
+emessa a mano.
+
+**Alternativa considerata**: chiederli alla creazione dell'account. Scartata perché l'iscrizione
+è il punto più fragile dell'imbuto e un campo fiscale prima ancora di aver visto il prodotto
+funzionare è il posto peggiore dove metterlo — chi sta in prova o su Free non ha nessuna fattura
+da ricevere.
+
+**Il vincolo tecnico che decide il disegno**: allo SdI la partita IVA NON basta. Serve anche il
+**codice destinatario** (7 caratteri) o la PEC del cliente, e Stripe non li chiede. Quindi:
+`tax_id_collection` e `billing_address_collection` li gestisce Stripe da sé, mentre codice
+destinatario e PEC diventano due campi personalizzati della sessione di checkout (Stripe ne
+permette fino a tre).
+
+**Dove vivono i dati**: partita IVA e indirizzo restano sul Customer di Stripe, che li ha
+raccolti ed è la loro fonte di verità -- duplicarli da noi creerebbe due versioni che divergono.
+Sul tenant si salvano solo i due campi che Stripe non ha, codice destinatario e PEC.
+
+**Regole che il prodotto dovrà rispettare** (verificate il 17/09/2026): obbligo di fattura
+elettronica via SdI per tutti dal 2024, forfettari inclusi e senza soglie; per il forfettario
+regime RF19, natura N2.2, IVA 0%; imposta di bollo da 2 € sopra 77,47 €, dovuta dall'emittente e
+ribaltabile in fattura -- su un abbonamento Pro a 89,90 € scatta ogni mese; conservazione
+sostitutiva a norma per 10 anni, non basta tenere i file. Stripe non emette fatture italiane:
+serve un servizio che parli con lo SdI, pilotato dal webhook del pagamento.
+
+**Bloccato dalla P.IVA** per la parte di emissione, ma non per la raccolta: i dati si cominciano
+a raccogliere subito, così il giorno in cui la P.IVA c'è non si devono rincorrere i clienti già
+acquisiti per farsi dare il loro codice SdI.

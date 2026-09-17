@@ -13,6 +13,12 @@ import { origineDalPrimoAppuntamento } from "@/lib/origine-cliente";
  * qualunque sia stato il canale che le ha create (dashboard manuale o AI --
  * stessa tabella `appuntamenti`, mai due storie separate per canale).
  */
+/** Vedi la nota in dashboard/calendario/page.tsx: la regola di purezza di
+ *  React vieta una chiamata impura nel corpo del componente. */
+function adessoMs(): number {
+  return Date.now();
+}
+
 export default async function PaginaClienteDettaglio({
   params,
 }: {
@@ -49,6 +55,14 @@ export default async function PaginaClienteDettaglio({
   // all'ora civile del salone prima di mostrarlo, stessa convenzione
   // "pseudo-UTC" di tutto il resto della dashboard (vedi src/lib/fuso-orario.ts).
   const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
+  // Assenze e appuntamenti già passati: il denominatore sono i passati, non
+  // tutti, altrimenti un cliente con tre prenotazioni future vedrebbe la sua
+  // percentuale di assenze diluirsi da sola.
+  const assenze = (appuntamentiGrezzi ?? []).filter((a) => a.stato === "no_show").length;
+  const appuntamentiPassati = (appuntamentiGrezzi ?? []).filter(
+    (a) => new Date(a.fine as string).getTime() <= adessoMs()
+  ).length;
+
   const appuntamenti = (appuntamentiGrezzi ?? []).map((a) => ({
     ...a,
     inizio: realeAPseudoUtc(new Date(a.inizio), fusoOrario).toISOString(),
@@ -154,6 +168,23 @@ export default async function PaginaClienteDettaglio({
           <h2 className="text-sm font-medium text-zinc-500">
             Storico appuntamenti ({(appuntamenti ?? []).length})
           </h2>
+
+          {/* Le assenze in evidenza, non sepolte nell'elenco (17/09/2026,
+              decisione di Gabriel). È l'unico numero di questa pagina su cui
+              un titolare AGISCE davvero: "non si è presentata 3 volte su 12"
+              è quello che gli fa decidere se chiederle una caparra o
+              chiamarla il giorno prima. Compare solo quando c'è almeno
+              un'assenza: su un cliente puntuale sarebbe rumore, e peggio,
+              sembrerebbe un sospetto. */}
+          {assenze > 0 && (
+            <p className="mt-2 rounded bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+              <strong>
+                {assenze} {assenze === 1 ? "assenza" : "assenze"}
+              </strong>{" "}
+              su {appuntamentiPassati} {appuntamentiPassati === 1 ? "appuntamento" : "appuntamenti"} già
+              passati.
+            </p>
+          )}
           <ul className="mt-3 flex flex-col gap-2 text-sm">
             {(appuntamenti ?? []).map((a) => {
               const inizio = new Date(a.inizio);

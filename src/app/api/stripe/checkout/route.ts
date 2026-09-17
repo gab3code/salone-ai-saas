@@ -152,6 +152,40 @@ export async function POST(request: NextRequest) {
     success_url: `${origin}/dashboard?checkout=successo`,
     cancel_url: `${origin}/#prezzi`,
     client_reference_id: tenant.id,
+    // --- Dati di fatturazione (decisione del 17/09/2026) ---
+    //
+    // Si raccolgono QUI e non alla registrazione: l'iscrizione è il punto più
+    // fragile dell'imbuto, e un campo fiscale prima ancora di aver visto il
+    // prodotto funzionare è il posto peggiore dove metterlo. Chi sta in prova
+    // o su Free non ha nessuna fattura da ricevere. Al checkout invece la
+    // persona ha già deciso di pagare, e i dati glieli chiede Stripe con la
+    // sua interfaccia, non noi.
+    tax_id_collection: { enabled: true },
+    billing_address_collection: "required",
+    customer_update: { name: "auto", address: "auto" },
+    // Partita IVA e indirizzo non bastano per lo SdI: serve il codice
+    // destinatario (7 caratteri) oppure la PEC, e Stripe non li conosce.
+    // Sono due dei tre campi personalizzati che una sessione consente.
+    // Entrambi opzionali di proposito: un cliente che non sa cosa sia il
+    // codice destinatario non deve restare bloccato davanti al pagamento --
+    // glielo si chiede dopo, dalla dashboard. Meglio un dato mancante che un
+    // abbonamento non sottoscritto.
+    custom_fields: [
+      {
+        key: "codice_destinatario",
+        label: { type: "custom", custom: "Codice destinatario SDI (7 caratteri)" },
+        type: "text",
+        optional: true,
+        text: { minimum_length: 6, maximum_length: 7 },
+      },
+      {
+        key: "pec",
+        label: { type: "custom", custom: "PEC per la fattura (se non hai il codice)" },
+        type: "text",
+        optional: true,
+        text: { maximum_length: 100 },
+      },
+    ],
     subscription_data: {
       metadata: { tenant_id: tenant.id, piano },
       ...(trialDays ? { trial_period_days: trialDays } : {}),

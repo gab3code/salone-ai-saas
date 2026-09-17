@@ -161,10 +161,25 @@ export async function POST(request: NextRequest) {
             .eq("id", tenantId)
             .maybeSingle();
 
+          // Dati per la fattura elettronica raccolti dalla schermata di
+          // pagamento (migrazione 0031). Partita IVA e indirizzo restano sul
+          // Customer di Stripe, che li ha raccolti: qui si salva solo quello
+          // che Stripe non ha, cioè i due campi che servono allo SdI.
+          const campi = session.custom_fields ?? [];
+          const valoreCampo = (chiave: string) =>
+            campi.find((c) => c.key === chiave)?.text?.value?.trim() || null;
+          const codiceDestinatario = valoreCampo("codice_destinatario");
+          const pec = valoreCampo("pec");
+
           await admin
             .from("tenants")
             .update({
               stripe_subscription_id: subscription.id,
+              // Solo se valorizzati: un secondo checkout in cui il cliente
+              // lascia il campo vuoto non deve cancellare un dato corretto
+              // dato la volta prima.
+              ...(codiceDestinatario ? { codice_destinatario: codiceDestinatario } : {}),
+              ...(pec ? { pec_fatturazione: pec } : {}),
               ...(tenantEsistente?.piano_manuale
                 ? {}
                 : {

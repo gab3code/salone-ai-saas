@@ -79,6 +79,13 @@ export type RigaAdmin = {
    * il piano è stato assegnato a mano -- vedi `ricavoMensileStimatoCentesimi`.
    */
   haAbbonamentoStripe: boolean;
+  /**
+   * true = abbiamo il codice destinatario SdI o la PEC di questa attività
+   * (migrazione 0031). Senza, la sua fattura elettronica non si può
+   * trasmettere: è un dato che si raccoglie al checkout ma è opzionale
+   * lì, per non bloccare chi non sa cosa sia davanti al pagamento.
+   */
+  datiFatturaCompleti: boolean;
   emailTitolari: string[];
   membri: number;
   operatori: number;
@@ -298,6 +305,13 @@ export function segnaliAttivita(riga: RigaAdmin, adesso: Date = new Date()): Seg
     } else if (giorni >= 14) {
       segnali.push({ testo: `Nessuna prenotazione da ${giorni} giorni`, gravita: "media" });
     }
+  }
+
+  // Un cliente che paga e di cui non abbiamo i dati per emettere la fattura
+  // elettronica: non è urgente il giorno stesso, ma diventa urgentissimo il
+  // giorno in cui bisogna emettere, ed è il tipo di cosa che si scopre tardi.
+  if (riga.statoAbbonamento === "attivo" && riga.haAbbonamentoStripe && !riga.datiFatturaCompleti) {
+    segnali.push({ testo: "Manca il codice destinatario o la PEC per la fattura", gravita: "media" });
   }
 
   // Un salone su un piano con l'AI che non ne ha mai preso una prenotazione

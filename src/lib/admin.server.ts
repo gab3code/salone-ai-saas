@@ -189,7 +189,7 @@ export async function caricaPannelloPiattaforma(
     admin
       .from("tenants")
       .select(
-        "id, nome, slug, piano, stato_abbonamento, piano_manuale, sospesa, sospesa_motivo, created_at, stripe_customer_id, stripe_subscription_id"
+        "id, nome, slug, piano, stato_abbonamento, piano_manuale, sospesa, sospesa_motivo, created_at, stripe_customer_id, stripe_subscription_id, codice_destinatario, pec_fatturazione"
       )
       .order("created_at", { ascending: false }),
     admin.from("membri_tenant").select("tenant_id, user_id, ruolo"),
@@ -249,6 +249,7 @@ export async function caricaPannelloPiattaforma(
       creatoIl: tenant.created_at as string,
       haStripe: Boolean(tenant.stripe_customer_id),
       haAbbonamentoStripe: Boolean(tenant.stripe_subscription_id),
+      datiFatturaCompleti: Boolean(tenant.codice_destinatario || tenant.pec_fatturazione),
       emailTitolari: membri?.emailTitolari ?? [],
       membri: membri?.totale ?? 0,
       operatori: operatori.get(id) ?? 0,

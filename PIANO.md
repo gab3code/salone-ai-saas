@@ -971,6 +971,12 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       degli appuntamenti passati, che il database conosce già. Due test nello Scenario 11
       (marcatura e annullamento, e che su un appuntamento futuro il pulsante non ci sia).
       Resta aperta la sola definizione di "retention", sotto.
+- [x] **Le assenze finiscono nella scheda del cliente** (17/09/2026, decisione di Gabriel): sulla
+      pagina di un cliente compare "3 assenze su 12 appuntamenti già passati", solo quando ce n'è
+      almeno una. È l'unico numero di quella pagina su cui un titolare agisce davvero -- decide
+      se chiedergli una caparra o chiamarlo il giorno prima. Il denominatore sono gli
+      appuntamenti PASSATI, non tutti, altrimenti tre prenotazioni future diluirebbero la
+      percentuale da sole.
 - [ ] **Retention e no-show reale** (separato da Analytics sopra il 14/09/2026, non erano promesse
       scritte sul sito): due decisioni da prendere PRIMA di scrivere codice, non durante --
       1) definire cosa vuol dire "retention" per un titolare (es. % di clienti con almeno 2
@@ -2023,6 +2029,18 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       nessuno risponde entro la scadenza, la perdita resta. Serve almeno una notifica. Da rivedere
       insieme a Stripe Connect, perché con le direct charges la contestazione è del salone e non
       nostra -- cambia chi va avvisato, non se avvisare.
+
+- [ ] **Fatturazione elettronica automatica (bloccata dalla P.IVA).** Decisione del 17/09/2026:
+      i dati si raccolgono al checkout e la fattura si emette da sola, non a mano. La **raccolta
+      è già fatta** (`tax_id_collection`, indirizzo obbligatorio e due campi personalizzati per
+      codice destinatario e PEC; migrazione `0031_dati_sdi.sql` **DA APPLICARE**), e il pannello
+      admin segnala i paganti di cui mancano quei dati. Resta l'emissione, che richiede la P.IVA:
+      un servizio che parli con lo SdI (Fatture in Cloud e simili hanno le API) pilotato dal
+      webhook del pagamento. Regole verificate il 17/09/2026: obbligo per tutti dal 2024,
+      forfettari inclusi e senza soglie; per il forfettario regime RF19, natura N2.2, IVA 0%;
+      bollo da 2 € sopra 77,47 €, dovuto dall'emittente e ribaltabile in fattura -- su un Pro a
+      89,90 € scatta ogni mese; conservazione a norma per 10 anni, non basta tenere i file.
+      Vedi DECISIONS.md per il perché dei campi al checkout invece che alla registrazione.
 
 ### Stripe Connect per le caparre -- BLOCCANTE prima del primo cliente pagante (17/09/2026)
 

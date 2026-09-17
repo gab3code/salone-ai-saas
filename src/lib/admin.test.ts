@@ -27,6 +27,7 @@ function riga(sovrascritture: Partial<RigaAdmin> = {}): RigaAdmin {
     creatoIl: "2026-01-01T00:00:00Z",
     haStripe: true,
     haAbbonamentoStripe: true,
+    datiFatturaCompleti: true,
     emailTitolari: ["t@esempio.it"],
     membri: 1,
     operatori: 1,
