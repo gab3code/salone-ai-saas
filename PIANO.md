@@ -17,6 +17,69 @@ pensati da subito per parlare a qualunque professionista con agenda, non solo al
 estetico. Estetia resta il riferimento competitivo perché è lo stesso tipo di prodotto
 (booking + CRM + AI), anche se il loro mercato dichiarato è più stretto del nostro.
 
+## PRIMA DEI PAGAMENTI VERI -- lista unica, aggiornata la notte del 17/09/2026
+
+Questa sezione esiste perché il controllo notturno ha trovato queste cose sparse in tre posti
+diversi del documento, e sparse non si guardano. Sono in ordine: dalla più bloccante alla più
+"quando capita". Il dettaglio di ciascuna resta dov'era, qui c'è il punto.
+
+### Bloccanti veri
+
+1. **Le tre promesse scoperte del piano Pro (89,90 €/mese).** Sono tutte e tre sul piano più
+   caro, e sono tutte e tre ancora da costruire:
+   - *Assistente AI su WhatsApp* -- dipende dall'App Review di Meta, non da noi (Gruppo E
+     punto 2). Nel codice esiste solo l'onboarding Embedded Signup, dichiarato inutilizzabile
+     in testa al proprio file; non c'è nessun webhook di ricezione né funzione di invio.
+   - *Report e analytics avanzati* -- il gate `PIANI_CON_ANALYTICS` è identico per Growth e
+     Pro: oggi non c'è NIENTE che distingua i due (Gruppo E punto 11).
+   - *Supporto prioritario* -- non esiste nessun canale di supporto, né prioritario né
+     normale: l'unico recapito del sito è il mailto di Enterprise, uguale per tutti
+     (Gruppo E punto 10).
+
+   La decisione del 12/09/2026 ("il sito descrive il prodotto al lancio") copre il fatto che
+   siano scritte sulla pagina prezzi. Non copre il giorno in cui qualcuno paga 89,90 € per
+   averle. **Prima di aprire i pagamenti veri su Pro: o esistono, o escono dalla scheda.**
+
+2. **Stripe Connect per le caparre** -- già tracciato a sé, resta bloccante: i soldi dei
+   clienti finali non devono passare dal conto di Gabriel.
+
+3. **Migrazione 0035 da applicare a mano** (policy di DELETE su `clienti`). Vedi
+   `docs/risveglio-17-09-2026.md` passo 3. Finché non è applicata, la cancellazione di un
+   cliente è owner-only solo nell'applicazione.
+
+### Da verificare su Stripe / Supabase (impostazioni, non codice)
+
+4. **Customer Portal**: togliere *name* e *address* dai campi modificabili. Da ieri quei dati
+   sono nostri e finiscono in fattura; se il cliente li cambia lì i due archivi divergono in
+   silenzio. (Il tax ID non è modificabile: verificato via API il 17/09/2026.)
+
+5. **Cosa fa Stripe quando i tentativi di pagamento finiscono**: deve essere "cancel the
+   subscription". Il nostro webhook riporta il tenant a Free solo quando Stripe cancella
+   davvero; se l'impostazione fosse "leave unpaid", un salone con la carta scaduta resterebbe
+   su un piano a pagamento per sempre senza pagarlo. È l'unico punto in cui la coerenza fra
+   Stripe e Supabase dipende da un'impostazione dell'account e non dal nostro codice.
+   Nel frattempo il pannello admin lo rende visibile: il segnale "Pagamento non riuscito" ora
+   dice anche "usa ancora <piano> senza pagarlo".
+
+6. **Supabase → Leaked password protection**: interruttore, gratis, oggi spento.
+
+### Aperte, non bloccanti
+
+7. **`indirizzo_nazione`** (migrazione 0033) è scritta e mai riletta. Non è un errore: serve
+   quando si comporrà l'XML SdI, e quello è il momento di portarla dentro `DatiFatturazione`.
+   Vedi il commento della migrazione 0036.
+
+8. **Credenziali dei calendari esterni in chiaro** -- già tracciato in Fase 6bis, e ora
+   dichiarato apertamente anche nell'accordo art. 28.
+
+9. **Chiusura account self-service**: non esiste, e da stanotte privacy e termini lo dicono
+   esplicitamente ("ci scrivi e ce ne occupiamo entro 30 giorni") invece di promettere un
+   pulsante che non c'è. Costruirlo resta la cosa giusta.
+
+10. **`charge.dispute.created`** e **email di fine prova**: entrambi in Fase 6ter.
+
+---
+
 ## COSA DOBBIAMO FARE, DA OGGI IN POI, IN ORDINE (aggiornato 14/09/2026, richiesta esplicita di Gabriel)
 
 Lista unica e concreta, in ordine di priorità reale -- non un indice delle fasi sotto, ma cosa

@@ -2705,10 +2705,14 @@ l'11/09/2026 via MCP diretto).
    una query -- nessun modo autonomo di leggere lo schema senza toccare credenziali che non
    sono mie da usare, vedi DECISIONS.md). La conferma reale arriverà collegando il motore di
    conversazione (Fase 2) che la userà per davvero.
-8. **No-show non ancora tracciato**: nessun flusso della dashboard marca oggi un appuntamento
-   come `no_show` (solo `confermato`/`cancellato` esistono nei dati reali) -- la metrica esiste
-   già in `metriche.ts` mostra onestamente 0 finché non c'è un'azione "cliente non si è
-   presentato" da qualche parte nella UI. Da aggiungere insieme al resto del CRM/calendario.
+8. ~~**No-show non ancora tracciato**~~ **RISOLTO 16/09/2026**: c'è il pulsante in agenda
+   (`segnaNoShow`, solo su appuntamenti già passati e mai su uno cancellato) e il conteggio
+   sulla scheda cliente ("N assenze su M appuntamenti già passati", mostrato solo se almeno
+   una). Il 17/09/2026 sono stati corretti anche i commenti di `metriche.ts` e `analytics.ts`
+   che continuavano a dire il contrario -- un commento che giustifica una scelta con un fatto
+   non più vero fa prendere la decisione sbagliata a chi lo legge.
+   Resta vero per `"completato"`, che nessuno scrive: è una scelta dichiarata (si marca solo
+   l'eccezione, non la normalità), non una dimenticanza.
 9. ~~`ANTHROPIC_API_KEY` in `.env.local` solo nel sandbox cloud~~ **RISOLTO 02/09/2026**:
    Gabriel l'ha aggiunta a mano nel suo `.env.local` locale (il bridge blocca di proposito la
    scrittura di quel file) e l'ha verificata con `grep` -- confermata presente.
@@ -3041,7 +3045,11 @@ Supabase/Stripe/Google veri** -- in ordine di blocco:
    pagamenti reali (il commitment di DECISIONS.md, voce "Il sito descrive il prodotto al
    lancio", è costruirli PRIMA di aprire i pagamenti veri, non prima del deploy).
 
-Cleanup manuale non urgente da fare quando Gabriel ha un minuto sul Mac: rimuovere
-`src/components/primitives/` e `src/app/beautifui/` (codice morto, mai collegato a nessuna
-route, non cancellabile da questa sessione per il blocco del classificatore su operazioni
-distruttive).
+~~Cleanup manuale non urgente da fare quando Gabriel ha un minuto sul Mac: rimuovere
+`src/components/primitives/` e `src/app/beautifui/`.~~ **FATTO 17/09/2026** (controllo
+notturno): rimossi `src/components/primitives/`, `src/components/atoms/`,
+`src/components/ui/` (26 file, alcuni da oltre 400 righe, zero import da `src/app`, `src/lib`,
+dai test o dalla landing) e `src/app/beautifui/` (due CSS che nessuna pagina importava).
+Erano anche l'origine di **tutti e nove** gli errori eslint del progetto: da stanotte
+`eslint src tests --max-warnings=0` passa pulito, il che lo rende di nuovo un segnale utile
+invece di un rumore da ignorare.

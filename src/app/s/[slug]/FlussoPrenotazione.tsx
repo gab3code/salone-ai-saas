@@ -25,11 +25,8 @@ import {
  * raccogliere le scelte e mostrare il risultato.
  *
  * NOTA stile: stessa palette Tailwind (zinc neutro + bianco) già usata in
- * tutta la dashboard (vedi dashboard/clienti/[id]/page.tsx, prova-chat) --
- * non i token CSS "Beautiful UI" di src/app/beautifui/foundation.css, che è
- * un @theme Tailwind SEPARATO importato solo dalla showcase /beautifui e
- * quindi non genera le classi (bg-surface, text-ink, ecc.) per nessun'altra
- * pagina dell'app. Solo un po' più "vestito" (rounded-2xl, ombre morbide,
+ * tutta la dashboard (vedi dashboard/clienti/[id]/page.tsx). Solo un po'
+ * più "vestito" (rounded-2xl, ombre morbide,
  * spaziature più larghe) essendo una pagina rivolta al cliente finale, non
  * alla dashboard interna.
  */
