@@ -2,7 +2,23 @@ import "server-only";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { creaClientStripe } from "@/lib/stripe/server";
 import { BUCKET_MEDIA_TENANT } from "@/lib/storage/media-tenant";
+import { statoAbbonamentoDaStripe } from "@/lib/stripe/abbonamento.server";
+import {
+  allineaPianoSuStripe,
+  anteprimaCambioPiano,
+  type AnteprimaCambioPiano,
+  type AzioneStripe,
+} from "@/lib/stripe/cambio-piano.server";
 import { pianoAssegnabileValido, statoAbbonamentoValido, type RigaAdmin } from "@/lib/admin";
+import {
+  coortiPerMese,
+  imbutoAttivazione,
+  medianaGiorniAllaPrimaPrenotazione,
+  serieSettimanale,
+  usoPiattaforma,
+  type AppuntamentoAggregabile,
+  type MetrichePiattaforma,
+} from "@/lib/admin-metriche";
 
 /**
  * Dati e operazioni del pannello admin di piattaforma (Fase 5): l'elenco di
@@ -68,69 +84,130 @@ async function registraIntervento(
   }
 }
 
-async function conteggiPerTenant(
-  admin: ClientAdmin,
-  tabella: string,
-  colonnaData?: string
-): Promise<{
+/** Conteggio semplice di righe per tenant: quante ne ha ciascuno. */
+async function conteggiPerTenant(admin: ClientAdmin, tabella: string): Promise<Map<string, number>> {
+  const { data } = await admin.from(tabella).select("tenant_id");
+  const totali = new Map<string, number>();
+  for (const riga of (data ?? []) as unknown as Record<string, string>[]) {
+    if (!riga.tenant_id) continue;
+    totali.set(riga.tenant_id, (totali.get(riga.tenant_id) ?? 0) + 1);
+  }
+  return totali;
+}
+
+type RiepilogoAppuntamenti = {
   totali: Map<string, number>;
   ultimi30: Map<string, number>;
   meseCorrente: Map<string, number>;
+  presiDallAi: Map<string, number>;
+  noShow: Map<string, number>;
   piuRecente: Map<string, string>;
-}> {
-  const colonne = colonnaData ? `tenant_id, ${colonnaData}` : "tenant_id";
-  const { data } = await admin.from(tabella).select(colonne);
+  piuVecchio: Map<string, string>;
+};
 
+/**
+ * Gli appuntamenti si leggono UNA volta sola e da quella sola lettura
+ * escono sia i conteggi per attività sia le serie di piattaforma. È la
+ * tabella più grande del database: rileggerla una seconda volta per le
+ * metriche raddoppierebbe il costo della pagina senza aggiungere niente.
+ */
+function riepilogaAppuntamenti(
+  righe: AppuntamentoLetto[],
+  adesso: Date
+): RiepilogoAppuntamenti {
   const totali = new Map<string, number>();
   const ultimi30 = new Map<string, number>();
   const meseCorrente = new Map<string, number>();
+  const presiDallAi = new Map<string, number>();
+  const noShow = new Map<string, number>();
   const piuRecente = new Map<string, string>();
+  const piuVecchio = new Map<string, string>();
 
-  const adesso = new Date();
   const trentaGiorniFa = adesso.getTime() - 30 * 24 * 60 * 60 * 1000;
   // Stesso criterio di `limiteMensilePrenotazioni`: il tetto del piano conta
   // le prenotazioni CREATE nel mese solare corrente.
   const inizioMese = new Date(adesso.getFullYear(), adesso.getMonth(), 1).getTime();
 
-  for (const riga of (data ?? []) as unknown as Record<string, string>[]) {
+  const piuUno = (mappa: Map<string, number>, chiave: string) =>
+    mappa.set(chiave, (mappa.get(chiave) ?? 0) + 1);
+
+  for (const riga of righe) {
     const tenantId = riga.tenant_id;
     if (!tenantId) continue;
-    totali.set(tenantId, (totali.get(tenantId) ?? 0) + 1);
+    piuUno(totali, tenantId);
+    if (riga.creato_da === "ai") piuUno(presiDallAi, tenantId);
+    if (riga.stato === "no_show") piuUno(noShow, tenantId);
 
-    if (!colonnaData) continue;
-    const valore = riga[colonnaData];
+    const valore = riga.created_at;
     if (!valore) continue;
-
     const quando = new Date(valore).getTime();
-    if (quando >= trentaGiorniFa) ultimi30.set(tenantId, (ultimi30.get(tenantId) ?? 0) + 1);
-    if (quando >= inizioMese) meseCorrente.set(tenantId, (meseCorrente.get(tenantId) ?? 0) + 1);
+    if (Number.isNaN(quando)) continue;
 
-    const precedente = piuRecente.get(tenantId);
-    if (!precedente || quando > new Date(precedente).getTime()) piuRecente.set(tenantId, valore);
+    if (quando >= trentaGiorniFa) piuUno(ultimi30, tenantId);
+    if (quando >= inizioMese) piuUno(meseCorrente, tenantId);
+
+    const recente = piuRecente.get(tenantId);
+    if (!recente || quando > new Date(recente).getTime()) piuRecente.set(tenantId, valore);
+    const vecchio = piuVecchio.get(tenantId);
+    if (!vecchio || quando < new Date(vecchio).getTime()) piuVecchio.set(tenantId, valore);
   }
 
-  return { totali, ultimi30, meseCorrente, piuRecente };
+  return { totali, ultimi30, meseCorrente, presiDallAi, noShow, piuRecente, piuVecchio };
 }
 
-export async function caricaAttivitaPiattaforma(): Promise<RigaAdmin[]> {
+type AppuntamentoLetto = {
+  tenant_id: string;
+  created_at: string;
+  stato: string;
+  creato_da: string;
+};
+
+/**
+ * Tutto quello che il pannello mostra, in un giro solo di letture.
+ *
+ * Le righe per attività e le metriche aggregate nascono dagli stessi dati:
+ * separarle in due funzioni pubbliche significherebbe leggere due volte le
+ * stesse tabelle a ogni apertura della pagina.
+ */
+export async function caricaPannelloPiattaforma(
+  adesso: Date = new Date()
+): Promise<{ righe: RigaAdmin[]; metriche: MetrichePiattaforma }> {
   const admin = creaClientAdmin();
 
-  const [tenantsRes, membriRes, utentiRes, orariRes, operatori, servizi, clienti, appuntamenti] =
-    await Promise.all([
-      admin
-        .from("tenants")
-        .select(
-          "id, nome, slug, piano, stato_abbonamento, piano_manuale, sospesa, sospesa_motivo, created_at, stripe_customer_id"
-        )
-        .order("created_at", { ascending: false }),
-      admin.from("membri_tenant").select("tenant_id, user_id, ruolo"),
-      admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      admin.from("orari_apertura").select("tenant_id, chiuso"),
-      conteggiPerTenant(admin, "operatori"),
-      conteggiPerTenant(admin, "servizi"),
-      conteggiPerTenant(admin, "clienti"),
-      conteggiPerTenant(admin, "appuntamenti", "created_at"),
-    ]);
+  const [
+    tenantsRes,
+    membriRes,
+    utentiRes,
+    orariRes,
+    appuntamentiRes,
+    conversazioniRes,
+    recensioniRes,
+    operatori,
+    servizi,
+    clienti,
+  ] = await Promise.all([
+    admin
+      .from("tenants")
+      .select(
+        "id, nome, slug, piano, stato_abbonamento, piano_manuale, sospesa, sospesa_motivo, created_at, stripe_customer_id, stripe_subscription_id"
+      )
+      .order("created_at", { ascending: false }),
+    admin.from("membri_tenant").select("tenant_id, user_id, ruolo"),
+    admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    admin.from("orari_apertura").select("tenant_id, chiuso"),
+    admin.from("appuntamenti").select("tenant_id, created_at, stato, creato_da"),
+    // Solo lo stato della conversazione: quante ce ne sono e quante l'AI ha
+    // passato a una persona. Mai il contenuto dei messaggi -- quello è un
+    // dato dei clienti del salone, non nostro (vedi la nota in admin.ts).
+    admin.from("conversazioni").select("stato"),
+    admin.from("recensioni").select("valutazione"),
+    conteggiPerTenant(admin, "operatori"),
+    conteggiPerTenant(admin, "servizi"),
+    conteggiPerTenant(admin, "clienti"),
+  ]);
+
+  const appuntamentiLetti = (appuntamentiRes.data ?? []) as unknown as AppuntamentoLetto[];
+  const appuntamenti = riepilogaAppuntamenti(appuntamentiLetti, adesso);
 
   const emailPerUtente = new Map<string, string>();
   for (const utente of utentiRes.data?.users ?? []) {
@@ -157,7 +234,7 @@ export async function caricaAttivitaPiattaforma(): Promise<RigaAdmin[]> {
     if (riga.chiuso === false) haGiorniAperti.add(riga.tenant_id as string);
   }
 
-  return (tenantsRes.data ?? []).map((tenant) => {
+  const righe: RigaAdmin[] = (tenantsRes.data ?? []).map((tenant) => {
     const id = tenant.id as string;
     const membri = membriPerTenant.get(id);
     return {
@@ -171,18 +248,48 @@ export async function caricaAttivitaPiattaforma(): Promise<RigaAdmin[]> {
       sospesaMotivo: (tenant.sospesa_motivo as string) ?? null,
       creatoIl: tenant.created_at as string,
       haStripe: Boolean(tenant.stripe_customer_id),
+      haAbbonamentoStripe: Boolean(tenant.stripe_subscription_id),
       emailTitolari: membri?.emailTitolari ?? [],
       membri: membri?.totale ?? 0,
-      operatori: operatori.totali.get(id) ?? 0,
-      servizi: servizi.totali.get(id) ?? 0,
+      operatori: operatori.get(id) ?? 0,
+      servizi: servizi.get(id) ?? 0,
       orariConfigurati: haGiorniAperti.has(id),
-      clienti: clienti.totali.get(id) ?? 0,
+      clienti: clienti.get(id) ?? 0,
       appuntamenti: appuntamenti.totali.get(id) ?? 0,
       appuntamenti30Giorni: appuntamenti.ultimi30.get(id) ?? 0,
       prenotazioniMeseCorrente: appuntamenti.meseCorrente.get(id) ?? 0,
+      appuntamentiAi: appuntamenti.presiDallAi.get(id) ?? 0,
+      noShow: appuntamenti.noShow.get(id) ?? 0,
+      primaAttivita: appuntamenti.piuVecchio.get(id) ?? null,
       ultimaAttivita: appuntamenti.piuRecente.get(id) ?? null,
     };
   });
+
+  const aggregabili: AppuntamentoAggregabile[] = appuntamentiLetti.map((a) => ({
+    creatoIl: a.created_at,
+    stato: a.stato,
+    creatoDa: a.creato_da,
+  }));
+
+  const metriche: MetrichePiattaforma = {
+    serie: serieSettimanale(aggregabili, 12, adesso),
+    uso: usoPiattaforma(
+      aggregabili,
+      (conversazioniRes.data ?? []) as unknown as { stato: string }[],
+      (recensioniRes.data ?? []) as unknown as { valutazione: number }[]
+    ),
+    coorti: coortiPerMese(righe, adesso),
+    imbuto: imbutoAttivazione(righe),
+    medianaGiorniPrimaPrenotazione: medianaGiorniAllaPrimaPrenotazione(righe),
+  };
+
+  return { righe, metriche };
+}
+
+/** Solo l'elenco delle attività, senza le metriche aggregate. */
+export async function caricaAttivitaPiattaforma(): Promise<RigaAdmin[]> {
+  const { righe } = await caricaPannelloPiattaforma();
+  return righe;
 }
 
 export async function elencaInterventi(limite = 50): Promise<Intervento[]> {
@@ -266,6 +373,94 @@ export async function riportaPianoSuStripe(
 
   await registraIntervento(admin, autore, prima, "ripristino_stripe", { piano_al_momento: prima.piano });
   return { ok: true };
+}
+
+/**
+ * Anteprima di sola lettura: cosa cambierebbe su Stripe portando questa
+ * attività al piano indicato. Non scrive niente da nessuna parte.
+ */
+export async function anteprimaCambioPianoAdmin(
+  tenantId: string,
+  piano: string
+): Promise<AnteprimaCambioPiano | { errore: string }> {
+  if (!pianoAssegnabileValido(piano)) return { errore: "Piano non valido." };
+  return anteprimaCambioPiano(creaClientAdmin(), tenantId, piano);
+}
+
+/**
+ * Cambio piano dal pannello, con o senza Stripe.
+ *
+ * `azioneStripe = "nessuna"` è il comportamento storico: si scrive solo sul
+ * nostro database e si accende `piano_manuale`, perché da quel momento il
+ * database dice una cosa che Stripe non sa -- senza quel flag il primo
+ * webhook riporterebbe tutto com'era.
+ *
+ * Con "subito" o "prossimo_rinnovo" succede il contrario: si modifica prima
+ * l'abbonamento su Stripe e solo dopo il database, `piano_manuale` viene
+ * SPENTO (i due sistemi ora concordano, non serve più proteggere la modifica
+ * dai webhook) e lo stato non è quello scelto nel menu ma quello che Stripe
+ * riporta dopo la modifica: su un abbonamento vero la verità è la sua, e
+ * scriverne un'altra accanto servirebbe solo a doverla correggere dopo.
+ *
+ * Se Stripe rifiuta, il database non viene toccato: meglio un cambio piano
+ * che non è avvenuto di due sistemi che non si parlano sul numero che il
+ * cliente paga.
+ */
+export async function cambiaPianoAttivita(
+  autore: AutoreIntervento,
+  tenantId: string,
+  piano: string,
+  statoAbbonamento: string,
+  azioneStripe: AzioneStripe
+): Promise<{ ok: true; messaggio: string } | { errore: string }> {
+  if (azioneStripe === "nessuna") {
+    const esito = await impostaPianoManuale(autore, tenantId, piano, statoAbbonamento);
+    if ("errore" in esito) return esito;
+    return {
+      ok: true,
+      messaggio: "Piano cambiato solo qui. Stripe non è stato toccato e i webhook non aggiorneranno più questa attività.",
+    };
+  }
+
+  if (!pianoAssegnabileValido(piano)) return { errore: "Piano non valido." };
+
+  const admin = creaClientAdmin();
+  const prima = await leggiTenant(admin, tenantId);
+  if (!prima) return { errore: "Attività non trovata." };
+
+  const esitoStripe = await allineaPianoSuStripe(admin, tenantId, piano, azioneStripe);
+  if ("errore" in esitoStripe) return esitoStripe;
+
+  const statoDaStripe = statoAbbonamentoDaStripe(
+    esitoStripe.statoStripe as Parameters<typeof statoAbbonamentoDaStripe>[0]
+  );
+
+  const { error } = await admin
+    .from("tenants")
+    .update({ piano, stato_abbonamento: statoDaStripe, piano_manuale: false })
+    .eq("id", tenantId);
+
+  if (error) {
+    // Stripe è già stato modificato: dirlo esplicitamente, perché ritentare
+    // l'azione dall'inizio non è la stessa cosa che sistemare solo questa
+    // riga.
+    return {
+      errore: `Stripe è stato aggiornato ma il database no (${error.message}). Riapri il pannello e ricontrolla il piano di questa attività.`,
+    };
+  }
+
+  await registraIntervento(admin, autore, prima, "piano_con_stripe", {
+    piano_prima: prima.piano,
+    piano_dopo: piano,
+    stato_prima: prima.stato_abbonamento,
+    stato_dopo: statoDaStripe,
+    conguaglio: azioneStripe,
+    totale_prima_centesimi: esitoStripe.totalePrimaCentesimi,
+    totale_dopo_centesimi: esitoStripe.totaleDopoCentesimi,
+    chiuso_a_fine_periodo: esitoStripe.chiusoAFinePeriodo,
+  });
+
+  return { ok: true, messaggio: esitoStripe.descrizione };
 }
 
 /**

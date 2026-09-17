@@ -1245,6 +1245,69 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       dati letti da qui. Da rivalutare quando il supporto sarà un lavoro vero.
       **Non verificato dal vivo**: nessun giro nel browser su produzione (la pagina compila, le
       migrazioni sono applicate al database reale, ma il pannello non è ancora stato aperto).
+- [x] **Pannello admin: metriche vere e cambio piano che tocca Stripe -- CODICE FATTO
+      17/09/2026** (due richieste esplicite di Gabriel del 16/09/2026: "aumenta le analytics che
+      ho, la mia facciata admin deve essere molto molto utile" e "qualcosa che faccia decidere a
+      me se modificare Stripe quando modifico l'abbonamento, così non devo cancellarlo o aprire
+      Stripe").
+
+      **Difetto trovato e chiuso nello stesso giro**: la stima dei ricavi contava come pagante
+      qualunque attività con `stato_abbonamento = 'attivo'`, compresi gli account a cui il piano
+      era stato assegnato a mano dal pannello -- cioè quelli che NON pagano. Adesso il ricavo
+      richiede anche un `stripe_subscription_id`, e gli omaggio compaiono contati a parte. Era il
+      modo peggiore in cui quel numero potesse sbagliare: restando credibile.
+
+      **Metriche aggiunte** (`src/lib/admin-metriche.ts`, puro e testato -- 13 test; più 10
+      nuovi in `admin.test.ts`): composizione del MRR fra prezzo dei piani e quota per operatore
+      (dice se il modello per posto sta funzionando), ARPA, MRR per piano, **concentrazione** sul
+      cliente più grande e **MRR a rischio** (le paganti con un segnale grave: i segnali
+      diventano soldi, che è ciò che fa agire); **imbuto di attivazione** a quattro gradini
+      (iscritte -> configurate -> con prenotazioni -> paganti) con mediana dei giorni alla prima
+      prenotazione -- con pochi clienti è la metrica più utile che esista, il MRR dice poco
+      mentre "otto iscritte, sei configurate, due con una prenotazione vera" dice dov'è rotto il
+      prodotto; **coorti per mese di iscrizione** con quante sono ancora vive; **serie a 12
+      settimane** delle prenotazioni divise fra assistente AI e inserimento manuale; e i numeri
+      di prodotto (quota AI, no-show, cancellazioni, conversazioni passate a una persona, media
+      recensioni). Nuovo segnale per riga: "paga per l'AI ma non l'ha mai usata" (>= 10
+      prenotazioni, zero dall'assistente, su Growth/Pro) -- è il profilo che disdice al rinnovo, e
+      si vede con mesi di anticipo.
+
+      Due regole rispettate ovunque: **nessuna percentuale senza il suo valore assoluto** accanto
+      (con dieci saloni "il 30%" vuol dire "tre", e la percentuale da sola fa sembrare statistica
+      quella che è aritmetica su numeri piccoli), e **nessun dato personale** -- si contano
+      conversazioni e appuntamenti, non si legge mai chi li ha fatti né cosa contengono. Colori
+      del grafico: coppia blu/arancio della palette categorica standard, verificata per il
+      daltonismo con lo script del caso (ΔE 24.7 protanopia) invece che scelta a occhio.
+      Letture invariate: appuntamenti letti UNA volta sola per righe e metriche insieme
+      (`caricaPannelloPiattaforma`), non due.
+
+      **Cambio piano con Stripe** (`src/lib/stripe/cambio-piano.server.ts`): tre principi, nessuno
+      negoziabile. (1) Prima di qualunque scrittura c'è un'anteprima che mostra riga per riga cosa
+      paga adesso quel salone e cosa pagherebbe dopo, con le cifre lette DA STRIPE e non dal
+      listino salvato in `admin.ts` -- se i due non coincidessero, quello che il cliente vede
+      addebitato è il primo. Finché l'anteprima non è stata letta, il pulsante di conferma resta
+      disabilitato. (2) Se il cambio fa pagare di PIÙ, la UI lo dice a chiare lettere: un aumento
+      va concordato col cliente, non applicato da un pannello. Il codice non lo impedisce (una
+      correzione concordata al telefono è legittima) ma non lo lascia passare in silenzio. (3)
+      Portare un'attività a Free o Enterprise non cancella l'abbonamento di colpo: imposta
+      `cancel_at_period_end`, così il servizio resta al cliente fino alla data che ha pagato e
+      l'operazione si annulla ancora. Si sceglie anche QUANDO: conguaglio subito o dal prossimo
+      rinnovo. Quando si allinea Stripe, `piano_manuale` viene SPENTO (i due sistemi ora
+      concordano) e lo stato non è quello scelto nel menu ma quello che Stripe riporta. Se Stripe
+      rifiuta, il database non viene toccato -- qui niente fail-open, al contrario della
+      sincronizzazione degli operatori: là un errore non doveva impedire di creare un operatore
+      vero, qui l'azione ERA toccare Stripe. Tutto finisce nel registro interventi con le cifre
+      prima/dopo. Nuovo Scenario E2E 22, due test simmetrici: quello che tocca Stripe è verificato
+      anche sul database, quello che NON deve toccarlo è verificato anche su Stripe (che sia
+      rimasto identico byte per byte).
+
+      **Effetto collaterale già emerso**: il registro degli interventi si riempie di righe che
+      contengono i nomi delle attività, e gli scenari 20 e 21 cercavano un `<li>` per testo --
+      hanno smesso di passare appena il registro ha cominciato a riempirsi. Risolto con
+      `data-testid="elenco-attivita"`. Vale la pena ricordare che quel registro si sporca a ogni
+      run dei test E2E, perché girano sul database vero: è un argomento in più per il database di
+      test separato, già in Fase 6ter.
+
 - [x] ~~**"1 operatore" sul piano Free pubblicizzato ma non applicato tecnicamente**~~ **CODICE
       FATTO 13/09/2026** (trovato nel controllo promesse del sito 13/09/2026): aggiunta
       `limiteOperatori(piano)` in `src/lib/piani.ts` (stessa forma di `limiteMensilePrenotazioni`),

@@ -4,14 +4,16 @@ import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
 import { eAdminPiattaforma, ERRORE_PERMESSO_NEGATO } from "@/lib/ruoli";
 import {
+  anteprimaCambioPianoAdmin,
+  cambiaPianoAttivita,
   cancellaAttivita,
-  impostaPianoManuale,
   riattivaAttivita,
   riepilogoCancellazione,
   riportaPianoSuStripe,
   sospendiAttivita,
   type AutoreIntervento,
 } from "@/lib/admin.server";
+import { azioneStripeValida } from "@/lib/stripe/cambio-piano.server";
 
 /**
  * Azioni del pannello di piattaforma. Il layout di /admin blocca già chi non
@@ -40,19 +42,32 @@ async function autoreSeAdmin(): Promise<AutoreIntervento | null> {
   return { userId: user.id, email: user.email ?? null };
 }
 
-export async function impostaPianoManualeAction(
+/**
+ * Sola lettura: cosa cambierebbe sull'abbonamento Stripe. Si mostra PRIMA di
+ * qualunque scrittura -- è l'unica cosa che sta fra un cambio piano voluto e
+ * un cliente che scopre una cifra diversa sull'estratto conto.
+ */
+export async function anteprimaCambioPianoAction(tenantId: string, piano: string) {
+  const autore = await autoreSeAdmin();
+  if (!autore) return { errore: ERRORE_PERMESSO_NEGATO };
+  return anteprimaCambioPianoAdmin(tenantId, piano);
+}
+
+export async function cambiaPianoAction(
   tenantId: string,
   piano: string,
-  statoAbbonamento: string
+  statoAbbonamento: string,
+  azioneStripe: string
 ) {
   const autore = await autoreSeAdmin();
   if (!autore) return { errore: ERRORE_PERMESSO_NEGATO };
+  if (!azioneStripeValida(azioneStripe)) return { errore: "Modalità di aggiornamento non valida." };
 
-  const esito = await impostaPianoManuale(autore, tenantId, piano, statoAbbonamento);
+  const esito = await cambiaPianoAttivita(autore, tenantId, piano, statoAbbonamento, azioneStripe);
   if ("errore" in esito) return { errore: esito.errore };
 
   revalidatePath("/admin");
-  return { ok: true };
+  return { ok: true, messaggio: esito.messaggio };
 }
 
 export async function riportaPianoSuStripeAction(tenantId: string) {

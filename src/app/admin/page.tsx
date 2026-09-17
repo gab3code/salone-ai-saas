@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { caricaAttivitaPiattaforma, elencaInterventi } from "@/lib/admin.server";
+import { caricaPannelloPiattaforma, elencaInterventi } from "@/lib/admin.server";
 import { calcolaRicavi, formatoEuroDaCentesimi, segnaliAttivita } from "@/lib/admin";
+import { Analitiche } from "./analitiche";
 import { PannelloAdmin } from "./pannello-admin";
 
 export const dynamic = "force-dynamic";
@@ -20,29 +21,23 @@ export const dynamic = "force-dynamic";
  * per ogni funzione che verrà aggiunta qui dentro.
  */
 export default async function PaginaAdmin() {
-  const [righe, interventi] = await Promise.all([caricaAttivitaPiattaforma(), elencaInterventi(30)]);
+  const [{ righe, metriche }, interventi] = await Promise.all([
+    caricaPannelloPiattaforma(),
+    elencaInterventi(30),
+  ]);
 
   const ricavi = calcolaRicavi(righe);
   const daGuardare = righe.filter((r) => segnaliAttivita(r).length > 0).length;
   const appuntamenti30 = righe.reduce((n, r) => n + r.appuntamenti30Giorni, 0);
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Piattaforma</h1>
         <p className="text-sm text-zinc-500">Tutte le attività registrate su Salone AI.</p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Riepilogo
-          etichetta="Ricavo mensile stimato"
-          valore={formatoEuroDaCentesimi(ricavi.mrrCentesimi)}
-          nota={
-            ricavi.aPreventivo > 0
-              ? `${ricavi.paganti} paganti, ${ricavi.aPreventivo} a preventivo esclusi`
-              : `${ricavi.paganti} attività paganti`
-          }
-        />
+      <div className="grid grid-cols-3 gap-3">
         <Riepilogo
           etichetta="Attività"
           valore={String(righe.length)}
@@ -56,10 +51,7 @@ export default async function PaginaAdmin() {
         <Riepilogo etichetta="Appuntamenti (30gg)" valore={String(appuntamenti30)} />
       </div>
 
-      <p className="text-xs text-zinc-400">
-        Il ricavo è una stima calcolata sui prezzi di listino e sugli operatori configurati, contando
-        solo gli abbonamenti attivi. La verità sulla fatturazione resta Stripe.
-      </p>
+      <Analitiche ricavi={ricavi} metriche={metriche} />
 
       <PannelloAdmin righe={righe} />
 
@@ -72,7 +64,7 @@ export default async function PaginaAdmin() {
         {interventi.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-500">Nessun intervento registrato.</p>
         ) : (
-          <ul className="mt-3 flex flex-col gap-2">
+          <ul data-testid="registro-interventi" className="mt-3 flex flex-col gap-2">
             {interventi.map((i) => (
               <li key={i.id} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -110,6 +102,8 @@ function etichettaAzione(azione: string): string {
   switch (azione) {
     case "piano_manuale":
       return "Piano cambiato a mano";
+    case "piano_con_stripe":
+      return "Piano cambiato anche su Stripe";
     case "ripristino_stripe":
       return "Controllo restituito a Stripe";
     case "sospensione":
@@ -126,6 +120,14 @@ function etichettaAzione(azione: string): string {
 function descriviDettaglio(azione: string, dettaglio: Record<string, unknown>): string | null {
   if (azione === "piano_manuale") {
     return `da ${dettaglio.piano_prima} (${dettaglio.stato_prima}) a ${dettaglio.piano_dopo} (${dettaglio.stato_dopo})`;
+  }
+  if (azione === "piano_con_stripe") {
+    const prima = Number(dettaglio.totale_prima_centesimi ?? 0);
+    const dopo = Number(dettaglio.totale_dopo_centesimi ?? 0);
+    const soldi = `${formatoEuroDaCentesimi(prima)} -> ${formatoEuroDaCentesimi(dopo)}`;
+    return `da ${dettaglio.piano_prima} a ${dettaglio.piano_dopo} · ${soldi}${
+      dettaglio.chiuso_a_fine_periodo ? " · chiuso a fine periodo" : ""
+    }`;
   }
   if (azione === "sospensione" && typeof dettaglio.motivo === "string") {
     return dettaglio.motivo;

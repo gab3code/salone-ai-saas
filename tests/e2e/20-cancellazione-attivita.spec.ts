@@ -56,7 +56,13 @@ test.describe("Scenario 20 -- cancellazione di un'attività", () => {
     await accediComeTitolare(page, amministratore.email, amministratore.password);
     await page.goto("/admin");
 
-    const rigaVittima = page.locator("li", { hasText: "Salone E2E Da Cancellare" });
+    // Si cerca dentro l'elenco delle attività e non fra tutti gli <li> della
+    // pagina: il registro degli interventi conserva i nomi delle attività
+    // cancellate nei run precedenti, e un selettore per solo testo pescherebbe
+    // anche quelli.
+    const rigaVittima = page
+      .getByTestId("elenco-attivita")
+      .locator("li", { hasText: "Salone E2E Da Cancellare" });
     await expect(rigaVittima).toBeVisible({ timeout: 15_000 });
     await rigaVittima.getByRole("button", { name: "Cancella attività" }).click();
 

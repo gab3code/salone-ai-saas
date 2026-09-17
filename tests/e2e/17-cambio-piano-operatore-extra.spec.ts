@@ -66,6 +66,28 @@ test.describe("Scenario 17 -- cambio piano e quota per operatore", () => {
     // reale, con la riga del piano vecchio ancora attaccata.
     await tenant.supabase.from("tenants").update({ piano: "growth" }).eq("id", tenant.id);
 
+    // Si aspetta di RILEGGERE growth dal database prima di proseguire.
+    // Sembra pedanteria, non lo è: il 17/09/2026 questo scenario è fallito in
+    // modo intermittente perché la sincronizzazione ha aggiornato la quantità
+    // della riga Starter invece di sostituirla, cosa possibile solo se il
+    // server ha letto `piano` ancora come "starter" mentre contava già 3
+    // operatori. Con questa attesa, se il caso si ripresenta il dubbio
+    // "forse la scrittura non era ancora arrivata" è escluso: il database
+    // diceva growth e il server ha letto altro.
+    await expect
+      .poll(
+        async () => {
+          const { data } = await tenant.supabase
+            .from("tenants")
+            .select("piano")
+            .eq("id", tenant.id)
+            .single();
+          return data?.piano;
+        },
+        { timeout: 10_000, message: "il cambio piano deve essere visibile sul database" }
+      )
+      .toBe("growth");
+
     // Prima occasione utile in cui la sincronizzazione rigira: un altro
     // operatore. È anche il caso peggiore -- la quantità cambia E il price
     // cambia nello stesso giro.

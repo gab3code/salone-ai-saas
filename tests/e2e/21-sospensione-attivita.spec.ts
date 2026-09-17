@@ -50,7 +50,12 @@ test.describe("Scenario 21 -- sospensione e riattivazione", () => {
     await accediComeTitolare(page, amministratore.email, amministratore.password);
     await page.goto("/admin");
 
-    const riga = page.locator("li", { hasText: "Salone E2E Da Sospendere" });
+    // Dentro l'elenco delle attività: il registro degli interventi conserva
+    // "Sospesa · Salone E2E Da Sospendere" dai run precedenti, e cercare fra
+    // tutti gli <li> della pagina pescherebbe anche quelle righe.
+    const riga = page
+      .getByTestId("elenco-attivita")
+      .locator("li", { hasText: "Salone E2E Da Sospendere" });
     await expect(riga).toBeVisible({ timeout: 15_000 });
     await riga.getByRole("button", { name: "Sospendi" }).click();
 
@@ -89,7 +94,9 @@ test.describe("Scenario 21 -- sospensione e riattivazione", () => {
     // --- riattivazione: tutto torna come prima ---
     await accediComeTitolare(page, amministratore.email, amministratore.password);
     await page.goto("/admin");
-    const rigaRiattiva = page.locator("li", { hasText: "Salone E2E Da Sospendere" });
+    const rigaRiattiva = page
+      .getByTestId("elenco-attivita")
+      .locator("li", { hasText: "Salone E2E Da Sospendere" });
     await rigaRiattiva.getByRole("button", { name: "Riattiva" }).click();
 
     await expect

@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  anteprimaCambioPianoAction,
+  cambiaPianoAction,
   cancellaAttivitaAction,
-  impostaPianoManualeAction,
   riattivaAttivitaAction,
   riepilogoCancellazioneAction,
   riportaPianoSuStripeAction,
@@ -19,6 +20,7 @@ import {
   type RigaAdmin,
 } from "@/lib/admin";
 import type { RiepilogoCancellazione } from "@/lib/admin.server";
+import type { AnteprimaCambioPiano, AzioneStripe } from "@/lib/stripe/cambio-piano.server";
 
 function formatoData(iso: string): string {
   return new Date(iso).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -33,15 +35,20 @@ function RigaAttivita({ riga }: { riga: RigaAdmin }) {
   const [motivo, setMotivo] = useState("");
   const [nomeDigitato, setNomeDigitato] = useState("");
   const [riepilogo, setRiepilogo] = useState<RiepilogoCancellazione | null>(null);
+  const [azioneStripe, setAzioneStripe] = useState<AzioneStripe>("nessuna");
+  const [conguaglio, setConguaglio] = useState<Exclude<AzioneStripe, "nessuna">>("prossimo_rinnovo");
+  const [anteprima, setAnteprima] = useState<AnteprimaCambioPiano | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
+  const [messaggio, setMessaggio] = useState<string | null>(null);
   const [inCorso, startTransition] = useTransition();
   const router = useRouter();
 
   const segnali = segnaliAttivita(riga);
   const ricavo = ricavoMensileStimatoCentesimi(riga);
 
-  function esegui(azione: () => Promise<{ errore?: string } | undefined>) {
+  function esegui(azione: () => Promise<{ errore?: string; messaggio?: string } | undefined>) {
     setErrore(null);
+    setMessaggio(null);
     startTransition(async () => {
       const esito = await azione();
       if (esito?.errore) setErrore(esito.errore);
@@ -49,8 +56,28 @@ function RigaAttivita({ riga }: { riga: RigaAdmin }) {
         setPannello("chiuso");
         setMotivo("");
         setNomeDigitato("");
+        setAzioneStripe("nessuna");
+        setAnteprima(null);
+        if (esito?.messaggio) setMessaggio(esito.messaggio);
         router.refresh();
       }
+    });
+  }
+
+  function scegliPiano(nuovoPiano: string) {
+    setPiano(nuovoPiano);
+    // Un'anteprima calcolata su un altro piano non vale più: lasciarla a
+    // schermo farebbe confermare cifre che non c'entrano.
+    setAnteprima(null);
+  }
+
+  function caricaAnteprima() {
+    setErrore(null);
+    setAnteprima(null);
+    startTransition(async () => {
+      const esito = await anteprimaCambioPianoAction(riga.tenantId, piano);
+      if ("errore" in esito) setErrore(esito.errore);
+      else setAnteprima(esito);
     });
   }
 
@@ -152,60 +179,195 @@ function RigaAttivita({ riga }: { riga: RigaAdmin }) {
       )}
 
       {pannello === "piano" && (
-        <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-zinc-100 pt-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-500">Piano</label>
-            <select
-              value={piano}
-              onChange={(e) => setPiano(e.target.value)}
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm"
-            >
-              {PIANI_ASSEGNABILI.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+        <div className="mt-3 flex flex-col gap-3 border-t border-zinc-100 pt-3">
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-zinc-500">Piano</label>
+              <select
+                aria-label="Piano"
+                value={piano}
+                onChange={(e) => scegliPiano(e.target.value)}
+                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm"
+              >
+                {PIANI_ASSEGNABILI.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-zinc-500">Stato</label>
+              <select
+                aria-label="Stato"
+                value={stato}
+                disabled={azioneStripe !== "nessuna"}
+                onChange={(e) => setStato(e.target.value)}
+                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm disabled:bg-zinc-100 disabled:text-zinc-400"
+              >
+                {STATI_ABBONAMENTO.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-500">Stato</label>
-            <select
-              value={stato}
-              onChange={(e) => setStato(e.target.value)}
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm"
-            >
-              {STATI_ABBONAMENTO.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="button"
-            disabled={inCorso}
-            onClick={() => esegui(() => impostaPianoManualeAction(riga.tenantId, piano, stato))}
-            className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-          >
-            {inCorso ? "Salvo..." : "Applica a mano"}
-          </button>
-          {riga.pianoManuale && (
+
+          <fieldset className="flex flex-col gap-1.5">
+            <legend className="text-xs text-zinc-500">Cosa fare su Stripe</legend>
+            <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-700">
+              <input
+                type="radio"
+                aria-label="Solo qui"
+                name={`stripe-${riga.tenantId}`}
+                checked={azioneStripe === "nessuna"}
+                onChange={() => {
+                  setAzioneStripe("nessuna");
+                  setAnteprima(null);
+                }}
+                className="mt-1"
+              />
+              <span>
+                Solo qui
+                <span className="block text-xs text-zinc-500">
+                  L&apos;abbonamento su Stripe resta com&apos;è. Il piano diventa manuale e i webhook
+                  smettono di aggiornarlo.
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-700">
+              <input
+                type="radio"
+                aria-label="Aggiorna anche Stripe"
+                name={`stripe-${riga.tenantId}`}
+                checked={azioneStripe !== "nessuna"}
+                onChange={() => setAzioneStripe(conguaglio)}
+                className="mt-1"
+              />
+              <span>
+                Aggiorna anche l&apos;abbonamento su Stripe
+                <span className="block text-xs text-zinc-500">
+                  Cambia davvero quello che il cliente paga. Prima di applicare ti mostro le cifre.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+
+          {azioneStripe !== "nessuna" && (
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+              {!anteprima ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={inCorso}
+                    onClick={caricaAnteprima}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs disabled:opacity-50"
+                  >
+                    {inCorso ? "Leggo Stripe..." : `Vedi cosa cambia passando a ${piano}`}
+                  </button>
+                  <span className="text-xs text-zinc-500">
+                    Finché non l&apos;hai letto, non si applica niente.
+                  </span>
+                </div>
+              ) : !anteprima.possibile ? (
+                <p className="text-xs text-zinc-600">{anteprima.motivo}</p>
+              ) : (
+                <div className="flex flex-col gap-2 text-xs">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <ElencoRighe titolo="Adesso paga" righe={anteprima.righeAttuali} />
+                    <ElencoRighe
+                      titolo={anteprima.chiudeAbbonamento ? "Dopo" : "Pagherebbe"}
+                      righe={anteprima.righeFuture}
+                      vuoto={anteprima.chiudeAbbonamento ? "niente" : "nessuna riga"}
+                    />
+                  </div>
+
+                  <p className="text-zinc-700">
+                    {formatoEuroDaCentesimi(anteprima.totaleAttualeCentesimi)} al mese →{" "}
+                    <span className="font-medium">
+                      {formatoEuroDaCentesimi(anteprima.totaleFuturoCentesimi)}
+                    </span>{" "}
+                    <span className="text-zinc-500">
+                      (calcolato su {anteprima.operatori}{" "}
+                      {anteprima.operatori === 1 ? "operatore" : "operatori"})
+                    </span>
+                  </p>
+
+                  {anteprima.chiudeAbbonamento && (
+                    <p className="rounded-md bg-amber-50 px-2 py-1.5 text-amber-900">
+                      Il piano {piano} non ha un prezzo di listino: l&apos;abbonamento verrà chiuso
+                      alla fine del periodo già pagato, non subito. Fino ad allora il servizio resta
+                      attivo e la chiusura si può ancora annullare.
+                    </p>
+                  )}
+
+                  {anteprima.aumenta && (
+                    <p className="rounded-md bg-red-50 px-2 py-1.5 text-red-900">
+                      Questo cambio fa pagare di più al cliente. Un aumento va concordato con lui
+                      prima: questo pulsante non è il posto dove nasce il suo consenso.
+                    </p>
+                  )}
+
+                  {!anteprima.chiudeAbbonamento && (
+                    <fieldset className="flex flex-col gap-1 pt-1">
+                      <legend className="text-zinc-500">Quando</legend>
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="radio"
+                          name={`conguaglio-${riga.tenantId}`}
+                          checked={conguaglio === "prossimo_rinnovo"}
+                          onChange={() => {
+                            setConguaglio("prossimo_rinnovo");
+                            setAzioneStripe("prossimo_rinnovo");
+                          }}
+                        />
+                        Dal prossimo rinnovo, senza conguagli
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="radio"
+                          name={`conguaglio-${riga.tenantId}`}
+                          checked={conguaglio === "subito"}
+                          onChange={() => {
+                            setConguaglio("subito");
+                            setAzioneStripe("subito");
+                          }}
+                        />
+                        Subito, con conguaglio sulla prossima fattura
+                      </label>
+                    </fieldset>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              disabled={inCorso}
-              onClick={() => esegui(() => riportaPianoSuStripeAction(riga.tenantId))}
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs disabled:opacity-50"
+              disabled={inCorso || (azioneStripe !== "nessuna" && !anteprima?.possibile)}
+              onClick={() =>
+                esegui(() => cambiaPianoAction(riga.tenantId, piano, stato, azioneStripe))
+              }
+              className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
             >
-              Ridai il controllo a Stripe
+              {inCorso ? "Salvo..." : azioneStripe === "nessuna" ? "Applica solo qui" : "Applica su Stripe"}
             </button>
-          )}
-          <button type="button" onClick={() => setPannello("chiuso")} className="text-xs underline">
-            Annulla
-          </button>
-          <p className="w-full text-xs text-zinc-500">
-            Applicando a mano, il webhook Stripe smette di aggiornare piano e stato per questa attività
-            finché non ridai il controllo.
-          </p>
+            {riga.pianoManuale && (
+              <button
+                type="button"
+                disabled={inCorso}
+                onClick={() => esegui(() => riportaPianoSuStripeAction(riga.tenantId))}
+                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs disabled:opacity-50"
+              >
+                Ridai il controllo a Stripe
+              </button>
+            )}
+            <button type="button" onClick={() => setPannello("chiuso")} className="text-xs underline">
+              Annulla
+            </button>
+          </div>
         </div>
       )}
 
@@ -296,7 +458,36 @@ function RigaAttivita({ riga }: { riga: RigaAdmin }) {
       )}
 
       {errore && <p className="mt-2 text-xs text-red-600">{errore}</p>}
+      {messaggio && <p className="mt-2 text-xs text-emerald-700">{messaggio}</p>}
     </li>
+  );
+}
+
+function ElencoRighe({
+  titolo,
+  righe,
+  vuoto = "nessuna riga",
+}: {
+  titolo: string;
+  righe: { descrizione: string; quantita: number; centesimiMese: number }[];
+  vuoto?: string;
+}) {
+  return (
+    <div>
+      <p className="text-zinc-500">{titolo}</p>
+      {righe.length === 0 ? (
+        <p className="text-zinc-700">{vuoto}</p>
+      ) : (
+        <ul className="mt-0.5 flex flex-col gap-0.5">
+          {righe.map((r, i) => (
+            <li key={`${r.descrizione}-${i}`} className="text-zinc-700">
+              {r.descrizione}
+              {r.quantita > 1 && ` ×${r.quantita}`} · {formatoEuroDaCentesimi(r.centesimiMese)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -337,7 +528,12 @@ export function PannelloAdmin({ righe }: { righe: RigaAdmin[] }) {
           Solo quelle da guardare ({conSegnali})
         </label>
       </div>
-      <ul className="flex flex-col gap-3">
+      {/* data-testid, non una classe: il registro degli interventi qui sotto è
+          fatto anche lui di <li> che contengono il nome di un'attività, e un
+          selettore per testo li pescherebbe entrambi (visto dal vivo il
+          17/09/2026: gli scenari 20 e 21 hanno smesso di passare appena il
+          registro ha cominciato a riempirsi). */}
+      <ul data-testid="elenco-attivita" className="flex flex-col gap-3">
         {visibili.map((riga) => (
           <RigaAttivita key={riga.tenantId} riga={riga} />
         ))}
