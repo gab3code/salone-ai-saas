@@ -181,14 +181,25 @@ un'impostazione del tuo account, e non l'ho potuta leggere dall'API.
 `salone-ai-saas.vercel.app/api/stripe/webhook` ha tutti e **9** gli eventi, inclusi
 `customer.tax_id.created` e `customer.tax_id.updated` che ieri erano da aggiungere.
 
-### 6d. Supabase → password compromesse
+### 6d. Supabase → password compromesse -- ~~da fare~~ NON SI PUÒ, ERRORE MIO
 
-Dashboard Supabase → Authentication → Policies (o Providers → Email) → attiva
-**"Leaked password protection"**.
+**Correzione del 17/09/2026.** Ti avevo scritto "è gratis, è un interruttore". È falso, e
+per questo non lo trovavi: la documentazione Supabase dice che *"Leaked password
+protection is available on the Pro Plan and above"*, e l'organizzazione
+`rzjvstjumkyebnpeuvmn` è sul piano **free**. L'interruttore su quella pagina non
+esiste proprio.
 
-Confronta le password scelte in registrazione con l'archivio di HaveIBeenPwned e
-rifiuta quelle già finite in una fuga di dati. È gratis, è un interruttore, e i
-nostri utenti sono titolari di salone che riuseranno la password del gestionale.
+Quello che si può fare gratis, stessa pagina (Authentication → Providers → Email):
+
+- **lunghezza minima della password**: alzala a 10-12 caratteri;
+- **caratteri obbligatori**: lettere più numeri.
+
+Non è la stessa cosa (non confronta niente con HaveIBeenPwned), ma è l'unica leva
+disponibile a costo zero. Quando il progetto passerà a Pro per altri motivi -- e
+prima o poi ci passa, il free non regge un prodotto con clienti paganti -- quella
+protezione si accende con una spunta. Nel frattempo resta un rischio noto e
+accettato, non una dimenticanza: i nostri utenti sono titolari di salone che
+riusano le password, quindi va riaperto il giorno dell'upgrade.
 
 ### 6e. Stripe sandbox → le dieci sottoscrizioni di prova
 

@@ -1046,15 +1046,18 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       se chiedergli una caparra o chiamarlo il giorno prima. Il denominatore sono gli
       appuntamenti PASSATI, non tutti, altrimenti tre prenotazioni future diluirebbero la
       percentuale da sole.
-- [ ] **Retention e no-show reale** (separato da Analytics sopra il 14/09/2026, non erano promesse
-      scritte sul sito): due decisioni da prendere PRIMA di scrivere codice, non durante --
-      1) definire cosa vuol dire "retention" per un titolare (es. % di clienti con almeno 2
-      prenotazioni confermate, o che tornano entro N giorni dalla precedente); 2) per il no-show
-      reale, decidere se aggiungere uno stato `no_show` a `appuntamenti.stato` (richiede una
-      migrazione sulla CHECK constraint, se esiste, da verificare) e COME lo staff lo marca
-      dall'interfaccia (un bottone sul calendario per un appuntamento passato? automatico se
-      "confermato" e mai spostato a "completato", che oggi non esiste nemmeno come stato?). Non
-      urgente finché non ci sono clienti Growth paganti reali che lo richiedono esplicitamente.
+- [ ] **Retention: manca solo la definizione, non il codice** (il punto era "retention e no-show
+      reale"; la metà no-show è stata chiusa il 17/09/2026 -- vedi il punto qui sopra -- e questo
+      resto è stato riscritto di conseguenza). Rimane **una sola domanda da decidere con Gabriel
+      prima di scrivere una riga**: cosa vuol dire "retention" per un titolare di salone. Le due
+      definizioni plausibili danno numeri diversi e portano ad azioni diverse: % di clienti con
+      almeno 2 prenotazioni confermate (misura se il primo appuntamento ha convinto), oppure %
+      di clienti che tornano entro N giorni dal precedente (misura la frequenza, e richiede di
+      scegliere N). Una volta scelta, il calcolo è una funzione pura in `src/lib/analytics.ts`
+      sopra dati che il database ha già: mezza giornata di lavoro, nessuna migrazione.
+      **Non è promesso da nessuna parte sul sito** (verificato riga per riga il 14/09/2026), quindi
+      non blocca nessun pagamento: è l'unica cosa che separa la Fase 3 dalla chiusura, ed è una
+      decisione, non un lavoro.
 - [x] ~~**Incassi previsti**~~ **CODICE FATTO 13/09/2026** (nuovo task, chiesto esplicitamente da
       Gabriel il 13/09/2026, DA NON confondere con la "Cassa"/registro incassi reale esclusa
       deliberatamente in DECISIONS.md): `src/lib/metriche.ts` oggi calcola solo
@@ -1597,7 +1600,10 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
   piani e, a differenza di tutto il resto, ha un costo per messaggio: diluirla toglie a Starter la
   sua identità e a Growth la sua ragione. Linea dura più una demo, mai una quota simbolica.
 
-- [ ] **Starter: tenerlo, ma con la scheda giusta** -- decisione di Gabriel del 16/09/2026, contro
+- [x] ~~**Starter: tenerlo, ma con la scheda giusta**~~ **FATTO 16/09/2026, chiuso il 17/09/2026**
+      (la casella era rimasta aperta per svista: la scheda era già stata riscritta nella stessa
+      sessione, il resto del punto è un argomento di vendita da ricordare, non un lavoro da fare).
+      Decisione di Gabriel del 16/09/2026, contro
       il mio consiglio di cancellarlo. La sua motivazione ("è il piano con più margine") non regge
       da sola e va corretta in fase di vendita: il margine percentuale non è il profitto. Starter
       al 95% lascia ~18,90€/mese, Growth anche stimando l'80% ne lascia ~31,90€: Growth rende il

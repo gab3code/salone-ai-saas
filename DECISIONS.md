@@ -5839,3 +5839,36 @@ incollato funziona senza ritocchi. Verificata eseguendola, non solo compilandola
 `class-variance-authority` NON l'ho rimessa: la installa la CLI di shadcn quando serve a un
 componente specifico, insieme a tutto il resto delle sue dipendenze. Rimettere per ipotesi è
 l'errore opposto a quello appena corretto.
+
+## 17/09/2026 -- Due caselle stantie in PIANO.md, e una correzione su Supabase
+
+Gabriel ha chiesto "non avevamo chiuso la fase 3? la fase 5 non ho capito cosa manca".
+Aveva ragione su entrambe: due caselle erano rimaste aperte descrivendo lavoro gia' fatto.
+
+**Fase 3.** Il punto si chiamava "Retention e no-show reale". La meta' no-show e' stata
+costruita il 17/09/2026 (pulsante "Non si e' presentato" sugli appuntamenti passati,
+assenze nella scheda cliente), ma il titolo della casella e' rimasto quello vecchio,
+facendo sembrare aperto anche cio' che era chiuso. Riscritta come "Retention: manca solo
+la definizione, non il codice" -- perche' e' letteralmente cosi': serve scegliere fra due
+definizioni di retention (almeno 2 prenotazioni confermate, oppure ritorno entro N giorni),
+e dopo la scelta e' una funzione pura sopra dati gia' presenti. Non e' promessa sul sito,
+quindi non blocca nessun pagamento.
+
+**Fase 5.** Il punto "Starter: tenerlo, ma con la scheda giusta" era spuntato aperto ma il
+suo stesso testo diceva che la scheda di `Prezzi.tsx` era gia' stata riscritta nella
+sessione del 16/09. Verificato nel codice (`descrizione: "Il gestionale, senza l'AI."` piu'
+le due voci sul differenziale vero) e chiuso. Il resto del punto e' un argomento di
+vendita da ricordare, non un lavoro da fare.
+
+Regola che ne esce: quando un punto contiene due lavori diversi e se ne chiude uno, il
+punto va RISCRITTO, non lasciato aperto "tanto qualcosa manca ancora". Una casella aperta
+deve dire esattamente cosa manca, altrimenti gonfia il conteggio e fa sembrare il progetto
+piu' indietro di quanto sia.
+
+**Supabase, correzione di un mio errore.** Avevo scritto in `docs/risveglio-17-09-2026.md`
+che la "Leaked password protection" e' "gratis, e' un interruttore". Falso: la
+documentazione Supabase dice che e' disponibile dal piano Pro in su, e l'organizzazione
+`rzjvstjumkyebnpeuvmn` e' sul piano free. Per questo Gabriel non la trovava. Sezione 6d
+del documento riscritta: le leve gratuite sono lunghezza minima e caratteri obbligatori
+su Authentication -> Providers -> Email, e la protezione vera va riaperta il giorno
+dell'upgrade a Pro. Resta un rischio noto e accettato, non una dimenticanza.
