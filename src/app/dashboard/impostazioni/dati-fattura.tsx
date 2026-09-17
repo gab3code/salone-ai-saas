@@ -96,8 +96,8 @@ export function DatiFattura({
       </form>
 
       <p className="mt-3 text-xs text-zinc-400">
-        Partita IVA e indirizzo di fatturazione si cambiano da &quot;Gestisci abbonamento&quot;, dove
-        li tiene Stripe.
+        Partita IVA e indirizzo di fatturazione li tiene Stripe: si cambiano da &quot;Gestisci
+        abbonamento&quot; qui sopra.
       </p>
     </section>
   );

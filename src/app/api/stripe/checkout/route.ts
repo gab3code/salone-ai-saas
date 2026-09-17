@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             errore:
-              "Hai già un abbonamento attivo. Per cambiare piano usa 'Gestisci abbonamento': così quello attuale viene sostituito, invece di aggiungerne un secondo.",
+              "Hai già un abbonamento attivo. Per cambiare piano usa 'Gestisci abbonamento' in Impostazioni: così quello attuale viene sostituito invece di affiancargliene un secondo. Se non trovi il cambio piano lì dentro, scrivici e lo facciamo noi.",
           },
           { status: 409 }
         );

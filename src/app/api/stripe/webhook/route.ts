@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { creaClientStripe } from "@/lib/stripe/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { sincronizzaAbbonamento, statoAbbonamentoDaStripe } from "@/lib/stripe/abbonamento.server";
+import { sincronizzaQuantitaOperatoriStripe } from "@/lib/stripe/operatori.server";
 import { creaAppuntamentoTenant, parsaOrarioLocale } from "@/lib/booking-engine.server";
 
 /**
@@ -241,6 +242,30 @@ export async function POST(request: NextRequest) {
         });
       }
       await sincronizzaAbbonamento(admin, aggiornata);
+
+      // Riallinea la quota "operatore extra" al piano appena fatturato.
+      //
+      // Serve perché un cambio piano può arrivare da fuori dal nostro
+      // codice: dal Customer Portal di Stripe, o da una modifica fatta a
+      // mano sulla dashboard di Stripe. In quei casi cambia il price della
+      // riga base e nessuno tocca l'add-on, che resterebbe quello del piano
+      // vecchio -- il salone passato da Starter a Growth continuerebbe a
+      // pagare 10 € per operatore invece di 15. È lo stesso difetto che ha
+      // tenuto in ostaggio lo Scenario 17 per due giorni, e questa è la sua
+      // chiusura definitiva: qualunque sia la strada da cui il piano cambia,
+      // subito dopo l'add-on viene riportato in riga.
+      //
+      // Non si avvita: la sincronizzazione scrive su Stripe solo quando
+      // trova qualcosa da correggere, quindi l'evento che essa stessa genera
+      // al giro dopo non trova più niente da fare e si ferma.
+      const { data: tenantAggiornato } = await admin
+        .from("tenants")
+        .select("id")
+        .eq("stripe_subscription_id", aggiornata.id)
+        .maybeSingle();
+      if (tenantAggiornato) {
+        await sincronizzaQuantitaOperatoriStripe(admin, tenantAggiornato.id as string);
+      }
       break;
     }
 
