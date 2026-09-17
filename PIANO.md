@@ -980,7 +980,7 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       rilanciato `npm run test:e2e` con l'API reale -- **18/18 ancora verdi**, nessuna
       regressione. Vedi DECISIONS.md per il dettaglio completo.
 
-## Fase 3 -- CRM e Dashboard (punti 15, 21, 22)
+## Fase 3 -- CRM e Dashboard (punti 15, 21, 22) -- **CHIUSA il 17/09/2026**
 - [x] Anagrafica cliente con storico completo: `/dashboard/clienti` (elenco con ricerca per
       nome/telefono, conteggio appuntamenti) + `/dashboard/clienti/[id]` (dati anagrafici
       modificabili -- nome/email/tag/note, telefono non modificabile perché è la chiave di
@@ -1046,18 +1046,37 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       se chiedergli una caparra o chiamarlo il giorno prima. Il denominatore sono gli
       appuntamenti PASSATI, non tutti, altrimenti tre prenotazioni future diluirebbero la
       percentuale da sole.
-- [ ] **Retention: manca solo la definizione, non il codice** (il punto era "retention e no-show
-      reale"; la metà no-show è stata chiusa il 17/09/2026 -- vedi il punto qui sopra -- e questo
-      resto è stato riscritto di conseguenza). Rimane **una sola domanda da decidere con Gabriel
-      prima di scrivere una riga**: cosa vuol dire "retention" per un titolare di salone. Le due
-      definizioni plausibili danno numeri diversi e portano ad azioni diverse: % di clienti con
-      almeno 2 prenotazioni confermate (misura se il primo appuntamento ha convinto), oppure %
-      di clienti che tornano entro N giorni dal precedente (misura la frequenza, e richiede di
-      scegliere N). Una volta scelta, il calcolo è una funzione pura in `src/lib/analytics.ts`
-      sopra dati che il database ha già: mezza giornata di lavoro, nessuna migrazione.
-      **Non è promesso da nessuna parte sul sito** (verificato riga per riga il 14/09/2026), quindi
-      non blocca nessun pagamento: è l'unica cosa che separa la Fase 3 dalla chiusura, ed è una
-      decisione, non un lavoro.
+- [x] ~~**Retention**~~ **FATTA 17/09/2026 -- LA FASE 3 E' CHIUSA.** Gabriel ha sciolto la
+      decisione che mancava scegliendo entrambe le definizioni che aveva proposto ("% di clienti
+      con almeno 2 prenotazioni confermate" e "% che tornano entro N giorni") e chiedendo di
+      implementarle tutte e due. Sono la stessa funzione con N parametrico -- la prima e' la
+      seconda con N infinito -- quindi il lavoro e' uno solo: `src/lib/retention.ts`, logica
+      pura, 22 test.
+      **Cercando come le chiama il settore** (Meevo, Simple Salon, Phorest) viene fuori che
+      saloni e spa ne usano due e sono proprio le due di Gabriel viste da due lati: retention dei
+      NUOVI clienti (tornano per una seconda volta, finestra convenzionale 90 giorni) e degli
+      ABITUALI (dopo la seconda visita ne fanno una terza). Costruite tutte e due.
+      **Tre scelte che rendono il numero onesto**, tutte scritte a schermo e non solo nel codice:
+      chi non ha ancora avuto il tempo di tornare NON entra nel denominatore (senza questa
+      esclusione la percentuale peggiora da sola ogni volta che arriva un cliente nuovo, cioe' il
+      contrario di quello che deve dire); sotto 5 clienti valutabili non si mostra nessuna
+      percentuale; due appuntamenti nello stesso giorno sono una visita sola.
+      **Due numeri sulla stessa coorte** (scelta di Gabriel): chi ha riprenotato e, dentro quello,
+      chi si e' davvero presentato -- la distanza fra i due e' quanto costano le assenze, e si
+      legge senza numeri perche' e' la barra stessa.
+      **Interfaccia**: niente selettore, si mostra tutta la curva insieme (entro 1 settimana / 1
+      mese / 3 mesi / 6 mesi / 1 anno / prima o poi). Gabriel aveva proposto un menu a tendina e
+      poi mi ha lasciato la scelta: la curva completa e' la risposta, non una delle sue righe --
+      con il selettore il titolare dovrebbe aprirlo cinque volte e tenere i numeri a mente per
+      fare lo stesso ragionamento. In fondo al blocco il collegamento con la soglia di follow-up
+      delle impostazioni, che e' lo stesso numero visto dall'altro lato.
+      **NON messo a schermo di proposito**: i benchmark di settore. Due fonti lette lo stesso
+      giorno danno numeri diversi (45%, 60-70%, 75%) e mescolano "retention complessiva" con
+      "retention dei nuovi": un numero di confronto sbagliato e' peggio di nessun numero. Fonti
+      in DECISIONS.md per quando ci saranno dati veri.
+      Il no-show, che stava nello stesso punto, era gia' stato chiuso il 16-17/09 (pulsante in
+      agenda + assenze sulla scheda cliente).
+
 - [x] ~~**Incassi previsti**~~ **CODICE FATTO 13/09/2026** (nuovo task, chiesto esplicitamente da
       Gabriel il 13/09/2026, DA NON confondere con la "Cassa"/registro incassi reale esclusa
       deliberatamente in DECISIONS.md): `src/lib/metriche.ts` oggi calcola solo
@@ -1284,7 +1303,7 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       (`qrcode.server.test.ts`), suite completa `npx vitest run` (410/410), `tsc --noEmit`,
       `eslint`, `npm run build` tutti puliti.
 
-## Fase 5 -- Billing self-service e admin panel (punti 6, 7, 23, 24)
+## Fase 5 -- Billing self-service e admin panel (punti 6, 7, 23, 24) -- **CHIUSA il 17/09/2026**
 - [x] Piani Free -> Enterprise progettati (non copiati), prezzi e posizionamento AI decisi
       il 02/09/2026 -- vedi DECISIONS.md per il confronto con Estetia e il calcolo costi
 - [x] Difesa tecnica anti-abuso sulla chat AI (gate di piano, quota mensile, anti-burst) --
@@ -1587,14 +1606,38 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       classificatore di sicurezza, e passare dal browser invece che dall'API sarebbe aggirare quel
       blocco, non rispettarlo).
 
-- [ ] **Riquadro di upsell Starter -> Growth dentro la dashboard** (idea di Claude accettata da
-      Gabriel il 16/09/2026, non ancora costruita): il momento giusto per vendere l'assistente a
-      un cliente Starter è subito dopo che ha risposto LUI a mano a una richiesta -- lì gli si
-      mostra cosa avrebbe risposto l'AI al posto suo. Converte più di qualunque tabella prezzi
-      perché arriva mentre sta facendo la fatica che l'AI gli toglierebbe.
-      Da progettare con attenzione su un punto: mostrare una risposta AI vera costa una chiamata
-      al modello per un tenant che l'AI non la paga -- va deciso se vale (probabilmente sì, è
-      marketing a pochi centesimi) o se basta un esempio statico ben scritto.
+- [x] ~~**Riquadro di upsell Starter -> Growth dentro la dashboard**~~ **FATTO 17/09/2026 -- LA
+      FASE 5 E' CHIUSA.**
+      **Prima correzione, necessaria**: l'idea come era scritta ("subito dopo che ha risposto LUI
+      a mano a una richiesta") non si poteva costruire, perche' Free e Starter non hanno la chat
+      affatto (`pianoHaAccessoAIChatWeb`) -- quella richiesta a cui rispondere non esiste in
+      nessun punto del prodotto. Il momento equivalente che invece esiste davvero e' l'inserimento
+      di un appuntamento A MANO in agenda: un appuntamento inserito a mano E' una telefonata a cui
+      ha risposto il titolare. Il riquadro compare li'.
+      **La domanda aperta sul costo** l'ha sciolta Gabriel: "AI risposta vera ma un limite vero".
+      Quindi una chiamata vera al modello, sui servizi/prezzi/orari/agenda VERI di quel salone --
+      un esempio statico si riconosce e non convince nessuno. Il titolare incolla la domanda che
+      gli ha fatto un cliente al telefono e vede la risposta.
+      **Il limite e' fatto di tre pezzi, non di un numero**, perche' il vincolo di prodotto qui
+      sotto ("mai un po' di AI a Starter") va rispettato per struttura e non per scarsita':
+      1. la prova NON PUO' SCRIVERE NIENTE -- al modello arrivano solo gli strumenti in lettura
+         (`STRUMENTI_DEMO`: servizi, operatori, orari, disponibilita'), mai prenota/modifica/
+         cancella/lista d'attesa. Mostra la VOCE dell'assistente, non la sua CAPACITA', ed e' la
+         capacita' che si paga;
+      2. tetto mensile applicato NEL DATABASE (migrazione 0041): contatore su `tenants` senza
+         nessun `grant update` al titolare, consumato da `consuma_demo_ai()` che controlla e
+         incrementa nella stessa UPDATE -- due schede aperte insieme non se lo mangiano due volte,
+         e il limite non si azzera dalla console del browser;
+      3. costa piu' tempo che fare il lavoro a mano, quindi nessuno lo userebbe come receptionist
+         nemmeno con un tetto di cento.
+      Tetto scelto: **10 al mese**. Il costo di una prova con Haiku e' di qualche millesimo di
+      euro, quindi il numero non serve a contenere una spesa -- serve a dire che non e' un
+      servizio.
+      Il riquadro si chiude e resta chiuso per un mese: un riquadro commerciale che ricompare a
+      ogni appuntamento inserito fa l'effetto contrario. Lo vede solo chi puo' configurare
+      l'attivita' (un collaboratore no: non e' una decisione sua). Scenario 26 per la parte
+      end-to-end, 16 test unitari per la logica.
+
 - **Vincolo di prodotto, non un task** (deciso 16/09/2026): a Starter non va data MAI "un po' di
   AI", nemmeno una quota simbolica di messaggi omaggio. L'AI è l'unica linea netta della scala dei
   piani e, a differenza di tutto il resto, ha un costo per messaggio: diluirla toglie a Starter la

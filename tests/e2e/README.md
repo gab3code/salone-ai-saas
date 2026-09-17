@@ -132,3 +132,33 @@ agli operatori" (che l'anteprima del cambio piano serve proprio a mostrare) non 
 in modo stabile finché il webhook della sandbox punta alla produzione. Si sbloccherebbe con un
 secondo endpoint webhook verso un deploy di staging, o con un progetto Supabase separato per i
 test -- entrambi lavori da fare a mente fredda, non dentro un test.
+
+---
+
+## Scenario 26 e i test che costano soldi veri (17/09/2026)
+
+Lo Scenario 26 copre la pagina Analytics rifatta e la prova dell'assistente dei piani senza
+AI. C'è una cosa che **non fa di proposito**: non preme mai il pulsante "Guarda cosa avrebbe
+risposto".
+
+Quel pulsante fa una chiamata vera al modello e consuma una delle dieci prove mensili del
+tenant. In una suite che gira decine di volte al giorno sarebbero decine di chiamate pagate
+ogni giorno, per verificare una risposta che cambia ogni volta -- cioè il test peggiore
+possibile: costoso e non deterministico.
+
+**La regola che ne esce, generale**: un test end-to-end non deve mai attraversare un confine
+a consumo (il modello, un SMS vero, un pagamento vero) se quello che sta verificando è la
+logica *intorno* a quel confine. Qui la logica intorno è tutta coperta -- chi vede il
+riquadro, chi no, che il tetto regga contro il database nudo -- e la logica *dentro* (piani,
+quota, finestra del mese, strumenti concessi) ha 16 test unitari in
+`src/lib/ai/demo-assistente.test.ts`, che non chiamano niente.
+
+Lo stesso principio spiega perché nello Scenario 26 gli appuntamenti si creano dal form della
+dashboard e non via service_role: lì il giro completo dall'interfaccia **è** l'oggetto del
+test (è quello che fa comparire il riquadro), mentre nel test sulla retention gli appuntamenti
+sono solo un dato di partenza e si creano con l'helper, che è più veloce e più stabile.
+
+**Una trappola dell'helper, ora risolta**: `creaAppuntamentoConfermato` faceva sempre un INSERT
+su `clienti`, quindi due chiamate con lo stesso telefono producevano DUE clienti con una visita
+a testa -- che per una metrica su "quanti clienti tornano" è esattamente il dato opposto, e
+sbagliava in silenzio invece di dare errore. Da oggi accetta `clienteIdEsistente`.

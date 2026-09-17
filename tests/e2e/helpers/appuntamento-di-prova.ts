@@ -28,6 +28,17 @@ export async function creaAppuntamentoConfermato(
     clienteTelefono: string;
     creatoDa?: "manuale" | "ai";
     stato?: "confermato" | "cancellato" | "completato" | "no_show";
+    /**
+     * Riusa un cliente gia' creato invece di crearne uno nuovo (17/09/2026,
+     * per gli scenari sulla retention).
+     *
+     * Serve perche' questo helper fa sempre un INSERT su `clienti`: due
+     * chiamate con lo stesso telefono producono DUE clienti con una visita
+     * a testa, non un cliente con due visite -- che per una metrica su
+     * "quanti tornano" e' esattamente il contrario del dato voluto, e
+     * sbaglierebbe in silenzio invece di dare errore.
+     */
+    clienteIdEsistente?: string;
   }
 ): Promise<{ id: string; clienteId: string; inizio: Date; fine: Date }> {
   const servizio = tenant.servizi[opzioni.servizioIndice ?? 0];
@@ -38,14 +49,19 @@ export async function creaAppuntamentoConfermato(
     );
   }
 
-  const { data: cliente, error: erroreCliente } = await tenant.supabase
-    .from("clienti")
-    .insert({ tenant_id: tenant.id, nome: opzioni.clienteNome ?? null, telefono: opzioni.clienteTelefono })
-    .select("id")
-    .single();
-  if (erroreCliente || !cliente) {
-    throw new Error(`Impossibile creare il cliente di prova: ${erroreCliente?.message}`);
+  let clienteId: string | undefined = opzioni.clienteIdEsistente;
+  if (!clienteId) {
+    const { data: cliente, error: erroreCliente } = await tenant.supabase
+      .from("clienti")
+      .insert({ tenant_id: tenant.id, nome: opzioni.clienteNome ?? null, telefono: opzioni.clienteTelefono })
+      .select("id")
+      .single();
+    if (erroreCliente || !cliente) {
+      throw new Error(`Impossibile creare il cliente di prova: ${erroreCliente?.message}`);
+    }
+    clienteId = cliente.id as string;
   }
+  if (!clienteId) throw new Error("Nessun cliente per l'appuntamento di prova.");
 
   const [anno, mese, giorno] = opzioni.giornoYMD.split("-").map(Number);
   const [ore, minuti] = opzioni.oraHHMM.split(":").map(Number);
@@ -58,7 +74,7 @@ export async function creaAppuntamentoConfermato(
     .from("appuntamenti")
     .insert({
       tenant_id: tenant.id,
-      cliente_id: cliente.id,
+      cliente_id: clienteId,
       operatore_id: operatore.id,
       servizio_id: servizio.id,
       inizio: inizioReale.toISOString(),
@@ -72,5 +88,5 @@ export async function creaAppuntamentoConfermato(
     throw new Error(`Impossibile creare l'appuntamento di prova: ${erroreAppuntamento?.message}`);
   }
 
-  return { id: appuntamento.id, clienteId: cliente.id, inizio: inizioReale, fine: fineReale };
+  return { id: appuntamento.id, clienteId, inizio: inizioReale, fine: fineReale };
 }

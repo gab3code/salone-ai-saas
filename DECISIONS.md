@@ -5872,3 +5872,145 @@ documentazione Supabase dice che e' disponibile dal piano Pro in su, e l'organiz
 del documento riscritta: le leve gratuite sono lunghezza minima e caratteri obbligatori
 su Authentication -> Providers -> Email, e la protezione vera va riaperta il giorno
 dell'upgrade a Pro. Resta un rischio noto e accettato, non una dimenticanza.
+
+## 17/09/2026 -- Fase 3 chiusa: la retention, e perche' l'interfaccia non ha un selettore
+
+Gabriel: "per la fase 3 chiudiamola del tutto, % di clienti con almeno 2 prenotazioni
+confermate e' molto utile, ma anche % di clienti che tornano entro N giorni dal precedente,
+possiamo implementarle entrambe?".
+
+**Le sue due definizioni sono la stessa funzione.** "Almeno 2 prenotazioni confermate" e'
+"torna entro N giorni" con N infinito. Quindi non erano due lavori: uno solo, con N
+parametrico. Glielo ho detto prima di cominciare, e da li' e' venuta anche la risposta
+all'interfaccia.
+
+**Il settore ne usa due, e sono le sue due viste da due lati.** Cercando come la chiamano i
+gestionali per saloni (Meevo, Simple Salon, Phorest, letti il 17/09/2026): "new client
+retention" -- dei clienti alla prima visita, quanti tornano per una seconda, finestra
+convenzionale 90 giorni -- e "repeat client retention" -- di chi ha gia' fatto due visite,
+quanti continuano. Costruite tutte e due (`retention.nuoviClienti` e `retention.abituali`,
+stessa funzione con l'ancora spostata di una visita).
+
+**Le tre scelte che rendono il numero onesto.** Sono la parte che conta piu' del calcolo:
+
+1. *Chi non ha ancora avuto il tempo di tornare non entra nel denominatore.* Un cliente venuto
+   tre giorni fa non e' un "mancato ritorno a 30 giorni": ha ancora 27 giorni. Contarlo fa
+   PEGGIORARE la percentuale ogni volta che il salone acquisisce un cliente nuovo -- cioe' il
+   numero direbbe il contrario di quello per cui esiste. Ogni riga ha quindi il suo
+   denominatore, ed e' scritto a schermo ("su 128 clienti"). C'e' un test apposta che dimostra
+   che aggiungere sei clienti nuovissimi non muove la percentuale.
+2. *Sotto 5 clienti valutabili non si mostra una percentuale.* Con 3 clienti, uno che torna fa
+   "33%": vero e privo di significato.
+3. *Due appuntamenti nello stesso giorno sono una visita sola.* Taglio e colore prenotati
+   separatamente per lo stesso pomeriggio non sono un ritorno; senza il raggruppamento la
+   retention di un salone che lavora cosi' sarebbe gonfia e nessuno capirebbe perche'.
+
+**Due numeri, non uno** (scelta di Gabriel, "tutti e due, separati"): chi ha riprenotato
+(`confermato` o `no_show`: il salone gli e' rimasto in testa) e, dentro quello, chi si e'
+davvero presentato (`confermato`). `cancellato` non conta in nessuno dei due. La coorte e'
+ancorata alla prima visita ONORATA in entrambe le serie, cosi' il denominatore e' lo stesso e i
+due numeri sono confrontabili -- e `presentati <= riprenotati` sempre, che e' anche un test.
+
+**L'interfaccia: nessun selettore per la retention.** Gabriel aveva proposto un menu
+(settimana / mese / 3 / 6 / 12 mesi) e poi mi ha lasciato la scelta guardando come lo fanno
+gli altri. Si mostra tutta la curva insieme. La curva E' la risposta: un titolare che legge
+12 / 41 / 63 / 71 vede da solo dove perde i clienti, mentre con un selettore dovrebbe aprirlo
+cinque volte e tenere i numeri a mente per fare lo stesso ragionamento. Il selettore e' rimasto
+dov'e' utile davvero -- il periodo dei grafici -- dove invece cambia cosa si guarda.
+
+**I benchmark di settore NON sono a schermo, di proposito.** Due fonti lette lo stesso giorno
+danno numeri diversi (Meevo: media 45% sui nuovi, obiettivo 50%+; Simple Salon: 60-70% "media
+di settore" ma sulla retention complessiva, che e' un'altra cosa). Mettere un numero di
+confronto sbagliato accanto al numero del salone e' peggio che non metterne nessuno: gli
+direbbe "stai andando male" quando non e' vero. Fonti annotate qui per quando ci saranno dati
+veri dai nostri stessi saloni, che a quel punto sarebbero anche un benchmark onesto.
+
+## 17/09/2026 -- La pagina Analytics rifatta, e cosa ho preso da chi la fa bene
+
+Gabriel: "vedi tu qual e' l'interfaccia migliore confrontandola con interfacce e analytics di
+altri siti, mi raccomando usa i connettori o scarica librerie utili per grafici".
+
+**Cosa ho guardato.** Mobbin blocca il browser automatizzato (403), quindi niente. Il
+riferimento utile e' stata la demo pubblica di Plausible, guardata dal vivo: periodo in alto a
+destra, riga di numeri con la variazione sul periodo precedente, UN grafico grande, e le card
+dei numeri che fanno da interruttore per la serie mostrata.
+
+**Cosa ho preso e cosa no.** Presa la struttura. NON presa la densita': il loro menu del
+periodo ha undici voci raggruppate (Today, Realtime, Month to Date, Year to Date, Custom
+Range...), giusto per uno sviluppatore che ci passa la giornata, sbagliato per un titolare di
+salone che apre la pagina una volta a settimana. Da noi sono quattro pillole gia' aperte a
+schermo: 4 settimane, 3 mesi, 6 mesi, 12 mesi.
+
+**La granularita' segue il periodo** (giorni / settimane / mesi). Dodici settimane fisse, com'era
+dal 14/09, mostrano troppo poco a chi vuole capire l'anno e troppa poca definizione a chi vuole
+capire il mese. Manca "ultima settimana" apposta (sette bastoncini sono rumore, e quei numeri
+sono gia' in dashboard) e manca "da sempre" (una finestra che si allunga da sola rende
+impossibile ogni confronto nel tempo).
+
+**Una serie per volta, non due assi.** Prenotazioni e nuovi clienti vivono su scale diverse
+(decine contro unita'). Nello stesso grafico servirebbero due assi verticali, che e' il modo
+piu' rapido di far leggere a qualcuno una correlazione che non c'e'; in due grafici affiancati,
+com'erano, nessuno dei due ha spazio. Si sceglie la card e il grafico cambia.
+
+**La variazione sul periodo precedente.** "48 prenotazioni" non dice a un titolare se sta
+andando bene; "48, il 12% in piu' del trimestre prima" si'. Da zero non si mostra nessuna
+percentuale: "+100%" e "+infinito" sarebbero entrambi inventati, si scrive "nessun confronto".
+
+**Recharts, e il ribaltamento di una decisione mia.** Il 14/09 avevo scritto "niente
+Recharts/Chart.js: due serie su 12 colonne non giustificano una nuova dipendenza". Era vero
+allora ed e' falso adesso: con periodo variabile, granularita' adattiva, tooltip e gradiente, i
+div ad altezza percentuale sarebbero diventati un mezzo motore grafico scritto a mano. Aggiunto
+`recharts@3.10.1` (React 19 supportato). `@tremor/react` scartato perche' e' fermo a React 18.
+Il componente ufficiale `shadcn add chart` non e' installabile da qui (ui.shadcn.com non e'
+nella allowlist del proxy), ma non serviva: le variabili CSS `--chart-1..5` c'erano gia' in
+globals.css dall'impalcatura shadcn -- la stessa che il 16/09 avevo quasi cancellato come
+"codice morto" e che Gabriel mi ha fatto rimettere. Il colore del grafico e' una variabile sola
+(`--grafico-accento`), cosi' in Fase 7 si cambia in un punto.
+
+## 17/09/2026 -- Fase 5 chiusa: la prova dell'assistente, e un'idea che non si poteva costruire
+
+**L'idea scritta in PIANO.md il 16/09 era irrealizzabile cosi' com'era.** Diceva: mostrare il
+riquadro "subito dopo che ha risposto LUI a mano a una richiesta". Ma Free e Starter non hanno
+la chat affatto (`pianoHaAccessoAIChatWeb`), quindi nel prodotto non esiste nessuna richiesta a
+cui un Starter risponda a mano. Trovato leggendo il codice prima di scrivere, non dopo.
+
+**Il momento equivalente che esiste davvero**: l'inserimento di un appuntamento A MANO in
+agenda. Un appuntamento inserito a mano E' una telefonata a cui ha risposto il titolare, cioe'
+esattamente la fatica che l'assistente gli toglierebbe. Il riquadro compare li'.
+
+**"AI risposta vera ma un limite vero"** (Gabriel). Chiamata vera al modello sui dati veri del
+salone: un esempio statico si riconosce e non convince. Ma il vincolo di prodotto del 16/09 --
+"a Starter non va data MAI un po' di AI, nemmeno una quota simbolica" -- va rispettato per
+STRUTTURA, non per scarsita'. Da qui tre pezzi invece di un numero:
+
+1. **La prova non puo' scrivere niente.** Al modello arrivano solo gli strumenti in lettura
+   (`STRUMENTI_DEMO`). Per farlo ho aggiunto `strumentiConsentiti` a `rispondiConversazione`:
+   il filtro sta DENTRO l'agente e non nel chiamante, perche' se il chiamante si limitasse a
+   ignorare il risultato di uno strumento vietato il modello lo vedrebbe comunque nell'elenco e
+   proverebbe a usarlo. La prova mostra la VOCE dell'assistente, non la sua CAPACITA', ed e' la
+   capacita' che si paga.
+   L'elenco e' scritto per INCLUSIONE e non per esclusione: uno strumento nuovo aggiunto domani
+   nasce fuori dalla prova. Col verso rovesciato, il primo strumento di scrittura aggiunto
+   senza pensarci sarebbe regalato ai piani senza AI.
+2. **Il tetto vive nel database** (migrazione 0041), non nella server action. Contatore su
+   `tenants` fuori da ogni `grant update` -- una colonna nuova nasce chiusa dalla 0030, ed e'
+   proprio quello che serve -- e `consuma_demo_ai()` che controlla e incrementa nella STESSA
+   update, quindi due schede aperte insieme non consumano la stessa prova due volte.
+3. **Costa piu' tempo che farlo a mano**, quindi non e' un workflow nemmeno con un tetto alto.
+
+Tetto: **10 al mese**. Una prova con Haiku costa qualche millesimo di euro, quindi il numero non
+serve a contenere una spesa: serve a dire che non e' un servizio.
+
+**Un errore mio, trovato subito e da ricordare**: `revoke all on function ... from public`
+toglie il permesso anche al `service_role`, che lo eredita da PUBLIC -- cioe' all'unico chiamante
+legittimo. La funzione era diventata inutilizzabile da chiunque. Corretto con un `grant execute
+... to service_role` e verificato con `has_function_privilege`. Regola: dopo ogni revoke su una
+funzione, verificare chi resta, non fidarsi del ragionamento.
+
+**La prova consuma anche quando il modello fallisce**, di proposito: consumare solo in caso di
+successo rende il tetto aggirabile da chiunque riesca a far fallire la chiamata a comando, e una
+chiamata fallita ad Anthropic e' gia' stata pagata comunque.
+
+**Il riquadro si chiude per un mese** (localStorage): un riquadro commerciale che ricompare a
+ogni appuntamento inserito fa l'effetto contrario di quello che serve. E lo vede solo chi puo'
+configurare l'attivita': per un collaboratore sarebbe una proposta che non e' sua da accettare.

@@ -3053,3 +3053,35 @@ dai test o dalla landing) e `src/app/beautifui/` (due CSS che nessuna pagina imp
 Erano anche l'origine di **tutti e nove** gli errori eslint del progetto: da stanotte
 `eslint src tests --max-warnings=0` passa pulito, il che lo rende di nuovo un segnale utile
 invece di un rumore da ignorare.
+
+
+---
+
+## 17/09/2026 (sera) -- Fase 3 e Fase 5 chiuse
+
+**Fase 3.** L'ultimo punto aperto non era codice mancante, era una definizione mancante.
+Gabriel ha scelto entrambe le definizioni di retention che aveva proposto; sono la stessa
+funzione con N parametrico, quindi sono state costruite tutte e due in `src/lib/retention.ts`
+(22 test). Il settore ne usa due -- retention dei clienti NUOVI e degli ABITUALI -- e ci sono
+entrambe. Tre scelte rendono il numero onesto invece che decorativo: chi non ha ancora avuto
+il tempo di tornare resta fuori dal denominatore, sotto 5 clienti non si mostra nessuna
+percentuale, e due appuntamenti nello stesso giorno sono una visita sola.
+
+La pagina `/dashboard/analytics` e' stata rifatta: periodo scegliibile (4 settimane / 3 mesi /
+6 mesi / 12 mesi) con la granularita' che lo segue, variazione sul periodo precedente, un
+grafico Recharts con le card che fanno da interruttore, e il blocco retention che mostra tutta
+la curva invece di nascondere le righe dietro un menu. Struttura presa dalla demo pubblica di
+Plausible, densita' no: quattro pillole invece di undici voci raggruppate.
+
+**Fase 5.** L'ultimo punto aperto era il riquadro di upsell Starter -> Growth. L'idea come era
+scritta non si poteva costruire (presupponeva una chat che Starter non ha); il momento
+equivalente che esiste davvero e' l'inserimento di un appuntamento a mano, che e' una
+telefonata a cui ha risposto il titolare. Il riquadro fa una chiamata VERA al modello sui dati
+veri del salone, con un limite fatto di tre pezzi: nessuno strumento di scrittura, tetto
+mensile applicato nel database (migrazione 0041, gia' in produzione), e il fatto che usarlo
+costi piu' tempo che fare il lavoro a mano.
+
+**Stato**: 654 test unitari verdi (erano 604), 53 scenari Playwright, tsc/eslint/build puliti,
+suite verificata sotto piu' fusi orari. Restano aperte le fasi 2, 4 (chiusa), 6, 6bis, 6ter e 7 --
+con la 6ter, dominata dalla checklist Stripe live e dal collo di bottiglia della P.IVA, che
+resta l'unica cosa fra il prodotto e il primo cliente pagante.
