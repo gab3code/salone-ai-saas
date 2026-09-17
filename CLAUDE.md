@@ -875,6 +875,32 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27quinquies. Cosa puo' catturare una Server Action inline (18/09/2026)
+
+Una Server Action scritta dentro il JSX (`action={async () => { "use server"; ... }}`)
+cattura le variabili che la circondano, e Next PROVA A SERIALIZZARLE tutte.
+Quindi puo' catturare solo valori serializzabili: stringhe, numeri, booleani,
+array e oggetti semplici. **Mai una funzione, mai un oggetto come
+URLSearchParams, Date o Map.**
+
+Costato caro una volta: la correzione dell'audit sugli errori silenziosi aveva
+messo un helper `tornaConErrore` come chiusura dentro il componente. Le tre
+azioni del calendario lo catturavano, Next lanciava "Functions cannot be
+passed directly to Client Components", e segnare un'assenza, cancellare e
+spostare un appuntamento dalla pagina piu' usata della dashboard smettevano di
+funzionare -- in silenzio: nessun messaggio, il pulsante cliccato, la pagina
+ricaricata identica. Ed era gia' in produzione.
+
+Come si evita: l'helper va a livello di MODULO e riceve quello che gli serve
+come parametri (un riferimento di modulo non viene serializzato, una chiusura
+si). Se serve un URLSearchParams dentro l'azione, si cattura la stringa
+(`.toString()`) e lo si ricostruisce dentro.
+
+Come si scopre: un test che controlla il DATABASE dopo il clic, non lo schermo.
+Lo Scenario 11 ha trovato questo bug proprio perche' rileggeva lo stato
+dell'appuntamento invece di fidarsi di quello che la pagina mostrava. Un test
+che guardasse solo la UI sarebbe passato.
+
 ## 27quater. Git sul Mac di Gabriel attraverso il ponte (17/09/2026)
 
 Il ponte monta la cartella del progetto senza permesso di cancellare file, se

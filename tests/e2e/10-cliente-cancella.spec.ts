@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { creaTenantDiProva, type TenantDiProva } from "./helpers/tenant-di-prova";
 import { creaAppuntamentoConfermato } from "./helpers/appuntamento-di-prova";
-import { prossimoGiornoAperto } from "./helpers/date";
+import { secondoGiornoAperto } from "./helpers/date";
 
 /**
  * Scenario 10 -- il cliente cancella un appuntamento DAL SUO LINK PERSONALE.
@@ -39,7 +39,20 @@ test.describe("Scenario 10 -- il cliente cancella un appuntamento via chat", () 
     });
 
     const telefono = "3339990010";
-    const giorno = prossimoGiornoAperto();
+    // SECONDO giorno aperto, non il primo (18/09/2026).
+    //
+    // Con il primo, questo test passava solo se lanciato di mattina: la
+    // cancellazione online si chiude nelle 24 ore prima dell'appuntamento
+    // (ore_minime_cancellazione, 24 di default), e "domani alle 10:00"
+    // lanciato di sera dista meno di 24 ore -- il pulsante "Cancella la
+    // prenotazione" spariva correttamente e il test aspettava per un minuto
+    // un pulsante che il prodotto aveva ragione a non mostrare.
+    //
+    // Il secondo giorno aperto dista sempre piu' di 34 ore, a qualunque ora
+    // giri la suite. Il limite delle 24 ore resta quello vero: non lo si
+    // abbassa sul tenant di prova, cosi' questo scenario continua a girare
+    // sulle stesse impostazioni di un salone reale.
+    const giorno = secondoGiornoAperto();
     const servizio = tenant.servizi[0];
 
     const appuntamento = await creaAppuntamentoConfermato(tenant, {

@@ -1,6 +1,40 @@
 import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
+
+/**
+ * Torna sul calendario mostrando un errore, invece di scartarlo in silenzio.
+ *
+ * STA FUORI DAL COMPONENTE, e non e' un dettaglio di stile (18/09/2026).
+ * Quando era una chiusura dentro il componente, le tre Server Action inline
+ * di questa pagina la catturavano, e Next prova a serializzare tutto quello
+ * che una Server Action cattura: una funzione non e' serializzabile, quindi
+ * la pagina lanciava "Functions cannot be passed directly to Client
+ * Components" e le azioni non facevano piu' niente.
+ *
+ * Il guaio e' che non si vedeva: nessun messaggio all'utente, il pulsante
+ * cliccato, la pagina che si ricarica identica. Segnare un'assenza,
+ * cancellare e spostare un appuntamento dal calendario -- la pagina piu'
+ * usata della dashboard -- erano rotti tutti e tre. L'ha scoperto lo
+ * Scenario 11, che verificava lo stato nel database invece di fidarsi dello
+ * schermo.
+ *
+ * Regola che ne esce: una Server Action inline puo' catturare solo valori
+ * serializzabili (stringhe, numeri, array di stringhe). Mai una funzione,
+ * mai un oggetto come URLSearchParams.
+ */
+function tornaConErrore(
+  errore: string,
+  dataYMD: string,
+  servizioIds: string[],
+  operatoreId: string | null
+): never {
+  const parametri = new URLSearchParams({ data: dataYMD });
+  for (const id of servizioIds) parametri.append("servizio_id", id);
+  if (operatoreId) parametri.set("operatore_id", operatoreId);
+  parametri.set("errore", errore);
+  redirect(`/dashboard/calendario?${parametri.toString()}`);
+}
 import { trovaSlotDisponibiliTenant } from "@/lib/booking-engine.server";
 import { pseudoUtcAReale, realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
@@ -84,13 +118,6 @@ export default async function PaginaCalendario({
   //
   // L'errore torna nell'indirizzo, che e' lo stesso meccanismo gia' usato
   // qui sotto per il banner della lista d'attesa.
-  const tornaConErrore = (errore: string) => {
-    const parametri = new URLSearchParams({ data: dataYMD });
-    for (const id of servizioIds) parametri.append("servizio_id", id);
-    if (operatoreId) parametri.set("operatore_id", operatoreId);
-    parametri.set("errore", errore);
-    redirect(`/dashboard/calendario?${parametri.toString()}`);
-  };
 
   const avvisoListaAttesa = sp.lista_attesa_avviso
     ? (
@@ -243,6 +270,9 @@ export default async function PaginaCalendario({
               const parametriSenzaModifica = new URLSearchParams({ data: dataYMD });
               for (const id of servizioIds) parametriSenzaModifica.append("servizio_id", id);
               if (operatoreId) parametriSenzaModifica.set("operatore_id", operatoreId);
+              // Stessa regola: la Server Action qui sotto cattura la STRINGA,
+              // non l'oggetto URLSearchParams, che non e' serializzabile.
+              const queryBase = parametriSenzaModifica.toString();
 
               return (
                 <li key={a.id} className="rounded border border-zinc-200 p-3">
@@ -273,7 +303,7 @@ export default async function PaginaCalendario({
                           action={async () => {
                             "use server";
                             const esito = await segnaNoShow(a.id, !eAssente);
-                            if (esito?.errore) tornaConErrore(esito.errore);
+                            if (esito?.errore) tornaConErrore(esito.errore, dataYMD, servizioIds, operatoreId);
                           }}
                         >
                           <button type="submit" className="underline text-amber-700">
@@ -291,12 +321,13 @@ export default async function PaginaCalendario({
                         action={async () => {
                           "use server";
                           const risultato = await cancellaAppuntamento(a.id);
-                          if ("errore" in risultato && risultato.errore) tornaConErrore(risultato.errore);
+                          if ("errore" in risultato && risultato.errore)
+                            tornaConErrore(risultato.errore, dataYMD, servizioIds, operatoreId);
                           // Match in lista d'attesa (Fase 6): torna sulla stessa vista con
                           // l'id della riga da segnalare, così il banner sopra compare subito
                           // senza dover aprire /dashboard/lista-attesa per accorgersene.
                           if ("listaAttesaAvvisata" in risultato && risultato.listaAttesaAvvisata) {
-                            const parametri = new URLSearchParams(parametriSenzaModifica);
+                            const parametri = new URLSearchParams(queryBase);
                             parametri.set("lista_attesa_avviso", risultato.listaAttesaAvvisata.id);
                             redirect(`/dashboard/calendario?${parametri.toString()}`);
                           }
@@ -314,7 +345,7 @@ export default async function PaginaCalendario({
                       action={async (formData: FormData) => {
                         "use server";
                         const esito = await modificaAppuntamento(a.id, formData);
-                        if (esito?.errore) tornaConErrore(esito.errore);
+                        if (esito?.errore) tornaConErrore(esito.errore, dataYMD, servizioIds, operatoreId);
                       }}
                       className="mt-3 flex flex-wrap items-end gap-2 border-t border-zinc-200 pt-3"
                     >
