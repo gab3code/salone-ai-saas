@@ -56,6 +56,14 @@
 }
 
 :root {
+  /* Serie dei grafici di /dashboard/analytics (17/09/2026). Una sola
+     variabile perche' il grafico mostra una serie per volta: quale sia si
+     capisce dalla card selezionata sopra, non dal colore, cosi' la pagina
+     resta monocroma invece di diventare un'insalata di tinte. Oggi e' il
+     nero della dashboard (lo stesso dei pulsanti); in Fase 7, quando la
+     direzione smeraldo scelta il 16/09 arrivera' davvero, si cambia QUI e
+     basta. */
+  --grafico-accento: #18181b;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
