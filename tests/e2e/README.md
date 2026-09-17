@@ -1,5 +1,28 @@
 # Scenari E2E (punto 30 di CLAUDE.md) -- Task #190 CHIUSO
 
+## Run completo della notte del 18/09/2026: 52 su 55, e tre cause diverse
+
+Vale la pena tenerlo scritto, perche' i tre rossi sembravano la stessa cosa
+("l'AI e' instabile", "gli E2E sono fragili") e non lo erano affatto.
+
+| Scenario | Cosa era davvero | Esito |
+|---|---|---|
+| 11 -- no-show | **Bug vero del prodotto, gia' in produzione.** Le tre Server Action inline del calendario catturavano l'helper `tornaConErrore`, e Next serializza tutto cio' che una Server Action cattura: una funzione non lo e'. Assenza, cancellazione e spostamento dalla dashboard erano rotti in silenzio. Regola in CLAUDE.md 27quinquies. | corretto, verde |
+| 1 -- prenotazione AI | **Helper delle date.** `prossimoGiornoAperto` calcolava "domani" in UTC: dalle 22:00 UTC, cioe' da mezzanotte italiana, restituiva un giorno che per il salone era gia' oggi. L'AI, invece di prenotare, chiedeva conferma del giorno. Sembrava variabilita' del modello, non lo era. | corretto, verde |
+| 10 -- cancellazione | **Race condition nel TEST, non nel prodotto.** Aspettava con poll che l'appuntamento fosse cancellato e poi leggeva la lista d'attesa una volta sola, ma l'avviso alla lista d'attesa arriva dopo, con altre query di mezzo. Col server caldo passava, col freddo no. Regola in CLAUDE.md 27sexies. | corretto, verde due volte di fila |
+
+Tre lezioni, tutte costate piu' di un giro:
+
+1. Un test che verifica il DATABASE invece dello schermo trova bug che la UI
+   nasconde. Lo Scenario 11 ha trovato il bug del calendario solo per questo.
+2. Un rosso intermittente che "passa da solo" non e' risolto: quasi sempre e'
+   una race condition, e il momento in cui passa e' quello in cui si smette
+   di cercarla.
+3. Prima di dare la colpa al modello, controllare l'ora. Due scenari su tre
+   erano caduti per l'orario in cui girava la suite, non per quello che
+   facevano.
+
+
 **16/09/2026: `npm run test:e2e` -- 18 passed, zero fallimenti.** Tutti e 15 gli scenari del
 punto 27 di CLAUDE.md (18 test in 15 file) sono verdi INSIEME in un'unica run, non solo nei run
 mirati dei giri precedenti -- vedi DECISIONS.md, "Task #190 chiuso", per il riepilogo completo
