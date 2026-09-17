@@ -2042,6 +2042,71 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       89,90 € scatta ogni mese; conservazione a norma per 10 anni, non basta tenere i file.
       Vedi DECISIONS.md per il perché dei campi al checkout invece che alla registrazione.
 
+### Stripe dopo la P.IVA -- lista completa, da spuntare (compilata 17/09/2026)
+
+Tutto quello che su Stripe va rifatto o configurato quando si passa dall'account sandbox a
+quello live. Test e live sono due mondi separati: chiavi diverse, prodotti e prezzi diversi,
+webhook e segreti diversi, portale diverso, clienti diversi. **Niente si promuove da test a
+live: si rifà.** Questa lista esiste perché dimenticarne un pezzo non dà un errore, dà un
+cliente che paga la cifra sbagliata o una fattura che non parte.
+
+**Attivazione dell'account**
+- [ ] Completare l'attivazione live: P.IVA, IBAN, documento d'identità, indirizzo dell'attività.
+      Finché non è completa Stripe accetta i pagamenti ma trattiene i versamenti.
+- [ ] Controllare il settore dichiarato (MCC): influisce su commissioni e controlli antifrode.
+
+**Catalogo prodotti**
+- [ ] Ricreare i **6 prezzi** in live: i 3 piani (Starter 19,90 / Growth 39,90 / Pro 89,90) e le
+      3 quote operatore extra (10 / 15 / 20). Gli ID live sono diversi da quelli sandbox.
+- [ ] Aggiornare le 6 variabili d'ambiente dei price su Vercel (production).
+- [ ] Lanciare lo script di verifica prezzi (voce sopra) PRIMA di aprire ai clienti: sbagliare
+      il price di una quota operatore non rompe niente, fa solo pagare meno del dovuto, in
+      silenzio.
+
+**Chiavi**
+- [ ] `STRIPE_SECRET_KEY` live, chiave pubblicabile live, `STRIPE_WEBHOOK_SECRET` del webhook
+      live. Su Vercel production, non in `.env.local`.
+
+**Webhook**
+- [ ] Creare l'endpoint live verso `/api/stripe/webhook`.
+- [ ] Iscriverlo agli stessi **7 eventi** della sandbox: `checkout.session.completed`,
+      `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
+      `checkout.session.expired`, `customer.subscription.created/updated/deleted`.
+- [ ] Aggiungere `customer.subscription.trial_will_end` quando esisterà l'email di fine prova, e
+      `charge.dispute.created` (vedi le voci in 6ter).
+- [ ] Con Connect servirà un secondo blocco di eventi, quelli degli account collegati.
+
+**Portale clienti**
+- [ ] Riconfigurarlo in live da zero: cambio piano **sui soli 3 piani base** (mai i price
+      "operatore extra", che nell'elenco sembrano prodotti come gli altri ma sono quote),
+      conguaglio ripartito, partita IVA fra i dati modificabili, cancellazione a fine periodo.
+
+**Metodi di pagamento**
+- [ ] Decidere quali metodi accettare per l'abbonamento. Oggi in sandbox sono accesi Klarna,
+      Bancontact, Satispay, Amazon Pay, Link, Blik, EPS, Pix, MB WAY: per un abbonamento B2B
+      mensile la carta basta, e ogni metodo in più è una schermata di pagamento più confusa.
+      (La caparra è già limitata alle sole carte nel codice.)
+
+**Connect** (vedi la sezione dedicata sotto)
+- [ ] Account collegati, direct charges, scelta fra Express e Standard.
+
+**Recupero crediti**
+- [ ] Smart retries ed email automatiche sui pagamenti falliti: **non accenderli subito**. Con i
+      primi dieci clienti una email automatica che minaccia la sospensione al primo pagamento
+      fallito fa perdere il cliente invece di recuperarlo -- quando sono dieci, si chiamano. Si
+      accende quando sono troppi per chiamarli tutti.
+
+**Fatturazione**
+- [ ] Collegare il servizio che trasmette allo SdI, pilotato dal webhook del pagamento.
+      **Attenzione al nome**: le "Fatture" che Stripe genera NON sono fatture elettroniche
+      italiane -- sono ricevute. La fattura fiscale la emette il servizio esterno.
+- [ ] Stripe Tax non serve finché si è in forfettario (nessuna IVA da calcolare). Da rivalutare
+      solo uscendo dal forfettario.
+
+**Verifica finale**
+- [ ] Un pagamento vero da pochi euro con una carta propria, e il suo rimborso: è l'unico modo
+      di sapere che chiavi, webhook, prezzi e fattura funzionano insieme in live.
+
 ### Stripe Connect per le caparre -- BLOCCANTE prima del primo cliente pagante (17/09/2026)
 
 - [ ] **Le caparre devono nascere sull'account del salone, non sul nostro.** Oggi la sessione di
