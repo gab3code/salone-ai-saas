@@ -875,6 +875,30 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27quater. Git sul Mac di Gabriel attraverso il ponte (17/09/2026)
+
+Il ponte monta la cartella del progetto senza permesso di cancellare file, se
+non lo si chiede. Git invece cancella file a ogni scrittura: crea
+`.git/index.lock` e `.git/HEAD.lock`, scrive, e li rimuove. Senza permesso di
+cancellare, la scrittura RIESCE ma i lock restano, e il comando git successivo
+muore con "Another git process seems to be running in this repository".
+
+E' successo davvero: un `git gc` lanciato in automatico da git ha lasciato 26
+file `.lock` (compresi `HEAD.lock` e `refs/heads/main.lock`), e da li' in poi
+ogni comando git falliva. Disattivare `gc.auto` NON risolve: il problema e' di
+ogni scrittura, non solo del gc.
+
+La soluzione e' chiedere il permesso di cancellare sulla cartella del progetto
+(`device_request_delete_permission`) PRIMA di fare commit da qui. Con quello
+git si comporta normalmente.
+
+Se il permesso non c'e' e non si puo' chiedere: non fare commit da qui. In
+emergenza i lock si tolgono spostandoli (`mv`) in una sottocartella, ma e' una
+pezza che va rifatta a ogni singola scrittura.
+
+Da notare: il Terminal vero del Mac di Gabriel non ha nessuna di queste
+limitazioni. I suoi `git push`, `git commit`, `git status` funzionano sempre.
+
 ## 27ter. Come si scrive la precondizione di un test play (17/09/2026)
 
 Sbagliata tre volte nello stesso giorno, quindi vale la pena scriverla.
