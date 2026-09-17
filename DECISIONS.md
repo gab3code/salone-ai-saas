@@ -6287,3 +6287,86 @@ ho buttate entrambe, e tutte e due le volte il difetto e' saltato fuori da una d
 rilettura. La domanda da farsi prima di scrivere non e' "funziona?" ma "che succede se qualcuno
 lo usa per quello per cui non e' fatto?". Il brief in `docs/` esiste per obbligarmi a
 rispondere a quella domanda per iscritto prima di cominciare, non dopo.
+
+## 17/09/2026 (notte) -- La demo, terza e ultima forma: senza stato
+
+Gabriel: "verifica che non ci incasini il sistema, deve essere l'opzione migliore... prenditi il
+tuo tempo e prepara la cosa che ritieni migliore dopo aver pensato a moltissime soluzioni".
+
+Le soluzioni pesate, e perche' sono cadute:
+
+1. **Un salone demo condiviso** (prima forma, mattina). Agenda unica per tutti: chi prenota
+   martedi' alle 15 la toglie a chiunque arrivi dopo. Scartata da Gabriel.
+2. **Un salone clonato per visitatore** (seconda forma, sera). Isolamento perfetto, ma i cloni
+   sono tenant veri: vanno esclusi a mano da ogni metrica e da ogni job **per sempre**, e il
+   link pubblico si puo' dare ai propri clienti. Scartata.
+3. **Filtro per sessione dentro il motore di prenotazione.** Nove punti di lettura in
+   `booking-engine.server.ts` piu' la modifica del vincolo `niente_sovrapposizioni`. Dimenticare
+   un filtro = un visitatore vede la prenotazione di un altro; sbagliarlo dall'altra parte = due
+   clienti VERI allo stesso orario. Troppo rischio per una funzione di marketing.
+4. **Demo grafica con chat finta** (il ripiego che Gabriel stesso offriva). Zero costi e zero
+   rischi, ma un titolare di salone riconosce un copione in tre battute, e non puo' fargli la
+   SUA domanda -- che e' esattamente il momento in cui si convince.
+5. **Un pool di saloni demo assegnati a rotazione.** Tutti i difetti dei cloni, in piu' due
+   visitatori contemporanei possono capitare sullo stesso.
+6. **Nessuna demo, solo un video.** Un video non risponde alle domande.
+7. **Demo senza stato con assistente vero** -- scelta.
+
+### Perche' la 7 vince
+
+Non scrive niente da nessuna parte. Il salone e' una costante, l'agenda vive nello stato della
+pagina. Da questo discende tutto il resto, e sono esattamente le richieste di Gabriel:
+
+- **non e' uguale per tutti**: ogni visitatore ha la sua agenda, e l'isolamento e' gratis perche'
+  e' memoria, non righe;
+- **non si puo' usare come salone vero**: non esiste nessun indirizzo da dare ai propri clienti,
+  e ricaricando la pagina riparte vuota;
+- **non ci sono sprechi oltre al modello**: nessun tenant creato, nessuna riga scritta, nessuna
+  pulizia da programmare;
+- **non rompe il prodotto che abbiamo**: e' tutto codice nuovo e additivo. L'unica modifica al
+  codice esistente e' un campo opzionale sul contesto degli strumenti (`ctx.esegui`), che assente
+  lascia il comportamento identico a prima -- verificato dai 145 test dell'AI, tutti verdi senza
+  modifiche.
+
+### Il dettaglio che la rende onesta e non una scorciatoia
+
+La disponibilita' non e' ricalcolata: si chiamano `calcolaSlotDisponibili` e
+`calcolaSlotServiziConsecutivi`, **le stesse identiche funzioni pure che usa il prodotto**, con i
+parametri costruiti nello stesso ordine di `trovaSlotEContestoTenant`. Se la demo dicesse
+"martedi' alle 15 e' libero" e il prodotto non lo direbbe, sarebbe una bugia che si scopre il
+giorno dopo aver comprato.
+
+Il motore e' scritto come logica pura proprio per questo. **Se quella logica fosse stata sepolta
+dentro le query, la scelta giusta sarebbe stata un'altra** -- una demo a dati finti sarebbe stata
+un secondo motore destinato a divergere, e i cloni avrebbero avuto ragione. Vale la pena scriverlo
+perche' e' il criterio da riusare la prossima volta.
+
+Nota collegata: gli id della costante sono **uuid veri**. Gli strumenti validano il formato
+(`eUuidValido`), quindi con id finti tipo "servizio-1" la demo divergerebbe dal prodotto proprio
+nel punto piu' delicato. C'e' un test che lo impone.
+
+### I costi, e cosa li ferma
+
+L'unico costo e' il modello. Quattro difese su scale diverse:
+- **600 messaggi al mese su tutta la demo**, su una riga sola di `contatori_globali`: e' l'unico
+  tetto che non si aggira aprendo una scheda nuova, ed e' per questo che e' quello che conta.
+  Consumato PRIMA della chiamata al modello, e in caso di errore del contatore si chiude invece
+  di aprire -- qui non c'e' nessun cliente reale da proteggere da un falso positivo, e dall'altra
+  parte c'e' una bolletta;
+- 12 messaggi per conversazione, 400 caratteri per messaggio, 5 appuntamenti per sessione.
+
+Storico e agenda viaggiano nel corpo della richiesta, quindi arrivano dal browser e non sono
+affidabili. Non e' un problema di sicurezza -- sono dati finti, e chi li manomette rovina solo la
+propria demo -- ma **e'** un problema di costo, perche' uno storico gonfiato si paga in token. Per
+questo si controlla la DIMENSIONE di quello che arriva prima di chiamare il modello, e si tronca
+comunque.
+
+### Cosa resta scoperto, dichiarato
+
+- L'anti-burst per IP non c'e'. Chi insiste puo' consumare il tetto mensile della demo piu' in
+  fretta di quanto vorremmo: al peggio la demo si zittisce fino al mese dopo, non arriva una
+  bolletta. Il limite per IP ha senso farlo una volta sola per tutto l'endpoint pubblico, non
+  solo per la demo.
+- Nella demo non si vede il passaggio "chiama il salone": il salone finto non ha numero di
+  telefono, perche' un numero inventato appartiene quasi sempre a qualcuno.
+- La prenotazione non sopravvive a un ricaricamento. Per una demo e' indifferente.

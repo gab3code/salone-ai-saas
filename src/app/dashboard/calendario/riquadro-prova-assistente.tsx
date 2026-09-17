@@ -92,7 +92,12 @@ export function RiquadroProvaAssistente({ rimasteIniziali }: { rimasteIniziali: 
           <p className="mt-1 max-w-xl text-sm text-zinc-600">
             Con <strong>Growth</strong> l&apos;assistente risponde al posto tuo e prenota da solo, anche di domenica
             e alle undici di sera. Scrivi qui sotto quello che ti ha chiesto un cliente al telefono: ti faccio
-            vedere cosa gli avrebbe risposto, con i tuoi servizi e i tuoi orari veri.
+            vedere cosa gli avrebbe risposto, con i tuoi servizi e i tuoi orari veri. Se invece vuoi vedere la
+            scena dalla parte del cliente,{" "}
+            <a href="/demo" target="_blank" rel="noopener" className="underline">
+              apri il salone di prova
+            </a>{" "}
+            e prenota tu stesso: li&apos; l&apos;assistente l&apos;appuntamento lo prende davvero.
           </p>
         </div>
         <button

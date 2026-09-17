@@ -2107,23 +2107,27 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
   **La linea è: regola deterministica sì, prosa generata sopra i numeri no.** Una regola o è giusta
   o è sbagliata e si può controllare; un paragrafo è un'opinione che sembra un dato.
 
-- [ ] **Demo pubblica -- costruita e smontata il 17/09/2026, da rifare senza tenant.**
-      Costruita come due saloni veri (migrazione 0042) e poi come un salone clonato per
-      visitatore (0044). Smontata la sera stessa (0045) dopo un'obiezione di Gabriel: "se il
-      responsabile inizia ad usare la demo come vero salone diventa un problema serio".
-      Aveva ragione, e il difetto era piu' largo: un salone demo fatto di TENANT VERI e'
-      indistinguibile da un salone vero per tutto il resto del sistema (andava escluso a mano dal
-      MRR del pannello e dal giro notturno, e ogni job futuro dovrebbe ricordarsene), e il link
-      pubblico si puo' dare in giro -- clienti che prenotano e si presentano a un appuntamento
-      che la pulizia ha cancellato due giorni dopo.
-      **Come va rifatta** (brief completo in `docs/brief-demo-senza-rischi.md`): senza stato.
-      I dati del salone finto vivono nel codice, l'agenda vive nella sessione di chi guarda, e
-      non si scrive niente da nessuna parte. L'assistente resta VERO -- risponde col modello e
-      calcola la disponibilita' con `calcolaSlotDisponibili`, la stessa identica funzione pura
-      del motore, non una copia. Il tetto mensile ha gia' il suo posto (`contatori_globali` +
-      `consuma_contatore_globale`, migrazione 0045, applicata e verificata).
-      **Quello che resta da scrivere**: la costante col salone finto, l'esecutore di strumenti
-      che ci lavora sopra, l'endpoint della chat della demo, la pagina.
+- [x] ~~**Demo pubblica**~~ **FATTA 17/09/2026, alla terza forma.** Le prime due erano saloni
+      VERI nel database (un modello condiviso, poi un clone per visitatore) e sono state buttate
+      entrambe: un tenant demo e' indistinguibile da un salone vero per tutto il resto del
+      sistema (va escluso a mano da ogni metrica e da ogni job, per sempre) e il suo link
+      pubblico si puo' dare ai propri clienti, che poi si presentano a un appuntamento che la
+      pulizia ha cancellato. Ragionamento in `docs/brief-demo-senza-rischi.md` e in DECISIONS.md.
+      **La forma buona e' senza stato**: il salone e' una costante nel codice
+      (`src/lib/demo/salone-finto.ts`), l'agenda vive nella pagina di chi guarda, e non si scrive
+      NIENTE da nessuna parte -- nessun tenant, nessun appuntamento, nessuna pulizia, nessuna
+      esclusione da ricordarsi in ogni funzione futura. Ne discendono le due cose che Gabriel
+      chiedeva: ogni visitatore ha la sua agenda (isolamento gratis), e non esiste nessun
+      indirizzo da dare ai propri clienti (impossibile usarla come salone vero).
+      **L'assistente resta vero**: stessa `rispondiConversazione`, stesso prompt, stessi
+      strumenti, e la disponibilita' la calcola `calcolaSlotDisponibili` -- la stessa identica
+      funzione pura del motore, non una copia. Cambia solo chi esegue gli strumenti
+      (`ctx.esegui`, iniettato; assente = comportamento di sempre per ogni salone vero).
+      **Costo**: l'unico e' il modello. Tetto di 600 messaggi al mese su tutta la demo, su una
+      riga sola di `contatori_globali` -- l'unico limite che non si aggira aprendo una scheda
+      nuova -- piu' tetto per conversazione, per messaggio e per appuntamenti presi.
+      Interruttore Growth/Pro in pagina: la differenza fra i piani si prova invece di leggerla.
+      Collegata dalla hero della landing e dal riquadro di upsell degli Starter.
 - [ ] **Video di sessanta secondi.** Ora che la demo esiste, il video e' una registrazione di
       schermo di due minuti: si apre `/demo`, si chiede un appuntamento all'assistente, si mostra
       che finisce in agenda. Resta da fare, ed e' l'ultimo pezzo di materiale di vendita che manca.

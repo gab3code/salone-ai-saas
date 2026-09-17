@@ -557,12 +557,18 @@ export function Hero() {
           >
             Inizia gratis — nessuna carta richiesta
           </MagneticButton>
+          {/* 17/09/2026: "Guarda come funziona" portava a una sezione che
+              DESCRIVE il prodotto. Adesso che la demo esiste, il secondo
+              pulsante lo fa PROVARE -- che e' l'unica cosa che convince
+              davvero un titolare di salone, e per mesi e' stato quello che
+              mancava di piu' a questa landing ("la landing promette senza
+              provare", Fase 6ter). */}
           <MagneticButton
-            href="#funzionalita"
+            href="/demo"
             forza={0.25}
             className="inline-block rounded-full border border-white/15 px-6 py-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-white"
           >
-            Guarda come funziona
+            Provalo adesso, senza registrarti
           </MagneticButton>
         </motion.div>
 

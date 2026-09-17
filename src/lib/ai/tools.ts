@@ -39,6 +39,22 @@ import { nomeGiornoSettimana } from "@/lib/ai/giorni-settimana";
 export interface ContestoStrumento {
   supabase: SupabaseClient;
   tenantId: string;
+  /**
+   * Chi esegue gli strumenti (17/09/2026). Assente = `eseguiStrumento`,
+   * cioe' il comportamento di sempre: per ogni salone vero qui non cambia
+   * niente.
+   *
+   * Esiste per la demo pubblica, che ha gli stessi strumenti ma dati finti e
+   * nessun database (`src/lib/demo/strumenti-demo.ts`). E' un parametro e non
+   * un ramo `if (demo)` dentro `eseguiStrumento` perche' quel ramo metterebbe
+   * la demo dentro il percorso di ogni cliente pagante, cioe' il posto in cui
+   * un errore costa di piu'.
+   */
+  esegui?: (
+    nome: NomeStrumento,
+    input: Record<string, unknown>,
+    ctx: ContestoStrumento
+  ) => Promise<Record<string, unknown>>;
   // Necessari SOLO a crea_prenotazione quando l'attività richiede una
   // caparra (Fase 6, bug trovato dal vivo il 15/09/2026: l'AI creava la
   // prenotazione confermata bypassando completamente la caparra, a

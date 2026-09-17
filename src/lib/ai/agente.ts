@@ -230,7 +230,7 @@ async function correggiSeIncongruente(
 
   let servizi: ServizioReale[] = [];
   if (potrebbeMenzionareUnNumero) {
-    const risultatoServizi = await eseguiStrumento("elenca_servizi", {}, ctx);
+    const risultatoServizi = await (ctx.esegui ?? eseguiStrumento)("elenca_servizi", {}, ctx);
     const serviziGrezzi =
       (risultatoServizi.servizi as Array<{ nome: string; durata_minuti: number; prezzo_euro: number }> | undefined) ?? [];
     servizi = serviziGrezzi.map((s) => ({ nome: s.nome, durataMinuti: s.durata_minuti, prezzoEuro: s.prezzo_euro }));
@@ -488,7 +488,11 @@ export async function rispondiConversazione(
 
     const risultatiTool: Anthropic.ToolResultBlockParam[] = [];
     for (const blocco of blocchiToolUse) {
-      const risultato = await eseguiStrumento(blocco.name as NomeStrumento, blocco.input as Record<string, unknown>, ctx);
+      const risultato = await (ctx.esegui ?? eseguiStrumento)(
+        blocco.name as NomeStrumento,
+        blocco.input as Record<string, unknown>,
+        ctx
+      );
       if (blocco.name === "trasferisci_a_operatore") trasferitoAUmano = true;
       if (
         blocco.name === "crea_prenotazione" &&
