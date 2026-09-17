@@ -527,9 +527,15 @@ export function Hero() {
           className="mt-6 max-w-xl text-base text-white/70 sm:text-lg"
           style={{ textShadow: "0 2px 16px rgba(0,0,0,0.7)" }}
         >
-          I tuoi clienti prenotano da soli dalla tua pagina, un&apos;assistente AI risponde a chi
-          scrive fuori orario, e tu vedi tutto in un unico calendario — senza cambiare il modo
-          in cui lavori oggi.
+          {/* 17/09/2026: la frase prometteva l'assistente AI subito sopra un
+              pulsante "Inizia gratis". L'AI parte da Growth
+              (`PIANI_CON_AI_CHAT_WEB`): senza la precisazione, chi si
+              registra sul piano Free si aspetta una cosa che non trova.
+              La precisazione è breve apposta -- la hero non è il posto per
+              spiegare il listino, ma è il posto dove non mentire. */}
+          I tuoi clienti prenotano da soli dalla tua pagina, tu vedi tutto in un unico
+          calendario, e dal piano Growth un&apos;assistente AI risponde a chi scrive fuori
+          orario — senza cambiare il modo in cui lavori oggi.
         </motion.p>
 
         <motion.div

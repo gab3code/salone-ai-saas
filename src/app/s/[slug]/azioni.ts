@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { creaClientAdmin } from "@/lib/supabase/admin";
-import { risolviTenantDaSlug, risolviTenantIdDaSlug, MESSAGGIO_ATTIVITA_SOSPESA } from "@/lib/ai/tools";
+import { risolviTenantDaSlug, MESSAGGIO_ATTIVITA_SOSPESA } from "@/lib/ai/tools";
 import {
   trovaSlotEStatoGiornoTenant,
   creaAppuntamentoTenant,

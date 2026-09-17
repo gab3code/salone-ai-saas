@@ -71,7 +71,11 @@ import { GlowBorder } from "./GlowBorder";
  */
 
 const IPOTESI = [
-  { icona: MessageCircleWarning, valore: "1", etichetta: "messaggio senza risposta a settimana" },
+  // 17/09/2026: "messaggio senza risposta" senza dire su quale canale.
+  // Con Growth l'assistente risponde SOLO sulla chat della pagina pubblica
+  // (`PIANI_CON_AI_CHAT_WEB`): un salone che pensa a WhatsApp o ai DM legge
+  // un calcolo che il piano non copre. Il canale ora è scritto.
+  { icona: MessageCircleWarning, valore: "1", etichetta: "richiesta senza risposta a settimana sulla tua pagina" },
   { icona: Euro, valore: "35€", etichetta: "scontrino medio a prenotazione" },
   { icona: CalendarRange, valore: "52", etichetta: "settimane in un anno" },
 ];
@@ -212,8 +216,8 @@ export function ImpattoEconomico() {
                 nominare entrambe le colonne di calcolo qui a fianco, non
                 solo i messaggi. */}
             <div className="mt-2 w-full max-w-xs rounded-xl border border-emerald-400/20 bg-emerald-500/[0.06] px-4 py-3 text-left text-xs text-emerald-200/90">
-              Growth risponde ai messaggi che ti sfuggirebbero e manda da solo il promemoria che evita i clienti
-              dimenticati:{" "}
+              Growth risponde da solo a chi scrive sulla tua pagina anche quando sei chiuso, e manda il promemoria
+              che evita i clienti dimenticati:{" "}
               <strong className="text-emerald-300">le due voci qui a fianco, coperte insieme</strong>, senza doverci
               pensare.
             </div>

@@ -17,6 +17,7 @@ import {
   LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE,
   LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI,
 } from "@/lib/ai/limiti";
+import { inviaNotificaPassaggioAOperatore } from "@/lib/email/notifiche.server";
 import { pianoHaKnowledgeBaseAi } from "@/lib/piani";
 import type { StileTonoAI } from "@/lib/ai/agente";
 import { contaMessaggiClienteQuestoMese, ultimoMessaggioTroppoRecente } from "@/lib/ai/limiti.server";
@@ -127,14 +128,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (troppiMessaggi || troppiTurniSenzaStrumenti) {
       await salvaMessaggio(supabase, conversazione.id, "cliente", messaggio);
-      // Mai promettere un passaggio a un operatore che oggi non avvisa
-      // davvero nessuno (15/09/2026, vedi DECISIONS.md) -- si invita a
-      // chiamare direttamente, col numero se il tenant lo ha configurato.
+      // 15/09/2026: mai promettere un passaggio a un operatore che non avvisa
+      // nessuno. Dal 17/09/2026 avvisa davvero (email al titolare con tutta
+      // la conversazione, vedi `inviaNotificaPassaggioAOperatore`), quindi la
+      // frase lo può dire -- senza promettere tempi, e continuando a offrire
+      // la strada certa: chiamare, col numero se il tenant lo ha configurato.
       const rispostaAntiAbuso = tenant.telefono
-        ? `Non riesco a risponderti oltre da qui: chiamaci direttamente al ${tenant.telefono} e ti aiutiamo subito.`
-        : "Non riesco a risponderti oltre da qui: contatta l'attività direttamente per proseguire.";
+        ? `Non riesco a risponderti oltre da qui. Ho avvisato l'attività, che riceve tutta la conversazione: per una risposta subito chiamaci al ${tenant.telefono}.`
+        : "Non riesco a risponderti oltre da qui. Ho avvisato l'attività, che riceve tutta la conversazione: per una risposta subito contattala direttamente.";
       await salvaMessaggio(supabase, conversazione.id, "assistente", rispostaAntiAbuso);
-      await segnaPassataAOperatore(supabase, conversazione.id);
+      if (await segnaPassataAOperatore(supabase, conversazione.id)) {
+        await inviaNotificaPassaggioAOperatore(tenantId, conversazione.id);
+      }
       return NextResponse.json({ risposta: rispostaAntiAbuso, trasferitoAUmano: true });
     }
 
@@ -193,8 +198,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     );
 
     await salvaMessaggio(supabase, conversazione.id, "assistente", risultato.rispostaTesto);
-    if (risultato.trasferitoAUmano) {
-      await segnaPassataAOperatore(supabase, conversazione.id);
+    if (risultato.trasferitoAUmano && (await segnaPassataAOperatore(supabase, conversazione.id))) {
+      // Attesa esplicita, non fire-and-forget: su Vercel la funzione può
+      // terminare appena la risposta è scritta, e una promise non attesa
+      // verrebbe interrotta a metà -- l'avviso al titolare è esattamente la
+      // cosa che non deve sparire. `inviaNotificaPassaggioAOperatore` è
+      // fail-open e non rilancia mai, quindi non può rompere la risposta.
+      await inviaNotificaPassaggioAOperatore(tenantId, conversazione.id);
     }
     // Aggiorna il contatore anti-abuso DOPO la risposta (fail-open, non
     // deve mai far fallire un turno riuscito -- vedi conversazione.server.ts).

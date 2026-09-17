@@ -9,7 +9,7 @@ const PASSI = [
   {
     numero: "02",
     titolo: "Condividi la tua pagina",
-    testo: "Un link unico (salone-ai-saas.app/s/il-tuo-nome) da mettere su Instagram, Google, WhatsApp.",
+    testo: "Un link unico (salone-ai-saas.vercel.app/s/il-tuo-nome) da mettere su Instagram, Google, WhatsApp.",
   },
   {
     numero: "03",

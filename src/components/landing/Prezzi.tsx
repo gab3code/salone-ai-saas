@@ -1,5 +1,11 @@
 import type { ComponentProps } from "react";
 import { Check } from "lucide-react";
+import {
+  PREZZO_BASE_CENTESIMI,
+  PREZZO_OPERATORE_EXTRA_CENTESIMI,
+  limiteMensilePrenotazioni,
+  limiteOperatori,
+} from "@/lib/piani";
 import { Reveal, RevealItem, RevealStagger } from "./Reveal";
 import { GlowBorder } from "./GlowBorder";
 import { LiquidMetal } from "./LiquidMetal";
@@ -59,18 +65,55 @@ import { LiquidMetal } from "./LiquidMetal";
  * stato di oggi" -- corretto qui perché nessun pagamento reale è ancora
  * live, vedi PIANO.md per il checklist di cosa manca prima di aprirli).
  */
+/**
+ * Aggiornamento 17/09/2026 -- il listino pubblico non è più scritto a mano.
+ *
+ * Trovato nel controllo notturno chiesto da Gabriel: questa pagina aveva
+ * "€19,90"/"€39,90"/"€89,90" e "+10€"/"+15€"/"+20€" come stringhe letterali,
+ * mentre `src/lib/piani.ts` teneva gli stessi numeri come fonte unica per il
+ * pannello admin e per /dashboard/abbonamento. Il commento sopra
+ * `PREZZO_BASE_CENTESIMI` avvertiva esattamente di questo rischio ("due copie
+ * dello stesso listino divergono sempre, e divergono in silenzio") -- e la
+ * copia scollegata era proprio la prima che il cliente legge prima di pagare.
+ * Ora la landing legge gli stessi centesimi del checkout.
+ *
+ * Il formato resta quello della landing ("€19,90", simbolo davanti) e non
+ * `formatoEuroDaCentesimi` ("19,90 €", formato it-IT standard usato in
+ * dashboard): è una scelta tipografica della pagina marketing, non un secondo
+ * listino -- il NUMERO arriva comunque da `piani.ts`.
+ */
+function euroLandingDaCentesimi(centesimi: number): string {
+  const intero = Math.floor(centesimi / 100);
+  const decimali = centesimi % 100;
+  return decimali === 0 ? `€${intero}` : `€${intero},${String(decimali).padStart(2, "0")}`;
+}
+
+function notaOperatoreExtra(piano: "starter" | "growth" | "pro"): string {
+  return `1 operatore incluso, +${euroLandingDaCentesimi(PREZZO_OPERATORE_EXTRA_CENTESIMI[piano])}/mese ciascuno in più`;
+}
+
 const PIANI = [
   {
     nome: "Free",
-    prezzo: "€0",
+    prezzo: euroLandingDaCentesimi(PREZZO_BASE_CENTESIMI.free),
     periodo: "/mese",
     descrizione: "Per iniziare senza rischi.",
-    voci: ["1 operatore", "Calendario e pagina pubblica", "CRM di base", "Fino a 60 prenotazioni/mese"],
+    // "CRM di base" (17/09/2026): era una differenza inventata. Nel codice non
+    // esiste nessun gate di piano sulla scheda cliente, sui tag, sulle note,
+    // sullo storico o sull'export -- un tenant Free ha esattamente lo stesso
+    // CRM di uno Starter. La riga ora dice cosa distingue davvero il Free:
+    // il tetto di prenotazioni e l'operatore singolo.
+    voci: [
+      `${limiteOperatori("free")} operatore`,
+      "Calendario e pagina pubblica",
+      "Scheda cliente con storico",
+      `Fino a ${limiteMensilePrenotazioni("free")} prenotazioni/mese`,
+    ],
     consigliato: false,
   },
   {
     nome: "Starter",
-    prezzo: "€19,90",
+    prezzo: euroLandingDaCentesimi(PREZZO_BASE_CENTESIMI.starter),
     periodo: "/mese",
     // Aggiornamento 16/09/2026: la descrizione era "Quando il salone cresce",
     // che però descrive Growth -- crescere è esattamente il momento in cui
@@ -86,20 +129,20 @@ const PIANI = [
       "I tuoi clienti restano tuoi, nessuna app da far scaricare",
       "Prenotazioni illimitate",
       "Operatori illimitati",
-      "CRM completo",
+      "Nessun tetto di prenotazioni mensili",
       "Accessi per il personale, con permessi",
     ],
     consigliato: false,
-    notaPrezzo: "1 operatore incluso, +10€/mese ciascuno in più",
+    notaPrezzo: notaOperatoreExtra("starter"),
   },
   {
     nome: "Growth",
-    prezzo: "€39,90",
+    prezzo: euroLandingDaCentesimi(PREZZO_BASE_CENTESIMI.growth),
     periodo: "/mese",
     descrizione: "Con l'assistente AI.",
     voci: ["Tutto di Starter", "Assistente AI via chat web", "Analytics", "Promemoria automatici"],
     consigliato: true,
-    notaPrezzo: "1 operatore incluso, +15€/mese ciascuno in più",
+    notaPrezzo: notaOperatoreExtra("growth"),
     // 10 giorni di prova prima del primo addebito (decisione con Gabriel
     // dell'11/09/2026, vedi giorniDiProva in src/lib/stripe/piani.ts).
     // Ristretto al solo Growth il 12/09/2026 (richiesta di Gabriel: "metti
@@ -110,13 +153,18 @@ const PIANI = [
   },
   {
     nome: "Pro",
-    prezzo: "€89,90",
+    prezzo: euroLandingDaCentesimi(PREZZO_BASE_CENTESIMI.pro),
     periodo: "/mese",
     descrizione: "Anche su WhatsApp.",
     voci: [
       "Tutto di Growth",
       "Assistente AI su WhatsApp",
-      "SMS",
+      // 17/09/2026: "SMS" da solo lasciava immaginare un canale in più sempre
+      // attivo. Nel codice (`piani.ts` + `sms/invio.server.ts`) l'SMS parte
+      // SOLO quando il cliente non ha lasciato un'email, mai in aggiunta, e
+      // ha un tetto mensile per operatore. Scriverlo qui costa una riga e
+      // toglie una contestazione dopo il pagamento.
+      "SMS di promemoria per i clienti senza email",
       "Tono dell'AI personalizzabile",
       "Automazioni extra (promemoria di compleanno)",
       "Supporto prioritario",
@@ -127,7 +175,7 @@ const PIANI = [
     // include 1 operatore, non è più tutto compreso a prescindere da quanti
     // ce ne sono, come invece resta per Starter/Growth ("operatori
     // illimitati").
-    notaPrezzo: "1 operatore incluso, +20€/mese ciascuno in più",
+    notaPrezzo: notaOperatoreExtra("pro"),
   },
   {
     nome: "Enterprise",
@@ -147,10 +195,16 @@ const PIANI = [
     //   - "Ruoli e permessi": owner/staff applicati per davvero (vedi
     //     src/lib/ruoli.ts) -- un collaboratore lavora sull'agenda ma non
     //     vede il fatturato, non cambia prezzi e non tocca l'abbonamento.
+    // 17/09/2026: "App installabile (PWA)" era elencata QUI come vantaggio
+    // esclusivo di Enterprise, ma il manifest (`src/app/manifest.ts`) e il
+    // service worker (`src/app/registra-service-worker.tsx`) sono serviti a
+    // chiunque, su ogni piano -- e `Funzionalita.tsx` la elencava già come
+    // funzione generale. Le due pagine si contraddicevano. Tolta da qui:
+    // resta vera dove è vera, cioè per tutti.
     voci: [
       "Tutto di Pro",
       "Più sedi, un solo accesso",
-      "App installabile (PWA)",
+      "Configurazione e collegamento delle sedi fatti da noi",
       "Supporto dedicato",
     ],
     consigliato: false,

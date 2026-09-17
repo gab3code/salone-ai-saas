@@ -28,7 +28,7 @@ const DOMANDE = [
     // nel secondo giro (vedi giorniDiProva in piani.ts e Prezzi.tsx) senza
     // aggiornare questa risposta, rimasta indietro.
     risposta:
-      "Sì, in due modi: il piano Free resta gratuito senza scadenza (fino a 60 prenotazioni al mese), oppure scegli Growth con 10 giorni di prova prima del primo addebito — richiediamo una carta all'attivazione, ma non viene addebitata nulla finché la prova non finisce. Pro ed Enterprise partono da subito, senza periodo di prova.",
+      "Sì, in due modi: il piano Free resta gratuito senza scadenza (fino a 60 prenotazioni al mese), oppure scegli Growth con 10 giorni di prova prima del primo addebito — richiediamo una carta all'attivazione, ma non viene addebitata nulla finché la prova non finisce. Pro ed Enterprise partono da subito, senza periodo di prova. I piani a pagamento sono riservati a chi ha una partita IVA: prima del pagamento chiediamo i dati per la fattura elettronica.",
   },
   {
     domanda: "Posso cancellare quando voglio?",
@@ -42,12 +42,12 @@ const DOMANDE = [
   {
     domanda: "Funziona anche su WhatsApp?",
     risposta:
-      "Sì. L'assistente risponde sulla chat della tua pagina pubblica su tutti i piani; su WhatsApp è incluso dal piano Pro in su.",
+      "L'assistente risponde sulla chat della tua pagina pubblica dal piano Growth in su; su WhatsApp è incluso dal piano Pro in su. Free e Starter sono il gestionale senza AI.",
   },
   {
     domanda: "I dati dei miei clienti sono al sicuro?",
     risposta:
-      "Ogni attività iscritta ha un isolamento reale a livello di database, non solo un filtro nell'applicazione: un bug in un altro salone non può mai far leggere i tuoi clienti a qualcun altro. L'infrastruttura che ospita i dati è europea.",
+      "Ogni attività iscritta ha un isolamento reale a livello di database, non solo un filtro nell'applicazione: un bug in un altro salone non può mai far leggere i tuoi clienti a qualcun altro. Il database che conserva i tuoi dati è in Europa (Irlanda); alcuni fornitori che usiamo per farlo funzionare (hosting, pagamenti, assistente AI) sono statunitensi e li trovi tutti elencati nella pagina privacy, con le garanzie applicate.",
   },
   {
     domanda: "Cosa succede se ho già un'agenda cartacea o un altro gestionale?",

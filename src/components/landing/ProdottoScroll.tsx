@@ -51,9 +51,15 @@ export function ProdottoScroll() {
       <Grana opacita={0.035} />
       <div className="relative mx-auto max-w-5xl px-5 text-center sm:px-8" style={{ perspective: 1600 }}>
         <Reveal>
-          <h2 className="text-sm font-medium text-violet-400">Il prodotto vero, non un rendering</h2>
+          {/* 17/09/2026 -- il titolo era "Il prodotto vero, non un rendering",
+              ma questo blocco È un rendering: JSX disegnato a mano con dati
+              inventati, non uno screenshot della dashboard. Rivendicare il
+              contrario su una pagina di vendita è la cosa più facile da
+              smentire nei primi cinque minuti di prova. Il messaggio resta
+              lo stesso (guarda com'è fatta), senza la frase che non regge. */}
+          <h2 className="text-sm font-medium text-violet-400">Uno sguardo alla dashboard</h2>
           <p className="mx-auto mt-2 max-w-2xl text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            La stessa dashboard che useresti domani mattina.
+            La schermata che apri ogni mattina.
           </p>
         </Reveal>
 
@@ -101,7 +107,10 @@ export function ProdottoScroll() {
               <div className="grid grid-cols-3 gap-2.5">
                 {[
                   { etichetta: "Appuntamenti oggi", valore: "7" },
-                  { etichetta: "Valore prenotato", valore: "€210" },
+                  // Etichette allineate a quelle vere di /dashboard
+                  // (src/app/dashboard/page.tsx): "Valore prenotato oggi",
+                  // non "Valore prenotato".
+                  { etichetta: "Valore prenotato oggi", valore: "€210" },
                   { etichetta: "Nuovi clienti (30gg)", valore: "12" },
                 ].map((m) => (
                   <div key={m.etichetta} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
@@ -118,8 +127,14 @@ export function ProdottoScroll() {
                   ha senso mostrare orari di oggi. Un insight su clienti
                   inattivi non ha bisogno di orario/servizio, solo di chi
                   sono (nome + iniziale del cognome, come richiesto) e di
-                  un'azione -- coerente con "un pulsante per contattare i
-                  clienti inattivi" già promesso in Funzionalita.tsx. */}
+                  un'azione.
+
+                  Aggiornamento 17/09/2026: il badge "Contatta" per singolo
+                  cliente è stato tolto -- nella dashboard vera non esiste
+                  nessuna azione di contatto per cliente (la sezione clienti
+                  ha filtro ed export, non un invio). Disegnare un pulsante
+                  che nel prodotto non c'è è la stessa promessa falsa di
+                  scriverla nel copy, solo più difficile da trovare. */}
               <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
                 <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-white/50">
                   <TrendingUp className="size-3.5" /> 3 clienti non prenotano da 60 giorni
@@ -128,7 +143,7 @@ export function ProdottoScroll() {
                   {["Elena T.", "Davide P.", "Francesca M."].map((nome) => (
                     <div key={nome} className="flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
                       <span className="text-white/70">{nome}</span>
-                      <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-medium text-violet-300">Contatta</span>
+                      <span className="text-[10px] text-white/40">ultimo: 12 lug</span>
                     </div>
                   ))}
                 </div>

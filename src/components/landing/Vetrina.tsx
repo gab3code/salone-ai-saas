@@ -65,7 +65,12 @@ const SCENE: Scena[] = [
     // quelli di Vercel (PROJECT_STATUS.md, problema noto #14). Non solo il
     // marketing: anche la UI vera in /dashboard/impostazioni/calendari va
     // aggiornata per non offrire più il collegamento Apple (task separato).
-    testo: "Google Calendar già collegabile: gli impegni personali bloccano lo slot in automatico, e viceversa.",
+    // 17/09/2026: la frase finiva con "e viceversa", cioè prometteva la
+    // scrittura degli appuntamenti sul calendario personale. Il client fa
+    // solo authorize/token/events.list (`calendario-esterno/google.server.ts`):
+    // nessuna creazione di eventi. L'export verso Google è ancora una
+    // direzione da decidere (PIANO.md, Fase 6bis), non una funzione.
+    testo: "Google Calendar già collegabile: i tuoi impegni personali bloccano lo slot in automatico.",
     icona: CalendarClock,
   },
 ];

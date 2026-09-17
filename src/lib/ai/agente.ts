@@ -158,7 +158,7 @@ REGOLE ASSOLUTE, non negoziabili:
 7. Se la richiesta è ambigua, chiedi UNA domanda chiara per volta -- non elencare troppe opzioni insieme.
 8. Se non riesci a risolvere la richiesta, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare (reclami, casi eccezionali, richieste fuori dal tuo ambito), usa trasferisci_a_operatore per segnalarlo, poi chiudi la conversazione con cortesia invitando il cliente a contattare l'attività direttamente${
     telefono ? ` al ${telefono}` : ""
-  } -- non dire MAI che verrà ricontattato o che un operatore prenderà in carico la conversazione: oggi questo canale non esiste, l'unico modo perché ottenga aiuto è che lo chieda lui stesso all'attività.
+  } -- di' che hai avvisato l'attività e che riceve tutta la conversazione, ma NON promettere mai tempi di risposta né che qualcuno lo richiamerà di sicuro: se vuole essere richiamato deve lasciarti nome e numero, altrimenti la strada certa resta che chiami lui.
 9. Se verifica_disponibilita non trova nessuno slot adatto, guarda giorno_chiuso nel risultato prima di rispondere: se è false (giorno aperto ma pieno), proponi di iscrivere il cliente alla lista d'attesa con aggiungi_lista_attesa (ti serve almeno il telefono), spiegando che lo contatterete voi se si libera un posto. Se giorno_chiuso è true, l'attività è semplicemente chiusa quel giorno -- non proporre MAI la lista d'attesa per quella data precisa (non si libererà mai nulla lì): di' al cliente che è chiuso quel giorno e proponi un'altra data, oppure se preferisce restare in lista d'attesa iscrivilo senza fissare quella data (o con una data diversa in cui siete aperti).
 10. Scrivi sempre in testo semplice, MAI markdown (niente **grassetto**, _corsivo_, elenchi puntati con "-"/"*", titoli con "#", ecc.): il widget di chat mostra il testo così com'è, senza interpretarlo, e i simboli markdown comparirebbero letteralmente al cliente. Se devi indicare più informazioni (es. più servizi con i loro prezzi), scrivile su righe separate andando a capo, oppure in una frase scorrevole -- mai con un trattino o un asterisco davanti a ogni voce.
 11. Scrivi in un italiano naturale e corretto, come lo scriverebbe madrelingua -- mai una frase che suona come una traduzione letterale o con un ordine delle parole innaturale. In particolare, con i verbi che in italiano si costruiscono con un pronome (interessare, piacere, servire, ecc.) usa SEMPRE la forma naturale con il pronome prima del verbo, mai quella con il soggetto invertito dopo: scrivi "Ti interessa uno di questi?" o "Quale dei due ti interessa?", mai "Interessa a te uno di questi?"; scrivi "Ti va bene questo orario?", mai "Va bene a te questo orario?". Se non sei sicuro che una frase suoni naturale, riformulala in modo più semplice e diretto invece di rischiare una costruzione forzata.
@@ -462,9 +462,15 @@ export async function rispondiConversazione(
   // onestà del resto del prompt (15/09/2026, vedi DECISIONS.md): mai
   // promettere un passaggio a un operatore che oggi non esiste, invitare a
   // chiamare direttamente se abbiamo un numero.
+  //
+  // 17/09/2026: da oggi il titolare riceve davvero un'email con tutta la
+  // conversazione (`inviaNotificaPassaggioAOperatore`), quindi la frase può
+  // dirlo -- ma resta senza promesse di tempi né di richiamata: chi scrive
+  // dalla chat pubblica spesso non lascia nessun recapito, e in quel caso
+  // l'unico modo per ottenere una risposta è comunque chiamare.
   return {
-    rispostaTesto: `Mi scuso, sto avendo difficoltà a completare questa richiesta. ${
-      ctx.telefono ? `Ti conviene chiamarci direttamente al ${ctx.telefono}.` : "Ti consiglio di contattare l'attività direttamente."
+    rispostaTesto: `Mi scuso, sto avendo difficoltà a completare questa richiesta. Ho avvisato l'attività, che riceve tutta la conversazione. ${
+      ctx.telefono ? `Per una risposta subito, chiamaci direttamente al ${ctx.telefono}.` : "Per una risposta subito, ti consiglio di contattare l'attività direttamente."
     }`,
     trasferitoAUmano: true,
     usoStrumenti: true, // per finire qui ogni iterazione ha per forza usato uno strumento

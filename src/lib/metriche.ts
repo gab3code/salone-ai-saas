@@ -120,7 +120,6 @@ export function calcolaMetriche(p: ParametriMetriche): Metriche {
   const inizioOggi = inizioGiornoUTC(p.adesso);
   const fineOggi = fineGiornoUTC(p.adesso);
   const dataMeno30 = giorniFa(p.adesso, 30);
-  const dataMeno60 = giorniFa(p.adesso, 60);
 
   const appuntamentiOggiConfermati = p.appuntamenti.filter(
     (a) => a.stato === "confermato" && a.inizio >= inizioOggi && a.inizio <= fineOggi

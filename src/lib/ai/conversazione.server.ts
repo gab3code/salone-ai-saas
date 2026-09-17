@@ -117,12 +117,29 @@ export async function salvaMessaggio(
   if (error) throw new Error(`Errore salvando il messaggio: ${error.message}`);
 }
 
-export async function segnaPassataAOperatore(supabase: SupabaseClient, conversazioneId: string): Promise<void> {
-  const { error } = await supabase
+/**
+ * Segna la conversazione come passata a una persona.
+ *
+ * Ritorna `true` SOLO quando lo stato è cambiato davvero in questa chiamata
+ * (17/09/2026). Serve a chi deve avvisare il titolare
+ * (`inviaNotificaPassaggioAOperatore`): senza il `neq`, ogni messaggio
+ * successivo in una conversazione già passata a un operatore rifarebbe
+ * l'update e farebbe partire un'altra email identica. Il filtro sta nella
+ * query, non in una lettura-poi-scrittura, così due richieste in parallelo
+ * non possono entrambe credere di essere la prima.
+ */
+export async function segnaPassataAOperatore(
+  supabase: SupabaseClient,
+  conversazioneId: string
+): Promise<boolean> {
+  const { data, error } = await supabase
     .from("conversazioni")
     .update({ stato: "passata_a_operatore" })
-    .eq("id", conversazioneId);
+    .eq("id", conversazioneId)
+    .neq("stato", "passata_a_operatore")
+    .select("id");
   if (error) throw new Error(`Errore aggiornando lo stato della conversazione: ${error.message}`);
+  return (data ?? []).length > 0;
 }
 
 /**

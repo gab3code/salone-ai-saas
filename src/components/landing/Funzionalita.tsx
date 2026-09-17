@@ -27,6 +27,20 @@ interface Voce {
   icona: LucideIcon;
   /** riquadri "grande" per i 4 pilastri del prodotto -- il resto è "normale". */
   grande?: boolean;
+  /**
+   * Piano minimo che include la funzione, quando NON è inclusa ovunque
+   * (17/09/2026, controllo notturno chiesto da Gabriel).
+   *
+   * Questa sezione si intitola "Tutto quello che include" ed è linkata dalla
+   * barra di navigazione: un lettore che si ferma qui e non scorre fino ai
+   * prezzi leggeva Assistente AI, SMS, Analytics, Promemoria e Tono dell'AI
+   * come se fossero inclusi in ogni piano, mentre nel codice sono tutte
+   * dietro un gate (`PIANI_CON_AI_CHAT_WEB` in `lib/ai/limiti.ts`,
+   * `pianoHaAnalytics`/`pianoHaPromemoria`/`pianoHaSms` in `lib/piani.ts`).
+   * L'etichetta non è un badge decorativo: è la differenza tra una lista di
+   * funzioni e una promessa che il checkout poi smentisce.
+   */
+  da?: "Growth" | "Pro";
 }
 
 /**
@@ -91,13 +105,20 @@ interface Voce {
 // relativo di prima, solo distribuiti lungo l'elenco invece che ravvicinati.
 const FUNZIONI: Voce[] = [
   { titolo: "Pagina di prenotazione online", descrizione: "Link tuo, condivisibile ovunque, self-service 24/7.", icona: Globe2 },
-  { titolo: "Multi-operatore e servizi", descrizione: "Ogni operatore con i propri orari, servizi e prezzi.", icona: Scissors },
+  // 17/09/2026: diceva "Ogni operatore con i propri orari, servizi e prezzi".
+  // Falso su due terzi: `orari_apertura` ha un vincolo unico
+  // (tenant_id, giorno_settimana) -- gli orari sono dell'attività, non
+  // dell'operatore (booking-engine.ts lo dichiara esplicitamente) -- e il
+  // prezzo vive su `servizi`, non su `operatori_servizi`, che è una pura
+  // tabella di collegamento. Quello che esiste davvero: quali servizi fa
+  // ciascuno, e le sue assenze puntuali (tabella `chiusure`).
+  { titolo: "Multi-operatore e servizi", descrizione: "Chi fa cosa, con le assenze di ciascuno già scalate dalla disponibilità.", icona: Scissors },
   { titolo: "Calendario intelligente", descrizione: "Disponibilità calcolata da orari, pause, ferie e durata reale del servizio.", icona: CalendarClock, grande: true },
   { titolo: "Registrazione zero-attrito", descrizione: "Ti registri e il tuo spazio è già pronto, nessun passaggio manuale.", icona: UserPlus },
   { titolo: "Isolamento dati reale", descrizione: "Separazione a livello di database tra ogni attività, non solo applicativa.", icona: ShieldCheck },
   { titolo: "CRM clienti", descrizione: "Storico completo per ogni cliente, qualunque canale abbia usato per prenotare — mai due archivi da tenere allineati a mano.", icona: Users, grande: true },
   { titolo: "Sync Google Calendar", descrizione: "Impegni personali dell'operatore bloccano lo slot in automatico.", icona: CalendarClock },
-  { titolo: "SMS", descrizione: "Promemoria e conferme anche senza WhatsApp o smartphone.", icona: MessageSquareMore },
+  { titolo: "SMS", descrizione: "Promemoria anche ai clienti che non hanno lasciato un'email.", icona: MessageSquareMore, da: "Pro" },
   {
     titolo: "Assistente AI in chat e su WhatsApp",
     // Instagram e Telegram tolti dal copy attuale (richiesta di Gabriel,
@@ -107,13 +128,20 @@ const FUNZIONI: Voce[] = [
     descrizione: "Lo stesso assistente risponde e prenota da solo su chat web e WhatsApp, e passa la mano a te quando serve una persona.",
     icona: MessageSquareText,
     grande: true,
+    // Chat web da Growth, WhatsApp da Pro: l'etichetta indica il piano da cui
+    // la funzione compare (il dettaglio per canale è nella scheda prezzi).
+    da: "Growth",
   },
   { titolo: "Pagamenti e upgrade self-service", descrizione: "Cambio piano dal pannello, senza scriverci.", icona: CreditCard },
   { titolo: "App installabile (PWA)", descrizione: "Dashboard a schermo intero, come un'app nativa.", icona: Smartphone },
-  { titolo: "Dashboard con insight azionabili", descrizione: "Non solo numeri: un pulsante per contattare i clienti inattivi.", icona: LayoutDashboard, grande: true },
-  { titolo: "Tono dell'AI personalizzabile", descrizione: "Guida il modo in cui l'assistente risponde ai tuoi clienti.", icona: SlidersHorizontal },
-  { titolo: "Analytics", descrizione: "Andamento prenotazioni e clienti nel tempo, non solo i numeri di oggi.", icona: BarChart3 },
-  { titolo: "Promemoria automatici", descrizione: "Reminder prima dell'appuntamento e follow-up ai clienti inattivi, senza pensarci.", icona: BellRing, grande: true },
+  // 17/09/2026: "un pulsante per contattare i clienti inattivi" -- il pulsante
+  // esiste ma porta alla lista filtrata con export, non contatta nessuno.
+  // Il contatto automatico esiste, ma è il follow-up del cron promemoria,
+  // che è un'altra voce di questo stesso elenco.
+  { titolo: "Dashboard con insight azionabili", descrizione: "Non solo numeri: ti porta dritto all'elenco dei clienti da recuperare.", icona: LayoutDashboard, grande: true },
+  { titolo: "Tono dell'AI personalizzabile", descrizione: "Guida il modo in cui l'assistente risponde ai tuoi clienti.", icona: SlidersHorizontal, da: "Pro" },
+  { titolo: "Analytics", descrizione: "Andamento prenotazioni e clienti nel tempo, non solo i numeri di oggi.", icona: BarChart3, da: "Growth" },
+  { titolo: "Promemoria automatici", descrizione: "Reminder prima dell'appuntamento e follow-up ai clienti inattivi, senza pensarci.", icona: BellRing, grande: true, da: "Growth" },
 ];
 
 function Cella({ v }: { v: Voce }) {
@@ -140,7 +168,14 @@ function Cella({ v }: { v: Voce }) {
         >
           <v.icona className="size-4" />
         </span>
-        <h3 className={`relative mt-3 font-medium text-white sm:mt-4 ${v.grande ? "text-base" : "text-[15px]"}`}>{v.titolo}</h3>
+        <h3 className={`relative mt-3 font-medium text-white sm:mt-4 ${v.grande ? "text-base" : "text-[15px]"}`}>
+          {v.titolo}
+          {v.da ? (
+            <span className="ml-2 align-middle rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[11px] font-normal text-violet-200">
+              da {v.da}
+            </span>
+          ) : null}
+        </h3>
         {/* La descrizione era nascosta su telefono per le card piccole (punto
             3 del terzo giro: "su telefono devo scorrere tantissimo") --
             tornata visibile ovunque (quinto giro, segnalazione di Gabriel:

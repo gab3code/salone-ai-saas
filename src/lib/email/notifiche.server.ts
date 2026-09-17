@@ -200,3 +200,99 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
     console.error("[email] Errore inviando le notifiche di nuovo appuntamento:", errore);
   }
 }
+
+/**
+ * Avvisa il titolare quando l'assistente AI passa la mano a una persona
+ * (17/09/2026, controllo notturno chiesto da Gabriel).
+ *
+ * PERCHÉ ESISTE. Il sito promette in quattro punti diversi (`Funzionalita.tsx`,
+ * `Vetrina.tsx`, `PercheNoi.tsx`, `Faq.tsx`) che l'AI "passa la mano a te con
+ * tutto il contesto della conversazione". Nel codice il passaggio scriveva
+ * solo `conversazioni.stato = 'passata_a_operatore'` e finiva lì: nessuno
+ * veniva avvisato, e nella dashboard non esiste una pagina conversazioni dove
+ * accorgersene. Il codice lo sapeva -- `api/chat/[slug]/route.ts` ha un
+ * commento del 15/09/2026 che dice "mai promettere un passaggio a un operatore
+ * che oggi non avvisa davvero nessuno" -- ma la promessa sul sito era rimasta.
+ * Questa funzione chiude il buco dal lato giusto: rende vera la promessa
+ * invece di ammorbidirla.
+ *
+ * "Tutto il contesto" è letterale: l'email contiene la trascrizione completa
+ * della conversazione, così il titolare può rispondere senza dover chiedere al
+ * cliente di ripetere -- che è esattamente la differenza tra un passaggio di
+ * consegne e un "ti richiamo io".
+ *
+ * Fail-open come ogni altra notifica di questo file: un problema qui non deve
+ * mai far fallire la risposta al cliente, che è già stata salvata.
+ */
+export async function inviaNotificaPassaggioAOperatore(
+  tenantId: string,
+  conversazioneId: string
+): Promise<void> {
+  if (!(process.env.MJ_APIKEY_PUBLIC && process.env.MJ_APIKEY_PRIVATE)) return;
+
+  try {
+    const admin = creaClientAdmin();
+
+    const [{ data: conversazione }, { data: messaggi }, emailTitolare] = await Promise.all([
+      admin
+        .from("conversazioni")
+        .select("canale, clienti(nome, telefono, email), tenants(nome)")
+        .eq("id", conversazioneId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle(),
+      admin
+        .from("messaggi")
+        .select("ruolo, contenuto, created_at")
+        .eq("conversazione_id", conversazioneId)
+        .order("created_at", { ascending: true }),
+      trovaEmailTitolare(admin, tenantId),
+    ]);
+    if (!emailTitolare) return;
+
+    const uno = <T>(v: unknown): T | null => (Array.isArray(v) ? ((v[0] as T) ?? null) : (v as T | null));
+    const tenant = uno<{ nome: string }>(conversazione?.tenants);
+    const cliente = uno<{ nome: string | null; telefono: string | null; email: string | null }>(
+      conversazione?.clienti
+    );
+    const nomeTenant = tenant?.nome ?? "la tua attività";
+
+    // Chi è, per quel poco che si sa: la chat pubblica non chiede
+    // un'identità, quindi molto spesso è tutto nullo -- e va detto, invece
+    // di lasciare una riga vuota che sembra un errore dell'email.
+    const righeContatto = [
+      cliente?.nome ? `Nome: ${escapeHtml(cliente.nome)}` : null,
+      cliente?.telefono ? `Telefono: ${escapeHtml(cliente.telefono)}` : null,
+      cliente?.email ? `Email: ${escapeHtml(cliente.email)}` : null,
+    ].filter((r): r is string => r !== null);
+    const contatto =
+      righeContatto.length > 0
+        ? `<p>${righeContatto.join("<br />")}</p>`
+        : "<p>Chi ha scritto non ha lasciato un recapito: la risposta va data nella stessa chat.</p>";
+
+    // `messaggi` include anche i ruoli "sistema"/"operatore", che invece
+    // `caricaMessaggi` esclude perché non servono al prompt del modello.
+    // Qui servono tutti: il destinatario è una persona che deve capire cosa
+    // è successo, non il modello.
+    const trascrizione = (messaggi ?? [])
+      .map((m) => {
+        const chi =
+          m.ruolo === "cliente" ? "Cliente" : m.ruolo === "assistente" ? "Assistente" : "Sistema";
+        return `<p style="margin:0 0 8px"><strong>${chi}:</strong> ${escapeHtml(m.contenuto)}</p>`;
+      })
+      .join("");
+
+    await inviaEmail({
+      a: emailTitolare,
+      oggetto: `[${nomeTenant}] Una conversazione aspetta una tua risposta`,
+      nomeMittente: nomeTenant,
+      html: `
+        <p>L'assistente ha passato a te una conversazione sulla chat della pagina pubblica.</p>
+        ${contatto}
+        <p><strong>Conversazione completa</strong></p>
+        ${trascrizione}
+      `,
+    });
+  } catch (errore) {
+    console.error("[email] Errore inviando la notifica di passaggio a operatore:", errore);
+  }
+}
