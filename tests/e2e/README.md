@@ -41,6 +41,7 @@ npx playwright show-report        # apre il report HTML dell'ultimo run (screens
 | `09-servizi-consecutivi.spec.ts` | 9 | Chat AI vera prenota due servizi di fila con lo stesso operatore (funzionalità del 16/09/2026) |
 | `12-prenotazione-manuale-dashboard.spec.ts` | 12 | Lo staff crea un appuntamento dal pannello, checkbox+slot+form reali, nessuna AI |
 | `24-cancellazione-cliente.spec.ts` | -- (17/09/2026) | Il titolare cancella una scheda cliente: la riga sparisce, gli appuntamenti restano con `cliente_id` a null. Uno staff non vede il pulsante e il cliente sopravvive. |
+| `27-messaggi-offensivi-demo.spec.ts` | -- (17/09/2026) | Un insulto sulla demo riceve la frase asciutta e mai un invito a ripetere; al secondo la chat si chiude e l'input si disabilita. **Non costa niente**: il riconoscimento avviene prima della chiamata al modello, quindi Anthropic non viene mai interpellato e la risposta e' una costante del codice. |
 | `25-contatti-e-notifiche.spec.ts` | -- (17/09/2026) | Telefono e WhatsApp salvati dalle impostazioni (incluso il travaso della spunta "stesso numero", che senza il codice apposta salverebbe vuoto), e le preferenze di notifica: interruttore del titolare, quattro scelte per i clienti, opzioni SMS chiuse sotto Pro, piu' il follow-up ai clienti spariti (soglia che guida anche dashboard e rubrica, pavimento anti-spam a 60 giorni). |
 
 **1-9-12 sono stati eseguiti dal vivo il 16/09/2026 e sono VERDI (6/6)** -- hanno trovato e fatto
