@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { aggiornaCliente } from "../azioni";
 import { origineDalPrimoAppuntamento } from "@/lib/origine-cliente";
+import { puoCancellareClienti } from "@/lib/ruoli";
+import { PulsanteCancellaCliente } from "./pulsante-cancella";
 
 /**
  * Scheda cliente (punto 12, CRM "realmente connesso"): dati anagrafici
@@ -32,8 +34,11 @@ export default async function PaginaClienteDettaglio({
   } = await supabase.auth.getUser();
   if (!user) redirect("/accedi");
 
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) redirect("/dashboard");
+  // `ottieniSessioneTenant` invece di `ottieniTenantCorrente`: serve anche
+  // il ruolo, per decidere se mostrare la cancellazione della scheda.
+  const sessione = await ottieniSessioneTenant(supabase);
+  if (!sessione) redirect("/dashboard");
+  const tenantId = sessione.tenantId;
 
   const { data: cliente } = await supabase
     .from("clienti")
@@ -162,6 +167,13 @@ export default async function PaginaClienteDettaglio({
           <p className="mt-3 text-xs text-zinc-400">
             Il telefono è la chiave di riconoscimento del cliente (WhatsApp/chat) e non è modificabile qui.
           </p>
+
+          {puoCancellareClienti(sessione.ruolo) && (
+            <PulsanteCancellaCliente
+              clienteId={cliente.id}
+              nomeCliente={cliente.nome || cliente.telefono || "questo cliente"}
+            />
+          )}
         </section>
 
         <section className="rounded border border-zinc-200 p-4">

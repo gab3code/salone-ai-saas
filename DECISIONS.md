@@ -5434,3 +5434,110 @@ email -- e le impostazioni linkano qui invece che alla landing.
 dati fiscali si chiedono subito dopo, quando l'account esiste. Metterli dentro la registrazione
 sembrava un passaggio in meno ma non lo è: in quel momento non c'è nessun posto dove salvarli, e
 con la conferma email attiva si perderebbero fra il "crea account" e il click sul link.
+
+---
+
+## 17/09/2026 (notte) -- Controllo notturno: promesse, pagine legali, codice orfano
+
+Brief di Gabriel prima di andare a letto: *"lavora per ore per sistemare tutte le incongruenze
+nel nostro sistema e problemi di logica del sito. tutto deve avere il suo fine e la sua logica"*,
+e *"verifica anche cose che non ti ho menzionato ma ritieni debbano essere controllato"*.
+
+Il metodo: due audit indipendenti in parallelo (promesse del sito contro il codice, e codice
+orfano/doppioni), poi correzione una per una. Quello che segue è quello che è stato deciso, non
+l'elenco delle modifiche -- quello sta nei messaggi di commit.
+
+### Il criterio usato per decidere cosa correggere e cosa lasciare
+
+Il 12/09/2026 Gabriel ha deciso che *"il sito descrive il prodotto al lancio, non lo stato di
+oggi"*: le etichette "in arrivo" sono state tolte da WhatsApp, SMS, analytics, tono AI e PWA con
+l'impegno esplicito di costruirle prima di aprire i pagamenti veri. Quella decisione è ancora in
+piedi, ed è di Gabriel, non mia.
+
+Quindi la linea di taglio di questo controllo **non** è "il codice oggi non lo fa" -- sarebbe
+riaprire una decisione già presa. È: **il sito si contraddice da solo, oppure descrive male una
+cosa che esiste**. Esempi dei due lati:
+
+- *Corretto*: la FAQ diceva che l'assistente AI è incluso "su tutti i piani", mentre la scheda
+  Starter, tre sezioni più sopra, lo vende come "il gestionale, senza l'AI". Non è una promessa
+  di lancio, sono due frasi che non possono essere vere insieme.
+- *Lasciato*: "Assistente AI su WhatsApp" nel piano Pro. È una promessa di lancio, tracciata nel
+  Gruppo E di PIANO.md, bloccata su una dipendenza esterna (App Review Meta). Toglierla adesso
+  sarebbe una decisione commerciale, e non è mia da prendere di notte.
+
+Le tre voci che restano scoperte -- WhatsApp, report/analytics avanzati, supporto prioritario --
+sono tutte e tre sul piano Pro, il più caro. **È la cosa che Gabriel deve guardare per prima al
+risveglio**, e la sezione "Prima dei pagamenti veri su Pro" in PIANO.md ora lo dice in un punto
+solo invece che sparso in tre.
+
+### Una promessa resa vera invece che ammorbidita
+
+Il sito dice in quattro punti che l'AI "passa la mano a te con tutto il contesto della
+conversazione". Nel codice il passaggio scriveva `conversazioni.stato = 'passata_a_operatore'` e
+basta: nessuna email, nessuna notifica, e nella dashboard non esiste una pagina conversazioni
+dove accorgersene. Il codice lo sapeva -- il 15/09/2026 avevamo scritto nel prompt dell'AI *"non
+dire MAI che verrà ricontattato: oggi questo canale non esiste"* -- ma la frase sul sito era
+rimasta.
+
+Di fronte a "il sito promette X, il codice non fa X" ci sono due strade. Qui ho scelto di
+costruire X, e non per completezza: un salone che riceve un reclamo in chat e non lo sa mai è un
+danno reale per lui, non un difetto di copy. Ora parte un'email al titolare con la trascrizione
+completa. Il prompt dell'AI è stato aggiornato di conseguenza, ma **senza promettere tempi né una
+richiamata**: chi scrive dalla chat pubblica spesso non lascia nessun recapito, e in quel caso
+l'unica strada certa resta che chiami lui.
+
+### La cancellazione di un singolo cliente (e perché è una migrazione)
+
+L'informativa privacy diceva, dei dati dei clienti finali: *"Sono dati suoi, e la decisione di
+cancellarli è sua"*. Non era vero: `clienti/azioni.ts` esportava solo `aggiornaCliente`, e
+l'unico modo per far sparire un cliente era cancellare l'intera attività. Un salone che riceve
+una richiesta di cancellazione (art. 17 GDPR) non poteva soddisfarla -- e siamo noi,
+nell'accordo art. 28, ad avergli promesso di assisterlo quando succede.
+
+Anche qui: costruire invece di ammorbidire, perché quell'obbligo il salone ce l'ha comunque.
+
+**Owner-only, e applicato dal database** (migrazione 0035). La 0035 divide la vecchia policy
+`isolamento_tabella for all` su `clienti` in lettura/insert/update per tutti i membri e DELETE
+per il solo owner. Senza la migrazione, restringere la cancellazione nella server action sarebbe
+stato un cancello con il muro aperto di fianco: `clienti` è raggiungibile via PostgREST con la
+anon key, che è pubblica. È la regola della 0030 applicata di nuovo.
+
+Insert e update restano a tutti i membri di proposito: uno staff crea clienti e corregge numeri
+di telefono ogni giorno. La cancellazione no, è irreversibile.
+
+### Un endpoint che aspettava solo di essere acceso
+
+`/api/whatsapp/embedded-signup/callback` aveva, in testa al file, un TODO che diceva
+"autenticare la richiesta quando Supabase sarà collegato". Supabase è collegato da settimane.
+L'unica difesa era `NEXT_PUBLIC_WHATSAPP_EMBEDDED_SIGNUP_ENABLED`, che è una variabile pensata
+per accendere una UI nel browser, non per proteggere un endpoint: il giorno del primo test vero
+sarebbe diventata un proxy anonimo verso l'API Graph di Meta con le credenziali della nostra
+app. Ora serve una sessione owner, controllata prima ancora di leggere il corpo della richiesta.
+
+Nella stessa famiglia: `collegaCalendarioApple` era una server action esportata senza nessun
+componente che la chiamasse (l'11/09 il collegamento Apple era stato tolto dalla UI, la funzione
+no). Una server action esportata è un endpoint POST vivo anche senza UI, e questa scriveva una
+password specifica per app in una tabella dove le credenziali restano in chiaro. Rimosso
+l'involucro, lasciato il motore (`collegaCaldav`, `caldav.server.ts`) per il riutilizzo futuro
+già previsto: quando servirà si riscrive una dozzina di righe insieme al form.
+
+### Ventisei file che nessuno importava
+
+`src/components/primitives`, `atoms` e `ui`: 26 file, alcuni da oltre 400 righe, senza un solo
+import da `src/app`, `src/lib`, dai test o dalla landing. Avanzi di una libreria UI sincronizzata
+a inizio settembre e mai collegata. Erano anche l'origine di **tutti e nove** gli errori eslint
+del progetto -- che quindi convivevamo da giorni per del codice che non arriva a nessuna pagina.
+Rimossi: git li conserva.
+
+Dopo questo e due variabili morte, `eslint src` è a zero errori **e zero warning**, il che lo
+rende di nuovo utile come segnale.
+
+### Il listino della landing non era collegato al listino vero
+
+`Prezzi.tsx` aveva "€19,90"/"€39,90"/"€89,90" e "+10€"/"+15€"/"+20€" come stringhe scritte a
+mano, mentre `lib/piani.ts` teneva gli stessi numeri come fonte unica per il pannello admin e per
+`/dashboard/abbonamento`. Il commento sopra `PREZZO_BASE_CENTESIMI` avvertiva esattamente di
+questo -- *"due copie dello stesso listino divergono sempre, e divergono in silenzio"* -- e la
+copia scollegata era proprio quella che il cliente legge prima di pagare. Ora la landing importa
+i centesimi da `piani.ts`; il formato con il simbolo davanti resta una scelta tipografica della
+pagina marketing, ma il numero è uno solo.

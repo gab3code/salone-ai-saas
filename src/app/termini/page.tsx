@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Termini di Servizio -- Salone AI" };
  */
 export default function PaginaTermini() {
   return (
-    <PaginaLegale titolo="Termini di Servizio" aggiornata="14 settembre 2026">
+    <PaginaLegale titolo="Termini di Servizio" aggiornata="17 settembre 2026">
       <P>
         Questi termini regolano l&apos;uso di Salone AI, un servizio SaaS per la gestione di prenotazioni e clienti
         rivolto a professionisti che lavorano su appuntamento. Registrando un account accetti questi termini.
@@ -37,6 +37,13 @@ export default function PaginaTermini() {
       <Ul>
         <li>Il piano Free è gratuito, senza scadenza, con i limiti indicati nella pagina dei prezzi.</li>
         <li>
+          <strong className="text-white">I piani a pagamento sono riservati a chi ha una partita IVA.</strong>{" "}
+          Prima di poter pagare devi inserire denominazione, partita IVA, indirizzo della sede legale e il
+          recapito per la fattura elettronica (codice destinatario SdI oppure PEC): in Italia la fattura
+          elettronica è obbligatoria e senza quei dati non possiamo emetterla. Se non hai partita IVA puoi usare
+          il piano Free senza limiti di tempo.
+        </li>
+        <li>
           I piani a pagamento si rinnovano automaticamente al ciclo scelto finché non li disdici; l&apos;addebito
           avviene tramite Stripe, non gestiamo mai direttamente i dati della tua carta.
         </li>
@@ -57,8 +64,8 @@ export default function PaginaTermini() {
       <H2>I tuoi dati restano tuoi</H2>
       <P>
         I dati che inserisci (clienti, appuntamenti, servizi) restano di tua proprietà. Puoi esportarli in
-        qualunque momento (es. l&apos;export CSV clienti dalla dashboard) e richiederne la cancellazione chiudendo
-        l&apos;account.
+        qualunque momento (es. l&apos;export CSV clienti dalla dashboard), cancellare la scheda di un singolo
+        cliente dalla scheda stessa, e richiedere la cancellazione di tutto chiudendo l&apos;account.
       </P>
 
       <H2>Limitazione di responsabilità</H2>
@@ -71,7 +78,10 @@ export default function PaginaTermini() {
       <H2>Sospensione e chiusura dell&apos;account</H2>
       <P>
         Possiamo sospendere o chiudere un account che violi questi termini, con preavviso quando ragionevolmente
-        possibile. Puoi chiudere il tuo account in qualunque momento.
+        possibile. Puoi chiudere il tuo account in qualunque momento scrivendoci all&apos;indirizzo qui sotto:
+        oggi la chiusura passa da noi, non da un pulsante nella dashboard, e la completiamo entro 30 giorni. Per
+        interrompere subito gli addebiti non serve aspettare: la disdetta dell&apos;abbonamento è immediata e la
+        fai da solo dal pannello di gestione.
       </P>
 
       <H2>Modifiche a questi termini</H2>

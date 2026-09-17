@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { completaCollegamentoWhatsapp } from "@/lib/whatsapp-embedded-signup";
+import { creaClientServer } from "@/lib/supabase/server";
+import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
+import { puoConfigurareAttivita } from "@/lib/ruoli";
 
 /**
  * Riceve dal browser i dati che Embedded Signup restituisce a fine flusso
@@ -13,9 +16,19 @@ import { completaCollegamentoWhatsapp } from "@/lib/whatsapp-embedded-signup";
  * (cioè finché l'app Meta della piattaforma non ha completato business
  * verification + App Review -- vedi docs/embedded-signup-whatsapp.md).
  *
- * TODO quando Supabase è collegato (Fase 0 sbloccata):
- * - autenticare la richiesta (deve arrivare da un owner loggato per il proprio tenant)
- * - creare il client Supabase con SUPABASE_SERVICE_ROLE_KEY (mai la anon key qui)
+ * AUTENTICAZIONE (aggiunta 17/09/2026, controllo notturno). Il TODO qui sotto
+ * chiedeva di autenticare la richiesta "quando Supabase sarà collegato":
+ * Supabase è collegato da settimane e il controllo non era mai arrivato.
+ * L'unica difesa era `NEXT_PUBLIC_WHATSAPP_EMBEDDED_SIGNUP_ENABLED`, che è
+ * una variabile destinata al bundle del browser e serve ad accendere una UI,
+ * non a proteggere un endpoint: il giorno del primo test vero questa rotta
+ * sarebbe diventata un proxy anonimo verso l'API Graph di Meta con le
+ * credenziali della nostra app. Ora serve una sessione owner, come per ogni
+ * altra configurazione dell'attività -- e il controllo sta PRIMA di leggere
+ * il corpo della richiesta, così un anonimo non arriva nemmeno a farci
+ * parsare il suo JSON.
+ *
+ * TODO rimasto, quando l'app Meta sarà approvata:
  * - upsert su whatsapp_credenziali (tenant_id, access_token, token_scade_il)
  * - update su tenants (whatsapp_business_id, whatsapp_waba_id,
  *   whatsapp_phone_number_id, whatsapp_stato = 'collegato')
@@ -23,6 +36,12 @@ import { completaCollegamentoWhatsapp } from "@/lib/whatsapp-embedded-signup";
  *   per il pannello admin e per il debug se qualcosa fallisce a metà)
  */
 export async function POST(request: NextRequest) {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) {
+    return NextResponse.json({ errore: accesso.errore }, { status: 403 });
+  }
+
   if (process.env.NEXT_PUBLIC_WHATSAPP_EMBEDDED_SIGNUP_ENABLED !== "true") {
     return NextResponse.json(
       {

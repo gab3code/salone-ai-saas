@@ -25,7 +25,7 @@ export const metadata: Metadata = { title: "Accordo sul trattamento dei dati -- 
  */
 export default function PaginaTrattamentoDati() {
   return (
-    <PaginaLegale titolo="Accordo sul trattamento dei dati" aggiornata="16 settembre 2026">
+    <PaginaLegale titolo="Accordo sul trattamento dei dati" aggiornata="17 settembre 2026">
       <P>
         Questo accordo regola il trattamento dei dati personali che Salone AI svolge{" "}
         <strong className="text-white">per conto</strong> dell&apos;attività che usa il servizio, come previsto
@@ -61,9 +61,15 @@ export default function PaginaTrattamentoDati() {
           le persone che l&apos;attività autorizza ad accedere alla propria dashboard.
         </li>
         <li>
-          <strong className="text-white">Tipi di dati</strong>: nome, numero di telefono, email, storico degli
-          appuntamenti e dei servizi, note inserite dall&apos;attività, contenuto delle conversazioni con
-          l&apos;assistente, eventuali recensioni lasciate.
+          <strong className="text-white">Tipi di dati</strong>: nome, numero di telefono, email, data di
+          nascita se l&apos;attività la raccoglie, storico degli appuntamenti e dei servizi, note e tag inseriti
+          dall&apos;attività, contenuto delle conversazioni con l&apos;assistente, eventuali recensioni lasciate,
+          e la <strong className="text-white">segnalazione di mancata presentazione</strong> a un appuntamento
+          (il &quot;no-show&quot;), che l&apos;attività può registrare a posteriori. Quest&apos;ultima è un
+          giudizio sul comportamento di una persona, non un dato di fatto neutro: la registra l&apos;attività,
+          sotto la propria responsabilità, ed è visibile solo a lei. Salone AI non la usa per nessuna decisione
+          automatica -- non blocca prenotazioni, non cambia prezzi, non segnala niente a nessun&apos;altra
+          attività.
         </li>
       </Ul>
       <P>
@@ -86,7 +92,9 @@ export default function PaginaTrattamentoDati() {
         </li>
         <li>
           Assistiamo l&apos;attività quando un suo cliente esercita i propri diritti (accesso, rettifica,
-          cancellazione, portabilità), e quando deve rispondere a una violazione o valutare un rischio.
+          cancellazione, portabilità), e quando deve rispondere a una violazione o valutare un rischio. Per i tre
+          casi più frequenti non serve nemmeno scriverci: la scheda cliente è modificabile, la rubrica è
+          esportabile in CSV e il titolare può cancellare definitivamente una singola scheda dalla scheda stessa.
         </li>
         <li>
           <strong className="text-white">Ti avvisiamo senza ingiustificato ritardo</strong>, e comunque entro 48
@@ -124,10 +132,10 @@ export default function PaginaTrattamentoDati() {
         </li>
       </Ul>
       <P>
-        <strong className="text-white">Limite dichiarato onestamente</strong>: le credenziali dei calendari
-        esterni che un&apos;attività collega volontariamente (Google, CalDAV) sono oggi conservate senza cifratura
-        aggiuntiva a livello applicativo, oltre a quella del database. È un miglioramento già previsto e non
-        ancora fatto: preferiamo scriverlo qui piuttosto che lasciartelo scoprire.
+        <strong className="text-white">Limite dichiarato onestamente</strong>: le credenziali del calendario
+        esterno che un&apos;attività collega volontariamente (oggi solo Google, via OAuth) sono conservate senza
+        cifratura aggiuntiva a livello applicativo, oltre a quella del database. È un miglioramento già previsto
+        e non ancora fatto: preferiamo scriverlo qui piuttosto che lasciartelo scoprire.
       </P>
 
       <H2>Altri fornitori (sub-responsabili)</H2>
@@ -161,8 +169,15 @@ export default function PaginaTrattamentoDati() {
         qualunque momento prima, direttamente dalla dashboard.
       </P>
       <P>
-        L&apos;unica eccezione sono i documenti fiscali relativi al tuo abbonamento, che la legge italiana ci
-        obbliga a conservare per 10 anni, e che riguardano te come cliente -- non i tuoi clienti.
+        Due cose sopravvivono, ed entrambe riguardano te come nostro cliente, non i tuoi clienti: i dati e i
+        documenti fiscali del tuo abbonamento, che la legge italiana ci obbliga a conservare per 10 anni, e il
+        registro dei nostri interventi tecnici (data, tipo di intervento, nome e indirizzo web dell&apos;attività,
+        qualche numero riassuntivo), che teniamo per poter dimostrare cosa è stato fatto e da chi. Il dettaglio
+        di entrambi è nell&apos;{" "}
+        <a href="/privacy" className="underline decoration-white/40 hover:text-white">
+          informativa privacy
+        </a>
+        .
       </P>
 
       <H2>Contatti</H2>

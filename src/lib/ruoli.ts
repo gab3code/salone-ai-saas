@@ -82,6 +82,24 @@ export function puoGestireAgenda(ruolo: RuoloAttivita): boolean {
 }
 
 /**
+ * Cancellare definitivamente la scheda di un cliente (17/09/2026).
+ *
+ * Separato da `puoGestireAgenda` di proposito: uno staff crea clienti e
+ * corregge un numero di telefono tutti i giorni, ma la cancellazione è
+ * irreversibile e chi si trova una scheda sparita non ha modo di sapere se è
+ * stato un errore o un dispetto. È anche l'azione con cui il salone risponde
+ * a una richiesta di cancellazione del suo cliente (art. 17 GDPR): una
+ * responsabilità del titolare, non di chi sta in negozio.
+ *
+ * Lo stesso confine è applicato dal database dalla migrazione 0035
+ * (`cancellazione_owner` su `clienti`), perché un permesso che vive solo
+ * nell'applicazione non è un permesso -- regola della 0030.
+ */
+export function puoCancellareClienti(ruolo: RuoloAttivita): boolean {
+  return ruolo === "owner";
+}
+
+/**
  * Messaggio unico per tutti i rifiuti di permesso: le server action del
  * progetto restituiscono `{ errore }` invece di lanciare (vedi le azioni
  * esistenti in src/app/dashboard/**), quindi il testo deve essere leggibile

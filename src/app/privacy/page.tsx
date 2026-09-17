@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Informativa Privacy -- Salone AI" };
  */
 export default function PaginaPrivacy() {
   return (
-    <PaginaLegale titolo="Informativa Privacy" aggiornata="14 settembre 2026">
+    <PaginaLegale titolo="Informativa Privacy" aggiornata="17 settembre 2026">
       <P>
         Questa informativa spiega quali dati personali raccoglie Salone AI, perché, per quanto tempo li conserva e
         quali diritti hai su di essi, in conformità al Regolamento (UE) 2016/679 (&quot;GDPR&quot;) e al Codice
@@ -59,13 +59,29 @@ export default function PaginaPrivacy() {
         </li>
         <li>
           <strong className="text-white">Dati di fatturazione e abbonamento</strong> (piano scelto, stato del
-          pagamento): gestiti da Stripe, nostro fornitore di pagamenti -- Salone AI non memorizza mai i dati
-          della tua carta.
+          pagamento, e -- per chi attiva un piano a pagamento -- denominazione, partita IVA, indirizzo della sede
+          legale e recapito per la fattura elettronica: codice destinatario SdI o indirizzo PEC). Questi dati li
+          conserviamo noi, nel nostro database, perché ci servono per emettere la fattura: fino al 16 settembre
+          2026 li raccoglieva Stripe nella sua schermata di pagamento, oggi li chiediamo prima, in una pagina
+          nostra. L&apos;incasso resta di Stripe e i dati della tua carta non li vediamo né li memorizziamo mai.
+        </li>
+        <li>
+          <strong className="text-white">Esito della verifica della partita IVA</strong>: quando inserisci una
+          partita IVA, Stripe la controlla per noi contro VIES, l&apos;archivio europeo dei soggetti IVA, e ci
+          restituisce l&apos;esito e la denominazione ufficialmente registrata. È un dato che non arriva da te ma
+          da una fonte pubblica (art. 14 GDPR), e lo conserviamo per un solo motivo: emettere una fattura valida,
+          e accorgerci se il nome dichiarato e quello registrato non coincidono. Non lo usiamo per decidere
+          automaticamente nulla sul tuo conto -- se qualcosa non torna, lo guarda una persona.
         </li>
         <li>
           <strong className="text-white">Dati inseriti nel tuo CRM</strong> (clienti, appuntamenti, servizi,
-          operatori): inseriti da te o dai tuoi clienti tramite la pagina pubblica o l&apos;assistente AI, salvati
-          per farti gestire la tua attività.
+          operatori, e il fatto che un cliente non si sia presentato a un appuntamento, se lo segni tu): inseriti
+          da te o dai tuoi clienti tramite la pagina pubblica o l&apos;assistente AI, salvati per farti gestire la
+          tua attività. Di questi dati il Titolare sei tu: vedi l&apos;{" "}
+          <a href="/trattamento-dati" className="underline decoration-white/40 hover:text-white">
+            accordo sul trattamento
+          </a>
+          .
         </li>
         <li>
           <strong className="text-white">Dati di calendario</strong> (solo se colleghi Google Calendar): usati
@@ -126,7 +142,8 @@ export default function PaginaPrivacy() {
         </li>
         <li>
           <strong className="text-white">Meta/WhatsApp Business</strong> (solo per le attività che attivano
-          l&apos;assistente su WhatsApp, funzione non ancora disponibile a tutti).
+          l&apos;assistente su WhatsApp: la funzione non è ancora attiva per nessuno, e finché non lo sarà nessun
+          dato passa da qui).
         </li>
       </Ul>
       <P>Nessuno di questi fornitori è autorizzato a usare i tuoi dati per scopi propri.</P>
@@ -147,13 +164,21 @@ export default function PaginaPrivacy() {
         </li>
         <li>
           <strong className="text-white">Dati dei clienti finali e appuntamenti</strong>: finché l&apos;attività
-          li tiene nel proprio CRM. Sono dati suoi, e la decisione di cancellarli è sua -- alla chiusura
-          dell&apos;account vengono cancellati insieme al resto.
+          li tiene nel proprio CRM. Sono dati suoi, e la decisione di cancellarli è sua: dalla scheda di ogni
+          cliente il titolare può cancellarla definitivamente (gli appuntamenti già registrati restano nei suoi
+          conti, senza più il nome). Alla chiusura dell&apos;account vengono cancellati tutti insieme al resto.
         </li>
         <li>
-          <strong className="text-white">Documenti fiscali e di fatturazione</strong>: 10 anni, come impone la
-          legge italiana. Questi restano anche dopo la cancellazione dell&apos;account, ed è l&apos;unica
-          eccezione.
+          <strong className="text-white">Dati di fatturazione e documenti fiscali</strong>: 10 anni, come impone
+          la legge italiana. Questi restano anche dopo la cancellazione dell&apos;account.
+        </li>
+        <li>
+          <strong className="text-white">Registro degli interventi tecnici</strong>: quando interveniamo
+          manualmente su un&apos;attività (cambio piano forzato, sospensione, cancellazione su richiesta), teniamo
+          traccia di data, tipo di intervento, nome e indirizzo web dell&apos;attività e qualche numero
+          riassuntivo (per esempio quante righe sono state cancellate). Questo registro non contiene dati dei
+          clienti finali e non viene cancellato: è quello che ci permette di dimostrare cosa è stato fatto e da
+          chi, anche anni dopo -- legittimo interesse, art. 6.1.f.
         </li>
         <li>
           <strong className="text-white">Log tecnici</strong>: pochi giorni, il tempo di diagnosticare un
@@ -161,8 +186,13 @@ export default function PaginaPrivacy() {
         </li>
       </Ul>
       <P>
-        La cancellazione è reale, non una disattivazione: la riga sparisce dal database e con lei tutto quello che
-        vi era collegato, comprese le foto caricate.
+        A parte le due eccezioni qui sopra, la cancellazione è reale e non una disattivazione: la riga sparisce
+        dal database e con lei tutto quello che vi era collegato, comprese le foto caricate.
+      </P>
+      <P>
+        <strong className="text-white">Come si chiude un account</strong>: oggi non c&apos;è un pulsante nella
+        dashboard. Ci scrivi all&apos;indirizzo email qui sopra e ce ne occupiamo noi, entro 30 giorni. Preferiamo
+        dirtelo che lasciartelo cercare: un pulsante self-service è previsto, non ancora costruito.
       </P>
 
       <H2>I tuoi diritti</H2>
