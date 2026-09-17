@@ -38,6 +38,14 @@ export function AvviaCheckoutSeNecessario({ pianoAttuale }: { pianoAttuale: stri
     })
       .then(async (risposta) => {
         const dati = await risposta.json();
+        // Mancano i dati per la fattura: non è un errore, è un passaggio in
+        // più. Si porta l'utente al modulo portandosi dietro il piano, così
+        // dopo averlo compilato il checkout riparte da solo invece di
+        // lasciarlo su una pagina salvata senza sapere cosa fare.
+        if (risposta.status === 409 && typeof dati.vaiA === "string") {
+          router.replace(dati.vaiA);
+          return;
+        }
         if (!risposta.ok || !dati.url) {
           throw new Error(dati.errore ?? "Errore durante l'avvio del pagamento.");
         }

@@ -5323,3 +5323,53 @@ Stripe raccoglie la **provincia** (Bergamo, nel modulo italiano) e, spuntando "S
 come attività", chiede la **ragione sociale** separatamente dal nome sulla carta. Quindi il
 blocco destinatario della fattura elettronica è completo: ragione sociale, partita IVA,
 indirizzo con CAP comune provincia e nazione, più codice destinatario o PEC dai nostri campi.
+
+## 2026-09-17 — I piani a pagamento si vendono solo a chi ha una partita IVA
+
+**Domanda di Gabriel**: se anche il privato deve mettere il codice fiscale rischiamo di perdere
+clienti; siamo obbligati a fargli la fattura?
+
+**Verificato**: sì. Per i servizi digitali venduti online a un consumatore italiano la fattura è
+**sempre obbligatoria**, non solo su richiesta -- l'esonero dell'art. 22 DPR 633/72 copre il
+commercio al minuto e le vendite per corrispondenza di beni, non i servizi digitali. E una
+fattura elettronica a un privato italiano richiede il suo codice fiscale: senza, il file non si
+compone. Quindi "il privato paga senza dare niente" non è un'opzione che esiste.
+
+**Decisione**: i piani a pagamento si vendono **solo a chi ha una partita IVA**, dichiarato
+apertamente sul modulo. Non è una restrizione arbitraria: i clienti del prodotto sono saloni,
+centri estetici, palestre e liberi professionisti, e hanno tutti la partita IVA -- un salone non
+può operare senza. Il privato che paga 39,90 € al mese per gestire l'agenda di un'attività che
+non esiste non è un cliente che stiamo perdendo, è un caso che non si presenta.
+
+**Cosa ci guadagniamo**: un percorso solo invece di due, sempre gli stessi campi, sempre
+obbligatori. Niente rami condizionali, niente casi limite fiscali, metà della superficie di bug.
+
+**Cosa NON cambia, ed era la preoccupazione di Gabriel**: chiunque può comunque provare il
+prodotto. Il piano Free non chiede né carta né partita IVA: ci si registra e si lavora. Quello
+che non si può fare senza partita IVA è pagare, e non per divieto nostro ma perché non potremmo
+emettere la fattura.
+
+## 2026-09-17 — I dati di fatturazione li raccogliamo su una schermata NOSTRA, prima di Stripe
+
+**Revisione della decisione presa poche ore prima** ("li raccogliamo al checkout, dentro la
+schermata di Stripe"). Il motivo del cambio è un limite di Stripe che non conoscevamo: i campi
+personalizzati di Checkout si definiscono quando la sessione viene creata, quindi **non possono
+diventare obbligatori in base a quello che l'utente spunta nella pagina**, e **non si possono
+riposizionare** -- Stripe li mette dove vuole lui, sopra il metodo di pagamento. Gabriel voleva
+entrambe le cose, e dentro Stripe non si ottengono.
+
+**Decisione**: un modulo nostro prima del pagamento raccoglie ragione sociale, partita IVA,
+indirizzo completo e codice destinatario o PEC, tutti obbligatori e validati (compreso il
+carattere di controllo della partita IVA, prima di prendere i soldi e non dopo). I dati vengono
+poi rispecchiati sul Customer di Stripe, così portale e ricevute restano coerenti, e la sessione
+di checkout nasce **senza** `tax_id_collection`, `billing_address_collection` e campi
+personalizzati: a Stripe resta solo la carta. La sua schermata diventa più corta di adesso, non
+più lunga.
+
+**Conseguenza accettata**: la fonte di verità dei dati di fatturazione passa da Stripe a noi. È
+inevitabile -- chi decide le regole del modulo deve possedere il modulo -- e va ricordata quando
+si leggeranno quei dati per emettere la fattura: si leggono dal nostro database, non da Stripe.
+
+**Nota sulla casella "sto acquistando come attività" di Stripe**: non serviva a niente di quello
+che sembrava. Non decide nessun invio di email; esiste solo perché Stripe possa attaccare una
+partita IVA al cliente. Togliendola non si perde nessun automatismo.

@@ -2042,6 +2042,29 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       89,90 € scatta ogni mese; conservazione a norma per 10 anni, non basta tenere i file.
       Vedi DECISIONS.md per il perché dei campi al checkout invece che alla registrazione.
 
+### Dati di fatturazione raccolti prima del pagamento -- FATTO 17/09/2026
+
+- [x] **Modulo nostro, prima di Stripe** (`/dashboard/fatturazione`, migrazione `0033`, applicata).
+      Ragione sociale, partita IVA, indirizzo completo con provincia, e codice destinatario o
+      PEC: tutti obbligatori, tutti validati -- compreso il carattere di controllo della partita
+      IVA, **prima** di prendere i soldi e non dopo. Il checkout risponde 409 finché mancano e
+      dice dove andare, portandosi dietro il piano così il pagamento riparte da solo; non crea
+      nemmeno il customer su Stripe, per non lasciare orfani a ogni tentativo a vuoto. I dati
+      vengono rispecchiati sul Customer di Stripe (fail-open: un problema lì non blocca il
+      salvataggio) e la sessione di checkout nasce **senza** raccolta dati -- a Stripe resta solo
+      la carta, quindi la sua schermata si è accorciata, non allungata.
+      **Perché il modulo è nostro**: i campi personalizzati di Stripe Checkout si definiscono
+      quando la sessione viene creata, quindi non possono diventare obbligatori in base a quello
+      che l'utente spunta nella pagina, e non si possono riposizionare. Servivano entrambe le
+      cose.
+      **Perché solo partita IVA**: per un servizio digitale venduto online a un consumatore
+      italiano la fattura è sempre obbligatoria, non solo su richiesta, e per emetterla a un
+      privato servirebbe il suo codice fiscale. I clienti di questo prodotto la partita IVA ce
+      l'hanno tutti; tenere un secondo percorso raddoppierebbe moduli e casi limite per un cliente
+      che non si presenta. Il piano Free resta aperto a chiunque, senza carta e senza partita IVA.
+      Test: 10 unitari su `fatturazione.ts`, più lo Scenario 14 che verifica il rifiuto e il
+      percorso indicato.
+
 ### Stripe dopo la P.IVA -- lista completa, da spuntare (compilata 17/09/2026)
 
 Tutto quello che su Stripe va rifatto o configurato quando si passa dall'account sandbox a

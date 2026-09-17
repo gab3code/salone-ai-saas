@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { creaClientServer } from "@/lib/supabase/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
+import { leggiDatiFatturazione, rispecchiaSuStripe } from "@/lib/fatturazione.server";
+import { datiFatturazioneCompleti } from "@/lib/fatturazione";
 import { creaClientStripe } from "@/lib/stripe/server";
 import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
 import { puoGestireFatturazione, ERRORE_PERMESSO_NEGATO } from "@/lib/ruoli";
@@ -64,6 +66,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ errore: "Attività non trovata." }, { status: 404 });
   }
 
+  // Senza i dati di fatturazione non si vende, e non è una scelta nostra:
+  // per un servizio digitale venduto a un cliente italiano la fattura è
+  // sempre obbligatoria, e senza partita IVA, indirizzo e recapito SdI non si
+  // può comporre. Meglio fermarlo qui, dove si rimedia in trenta secondi, che
+  // incassare e poi dover rincorrere i dati per emettere.
+  const datiFattura = await leggiDatiFatturazione(admin, tenant.id as string);
+  if (!datiFatturazioneCompleti(datiFattura)) {
+    return NextResponse.json(
+      {
+        errore: "Prima di attivare un piano a pagamento ci servono i dati per la fattura.",
+        vaiA: `/dashboard/fatturazione?piano=${encodeURIComponent(piano)}`,
+      },
+      { status: 409 }
+    );
+  }
+
   const stripe = creaClientStripe();
 
   // Chi ha già un abbonamento vivo NON passa da qui: cambia piano dal
@@ -112,6 +130,12 @@ export async function POST(request: NextRequest) {
     stripeCustomerId = customer.id;
     await admin.from("tenants").update({ stripe_customer_id: stripeCustomerId }).eq("id", tenant.id);
   }
+
+  // Nome, indirizzo e partita IVA sul Customer: così il portale abbonamento e
+  // le ricevute che il cliente vede su Stripe dicono le stesse cose della
+  // fattura che riceve. La fonte di verità resta il nostro database (vedi
+  // fatturazione.server.ts), questo è un riflesso.
+  await rispecchiaSuStripe(stripeCustomerId, datiFattura);
 
   const origin = request.nextUrl.origin;
   const trialDays = giorniDiProva(piano);
@@ -169,50 +193,17 @@ export async function POST(request: NextRequest) {
     success_url: `${origin}/dashboard?checkout=successo`,
     cancel_url: `${origin}/#prezzi`,
     client_reference_id: tenant.id,
-    // --- Dati di fatturazione (decisione del 17/09/2026) ---
+    // Niente `tax_id_collection`, niente indirizzo, niente campi
+    // personalizzati: quei dati li abbiamo già raccolti e validati sul nostro
+    // modulo, e sono appena stati scritti sul Customer qui sopra. A Stripe
+    // resta la carta, e la sua schermata si accorcia invece di allungarsi.
     //
-    // Si raccolgono QUI e non alla registrazione: l'iscrizione è il punto più
-    // fragile dell'imbuto, e un campo fiscale prima ancora di aver visto il
-    // prodotto funzionare è il posto peggiore dove metterlo. Chi sta in prova
-    // o su Free non ha nessuna fattura da ricevere. Al checkout invece la
-    // persona ha già deciso di pagare, e i dati glieli chiede Stripe con la
-    // sua interfaccia, non noi.
-    // `tax_id_collection` mostra un campo partita IVA OPZIONALE: chi non ce
-    // l'ha semplicemente non lo compila e paga lo stesso. L'indirizzo invece
-    // è obbligatorio, e non è una nostra scelta: una fattura senza indirizzo
-    // del destinatario non è una fattura.
-    tax_id_collection: { enabled: true },
-    billing_address_collection: "required",
-    customer_update: { name: "auto", address: "auto" },
-    // Partita IVA e indirizzo non bastano per lo SdI: serve il codice
-    // destinatario (7 caratteri) oppure la PEC, e Stripe non li conosce.
-    // Sono due dei tre campi personalizzati che una sessione consente.
-    // Entrambi opzionali di proposito: un cliente che non sa cosa sia il
-    // codice destinatario non deve restare bloccato davanti al pagamento --
-    // glielo si chiede dopo, dalla dashboard. Meglio un dato mancante che un
-    // abbonamento non sottoscritto.
-    custom_fields: [
-      {
-        key: "codice_destinatario",
-        label: { type: "custom", custom: "Codice destinatario SDI (7 caratteri)" },
-        type: "text",
-        optional: true,
-        // Solo il massimo, nessun minimo: su un campo opzionale una
-        // lunghezza minima è un rischio che non vale la pena correre -- se
-        // venisse applicata anche al campo lasciato vuoto bloccherebbe il
-        // pagamento di chiunque non abbia un codice SdI, cioè esattamente le
-        // persone per cui il campo è opzionale. Il formato lo controlla il
-        // modulo nelle impostazioni, dove sbagliare non costa un abbonamento.
-        text: { maximum_length: 7 },
-      },
-      {
-        key: "pec",
-        label: { type: "custom", custom: "PEC per la fattura (se non hai il codice)" },
-        type: "text",
-        optional: true,
-        text: { maximum_length: 100 },
-      },
-    ],
+    // Storia breve, perché il contrario sembrava più semplice: per due ore
+    // quei campi sono stati dentro Checkout. Non funzionava, per due limiti
+    // che si scoprono solo provando -- i campi personalizzati si definiscono
+    // quando la sessione viene creata, quindi non possono diventare
+    // obbligatori in base a quello che l'utente spunta nella pagina, e non si
+    // possono spostare dove servono.
     subscription_data: {
       metadata: { tenant_id: tenant.id, piano },
       ...(trialDays ? { trial_period_days: trialDays } : {}),

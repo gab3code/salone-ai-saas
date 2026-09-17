@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { creaTenantDiProva, type TenantDiProva } from "./helpers/tenant-di-prova";
 import { accediComeTitolare } from "./helpers/login";
+import { impostaDatiFatturazione } from "./helpers/dati-fatturazione";
 import { creaClientStripeTest, firmaEventoStripeDiProva } from "./helpers/stripe-webhook";
 import { priceIdPerPiano } from "@/lib/stripe/piani";
 
@@ -37,6 +38,7 @@ test.describe("Scenario 14 -- upgrade del piano", () => {
 
   test("l'endpoint di checkout genera un vero URL Stripe e salva il customer sul tenant", async ({ page, baseURL }) => {
     tenant = await creaTenantDiProva({ nome: "Salone Test E2E Scenario14a", piano: "free" });
+    await impostaDatiFatturazione(tenant.id);
     await accediComeTitolare(page, tenant.email, tenant.password);
 
     const risposta = await page.request.post(`${baseURL}/api/stripe/checkout`, { data: { piano: "growth" } });
@@ -95,5 +97,43 @@ test.describe("Scenario 14 -- upgrade del piano", () => {
       .single();
     expect(tenantAggiornato?.piano).toBe("pro");
     expect(tenantAggiornato?.stato_abbonamento).toBe("attivo");
+  });
+
+  /**
+   * Il gate aggiunto il 17/09/2026. Non è una preferenza: per un servizio
+   * digitale venduto a un cliente italiano la fattura è sempre obbligatoria,
+   * e senza partita IVA, indirizzo e recapito SdI non si può comporre.
+   * Fermarsi qui costa trenta secondi al cliente; incassare e poi rincorrere
+   * i dati costa una nota di variazione.
+   */
+  test("senza i dati per la fattura il checkout non parte, e indica dove metterli", async ({
+    page,
+    baseURL,
+  }) => {
+    tenant = await creaTenantDiProva({ nome: "Salone Test E2E Scenario14c", piano: "free" });
+    await accediComeTitolare(page, tenant.email, tenant.password);
+
+    const risposta = await page.request.post(`${baseURL}/api/stripe/checkout`, {
+      data: { piano: "growth" },
+    });
+    expect(risposta.status(), "senza dati di fatturazione il checkout deve rifiutare").toBe(409);
+
+    const corpo = (await risposta.json()) as { errore?: string; vaiA?: string };
+    expect(corpo.vaiA, "deve dire DOVE andare, non solo che manca qualcosa").toContain(
+      "/dashboard/fatturazione"
+    );
+    expect(corpo.vaiA, "e deve portarsi dietro il piano, così il pagamento riparte da solo").toContain(
+      "piano=growth"
+    );
+
+    // Nessun customer creato su Stripe: ci si ferma PRIMA di toccare
+    // qualunque cosa, altrimenti resterebbero customer orfani per ogni
+    // tentativo andato a vuoto.
+    const { data: dopo } = await tenant.supabase
+      .from("tenants")
+      .select("stripe_customer_id")
+      .eq("id", tenant.id)
+      .single();
+    expect(dopo?.stripe_customer_id).toBeNull();
   });
 });
