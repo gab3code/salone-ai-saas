@@ -1,27 +1,26 @@
 # Test play -- limiti, quote e fuori tema (push del 17/09/2026, sera)
 
-Un commit solo sopra a quello che hai appena pushato (`5648f3fe`).
+Copre tre push del 17/09: i limiti per IP (`abb7f271`), il suo test play
+(`33204763`) e le quote riviste (`b68ff252`).
 **Un blocco alla volta**, come sempre.
+
+> Nota del 17/09, sera: la sezione 1 chiedeva `5648f3fe` perche' era un controllo
+> *prima* di mergiare il bundle dei limiti per IP. Quel merge e' stato fatto, e
+> sopra ci sono altri due commit: l'atteso ora e' la punta, `b68ff252`.
 
 ---
 
-## 1. Prendi il lavoro
+## 1. Verifica di essere sul lavoro giusto
 
 ```bash
 cd ~/dev/salone-ai-saas
 git log --oneline -1
 ```
 
-Atteso: `5648f3fe`. Se vedi altro, fermati e dimmelo.
+Atteso: `b68ff252`. Se vedi altro, fermati e dimmelo.
 
-```bash
-git fetch limiti-ip.bundle main:limiti-ip
-git merge --ff-only limiti-ip
-git branch -d limiti-ip
-rm -f *.bundle
-```
-
-Nessun `npm install` stavolta: nessuna dipendenza nuova.
+Niente bundle e niente `npm install`: e' tutto gia' mergiato e pushato, e non ci
+sono dipendenze nuove.
 
 ---
 
