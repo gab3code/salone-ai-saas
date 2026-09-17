@@ -5759,6 +5759,12 @@ Nello stesso output compariva anche:
 
 Non è un problema del codice: `tsconfig.json` include `.next/types/**/*.ts` (i tipi delle rotte
 generati da Next) e quella rotta è stata cancellata stanotte. Il file generato resta a puntare a
-una pagina che non c'è più finché non si ricompila. `npm run build` lo rigenera da sé -- infatti
-subito dopo la build è passata. Aggiunto `rm -rf .next` in testa alla lista di comandi: costa un
-secondo ed evita un errore che sembra grave e non lo è.
+una pagina che non c'è più finché non si ricompila.
+
+**Il primo consiglio che ho dato era sbagliato**: avevo scritto "aggiungi `rm -rf .next` in
+testa ai comandi". Provato davvero, quel `rm` da solo fa fallire `tsc` dall'altro lato --
+`Cannot find name 'LayoutProps'` -- perché da `.next/types` arrivano anche i tipi globali
+`LayoutProps`/`PageProps` che il codice usa. L'ordine giusto, verificato: `rm -rf .next` →
+`npm run build` (che li rigenera, e fa già il suo controllo TypeScript) → `npx tsc --noEmit`.
+Lezione piccola ma della stessa famiglia del test sul fuso orario: un comando "ovvio" che non ho
+eseguito prima di consigliarlo.

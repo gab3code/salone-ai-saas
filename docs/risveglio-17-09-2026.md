@@ -26,19 +26,26 @@ Il push lo devi fare tu: dal mio lato il proxy git lo blocca.
 
 ```bash
 rm -rf .next
+npm run build
 npx tsc --noEmit
 npx eslint src tests --max-warnings=0
 npm test
 ```
 
-**Il `rm -rf .next` serve davvero**, non è scaramanzia. `tsconfig.json` include
-`.next/types/**/*.ts`, cioè i tipi delle rotte che Next genera: quando una rotta viene
-CANCELLATA (in questo giro `/prova-chat/[slug]`), il file generato resta lì a puntare a una
-pagina che non esiste più e `tsc` fallisce con un errore che sembra grave e non lo è --
-`Cannot find module '../../src/app/prova-chat/[slug]/page.js'`. `npm run build` lo rigenera da
-sé, quindi l'errore sparisce anche solo ricompilando: il `rm` lo evita prima.
+**L'ordine conta, ed è il contrario di quello che verrebbe da fare.** `tsconfig.json` include
+`.next/types/**/*.ts`, cioè i tipi che Next genera per le rotte. Da lì arrivano due cose:
+i moduli di ogni pagina esistente E i tipi globali `LayoutProps`/`PageProps` che il codice usa.
+Quindi:
 
-Atteso: **tutti e quattro puliti, 604 test verdi**.
+- con un `.next` **vecchio**, `tsc` cerca una rotta cancellata (in questo giro
+  `/prova-chat/[slug]`) e fallisce con `Cannot find module .../prova-chat/[slug]/page.js`;
+- con `.next` **cancellato e basta**, `tsc` fallisce dall'altra parte: `Cannot find name
+  'LayoutProps'`.
+
+`npm run build` è quello che li rigenera giusti (e fa già il suo controllo TypeScript per conto
+suo), quindi va PRIMA. Il `tsc --noEmit` dopo è un secondo passaggio su tipi aggiornati.
+
+Atteso: **tutto pulito, 604 test verdi**.
 
 ### I test sono indipendenti dal fuso orario, e ora è verificato
 
