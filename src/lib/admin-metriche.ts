@@ -229,7 +229,11 @@ export function coortiPerMese(righe: RigaAdmin[], adesso: Date = new Date(), mes
   for (const riga of righe) {
     const data = new Date(riga.creatoIl);
     if (Number.isNaN(data.getTime())) continue;
-    const mese = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+    // UTC, per lo stesso motivo di `inizioSettimana` qui sopra: un'attività
+    // iscritta l'1 del mese alle 00:30 ora italiana non deve finire nella
+    // coorte del mese precedente solo perché il grafico gira su un computer
+    // in un fuso diverso dal server.
+    const mese = `${data.getUTCFullYear()}-${String(data.getUTCMonth() + 1).padStart(2, "0")}`;
     const gruppo = perMese.get(mese) ?? [];
     gruppo.push(riga);
     perMese.set(mese, gruppo);

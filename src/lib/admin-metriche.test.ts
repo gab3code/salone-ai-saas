@@ -60,28 +60,59 @@ function appuntamento(
   };
 }
 
+/**
+ * Tutte le date di questo file sono costruite in UTC (`Date.UTC`), mai con
+ * `new Date(2026, 8, 14)`.
+ *
+ * Non è pignoleria: `new Date(2026, 8, 14)` è la MEZZANOTTE LOCALE del
+ * computer che esegue il test. Su un server in UTC è il 14 alle 00:00Z; su
+ * un Mac in Europa/Roma è il 13 alle 22:00Z, cioè un altro giorno e, per il
+ * 14 settembre 2026 (un lunedì), un'altra settimana. Il 17/09/2026 questa
+ * riga ha fatto fallire il test sul Mac di Gabriel e passare nel sandbox --
+ * il test diceva una cosa diversa a seconda di dove girava, che è
+ * esattamente il difetto che `inizioSettimana` è stata riscritta per
+ * togliere dal prodotto.
+ *
+ * Regola per chi tocca questo file: se una data serve a verificare un
+ * confine di giorno, mese o settimana, si scrive con `Date.UTC`.
+ */
+const SETTEMBRE = 8; // i mesi di JavaScript partono da 0
+const utc = (giorno: number, ora = 0) => new Date(Date.UTC(2026, SETTEMBRE, giorno, ora));
+
 describe("inizioSettimana", () => {
   it("torna sempre al lunedì, anche di domenica", () => {
     // 16 settembre 2026 è un mercoledì: il lunedì è il 14.
-    expect(inizioSettimana(new Date(2026, 8, 16)).getDate()).toBe(14);
+    expect(inizioSettimana(utc(16)).getUTCDate()).toBe(14);
     // La domenica appartiene alla settimana che è appena finita, non a
     // quella che comincia il giorno dopo: è la convenzione italiana, ed è
     // l'errore classico di `getDay()`, dove domenica è 0.
-    expect(inizioSettimana(new Date(2026, 8, 20)).getDate()).toBe(14);
-    expect(inizioSettimana(new Date(2026, 8, 14)).getDate()).toBe(14);
+    expect(inizioSettimana(utc(20)).getUTCDate()).toBe(14);
+    // Il lunedì stesso resta sé stesso.
+    expect(inizioSettimana(utc(14)).getUTCDate()).toBe(14);
+  });
+
+  it("dà lo stesso lunedì indipendentemente dal fuso del computer che esegue il codice", () => {
+    // È la garanzia introdotta il 17/09/2026: prima esistevano DUE
+    // `inizioSettimana`, una in UTC (analytics della dashboard) e una in ora
+    // locale (pannello di piattaforma). Su Vercel coincidono, su un computer
+    // italiano no -- e due grafici raccontavano settimane diverse per gli
+    // stessi appuntamenti. Un istante è un istante: la settimana in cui cade
+    // non può dipendere da dove lo si guarda.
+    const istante = new Date("2026-09-20T23:30:00Z"); // domenica sera, tardi
+    expect(inizioSettimana(istante).toISOString()).toBe("2026-09-14T00:00:00.000Z");
   });
 });
 
 describe("serieSettimanale", () => {
-  const adesso = new Date(2026, 8, 16); // mercoledì 16 settembre 2026
+  const adesso = utc(16); // mercoledì 16 settembre 2026, 00:00 UTC
 
   it("divide le prenotazioni fra assistente e lavoro manuale, settimana per settimana", () => {
     const serie = serieSettimanale(
       [
-        appuntamento({ creatoIl: new Date(2026, 8, 15).toISOString(), creatoDa: "ai" }),
-        appuntamento({ creatoIl: new Date(2026, 8, 16).toISOString(), creatoDa: "ai" }),
-        appuntamento({ creatoIl: new Date(2026, 8, 16).toISOString(), creatoDa: "manuale" }),
-        appuntamento({ creatoIl: new Date(2026, 8, 8).toISOString(), creatoDa: "manuale" }),
+        appuntamento({ creatoIl: utc(15, 10).toISOString(), creatoDa: "ai" }),
+        appuntamento({ creatoIl: utc(16, 10).toISOString(), creatoDa: "ai" }),
+        appuntamento({ creatoIl: utc(16, 14).toISOString(), creatoDa: "manuale" }),
+        appuntamento({ creatoIl: utc(8, 10).toISOString(), creatoDa: "manuale" }),
       ],
       4,
       adesso
@@ -105,7 +136,7 @@ describe("serieSettimanale", () => {
 
   it("ignora quello che sta fuori dalla finestra, senza contarlo altrove", () => {
     const serie = serieSettimanale(
-      [appuntamento({ creatoIl: new Date(2025, 0, 1).toISOString() })],
+      [appuntamento({ creatoIl: new Date(Date.UTC(2025, 0, 1)).toISOString() })],
       4,
       adesso
     );

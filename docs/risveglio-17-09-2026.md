@@ -22,15 +22,39 @@ Il push lo devi fare tu: dal mio lato il proxy git lo blocca.
 
 ---
 
-## 2. Le tre verifiche veloci (30 secondi, nessuna rete)
+## 2. Le verifiche veloci (un minuto, nessuna rete)
 
 ```bash
+rm -rf .next
 npx tsc --noEmit
 npx eslint src tests --max-warnings=0
 npm test
 ```
 
-Atteso: **tutti e tre puliti, 598 test verdi**.
+**Il `rm -rf .next` serve davvero**, non è scaramanzia. `tsconfig.json` include
+`.next/types/**/*.ts`, cioè i tipi delle rotte che Next genera: quando una rotta viene
+CANCELLATA (in questo giro `/prova-chat/[slug]`), il file generato resta lì a puntare a una
+pagina che non esiste più e `tsc` fallisce con un errore che sembra grave e non lo è --
+`Cannot find module '../../src/app/prova-chat/[slug]/page.js'`. `npm run build` lo rigenera da
+sé, quindi l'errore sparisce anche solo ricompilando: il `rm` lo evita prima.
+
+Atteso: **tutti e quattro puliti, 604 test verdi**.
+
+### I test sono indipendenti dal fuso orario, e ora è verificato
+
+Il 17/09/2026 un test è passato nel sandbox (che gira in UTC) e fallito sul Mac di Gabriel
+(Europa/Roma): usava `new Date(2026, 8, 14)`, cioè la mezzanotte LOCALE, che in Italia è il
+giorno prima in UTC. Corretto il test e, già che c'era, altre due date calcolate in ora locale
+nel pannello di piattaforma. Se vuoi ricontrollarlo:
+
+```bash
+TZ=Europe/Rome npm test
+TZ=Pacific/Kiritimati npm test
+```
+
+Devono dare lo stesso risultato. **Regola per il futuro**: quando una data serve a verificare
+un confine di giorno, mese o settimana, si scrive con `Date.UTC`, mai con `new Date(anno, mese,
+giorno)`.
 
 `eslint` ora deve dare **zero errori E zero warning**: se ne compare anche uno solo,
 è arrivato con il tuo push, non con il mio -- prima di stanotte il progetto ne aveva

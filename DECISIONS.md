@@ -5708,3 +5708,57 @@ giorni, anche se abbassi la soglia qui sopra"*.
 I paletti 14-365 sono nel `check` della migrazione E nella server action: l'errore di una
 constraint violata è illeggibile per un titolare, e l'azione è comunque un endpoint POST
 richiamabile senza aprire la pagina.
+
+---
+
+## 17/09/2026 -- Un test che diceva cose diverse a seconda del computer
+
+Gabriel lancia la suite sul suo Mac dopo il mio "603 test verdi" e ne trova uno rosso:
+
+```
+inizioSettimana > torna sempre al lunedì, anche di domenica
+expected 7 to be 14
+```
+
+**Il prodotto era giusto, il test no** -- ma il modo in cui era sbagliato è proprio quello che
+avevo passato la notte a togliere dal codice.
+
+`new Date(2026, 8, 14)` è la **mezzanotte locale** del computer che esegue il test. Nel sandbox,
+che gira in UTC, è il 14 settembre alle 00:00Z, un lunedì. Sul Mac di Gabriel (Europa/Roma, in
+quel periodo UTC+2) è il **13 alle 22:00Z**: una domenica, e quindi un'altra settimana. Il test
+non verificava un comportamento, verificava il fuso orario di chi lo lanciava.
+
+Era emerso solo adesso perché poche ore prima avevo unificato `inizioSettimana` su UTC (esisteva
+in due copie, una UTC e una in ora locale, che davano risultati diversi fuori da un server in
+UTC). La copia in ora locale "concordava" con il test scritto in ora locale: due errori che si
+annullavano.
+
+**Cosa ho cambiato**: il test ora costruisce le date con `Date.UTC`, e ne ho aggiunto uno che
+fissa la garanzia vera -- un istante cade sempre nella stessa settimana, da qualunque computer
+lo si guardi. Già che c'ero, altre due date calcolate in ora locale nello stesso file:
+`inizioMese` in `admin.server.ts` (le prenotazioni create fra mezzanotte e le 2 del primo del
+mese finivano nel mese sbagliato) e il raggruppamento di `coortiPerMese`.
+
+**Cosa ho cambiato nel mio metodo**: la suite ora la lancio anche sotto `TZ=Europe/Rome`, non
+solo nel fuso del sandbox. Verificata su quattro fusi (UTC, Roma, New York, Tokyo,
+Kiritimati/UTC+14): 604 test verdi ovunque. Il sandbox in UTC è comodo e bugiardo -- nasconde
+esattamente la classe di errore che il codice di questo progetto (pseudo-UTC ovunque) esiste per
+evitare.
+
+**Regola scritta in testa al file di test**: se una data serve a verificare un confine di
+giorno, mese o settimana, si scrive con `Date.UTC`, mai con `new Date(anno, mese, giorno)`.
+
+### Nota a margine: l'errore `tsc` su `prova-chat`
+
+Nello stesso output compariva anche:
+
+```
+.next/types/validator.ts:134 - error TS2307:
+  Cannot find module '../../src/app/prova-chat/[slug]/page.js'
+```
+
+Non è un problema del codice: `tsconfig.json` include `.next/types/**/*.ts` (i tipi delle rotte
+generati da Next) e quella rotta è stata cancellata stanotte. Il file generato resta a puntare a
+una pagina che non c'è più finché non si ricompila. `npm run build` lo rigenera da sé -- infatti
+subito dopo la build è passata. Aggiunto `rm -rf .next` in testa alla lista di comandi: costa un
+secondo ed evita un errore che sembra grave e non lo è.

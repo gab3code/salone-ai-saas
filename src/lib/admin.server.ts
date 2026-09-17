@@ -126,7 +126,12 @@ function riepilogaAppuntamenti(
   const trentaGiorniFa = adesso.getTime() - 30 * 24 * 60 * 60 * 1000;
   // Stesso criterio di `limiteMensilePrenotazioni`: il tetto del piano conta
   // le prenotazioni CREATE nel mese solare corrente.
-  const inizioMese = new Date(adesso.getFullYear(), adesso.getMonth(), 1).getTime();
+  // UTC e non ora locale (corretto il 17/09/2026, insieme a `inizioSettimana`
+  // e `coortiPerMese`): su Vercel il fuso del processo è UTC e le due forme
+  // coincidono, su un Mac in Europa/Roma no -- e il conteggio del mese
+  // corrente slitterebbe di due ore, spostando nel mese sbagliato le
+  // prenotazioni create fra mezzanotte e le 2 del primo giorno del mese.
+  const inizioMese = Date.UTC(adesso.getUTCFullYear(), adesso.getUTCMonth(), 1);
 
   const piuUno = (mappa: Map<string, number>, chiave: string) =>
     mappa.set(chiave, (mappa.get(chiave) ?? 0) + 1);
