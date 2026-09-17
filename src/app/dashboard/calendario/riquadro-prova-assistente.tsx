@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { provaAssistente } from "./azioni-prova-assistente";
 import { DOMANDE_ESEMPIO, LUNGHEZZA_MASSIMA_DOMANDA_DEMO } from "@/lib/ai/demo-assistente";
+import { SLUG_DEMO_GROWTH } from "@/lib/demo";
 
 /**
  * Il riquadro che compare dopo un appuntamento inserito a mano, sui piani
@@ -92,7 +93,12 @@ export function RiquadroProvaAssistente({ rimasteIniziali }: { rimasteIniziali: 
           <p className="mt-1 max-w-xl text-sm text-zinc-600">
             Con <strong>Growth</strong> l&apos;assistente risponde al posto tuo e prenota da solo, anche di domenica
             e alle undici di sera. Scrivi qui sotto quello che ti ha chiesto un cliente al telefono: ti faccio
-            vedere cosa gli avrebbe risposto, con i tuoi servizi e i tuoi orari veri.
+            vedere cosa gli avrebbe risposto, con i tuoi servizi e i tuoi orari veri. Se invece vuoi vedere la
+            scena dalla parte del cliente,{" "}
+            <a href={`/s/${SLUG_DEMO_GROWTH}`} target="_blank" rel="noopener" className="underline">
+              apri il salone di prova
+            </a>{" "}
+            e prenota tu stesso.
           </p>
         </div>
         <button
@@ -160,7 +166,11 @@ export function RiquadroProvaAssistente({ rimasteIniziali }: { rimasteIniziali: 
           <p className="mt-2 text-sm whitespace-pre-line text-zinc-800">{risposta}</p>
           <p className="mt-3 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
             Nella prova l&apos;assistente guarda la tua agenda ma non la tocca. Con Growth l&apos;appuntamento lo
-            avrebbe anche preso: questo, che hai appena scritto tu, lo avresti trovato già in calendario.
+            avrebbe anche preso: questo, che hai appena scritto tu, lo avresti trovato già in calendario.{" "}
+            <a href={`/s/${SLUG_DEMO_GROWTH}`} target="_blank" rel="noopener" className="underline">
+              Guarda come lo vede un tuo cliente
+            </a>
+            .
           </p>
         </div>
       )}

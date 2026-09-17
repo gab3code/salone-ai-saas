@@ -17,6 +17,7 @@ import {
   LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE,
   LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI,
 } from "@/lib/ai/limiti";
+import { QUOTA_MENSILE_MESSAGGI_DEMO, strumentiPerDemo } from "@/lib/demo";
 import { pianoHaKnowledgeBaseAi } from "@/lib/piani";
 import type { StileTonoAI } from "@/lib/ai/agente";
 import { contaMessaggiClienteQuestoMese, ultimoMessaggioTroppoRecente } from "@/lib/ai/limiti.server";
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("nome, piano, fuso_orario, tono_ai, tono_ai_nota, telefono, telefono_whatsapp")
+    .select("nome, piano, fuso_orario, tono_ai, tono_ai_nota, telefono, telefono_whatsapp, e_demo")
     .eq("id", tenantId)
     .single();
 
@@ -107,9 +108,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       tenant.piano === "pro"
         ? ((await supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId)).count ?? 0)
         : 1;
-    if (usatiQuestoMese >= limiteMensileMessaggi(tenant.piano, numeroOperatori)) {
+    // Il salone dimostrativo e' pubblico e non lo paga nessun abbonato:
+    // il suo tetto e' molto piu' basso di quello del piano su cui gira, e
+    // non scala con gli operatori (vedi src/lib/demo.ts).
+    const limiteMensile = tenant.e_demo
+      ? QUOTA_MENSILE_MESSAGGI_DEMO
+      : limiteMensileMessaggi(tenant.piano, numeroOperatori);
+    if (usatiQuestoMese >= limiteMensile) {
       return NextResponse.json(
-        { errore: "Questa attività ha raggiunto il limite mensile di messaggi AI. Contattala direttamente per prenotare." },
+        {
+          errore: tenant.e_demo
+            ? "La demo ha esaurito i messaggi di questo mese. La pagina resta navigabile, e il primo del mese riparte."
+            : "Questa attività ha raggiunto il limite mensile di messaggi AI. Contattala direttamente per prenotare.",
+        },
         { status: 429 }
       );
     }
@@ -195,6 +206,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         haInformazioniAttivita,
         telefono: tenant?.telefono ?? null,
         telefonoWhatsapp: tenant?.telefono_whatsapp ?? null,
+        // Sul salone dimostrativo l'assistente puo' fare tutto TRANNE
+        // cercare le prenotazioni da un numero di telefono: li' dentro i
+        // numeri sono di visitatori veri, e basterebbe provarne qualcuno
+        // per leggere nome e orario di uno sconosciuto. `crea_prenotazione`
+        // resta, perche' prenotare davvero e' il punto della demo.
+        strumentiConsentiti: tenant?.e_demo ? strumentiPerDemo() : undefined,
       },
       undefined, // client Anthropic di default (parametro 5° è "adesso", non va confuso)
       adessoPseudo

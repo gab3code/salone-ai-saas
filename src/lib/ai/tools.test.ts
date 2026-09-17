@@ -26,7 +26,8 @@ vi.mock("@/lib/booking-engine.server", async (importOriginal) => {
   return { ...reale, creaAppuntamentoTenant: vi.fn() };
 });
 import { creaAppuntamentoTenant } from "@/lib/booking-engine.server";
-import { eseguiStrumento, type ContestoStrumento } from "./tools";
+import { STRUMENTI_AI, eseguiStrumento, type ContestoStrumento } from "./tools";
+import { STRUMENTI_AI as NOMI_STRUMENTI_AI } from "./tools-nomi";
 
 const caricaImportoCaparraServizioFinto = vi.mocked(caricaImportoCaparraServizio);
 const avviaPagamentoCaparraTenantFinto = vi.mocked(avviaPagamentoCaparraTenant);
@@ -629,5 +630,19 @@ describe("eseguiStrumento -- crea_prenotazione con servizi consecutivi (più id 
       TENANT_ID,
       expect.objectContaining({ servizioId: [SERVIZIO_ID], creatoDa: "ai" })
     );
+  });
+});
+
+describe("tools-nomi.ts resta allineato a STRUMENTI_AI", () => {
+  it("elenca esattamente gli stessi strumenti, negli stessi nomi", () => {
+    // `tools-nomi.ts` esiste perché chi decide QUALI strumenti concedere non
+    // può importare `tools.ts` (si porta dietro il lato server). Il prezzo di
+    // quella separazione è che le due liste possono divergere in silenzio:
+    // uno strumento nuovo aggiunto qui e dimenticato là non darebbe nessun
+    // errore di compilazione, sparirebbe e basta dalla demo. Questo test è
+    // l'unico posto che le tiene insieme.
+    const veri = STRUMENTI_AI.map((s) => s.name as string).sort();
+    const nomi = [...NOMI_STRUMENTI_AI].sort();
+    expect(nomi).toEqual(veri);
   });
 });

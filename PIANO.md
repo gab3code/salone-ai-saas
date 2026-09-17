@@ -2107,12 +2107,27 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
   **La linea è: regola deterministica sì, prosa generata sopra i numeri no.** Una regola o è giusta
   o è sbagliata e si può controllare; un paragrafo è un'opinione che sembra un dato.
 
-- [ ] **Demo pubblica e video di sessanta secondi.** Non esiste un solo cliente vero da mostrare e
-      la landing promette senza provare. Un salone demo credibile a un URL fisso, che chiunque può
-      aprire e provare a prenotare, più un video breve in cui l'assistente prende un appuntamento,
-      sono l'unico materiale di vendita che conta davvero -- e costano un pomeriggio. Oggi non
-      esistono. Da tenere popolato con dati verosimili ma palesemente finti, mai con dati di una
-      persona reale.
+- [x] ~~**Demo pubblica**~~ **FATTA 17/09/2026** (migrazione 0042). Nata da una domanda di
+      Gabriel che ha scoperto un buco: un titolare Starter non ha mai visto la chat, perche' sulla
+      SUA pagina pubblica il widget non viene proprio disegnato. **Due** saloni e non uno, sua
+      scelta: lo stesso `Atelier Camelia` su Growth e su Pro con un interruttore, cosi' la
+      differenza fra i piani si prova invece di leggerla. Indirizzo fisso `/demo`, che porta a
+      `/s/demo`: la demo NON e' una pagina a parte, e' la stessa pagina pubblica di ogni salone
+      con dentro dati finti -- una demo costruita a parte diverge dal prodotto al primo cambio.
+      Si prenota davvero. Difese: tetto di 400 messaggi al mese su tutta la demo, nessun invio
+      reale di email o SMS (controllo messo nel punto piu' in basso che tutti attraversano, piu'
+      l'esclusione dal giro notturno), `cerca_prenotazioni_cliente` tolto perche' nella demo i
+      numeri di telefono sono di persone vere, e cancellazione automatica dopo due giorni di
+      tutto quello che i visitatori lasciano. Nessun numero di telefono nel salone finto, di
+      proposito: un numero inventato e' di qualcuno. Vedi DECISIONS.md per il ragionamento intero.
+- [ ] **Video di sessanta secondi.** Ora che la demo esiste, il video e' una registrazione di
+      schermo di due minuti: si apre `/demo`, si chiede un appuntamento all'assistente, si mostra
+      che finisce in agenda. Resta da fare, ed e' l'ultimo pezzo di materiale di vendita che manca.
+- [ ] **La conferma che il cliente vedrebbe, mostrata a schermo nella demo.** Dalla demo non
+      parte nessuna email (e non deve). Ma il pezzo che al titolare interessa di piu' e' proprio
+      che il cliente riceve qualcosa da solo: va mostrato a schermo, con il testo vero del
+      template e il link per disdire, subito dopo la prenotazione. Senza, la demo si ferma un
+      passo prima del punto.
 
 - [ ] **Voci di Pro ancora senza codice: costruirle o toglierle.** "Supporto prioritario" e
       "Report e analytics avanzati" sono su `Prezzi.tsx` dal 14/09/2026 e non hanno una riga sotto.

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { eseguiPromemoriaGiornalieri } from "@/lib/promemoria.server";
+import { pulisciDatiDemo } from "@/lib/demo.server";
 
 /**
  * Endpoint chiamato da Vercel Cron una volta al giorno (vedi vercel.json,
@@ -31,6 +32,19 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = creaClientAdmin();
-  const esito = await eseguiPromemoriaGiornalieri(admin, new Date());
-  return NextResponse.json(esito);
+  const adesso = new Date();
+  const esito = await eseguiPromemoriaGiornalieri(admin, adesso);
+
+  // Attaccata qui e non a un cron suo: il piano Hobby di Vercel ne concede
+  // uno al giorno, e questo gira gia' tutti i giorni. Se fallisse non deve
+  // portarsi dietro i promemoria, che sono la cosa importante delle due --
+  // quindi il suo errore si scrive nei log e si va avanti.
+  let demo = null;
+  try {
+    demo = await pulisciDatiDemo(admin, adesso);
+  } catch (errore) {
+    console.error("[cron/promemoria] pulizia dei dati della demo fallita:", errore);
+  }
+
+  return NextResponse.json({ ...esito, demo });
 }

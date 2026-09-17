@@ -6,6 +6,7 @@ import { caricaProfiloPubblico } from "@/lib/pagina-pubblica.server";
 import { caricaRecensioniPubbliche } from "@/lib/recensioni.server";
 import FlussoPrenotazione from "./FlussoPrenotazione";
 import ChatWidgetPubblico from "./ChatWidgetPubblico";
+import { BarraDemo } from "./BarraDemo";
 import { linkWhatsapp, numeroPerWhatsapp } from "@/lib/contatti";
 import { formatoEuroDaCentesimi as formatoEuro } from "@/lib/piani";
 
@@ -76,6 +77,8 @@ export default async function PaginaPubblicaSalone({
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50">
+      {profilo.eDemo && <BarraDemo slug={slug} />}
+
       {/* ── hero ─────────────────────────────────────────── */}
       <header className="relative overflow-hidden bg-zinc-900 text-white">
         {profilo.coverUrl && (

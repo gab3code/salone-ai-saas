@@ -129,7 +129,7 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
         // Stringa unica e letterale, mai concatenata: Supabase deduce i tipi
         // del risultato dal testo del `select`, e una concatenazione glielo
         // rende opaco (il risultato diventa `GenericStringError`).
-        .select("inizio, note, clienti(nome, email, telefono), servizi(nome), operatori(nome), tenants(nome, piano, notifica_titolare_nuova_prenotazione, conferma_cliente_canale)")
+        .select("inizio, note, clienti(nome, email, telefono), servizi(nome), operatori(nome), tenants(nome, piano, e_demo, notifica_titolare_nuova_prenotazione, conferma_cliente_canale)")
         .eq("id", appuntamentoId)
         .eq("tenant_id", tenantId)
         .single(),
@@ -147,9 +147,25 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
     const tenant = uno<{
       nome: string;
       piano: string;
+      e_demo: boolean | null;
       notifica_titolare_nuova_prenotazione: boolean | null;
       conferma_cliente_canale: string | null;
     }>(appuntamento.tenants);
+
+    // Dal salone dimostrativo non parte NIENTE (17/09/2026, vedi
+    // src/lib/demo.ts). Non e' il costo per messaggio: e' che manderemmo
+    // posta e SMS a indirizzi e numeri scritti da chiunque su una pagina
+    // pubblica aperta a internet, e la reputazione di un dominio mittente si
+    // brucia una volta sola -- portandosi dietro le email dei clienti veri di
+    // tutti gli altri saloni. Quello che il visitatore deve vedere (la
+    // conferma con il link per disdire) glielo mostra la pagina, con lo
+    // stesso testo, senza spedirlo a nessuno.
+    //
+    // Il controllo sta QUI, nel punto piu' in basso che tutti attraversano,
+    // e non nel chiamante: chi prenota puo' essere il form pubblico, l'AI o
+    // la dashboard, e un divieto messo in tre posti e' un divieto che prima
+    // o poi ne perde uno.
+    if (tenant?.e_demo) return;
 
     const nomeTenant = tenant?.nome ?? "Salone AI";
     const nomeServizio = servizio?.nome ?? "servizio";

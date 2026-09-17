@@ -360,7 +360,14 @@ export async function eseguiPromemoriaGiornalieri(admin: ClientAdmin, adesso: Da
     .select(
       `id, nome, slug, piano, fuso_orario, ${COLONNE_TENANT_COMPLEANNO}, follow_up_inattivi_attivo, follow_up_inattivi_giorni, follow_up_inattivi_messaggio`
     )
-    .in("piano", pianiRilevanti);
+    .in("piano", pianiRilevanti)
+    // Il salone dimostrativo non manda niente a nessuno (17/09/2026, vedi
+    // src/lib/demo.ts). Escluso QUI, alla fonte, e non dentro ogni singolo
+    // invio: i promemoria a 24 ore e gli auguri di compleanno non hanno un
+    // interruttore per tenant come il follow-up, quindi senza questa riga
+    // partirebbero davvero verso i numeri e gli indirizzi che i visitatori
+    // hanno scritto per provare la demo.
+    .eq("e_demo", false);
 
   for (const tenant of tenants ?? []) {
     try {

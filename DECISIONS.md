@@ -6014,3 +6014,98 @@ chiamata fallita ad Anthropic e' gia' stata pagata comunque.
 **Il riquadro si chiude per un mese** (localStorage): un riquadro commerciale che ricompare a
 ogni appuntamento inserito fa l'effetto contrario di quello che serve. E lo vede solo chi puo'
 configurare l'attivita': per un collaboratore sarebbe una proposta che non e' sua da accettare.
+
+## 17/09/2026 -- Il salone dimostrativo, e il buco che Gabriel ha trovato facendo una domanda
+
+Gabriel: "ma il nostro cliente che sta usando starter o free quindi capisce come funziona la
+prenotazione con l'ai per il cliente? la pagina che vede ecc.?".
+
+**No, non lo capiva.** Sono andato a guardare `src/app/s/[slug]/page.tsx`: il widget della chat
+e' dentro un `{profilo.chatAiAttiva && ...}`, e `chatAiAttiva` per free e starter e' falso.
+Quindi sulla pagina pubblica di un salone Starter il widget **non viene proprio disegnato** --
+nessuna bolla, nessun segnaposto, niente. Un titolare Starter puo' aprire la propria pagina
+mille volte senza mai vedere l'ombra dell'assistente.
+
+Il che vuol dire che la prova costruita poche ore prima (Fase 5) mostrava META' della cosa: gli
+faceva leggere una risposta scritta bene dentro un riquadro della dashboard. Ma un salone non
+compra "una risposta scritta bene", compra un pezzo di pagina che lavora al posto suo mentre lui
+ha le mani nei capelli di qualcuno -- e quella scena non l'aveva mai vista.
+
+**La scelta di Gabriel fra quattro strade**: non rattoppare l'upsell, ma costruire la **demo
+pubblica** che mancava dalla Fase 6ter -- utile anche alla landing, alla vendita e al video, non
+solo a un titolare Starter.
+
+### Due saloni e non uno
+
+Scelta di Gabriel: lo stesso identico salone (`Atelier Camelia`) su Growth e su Pro, con un
+interruttore. La differenza fra i piani smette di essere una riga in una tabella prezzi e
+diventa una cosa che si prova: stessa pagina, stesso assistente, e su Pro risponde anche a "dove
+parcheggio" e "fate il colore vegetale", dove su Growth dice di chiamare. E' anche il miglior
+argomento di vendita per Pro che abbiamo.
+
+### La demo NON e' una pagina a parte
+
+`/demo` e' solo un indirizzo fisso che porta a `/s/demo`. La demo e' la stessa identica pagina
+pubblica di ogni salone, con dentro dati finti, piu' una barra in cima. Una demo costruita a
+parte diverge dal prodotto vero al primo cambio, ed e' esattamente il difetto delle demo che non
+convincono nessuno.
+
+### Una demo pubblica e' un endpoint a pagamento aperto a internet
+
+Ogni messaggio della chat lo paghiamo noi e qui non c'e' nessun abbonato a coprirlo. Tre difese,
+due delle quali esistevano gia':
+
+1. **Tetto mensile stretto**: 400 messaggi su tutta la demo, contro i 1000 di Growth e i 3000 di
+   Pro. Circa settanta prove complete al mese: abbastanza per la landing e per le dimostrazioni,
+   non abbastanza perche' qualcuno ci costruisca sopra qualcosa a spese nostre. Esaurito il
+   tetto la chat lo dice e la pagina resta navigabile -- meglio una demo muta per qualche giorno
+   che una bolletta a sorpresa. Le altre difese di `limiti.ts` (anti-burst, tetto per
+   conversazione, stop ai turni fuori tema) valgono gia' e non sono state toccate.
+2. **Nessun invio reale, mai.** Il controllo sta in `inviaNotificheNuovoAppuntamento`, cioe' nel
+   punto piu' in basso che tutti attraversano, e non nei chiamanti: chi prenota puo' essere il
+   form pubblico, l'AI o la dashboard, e un divieto messo in tre posti prima o poi ne perde uno.
+   Escluso anche il giro notturno dei promemoria, alla fonte della query -- promemoria a 24 ore e
+   auguri di compleanno non hanno un interruttore per tenant come il follow-up, quindi senza
+   quella riga partirebbero davvero verso i numeri scritti dai visitatori.
+   **Il motivo non e' il costo per messaggio**: e' che manderemmo posta a indirizzi scritti da
+   chiunque su una pagina pubblica, e la reputazione di un dominio mittente si brucia una volta
+   sola, portandosi dietro le email dei clienti veri di tutti gli altri saloni.
+   (Gabriel aveva lasciato a me la scelta fra invio vero e conferma a schermo, con il vincolo
+   "senza che ci costi niente". Questa e' la lettura onesta di quel vincolo.)
+3. **Niente ricerca delle prenotazioni altrui.** `cerca_prenotazioni_cliente` trova gli
+   appuntamenti da un numero di telefono: su un salone vero e' giusto, perche' chi scrive cerca i
+   propri. Su una demo pubblica diventa un modo per pescare nome e orario di uno sconosciuto
+   provando numeri -- e nella demo la gente il proprio numero vero lo scrive davvero. Tolto,
+   riusando `strumentiConsentiti`, il meccanismo costruito poche ore prima per la prova
+   dell'assistente. `crea_prenotazione` invece RESTA: prenotare davvero e' il punto, una
+   prenotazione finta si sente.
+
+### I dati dei visitatori non restano
+
+`pulisciDatiDemo` cancella dopo due giorni tutto quello che sta in `clienti` e `conversazioni`
+dei tenant demo. La regola puo' essere brutale solo perche' la migrazione 0042 non semina NESSUN
+cliente: servizi, operatori, orari e FAQ si', clienti mai. Quindi tutto quello che c'e' li'
+dentro l'ha scritto un visitatore. E' anche il motivo per cui la demo non ha recensioni finte:
+una recensione ha bisogno di un appuntamento e di un cliente, che finirebbero sotto la scopa.
+Meno finzione e una regola di pulizia semplice valgono piu' di due stelline a schermo.
+
+Il giro e' attaccato al cron dei promemoria invece di averne uno suo: il piano Hobby di Vercel ne
+concede uno al giorno. Se fallisce non si porta dietro i promemoria, che sono la cosa importante
+delle due.
+
+### Nessun numero di telefono nella demo, e il prezzo di questa scelta
+
+Un numero inventato appartiene quasi sempre a qualcuno, e la pagina pubblica lo mostrerebbe a
+tutti. Quindi i tenant demo hanno `telefono` nullo. Il costo: nella demo non si vede il passaggio
+"chiama il salone", quello costruito stamattina con i recapiti e WhatsApp -- l'assistente dira'
+genericamente di contattare l'attivita'. Per mostrarlo servirebbe un numero che Gabriel controlla
+davvero. **Non e' una dimenticanza, e' un pezzo che manca di proposito.**
+
+### `tools-nomi.ts`
+
+Chi decide QUALI strumenti concedere ragiona sui nomi, non sull'implementazione -- e `tools.ts`
+si porta dietro il lato server, quindi un componente del browser non puo' importarlo (il primo
+build della prova dell'assistente e' fallito proprio cosi'). Da qui un file con i soli nomi. Il
+prezzo della separazione e' che le due liste possono divergere in silenzio: uno strumento nuovo
+aggiunto in `tools.ts` e dimenticato qui sparirebbe dalla demo senza nessun errore. Un test in
+`tools.test.ts` le tiene insieme, ed e' l'unico posto che lo fa.
