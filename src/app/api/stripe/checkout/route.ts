@@ -160,6 +160,10 @@ export async function POST(request: NextRequest) {
     // o su Free non ha nessuna fattura da ricevere. Al checkout invece la
     // persona ha già deciso di pagare, e i dati glieli chiede Stripe con la
     // sua interfaccia, non noi.
+    // `tax_id_collection` mostra un campo partita IVA OPZIONALE: chi non ce
+    // l'ha semplicemente non lo compila e paga lo stesso. L'indirizzo invece
+    // è obbligatorio, e non è una nostra scelta: una fattura senza indirizzo
+    // del destinatario non è una fattura.
     tax_id_collection: { enabled: true },
     billing_address_collection: "required",
     customer_update: { name: "auto", address: "auto" },
@@ -176,7 +180,13 @@ export async function POST(request: NextRequest) {
         label: { type: "custom", custom: "Codice destinatario SDI (7 caratteri)" },
         type: "text",
         optional: true,
-        text: { minimum_length: 6, maximum_length: 7 },
+        // Solo il massimo, nessun minimo: su un campo opzionale una
+        // lunghezza minima è un rischio che non vale la pena correre -- se
+        // venisse applicata anche al campo lasciato vuoto bloccherebbe il
+        // pagamento di chiunque non abbia un codice SdI, cioè esattamente le
+        // persone per cui il campo è opzionale. Il formato lo controlla il
+        // modulo nelle impostazioni, dove sbagliare non costa un abbonamento.
+        text: { maximum_length: 7 },
       },
       {
         key: "pec",
