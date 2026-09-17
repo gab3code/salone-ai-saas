@@ -1,0 +1,44 @@
+-- =====================================================================
+-- 0036 -- Pulizia dopo la decisione "solo partita IVA" (17/09/2026)
+--
+-- Due colonne che nessun codice tocca, per due motivi diversi.
+--
+-- 1) `tenants.codice_fiscale` (migrazione 0032, stessa giornata).
+--
+-- La 0032 è stata scritta quando l'idea era vendere anche a privati senza
+-- partita IVA, con il codice fiscale al posto della partita IVA e codice
+-- destinatario "0000000". Poche ore dopo Gabriel ha deciso il contrario --
+-- "i piani a pagamento sono riservati a chi ha una partita IVA" -- e la
+-- pagina che avrebbe riempito questa colonna è stata cancellata lo stesso
+-- giorno. Da allora: zero writer, zero reader. È l'unica colonna di tutte le
+-- migrazioni del progetto in questa condizione.
+--
+-- Perché toglierla invece di lasciarla lì "che non fa male": una colonna nel
+-- catalogo è una promessa implicita che qualcuno, prima o poi, la riempia.
+-- Il giorno in cui si vorrà davvero vendere ai privati, il codice fiscale
+-- non basterà comunque da solo -- servirà rimettere mano al checkout, alla
+-- validazione e al modulo -- e questa `alter table` sarà la parte da dieci
+-- secondi. `git` conserva la 0032 per intero.
+--
+-- Nella stessa pulizia spariscono da `src/lib/fiscale.ts` anche
+-- `codiceFiscaleValido` e `identificativoFiscaleValido`, che avevano come
+-- unico chiamante il proprio file di test.
+--
+-- 2) `tenants.indirizzo_nazione` (migrazione 0033): questa RESTA.
+--
+-- È scritta (sempre "IT") e mai riletta, perché `COLONNE` in
+-- `fatturazione.server.ts` non la seleziona e `DatiFatturazione` non ha il
+-- campo. È un difetto opposto al primo: non è una colonna di troppo, è una
+-- colonna in anticipo. L'XML della fattura elettronica ha un campo Nazione
+-- obbligatorio, e quel giorno la si rilegge da qui invece di riscriverla a
+-- mano -- che è esattamente il motivo per cui era stata aggiunta.
+--
+-- Lasciata com'è di proposito. Portarla dentro `DatiFatturazione` adesso
+-- vorrebbe dire toccare tipo, normalizzazione, validazione, modulo e helper
+-- E2E per un campo che oggi nessuno può scegliere e che vale sempre "IT":
+-- rumore sul percorso di pagamento in cambio di niente. Il momento giusto è
+-- quando si compone l'XML, e il task è tracciato in PIANO.md (Fase 6ter,
+-- "emissione SdI"), non lasciato a un commento.
+-- =====================================================================
+
+alter table tenants drop column if exists codice_fiscale;

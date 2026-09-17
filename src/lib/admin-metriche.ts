@@ -40,13 +40,23 @@ export type PuntoSettimana = {
   totale: number;
 };
 
-/** Lunedì (00:00, ora locale) della settimana in cui cade `data`. */
+/**
+ * Lunedì (00:00 UTC) della settimana in cui cade `data`.
+ *
+ * UTC e non ora locale (corretto il 17/09/2026). Esisteva una seconda
+ * `inizioSettimana` in `analytics.ts`, identica nell'intento ma scritta con
+ * i getter LOCALI qui e con quelli UTC là. Su Vercel, dove il fuso del
+ * processo è UTC, le due coincidono e nessuno se ne accorge; su un computer
+ * in Europa/Roma no -- e il risultato sarebbero due grafici che raccontano
+ * settimane diverse per gli stessi appuntamenti, uno nella dashboard del
+ * salone e uno nel pannello di piattaforma. La convenzione del progetto è
+ * pseudo-UTC ovunque (vedi `lib/fuso-orario.ts`), quindi è questa a
+ * cambiare, e `analytics.ts` ora importa da qui invece di riscriverla.
+ */
 export function inizioSettimana(data: Date): Date {
-  const giorno = new Date(data.getFullYear(), data.getMonth(), data.getDate());
-  // getDay(): 0 = domenica. In Italia la settimana comincia di lunedì.
-  const scarto = (giorno.getDay() + 6) % 7;
-  giorno.setDate(giorno.getDate() - scarto);
-  return giorno;
+  // getUTCDay(): 0 = domenica. In Italia la settimana comincia di lunedì.
+  const scarto = (data.getUTCDay() + 6) % 7;
+  return new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate() - scarto));
 }
 
 /**
@@ -69,11 +79,11 @@ export function serieSettimanale(
 
   for (let i = settimane - 1; i >= 0; i -= 1) {
     const inizio = new Date(settimanaCorrente);
-    inizio.setDate(inizio.getDate() - i * 7);
+    inizio.setUTCDate(inizio.getUTCDate() - i * 7);
     indicePerChiave.set(chiaveGiorno(inizio), punti.length);
     punti.push({
       inizio: inizio.toISOString(),
-      etichetta: inizio.toLocaleDateString("it-IT", { day: "numeric", month: "short" }),
+      etichetta: inizio.toLocaleDateString("it-IT", { day: "numeric", month: "short", timeZone: "UTC" }),
       ai: 0,
       manuali: 0,
       totale: 0,
@@ -95,7 +105,7 @@ export function serieSettimanale(
 }
 
 function chiaveGiorno(data: Date): string {
-  return `${data.getFullYear()}-${data.getMonth()}-${data.getDate()}`;
+  return `${data.getUTCFullYear()}-${data.getUTCMonth()}-${data.getUTCDate()}`;
 }
 
 export type UsoPiattaforma = {

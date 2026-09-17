@@ -12,6 +12,10 @@ import { esci } from "./azioni";
 import { CondividiLink } from "./CondividiLink";
 import { SelettoreSede } from "./SelettoreSede";
 import { InvitiRicevuti } from "./InvitiRicevuti";
+// `formatoEuro` non è più definita qui (17/09/2026): era la stessa riga,
+// identica, in quattro file diversi. La casa è `lib/piani.ts`, dove sta
+// già il listino.
+import { formatoEuroDaCentesimi as formatoEuro } from "@/lib/piani";
 
 /**
  * Prima pagina protetta: prova che l'intera catena funziona davvero, non
@@ -66,8 +70,6 @@ export default async function PaginaDashboard({
   ]);
 
   const metriche = tenant && profilo?.tenant_id ? await caricaMetriche(supabase, profilo.tenant_id) : null;
-  const formatoEuro = (centesimi: number) =>
-    (centesimi / 100).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
   // Link pubblico da condividere (Google Business, bio Instagram, QR in
   // negozio) -- stesso helper già usato per il link nell'email di

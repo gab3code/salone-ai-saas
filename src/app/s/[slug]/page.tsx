@@ -6,6 +6,7 @@ import { caricaProfiloPubblico } from "@/lib/pagina-pubblica.server";
 import { caricaRecensioniPubbliche } from "@/lib/recensioni.server";
 import FlussoPrenotazione from "./FlussoPrenotazione";
 import ChatWidgetPubblico from "./ChatWidgetPubblico";
+import { formatoEuroDaCentesimi as formatoEuro } from "@/lib/piani";
 
 /**
  * Pagina pubblica del salone (Fase 4, punto 15 di CLAUDE.md) -- l'unica
@@ -36,9 +37,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-function formatoEuro(centesimi: number): string {
-  return (centesimi / 100).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
-}
 
 const ETICHETTE_SOCIAL: Record<string, string> = {
   instagram: "Instagram",

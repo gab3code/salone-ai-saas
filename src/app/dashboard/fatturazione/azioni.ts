@@ -12,10 +12,21 @@ import {
 } from "@/lib/fatturazione.server";
 import type { DatiFatturazione, ErroriFatturazione } from "@/lib/fatturazione";
 
+/**
+ * Esito del salvataggio, nella stessa forma che restituisce
+ * `salvaDatiFatturazione` (17/09/2026).
+ *
+ * Prima erano tre rami di cui uno già coperto da un altro, e nessuno dei tre
+ * coincideva con la firma reale della funzione sottostante: due descrizioni
+ * dello stesso esito che non combaciavano. Il tipo non era nemmeno importato
+ * da nessuno -- `modulo.tsx` ispeziona l'esito con `"errori" in esito` --
+ * ma un tipo esportato è una promessa su cosa può tornare, e una promessa
+ * sbagliata è peggio di nessuna promessa.
+ */
 export type EsitoSalvataggio =
   | { ok: true }
-  | { errore: string; errori?: ErroriFatturazione }
-  | { errori: ErroriFatturazione; errore?: undefined };
+  | { errori: ErroriFatturazione }
+  | { errore: string };
 
 export async function salvaFatturazioneAction(dati: DatiFatturazione): Promise<EsitoSalvataggio> {
   const supabase = await creaClientServer();

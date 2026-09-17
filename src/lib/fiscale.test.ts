@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codiceFiscaleValido, identificativoFiscaleValido, partitaIvaValida } from "./fiscale";
+import { partitaIvaValida } from "./fiscale";
 
 /**
  * I casi validi usati qui sono identificativi di prova costruiti apposta
@@ -31,37 +31,5 @@ describe("partitaIvaValida", () => {
 
   it("tollera gli spazi, che chi copia e incolla si porta dietro", () => {
     expect(partitaIvaValida(" 00743110157 ")).toBe(true);
-  });
-});
-
-describe("codiceFiscaleValido", () => {
-  it("accetta un codice fiscale con carattere di controllo corretto", () => {
-    expect(codiceFiscaleValido("RSSMRA85T10A562S")).toBe(true);
-    expect(codiceFiscaleValido("rssmra85t10a562s")).toBe(true);
-  });
-
-  it("rifiuta il carattere di controllo sbagliato", () => {
-    expect(codiceFiscaleValido("RSSMRA85T10A562T")).toBe(false);
-  });
-
-  it("rifiuta un carattere cambiato nel corpo, anche se la lunghezza torna", () => {
-    expect(codiceFiscaleValido("RSSMRA85T10A563S")).toBe(false);
-  });
-
-  it("rifiuta lunghezze sbagliate e simboli", () => {
-    expect(codiceFiscaleValido("RSSMRA85T10A562")).toBe(false);
-    expect(codiceFiscaleValido("RSSMRA85T10A562SS")).toBe(false);
-    expect(codiceFiscaleValido("RSSMRA85T10A562-")).toBe(false);
-  });
-});
-
-describe("identificativoFiscaleValido", () => {
-  it("accetta entrambe le forme, perché il modulo non sa in anticipo quale arriverà", () => {
-    expect(identificativoFiscaleValido("00743110157")).toBe(true);
-    expect(identificativoFiscaleValido("RSSMRA85T10A562S")).toBe(true);
-  });
-
-  it("rifiuta quello che non è né l'una né l'altro", () => {
-    expect(identificativoFiscaleValido("non-un-codice")).toBe(false);
   });
 });

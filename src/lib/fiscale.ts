@@ -46,51 +46,13 @@ export function partitaIvaValida(valore: string): boolean {
   return controllo === Number(piva[10]);
 }
 
-// Tabelle del carattere di controllo del codice fiscale (DM 23/12/1976).
-// Le posizioni si contano da 1: i caratteri in posizione DISPARI usano la
-// tabella "dispari", quelli in posizione pari il valore ordinario.
-const VALORI_DISPARI: Record<string, number> = {
-  "0": 1, "1": 0, "2": 5, "3": 7, "4": 9, "5": 13, "6": 15, "7": 17, "8": 19, "9": 21,
-  A: 1, B: 0, C: 5, D: 7, E: 9, F: 13, G: 15, H: 17, I: 19, J: 21, K: 2, L: 4, M: 18,
-  N: 20, O: 11, P: 3, Q: 6, R: 8, S: 12, T: 14, U: 16, V: 10, W: 22, X: 25, Y: 24, Z: 23,
-};
-
-const VALORI_PARI: Record<string, number> = {
-  "0": 0, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9,
-  A: 0, B: 1, C: 2, D: 3, E: 4, F: 5, G: 6, H: 7, I: 8, J: 9, K: 10, L: 11, M: 12,
-  N: 13, O: 14, P: 15, Q: 16, R: 17, S: 18, T: 19, U: 20, V: 21, W: 22, X: 23, Y: 24, Z: 25,
-};
-
-const LETTERE_CONTROLLO = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-/**
- * Codice fiscale di una persona fisica: 16 caratteri, con il sedicesimo che
- * è il carattere di controllo dei primi quindici.
- *
- * NON copre il codice fiscale numerico a 11 cifre di enti e società: quello
- * ha la stessa forma di una partita IVA e va validato con `partitaIvaValida`.
- */
-export function codiceFiscaleValido(valore: string): boolean {
-  const cf = valore.replace(/\s/g, "").toUpperCase();
-  if (!/^[A-Z0-9]{16}$/.test(cf)) return false;
-
-  let somma = 0;
-  for (let i = 0; i < 15; i += 1) {
-    const carattere = cf[i];
-    // i è 0-based: le posizioni dispari (1ª, 3ª, ...) hanno i pari.
-    const valoreCarattere = i % 2 === 0 ? VALORI_DISPARI[carattere] : VALORI_PARI[carattere];
-    if (valoreCarattere === undefined) return false;
-    somma += valoreCarattere;
-  }
-  return LETTERE_CONTROLLO[somma % 26] === cf[15];
-}
-
-/**
- * Accetta l'uno o l'altro: è quello che serve a un modulo che chiede "il tuo
- * identificativo fiscale" a chi può avere la partita IVA oppure no. Il
- * codice fiscale numerico degli enti passa dal ramo partita IVA, che ne
- * condivide formato e controllo.
- */
-export function identificativoFiscaleValido(valore: string): boolean {
-  return partitaIvaValida(valore) || codiceFiscaleValido(valore);
-}
+// Il codice fiscale non vive più qui (17/09/2026).
+//
+// `codiceFiscaleValido` e `identificativoFiscaleValido` erano state scritte
+// la mattina del 17/09, quando l'idea era vendere anche a chi non ha partita
+// IVA. Poche ore dopo la decisione è cambiata -- i piani a pagamento sono
+// riservati a chi ha una partita IVA -- e da allora l'unico chiamante di
+// entrambe era il loro file di test. Tolte insieme alla colonna
+// `tenants.codice_fiscale` (migrazione 0036): git le conserva per intero, e
+// il giorno in cui si vorrà davvero vendere ai privati serviranno comunque
+// un checkout e un modulo diversi, non solo queste due funzioni.

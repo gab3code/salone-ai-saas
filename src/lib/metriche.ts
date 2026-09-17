@@ -5,11 +5,17 @@
  * senza database, il layer di connessione (metriche.server.ts) carica solo i
  * dati grezzi e delega SEMPRE qui la decisione/il calcolo.
  *
- * Numeri onesti, non finti: se un dato non è ancora tracciato (es. non
- * esiste ancora un passaggio esplicito "completato"/"no_show" nel prodotto,
- * vedi PROJECT_STATUS.md), la metrica riflette quello che il database
- * realmente contiene oggi, non un valore inventato per riempire una card.
+ * Numeri onesti, non finti: se un dato non è ancora tracciato, la metrica
+ * riflette quello che il database realmente contiene oggi, non un valore
+ * inventato per riempire una card.
+ *
+ * Aggiornamento 17/09/2026: questa nota diceva che non esiste "un passaggio
+ * esplicito completato/no_show nel prodotto". Per il no-show non è più vero
+ * dal 16/09/2026 -- c'è il pulsante in agenda (`segnaNoShow`) e il conteggio
+ * sulla scheda cliente. Resta vero per "completato", che nessuno scrive: la
+ * scelta dichiarata è che si marca solo l'eccezione, non la normalità.
  */
+import { inizioGiornoUTC, fineGiornoUTC } from "@/lib/fuso-orario";
 
 export interface AppuntamentoMetrica {
   inizio: Date;
@@ -69,14 +75,6 @@ export interface Metriche {
   incassiPrevistiCentesimi30Giorni: number;
 }
 
-function inizioGiornoUTC(data: Date): Date {
-  return new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate()));
-}
-function fineGiornoUTC(data: Date): Date {
-  return new Date(
-    Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate(), 23, 59, 59, 999)
-  );
-}
 function giorniFa(adesso: Date, giorni: number): Date {
   return new Date(adesso.getTime() - giorni * 24 * 60 * 60 * 1000);
 }

@@ -288,11 +288,6 @@ export async function caricaPannelloPiattaforma(
   return { righe, metriche };
 }
 
-/** Solo l'elenco delle attività, senza le metriche aggregate. */
-export async function caricaAttivitaPiattaforma(): Promise<RigaAdmin[]> {
-  const { righe } = await caricaPannelloPiattaforma();
-  return righe;
-}
 
 export async function elencaInterventi(limite = 50): Promise<Intervento[]> {
   const admin = creaClientAdmin();

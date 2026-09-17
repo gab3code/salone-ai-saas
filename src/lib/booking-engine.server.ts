@@ -13,7 +13,7 @@ import {
 } from "@/lib/booking-engine";
 import { limiteMensilePrenotazioni, pianoHaListaAttesaAutomatica } from "@/lib/piani";
 import { caricaImpegniEsterni } from "@/lib/calendario-esterno/collegamenti.server";
-import { pseudoUtcAReale, realeAPseudoUtc } from "@/lib/fuso-orario";
+import { pseudoUtcAReale, realeAPseudoUtc, inizioGiornoUTC, fineGiornoUTC } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { inviaNotificheNuovoAppuntamento, escapeHtml, formattaOrario, urlBaseSito } from "@/lib/email/notifiche.server";
 import { inviaEmail } from "@/lib/email/mailjet.server";
@@ -87,15 +87,7 @@ export function parsaOrarioLocale(valore: string): Date | null {
   return Number.isNaN(data.getTime()) ? null : data;
 }
 
-function inizioGiornoUTC(data: Date): Date {
-  return new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate()));
-}
 
-function fineGiornoUTC(data: Date): Date {
-  return new Date(
-    Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate(), 23, 59, 59, 999)
-  );
-}
 
 export interface ContestoBooking {
   orari: OrarioGiorno[];

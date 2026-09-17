@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ServizioPubblico, OperatorePubblico } from "@/lib/pagina-pubblica.server";
 import { calcolaImportoCaparraCentesimi, type ConfigCaparra } from "@/lib/stripe/caparra";
+import { formatoEuroDaCentesimi as formatoEuro } from "@/lib/piani";
 import {
   cercaSlotPubblici,
   prenotaPubblico,
@@ -35,9 +36,6 @@ import {
 
 type Passo = "servizio" | "data" | "slot" | "contatto" | "fatto";
 
-function formatoEuro(centesimi: number): string {
-  return (centesimi / 100).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
-}
 
 function oggiYMD(): string {
   return new Date().toISOString().slice(0, 10);

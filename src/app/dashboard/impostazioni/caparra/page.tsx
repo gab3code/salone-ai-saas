@@ -2,10 +2,8 @@ import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { PannelloCaparra } from "./pannello-caparra";
+import { formatoEuroDaCentesimi as formatoEuro } from "@/lib/piani";
 
-function formatoEuro(centesimi: number): string {
-  return (centesimi / 100).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
-}
 
 const ETICHETTA_STATO: Record<string, string> = {
   in_attesa: "In attesa di pagamento",

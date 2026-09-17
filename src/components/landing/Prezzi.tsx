@@ -331,8 +331,8 @@ const METAL_PIANI: Record<string, Partial<ComponentProps<typeof LiquidMetal>>> =
 // (creava sempre e solo un account Free, a prescindere dal piano cliccato --
 // non esisteva ancora un vero checkout). Ora Starter/Growth/Pro portano alla
 // registrazione con il piano scelto in query string (`?piano=...`): dopo la
-// registrazione la dashboard apre da sola la Checkout Session Stripe (vedi
-// AvviaCheckoutSeNecessario). Free resta un account gratuito puro, nessun
+// registrazione si atterra su /dashboard/abbonamento, che chiede i dati per
+// la fattura e da lì apre la Checkout Session Stripe. Free resta un account gratuito puro, nessun
 // passaggio da Stripe. Enterprise è a preventivo/gestito a mano -- "Richiedi
 // info" deve aprire un'email, non creare silenziosamente un account.
 function hrefVoceCTA(nome: string): string {

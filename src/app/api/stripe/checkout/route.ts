@@ -10,9 +10,14 @@ import { puoGestireFatturazione, ERRORE_PERMESSO_NEGATO } from "@/lib/ruoli";
 import { pianoEPagante, priceIdPerPiano, priceIdOperatoreExtra, giorniDiProva } from "@/lib/stripe/piani";
 
 /**
- * Crea una Checkout Session Stripe per il tenant dell'utente loggato
- * (chiamata da Prezzi.tsx via /registrati?piano=... o dalla dashboard dopo
- * conferma email, vedi AvviaCheckoutSeNecessario).
+ * Crea una Checkout Session Stripe per il tenant dell'utente loggato.
+ *
+ * Chi la chiama, oggi: il modulo dei dati di fatturazione
+ * (`/dashboard/fatturazione`), subito dopo aver salvato. Il percorso completo
+ * è: scelta del piano su /dashboard/abbonamento -> dati per la fattura ->
+ * questa rotta -> Stripe. Fino al 16/09/2026 la chiamava invece un componente
+ * client montato sulla dashboard (`AvviaCheckoutSeNecessario`, cancellato):
+ * era la causa del lampo di dashboard fra la registrazione e il pagamento.
  *
  * Il tenant_id si legge SEMPRE dal profilo dell'utente autenticato via
  * cookie di sessione (creaClientServer, RLS attiva), mai da un valore
@@ -89,9 +94,11 @@ export async function POST(request: NextRequest) {
   // un secondo.
   //
   // Senza questo controllo bastava tornare su /dashboard?piano=<altro> --
-  // cosa che succede da sola: il link di conferma email della registrazione
-  // riporta lì con il piano nell'URL, e `AvviaCheckoutSeNecessario` apre il
-  // checkout appena vede un piano diverso da quello attuale. Il risultato
+  // cosa che succedeva da sola quando il checkout partiva da un componente
+  // client montato sulla dashboard (`AvviaCheckoutSeNecessario`, cancellato
+  // il 16/09/2026): il link di conferma email della registrazione riportava
+  // lì con il piano nell'URL, e quel componente apriva il checkout appena
+  // vedeva un piano diverso da quello attuale. Il risultato
   // erano due abbonamenti attivi sullo stesso Customer, per esempio Starter
   // 19,90 + Pro 89,90 = 109,80 al mese, di cui il tenant ne conosce uno solo:
   // il primo diventa invisibile al prodotto (gli eventi non trovano più il

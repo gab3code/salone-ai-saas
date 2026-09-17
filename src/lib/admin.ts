@@ -5,11 +5,17 @@ import {
   PREZZO_OPERATORE_EXTRA_CENTESIMI,
   formatoEuroDaCentesimi,
 } from "@/lib/piani";
+import { pianoEPagante } from "@/lib/stripe/piani";
 
-// Riesportati da qui perché mezzo progetto li importa già da `admin.ts`, ma
-// la loro casa è `piani.ts`: li legge anche la pagina dell'abbonamento, e due
-// liste di prezzi divergono sempre.
-export { PREZZO_BASE_CENTESIMI, PREZZO_OPERATORE_EXTRA_CENTESIMI, formatoEuroDaCentesimi };
+// Riesportato solo `formatoEuroDaCentesimi`, che tre pagine del pannello
+// admin importano già da qui. I due listini (`PREZZO_BASE_CENTESIMI` e
+// `PREZZO_OPERATORE_EXTRA_CENTESIMI`) erano riesportati con la stessa
+// motivazione -- "mezzo progetto li importa già da admin.ts" -- ma il
+// controllo del 17/09/2026 ha mostrato che nessuno li importava da qui:
+// l'unico consumatore esterno, /dashboard/abbonamento, li prende
+// correttamente da `@/lib/piani`. Un ponte verso una sponda vuota invita
+// solo a usarlo: tolto.
+export { formatoEuroDaCentesimi };
 
 /**
  * Parte PURA del pannello admin (Fase 5): tipi, prezzi e tutti i calcoli
@@ -256,8 +262,37 @@ export function segnaliAttivita(riga: RigaAdmin, adesso: Date = new Date()): Seg
     segnali.push({ testo: "Sospesa: non accetta prenotazioni", gravita: "alta" });
   }
 
+  // Pagamento non riuscito. Il testo dice anche la CONSEGUENZA, perché è
+  // quella che decide se guardarlo oggi o fra una settimana: finché Stripe
+  // ritenta, `tenants.piano` resta quello a pagamento e il salone continua a
+  // usare tutto (AI, analytics, promemoria) senza che nessuno incassi. È una
+  // tolleranza voluta -- una carta scaduta non deve spegnere l'agenda di chi
+  // lavora -- ma ha una fine: quando Stripe smette di ritentare e cancella,
+  // `sincronizzaAbbonamento` riporta il tenant a free. Se invece la
+  // configurazione Stripe fosse "lascia non pagata" invece di "cancella",
+  // quella fine non arriverebbe mai: vedi PIANO.md, "Da verificare su Stripe
+  // prima dei pagamenti veri".
   if (riga.statoAbbonamento === "scaduto") {
-    segnali.push({ testo: "Pagamento non riuscito", gravita: "alta" });
+    segnali.push({
+      testo: `Pagamento non riuscito: usa ancora ${riga.piano} senza pagarlo`,
+      gravita: "alta",
+    });
+  }
+
+  // Incoerenza fra Supabase e Stripe (17/09/2026): un piano a pagamento
+  // senza nessun abbonamento Stripe dietro, e senza che il piano sia stato
+  // deciso a mano dal pannello. Non dovrebbe potersi verificare -- il piano
+  // lo scrive il webhook a partire da una subscription -- quindi se compare
+  // significa che qualcosa si è rotto: un checkout andato a metà, una
+  // subscription cancellata su Stripe senza che l'evento arrivasse, o una
+  // riga toccata a mano sul database. In tutti e tre i casi è un'attività
+  // che sta usando un piano a pagamento gratis, e nessun altro segnale la
+  // prenderebbe: `statoAbbonamento` può benissimo essere rimasto "attivo".
+  if (pianoEPagante(riga.piano) && !riga.pianoManuale && !riga.haAbbonamentoStripe) {
+    segnali.push({
+      testo: `Piano ${riga.piano} senza abbonamento Stripe, e non è assegnato a mano`,
+      gravita: "alta",
+    });
   }
 
   const mancanze = cosaMancaPerPartire(riga);

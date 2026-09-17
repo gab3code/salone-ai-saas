@@ -105,3 +105,23 @@ export function pseudoUtcAReale(dataPseudo: Date, fusoOrario: string): Date {
 }
 
 export const FUSO_ORARIO_PREDEFINITO = "Europe/Rome";
+
+/**
+ * Confini del giorno in pseudo-UTC (17/09/2026).
+ *
+ * Erano definite identiche, carattere per carattere, in `metriche.ts` e in
+ * `booking-engine.server.ts`. Due copie della stessa regola su cosa vuol
+ * dire "oggi" sono esattamente il tipo di doppione che un giorno diverge di
+ * un millisecondo e fa sparire un appuntamento dal conto della dashboard
+ * senza che nessuno capisca perché. La casa naturale è questo file, che è
+ * già quello che definisce la convenzione pseudo-UTC del progetto.
+ */
+export function inizioGiornoUTC(data: Date): Date {
+  return new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate()));
+}
+
+export function fineGiornoUTC(data: Date): Date {
+  return new Date(
+    Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate(), 23, 59, 59, 999)
+  );
+}

@@ -99,9 +99,10 @@ function FormRegistrazione() {
         data: { nome_salone: nomeSalone, nome_persona: nomePersona },
         // Se la conferma email è attiva, questo è il link su cui Supabase
         // riporta l'utente dopo aver cliccato quello ricevuto via email --
-        // porta con sé il piano scelto, così il checkout parte comunque
-        // (vedi AvviaCheckoutSeNecessario nella dashboard) invece di
-        // perdersi tra un tab e l'altro.
+        // porta con sé il piano scelto, così l'attivazione riparte da dove
+        // era rimasta invece di perdersi tra un tab e l'altro: /dashboard
+        // con `?piano=` rimanda dal server a /dashboard/abbonamento, che
+        // chiede i dati per la fattura e poi apre Stripe.
         emailRedirectTo: pianoValido ? `${window.location.origin}/dashboard?piano=${pianoValido}` : undefined,
       },
     });
