@@ -106,6 +106,15 @@ export default function PaginaAccesso() {
             />
           </div>
 
+          <div className="text-right">
+            <Link
+              className="text-xs text-white/50 underline underline-offset-2 transition-colors hover:text-white/80"
+              href="/recupera"
+            >
+              Password dimenticata?
+            </Link>
+          </div>
+
           {errore && <p className="text-sm text-red-400">{errore}</p>}
 
           <button
