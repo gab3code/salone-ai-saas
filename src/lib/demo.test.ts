@@ -38,8 +38,18 @@ describe("il tetto della demo", () => {
 
   it("basta comunque per diverse decine di prenotazioni provate", () => {
     // Una conversazione di prenotazione completa sta in cinque o sei
-    // messaggi: sotto le cinquanta prove al mese la demo non servirebbe.
-    expect(QUOTA_MENSILE_MESSAGGI_DEMO / 6).toBeGreaterThan(50);
+    // messaggi. Il tetto e' PER SALONE e i saloni sono due: sotto le
+    // cinquanta prove complete al mese in tutto, la demo non servirebbe.
+    const proveComplete = (QUOTA_MENSILE_MESSAGGI_DEMO * SLUG_DEMO.length) / 6;
+    expect(proveComplete).toBeGreaterThan(50);
+  });
+
+  it("il tetto è per salone, e i saloni sono due: il conto va fatto sul totale", () => {
+    // Scritto come test perché la prima versione del commento diceva "su
+    // TUTTA la demo" ed era falsa: il contatore vive sulla riga del tenant,
+    // quindi ogni salone ha il suo. Chi cambia il numero deve vedere questa
+    // riga e ricordarsi di moltiplicare per due.
+    expect(SLUG_DEMO.length).toBe(2);
   });
 });
 

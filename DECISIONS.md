@@ -6109,3 +6109,59 @@ build della prova dell'assistente e' fallito proprio cosi'). Da qui un file con 
 prezzo della separazione e' che le due liste possono divergere in silenzio: uno strumento nuovo
 aggiunto in `tools.ts` e dimenticato qui sparirebbe dalla demo senza nessun errore. Un test in
 `tools.test.ts` le tiene insieme, ed e' l'unico posto che lo fa.
+
+## 17/09/2026 -- "Sicuro che la demo non ci fa buttare via soldi?" -- no, non lo era
+
+Gabriel non si e' fidato e ha chiesto di ricontrollare. Aveva ragione: nello stesso giro in cui
+ho costruito la demo ci avevo messo dentro un buco da quindici volte il costo previsto.
+
+### Il buco grosso: il tetto si azzerava da solo ogni due giorni
+
+La quota mensile dell'AI si conta interrogando la tabella `messaggi`
+(`contaMessaggiClienteQuestoMese`). Nello stesso giro ho aggiunto la pulizia dei dati della demo,
+che cancella le `conversazioni` piu' vecchie di due giorni -- e `messaggi` ha `on delete cascade`
+su `conversazione_id`.
+
+Quindi ogni notte la pulizia cancellava proprio le righe che il contatore contava. Un tetto da
+400 messaggi al mese diventava 400 ogni due giorni: **circa quindici volte tanto**, su un endpoint
+pubblico che paghiamo noi.
+
+Nessuno se ne sarebbe accorto leggendo il codice: le due cose stanno in file diversi e ognuna,
+presa da sola, e' giusta. Si vede solo mettendole insieme -- che e' esattamente cosa fa una
+domanda come quella di Gabriel e non fa una rilettura del proprio lavoro.
+
+**Corretto** con la migrazione 0043: il contatore vive su `tenants`, dove la pulizia non arriva, e
+si consuma con una funzione che controlla e incrementa nella stessa UPDATE. La funzione ha
+`and e_demo` nella where, quindi non puo' toccare il contatore di un salone vero (verificato:
+ritorna -1 su un tenant non dimostrativo).
+
+**Regola che ne esce**: quando si aggiunge una cancellazione automatica, si va a cercare CHI
+LEGGE quei dati. Un contatore, una metrica o un controllo che si appoggia a righe che qualcun
+altro cancella e' un bug che non si vede in nessuno dei due file.
+
+### Il secondo: il tetto era per salone, non per la demo
+
+Il commento diceva "su TUTTA la demo". Falso: il contatore vive sulla riga del tenant e i tenant
+sono due, quindi il totale era il doppio. Corretto il numero (250 per salone, ~500 in tutto) e
+messo un test che obbliga chi lo cambia a ricordarsi che i saloni sono due.
+
+### Il terzo: i saloni demo inquinavano il pannello di piattaforma
+
+Girano su growth e pro, e `caricaTenantAdmin` non li escludeva: il MRR mostrava 129,80 euro che
+nessuno ha mai versato. Oggi, con zero clienti veri, sarebbe stato **tutto** il fatturato
+mostrato. Corretto con un `.eq("e_demo", false)`.
+
+### Cosa resta sfruttabile, dichiarato invece che nascosto
+
+- **L'anti-burst si aggira cambiando sessione.** L'intervallo minimo fra messaggi, il tetto per
+  conversazione e il contatore dei turni fuori tema sono tutti legati alla `conversazione`: uno
+  script che cambia `identificatore_sessione` a ogni messaggio ne apre una nuova ogni volta e li
+  salta tutti. L'unica difesa che regge davvero e' il tetto mensile -- ed e' il motivo per cui il
+  buco qui sopra era grave, non fastidioso. Chiuderlo per davvero vuol dire limitare per IP, che
+  ha senso fare una volta sola per tutto l'endpoint pubblico e non solo per la demo.
+- **L'agenda della demo si puo' riempire gratis.** Il form pubblico di prenotazione non usa l'AI,
+  quindi non costa niente ne' a chi lo usa ne' a noi: uno script puo' occupare tutti gli slot e
+  far sembrare la demo sempre piena. Si ripara da solo entro due giorni con la pulizia. Nessun
+  soldo perso, solo una demo brutta per un po'.
+- **Il numero di messaggi non e' il numero di chiamate al modello.** Un turno con il ciclo degli
+  strumenti ne fa piu' di una (`MAX_ITERAZIONI_TOOL`). Il conto del costo va fatto sul peggio.

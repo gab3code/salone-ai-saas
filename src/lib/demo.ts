@@ -57,17 +57,27 @@ export function eSlugDemo(slug: string): boolean {
 }
 
 /**
- * Messaggi AI al mese su TUTTA la demo, non per visitatore.
+ * Messaggi AI al mese PER SALONE dimostrativo, non per visitatore.
+ *
+ * I saloni sono due, quindi il totale che possiamo pagare in un mese e' il
+ * doppio di questo numero -- detto qui perche' la prima versione diceva
+ * "su TUTTA la demo" e non era vero.
  *
  * Basso di proposito. Una conversazione di prenotazione completa sta in
- * cinque o sei messaggi, quindi 400 sono all'incirca settanta prove al mese:
- * abbastanza per la landing, per le dimostrazioni a un cliente e per un
- * titolare Starter che vuole capire cosa compra, e non abbastanza perche'
- * qualcuno ci costruisca sopra qualcosa a spese nostre. Se il tetto si
- * esaurisce la chat lo dice e la pagina resta navigabile: meglio una demo
- * muta per qualche giorno che una bolletta a sorpresa.
+ * cinque o sei messaggi, quindi 250 per salone sono circa ottanta prove
+ * complete al mese fra i due: abbastanza per la landing, per le
+ * dimostrazioni a un cliente e per un titolare Starter che vuole capire
+ * cosa compra, e non abbastanza perche' qualcuno ci costruisca sopra
+ * qualcosa a spese nostre. Se il tetto si esaurisce la chat lo dice e la
+ * pagina resta navigabile: meglio una demo muta per qualche giorno che una
+ * bolletta a sorpresa.
+ *
+ * ATTENZIONE, il numero non e' il costo. Un messaggio del cliente puo'
+ * costare piu' di una chiamata al modello, perche' il ciclo degli strumenti
+ * ne fa una per giro (vedi MAX_ITERAZIONI_TOOL in agente.ts). Il conto va
+ * fatto sul peggio, non sulla media.
  */
-export const QUOTA_MENSILE_MESSAGGI_DEMO = 400;
+export const QUOTA_MENSILE_MESSAGGI_DEMO = 250;
 
 /**
  * Dopo quanti giorni si cancellano i dati lasciati dai visitatori.

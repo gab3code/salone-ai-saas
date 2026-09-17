@@ -108,13 +108,33 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       tenant.piano === "pro"
         ? ((await supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId)).count ?? 0)
         : 1;
-    // Il salone dimostrativo e' pubblico e non lo paga nessun abbonato:
-    // il suo tetto e' molto piu' basso di quello del piano su cui gira, e
-    // non scala con gli operatori (vedi src/lib/demo.ts).
-    const limiteMensile = tenant.e_demo
-      ? QUOTA_MENSILE_MESSAGGI_DEMO
-      : limiteMensileMessaggi(tenant.piano, numeroOperatori);
-    if (usatiQuestoMese >= limiteMensile) {
+    // Il salone dimostrativo e' pubblico e non lo paga nessun abbonato, quindi
+    // il suo tetto e' piu' basso -- ma soprattutto e' contato in un altro
+    // modo, e questa e' la parte che conta.
+    //
+    // `usatiQuestoMese` interroga la tabella `messaggi`. Per un salone vero
+    // va benissimo. Per la demo NO: la pulizia notturna cancella le sue
+    // conversazioni dopo due giorni, e `messaggi` ha `on delete cascade` su
+    // `conversazione_id` -- quindi il conteggio si azzererebbe da solo ogni
+    // due notti e un tetto mensile diventerebbe un tetto biennale moltiplicato
+    // per quindici. Il contatore della demo vive su `tenants`, dove la
+    // pulizia non arriva, e si consuma con la funzione della migrazione 0043
+    // (che controlla e incrementa nella stessa UPDATE, e rifiuta su un tenant
+    // non dimostrativo).
+    const esaurito = tenant.e_demo
+      ? await (async () => {
+          const { data: restano, error } = await supabase.rpc("consuma_messaggio_demo", {
+            p_tenant_id: tenantId,
+            p_limite: QUOTA_MENSILE_MESSAGGI_DEMO,
+          });
+          // In caso di errore si chiude, non si apre: qui non c'e' nessun
+          // cliente reale da proteggere da un falso positivo, e dall'altra
+          // parte c'e' una bolletta.
+          if (error) return true;
+          return typeof restano !== "number" || restano < 0;
+        })()
+      : usatiQuestoMese >= limiteMensileMessaggi(tenant.piano, numeroOperatori);
+    if (esaurito) {
       return NextResponse.json(
         {
           errore: tenant.e_demo
