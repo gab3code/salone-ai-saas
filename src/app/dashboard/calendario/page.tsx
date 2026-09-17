@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
-import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
 import { trovaSlotDisponibiliTenant } from "@/lib/booking-engine.server";
 import { pseudoUtcAReale, realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { cancellaAppuntamento, modificaAppuntamento, segnaNoShow } from "./azioni";
 import { PannelloNuovoAppuntamento } from "./pannello-nuovo-appuntamento";
+import { RiquadroProvaAssistente } from "./riquadro-prova-assistente";
+import { puoConfigurareAttivita } from "@/lib/ruoli";
+import { pianoPuoProvareAssistente, statoDemo } from "@/lib/ai/demo-assistente";
 
 function oggiYMD(): string {
   return new Date().toISOString().slice(0, 10);
@@ -52,8 +55,12 @@ export default async function PaginaCalendario({
 }) {
   const sp = await searchParams;
   const supabase = await creaClientServer();
-  const tenantId = await ottieniTenantCorrente(supabase);
-  if (!tenantId) redirect("/accedi");
+  // `ottieniSessioneTenant` invece di `ottieniTenantCorrente`: serve anche
+  // il ruolo, per decidere se mostrare il riquadro commerciale della prova
+  // dell'assistente (Fase 5) -- un collaboratore non deve vederlo.
+  const sessione = await ottieniSessioneTenant(supabase);
+  if (!sessione) redirect("/accedi");
+  const tenantId = sessione.tenantId;
 
   const dataYMD = sp.data && /^\d{4}-\d{2}-\d{2}$/.test(sp.data) ? sp.data : oggiYMD();
   const servizioIds = sp.servizio_id ? (Array.isArray(sp.servizio_id) ? sp.servizio_id : [sp.servizio_id]) : [];
@@ -84,7 +91,7 @@ export default async function PaginaCalendario({
   const inizioGiornoReale = pseudoUtcAReale(new Date(`${dataYMD}T00:00:00Z`), fusoOrario);
   const fineGiornoReale = pseudoUtcAReale(new Date(`${giornoAdiacente(dataYMD, 1)}T00:00:00Z`), fusoOrario);
 
-  const [operatoriRes, serviziRes, appuntamentiRes] = await Promise.all([
+  const [operatoriRes, serviziRes, appuntamentiRes, tenantRes] = await Promise.all([
     supabase.from("operatori").select("id, nome").eq("tenant_id", tenantId).eq("attivo", true).order("nome"),
     supabase
       .from("servizi")
@@ -100,7 +107,22 @@ export default async function PaginaCalendario({
       .lt("inizio", fineGiornoReale.toISOString())
       .neq("stato", "cancellato")
       .order("inizio"),
+    supabase.from("tenants").select("piano, demo_ai_mese, demo_ai_usate").eq("id", tenantId).single(),
   ]);
+
+  // Il riquadro "guarda cosa avrebbe risposto l'assistente" (Fase 5): si
+  // mostra solo sui piani che l'assistente NON ce l'hanno, e solo a chi puo'
+  // configurare l'attivita' -- un collaboratore non deve nemmeno vedere una
+  // proposta commerciale che non e' sua da accettare. Il gate sul ruolo e'
+  // comunque ricontrollato nella server action: qui decide solo cosa
+  // disegnare.
+  const mostraProvaAssistente =
+    pianoPuoProvareAssistente(tenantRes.data?.piano ?? "") && puoConfigurareAttivita(sessione.ruolo);
+  const proveRimaste = statoDemo(
+    tenantRes.data?.demo_ai_mese ?? null,
+    tenantRes.data?.demo_ai_usate ?? 0,
+    new Date()
+  ).rimaste;
 
   const operatori = (operatoriRes.data ?? []).map((o) => ({ id: o.id, nome: o.nome }));
   const servizi = (serviziRes.data ?? []).map((s) => ({
@@ -324,6 +346,9 @@ export default async function PaginaCalendario({
           servizioIdsIniziali={servizioIds}
           operatoreIdIniziale={operatoreId}
           dataIniziale={dataYMD}
+          provaAssistente={
+            mostraProvaAssistente ? <RiquadroProvaAssistente rimasteIniziali={proveRimaste} /> : undefined
+          }
         />
       )}
     </div>

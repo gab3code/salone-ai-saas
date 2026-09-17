@@ -365,6 +365,22 @@ export async function rispondiConversazione(
     // è chiamare o scrivere su WhatsApp.
     telefono?: string | null;
     telefonoWhatsapp?: string | null;
+    /**
+     * Sottoinsieme di strumenti concessi per QUESTO turno (17/09/2026).
+     *
+     * Esiste per la prova dell'assistente dei piani senza AI
+     * (`src/lib/ai/demo-assistente.ts`): li' il modello deve poter leggere
+     * servizi, orari e disponibilita' vere del salone -- altrimenti la
+     * dimostrazione non dimostra niente -- ma non deve poter SCRIVERE
+     * niente, perche' quella e' la funzione che si paga.
+     *
+     * Il filtro sta qui e non nel chiamante di proposito: se il chiamante
+     * si limitasse a ignorare il risultato di uno strumento vietato, il
+     * modello lo vedrebbe comunque nell'elenco e proverebbe a usarlo,
+     * sprecando un giro e producendo una risposta confusa. Non passarlo
+     * lascia tutto com'era.
+     */
+    strumentiConsentiti?: readonly string[];
   },
   clientAnthropic: ClienteAnthropic = ottieniClientPredefinito(),
   adesso: Date = new Date()
@@ -395,9 +411,12 @@ export async function rispondiConversazione(
   // Growth mantiene la chat AI transazionale di oggi, ma il modello non deve
   // nemmeno vedere l'esistenza di questo strumento, altrimenti potrebbe
   // provare a chiamarlo comunque.
-  const strumentiDisponibili = ctx.haInformazioniAttivita
+  const conKnowledgeBase = ctx.haInformazioniAttivita
     ? STRUMENTI_AI
     : STRUMENTI_AI.filter((s) => s.name !== "info_attivita");
+  const strumentiDisponibili = ctx.strumentiConsentiti
+    ? conKnowledgeBase.filter((s) => ctx.strumentiConsentiti?.includes(s.name))
+    : conKnowledgeBase;
 
   // Costruiti una sola volta per l'intero turno (non a ogni iterazione del
   // loop sotto, né duplicati nella chiamata a correggiSeIncongruente più in

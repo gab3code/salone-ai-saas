@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { creaAppuntamento } from "./azioni";
 
@@ -45,6 +45,7 @@ export function PannelloNuovoAppuntamento({
   servizioIdsIniziali,
   operatoreIdIniziale,
   dataIniziale,
+  provaAssistente,
 }: {
   operatori: Operatore[];
   servizi: Servizio[];
@@ -52,6 +53,16 @@ export function PannelloNuovoAppuntamento({
   servizioIdsIniziali: string[];
   operatoreIdIniziale: string;
   dataIniziale: string;
+  /**
+   * Il riquadro "guarda cosa avrebbe risposto l'assistente" (Fase 5), gia'
+   * costruito dalla pagina con i dati del tenant e passato qui come nodo:
+   * questo componente non deve sapere niente di piani e quote, sa solo
+   * QUANDO mostrarlo -- subito dopo un appuntamento inserito a mano, che e'
+   * il momento in cui il titolare ha appena fatto il lavoro che
+   * l'assistente gli toglierebbe. Assente sui piani che l'AI ce l'hanno
+   * gia'.
+   */
+  provaAssistente?: ReactNode;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -59,6 +70,7 @@ export function PannelloNuovoAppuntamento({
   const [slotSelezionato, setSlotSelezionato] = useState<Slot | null>(null);
   const [erroreInvio, setErroreInvio] = useState<string | null>(null);
   const [invioInCorso, setInvioInCorso] = useState(false);
+  const [appenaCreato, setAppenaCreato] = useState(false);
 
   // Stato locale per le caselle servizio, invece di leggere `checked`
   // direttamente da `servizioIdsIniziali` (il prop che arriva dall'URL via il
@@ -124,6 +136,7 @@ export function PannelloNuovoAppuntamento({
       setErroreInvio(risultato.errore);
     } else {
       setSlotSelezionato(null);
+      setAppenaCreato(true);
     }
   }
 
@@ -247,6 +260,8 @@ export function PannelloNuovoAppuntamento({
       )}
 
       {erroreInvio && <p className="text-sm text-red-600">{erroreInvio}</p>}
+
+      {appenaCreato && provaAssistente}
     </div>
   );
 }
