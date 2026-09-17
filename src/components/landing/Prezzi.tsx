@@ -129,7 +129,6 @@ const PIANI = [
       "I tuoi clienti restano tuoi, nessuna app da far scaricare",
       "Prenotazioni illimitate",
       "Operatori illimitati",
-      "Nessun tetto di prenotazioni mensili",
       "Accessi per il personale, con permessi",
     ],
     consigliato: false,

@@ -140,10 +140,14 @@ export function ProdottoScroll() {
                   <TrendingUp className="size-3.5" /> 3 clienti non prenotano da 60 giorni
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  {["Elena T.", "Davide P.", "Francesca M."].map((nome) => (
-                    <div key={nome} className="flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
-                      <span className="text-white/70">{nome}</span>
-                      <span className="text-[10px] text-white/40">ultimo: 12 lug</span>
+                  {[
+                    { nome: "Elena T.", ultimo: "12 lug" },
+                    { nome: "Davide P.", ultimo: "5 lug" },
+                    { nome: "Francesca M.", ultimo: "28 giu" },
+                  ].map((c) => (
+                    <div key={c.nome} className="flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
+                      <span className="text-white/70">{c.nome}</span>
+                      <span className="text-[10px] text-white/40">ultimo: {c.ultimo}</span>
                     </div>
                   ))}
                 </div>

@@ -137,4 +137,53 @@ test.describe("Scenario 23 -- i permessi valgono anche contro il database nudo",
       .insert({ tenant_id: tenant.id, nome: "Cliente Dello Staff", telefono: "3331230023" });
     expect(erroreCliente, "un collaboratore deve poter creare un cliente").toBeNull();
   });
+
+  /**
+   * Migrazione 0035. La cancellazione di un cliente è owner-only, e il
+   * confine non può vivere solo nella server action: `clienti` è
+   * raggiungibile da PostgREST con la anon key, quindi senza una policy di
+   * DELETE uno staff cancellerebbe la rubrica dalla console del browser
+   * mentre l'interfaccia gli nasconde il pulsante.
+   *
+   * SE QUESTO TEST FALLISCE e gli altri passano, quasi certamente la
+   * migrazione 0035 non è stata applicata al progetto Supabase: la vecchia
+   * policy `isolamento_tabella for all` autorizza tutti i membri su tutti i
+   * comandi, DELETE compreso.
+   */
+  test("un collaboratore non cancella un cliente nemmeno dal database, il titolare sì", async () => {
+    tenant = await creaTenantDiProva({
+      nome: "Salone E2E Permessi DB Cancellazione",
+      piano: "starter",
+    });
+    staff = await creaMembroDiProva(tenant.id, "staff");
+
+    const { data: cliente } = await tenant.supabase
+      .from("clienti")
+      .insert({ tenant_id: tenant.id, nome: "Cliente Bersaglio", telefono: "3331230035" })
+      .select("id")
+      .single();
+    expect(cliente?.id, "il cliente di partenza deve esistere").toBeTruthy();
+
+    const comeStaff = await clientComeUtente(staff.email, staff.password);
+    await comeStaff.from("clienti").delete().eq("id", cliente!.id);
+
+    const { data: dopoStaff } = await tenant.supabase
+      .from("clienti")
+      .select("id")
+      .eq("id", cliente!.id)
+      .maybeSingle();
+    expect(dopoStaff?.id, "uno staff non deve poter cancellare un cliente").toBe(cliente!.id);
+
+    // Lo stesso identico comando, fatto dal titolare, deve invece passare:
+    // una policy che blocca tutti non è una protezione, è un guasto.
+    const comeOwner = await clientComeUtente(tenant.email, tenant.password);
+    await comeOwner.from("clienti").delete().eq("id", cliente!.id);
+
+    const { data: dopoOwner } = await tenant.supabase
+      .from("clienti")
+      .select("id")
+      .eq("id", cliente!.id)
+      .maybeSingle();
+    expect(dopoOwner, "il titolare deve poter cancellare un suo cliente").toBeNull();
+  });
 });

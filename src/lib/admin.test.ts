@@ -124,6 +124,61 @@ describe("segnaliAttivita", () => {
       adesso
     );
     expect(scaduta.some((s) => s.testo.includes("Pagamento non riuscito"))).toBe(true);
+    // Il testo deve dire anche la conseguenza: chi legge il pannello decide
+    // se guardarlo oggi o fra una settimana in base a quella, non al titolo.
+    expect(scaduta.some((s) => s.testo.includes("senza pagarlo"))).toBe(true);
+  });
+
+  /**
+   * 17/09/2026. Incoerenza fra Supabase e Stripe che nessun altro segnale
+   * coglie: `stato_abbonamento` può benissimo essere rimasto "attivo",
+   * `piano` è quello a pagamento, e dietro non c'è nessun abbonamento --
+   * un checkout andato a metà, un evento perso, o una riga toccata a mano.
+   * Intanto qualcuno usa un piano a pagamento gratis.
+   */
+  it("segnala un piano a pagamento senza nessun abbonamento Stripe dietro", () => {
+    const rotta = segnaliAttivita(
+      riga({
+        piano: "growth",
+        statoAbbonamento: "attivo",
+        haAbbonamentoStripe: false,
+        pianoManuale: false,
+        ultimaAttivita: "2026-06-14T10:00:00Z",
+      }),
+      adesso
+    );
+    expect(
+      rotta.some((s) => s.testo.includes("senza abbonamento Stripe") && s.gravita === "alta")
+    ).toBe(true);
+  });
+
+  it("non lo segnala quando il piano è assegnato a mano: è il caso previsto, non un guasto", () => {
+    // Enterprise a preventivo e account omaggio non hanno un abbonamento
+    // Stripe per definizione (migrazione 0028). Segnalarli renderebbe il
+    // segnale rumore, e il rumore fa ignorare anche i casi veri.
+    const manuale = segnaliAttivita(
+      riga({
+        piano: "pro",
+        haAbbonamentoStripe: false,
+        pianoManuale: true,
+        ultimaAttivita: "2026-06-14T10:00:00Z",
+      }),
+      adesso
+    );
+    expect(manuale.some((s) => s.testo.includes("senza abbonamento Stripe"))).toBe(false);
+  });
+
+  it("non lo segnala sul piano Free, che un abbonamento non ce l'ha mai", () => {
+    const gratis = segnaliAttivita(
+      riga({
+        piano: "free",
+        haStripe: false,
+        haAbbonamentoStripe: false,
+        ultimaAttivita: "2026-06-14T10:00:00Z",
+      }),
+      adesso
+    );
+    expect(gratis.some((s) => s.testo.includes("senza abbonamento Stripe"))).toBe(false);
   });
 
   it("avvisa PRIMA che il tetto del piano Free sia raggiunto, non dopo", () => {

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { creaSupabaseFinto } from "@/test/supabase-finto";
-import { ottieniOCreaConversazione, aggiornaTurniSenzaStrumenti } from "./conversazione.server";
+import {
+  ottieniOCreaConversazione,
+  aggiornaTurniSenzaStrumenti,
+  segnaPassataAOperatore,
+} from "./conversazione.server";
 
 describe("ottieniOCreaConversazione", () => {
   it("espone turniSenzaToolConsecutivi di una conversazione esistente (0019)", async () => {
@@ -76,5 +80,45 @@ describe("aggiornaTurniSenzaStrumenti", () => {
     });
 
     await expect(aggiornaTurniSenzaStrumenti(supabase, "conv-1", false, 0)).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * 17/09/2026: da oggi il passaggio a un operatore fa partire un'email al
+ * titolare con tutta la conversazione. Il valore di ritorno è quello che
+ * decide se mandarla, quindi deve dire "è cambiato qualcosa ADESSO", non
+ * "l'update non ha dato errore": altrimenti ogni messaggio successivo dentro
+ * una conversazione già passata a un operatore farebbe partire una copia
+ * identica dell'email.
+ */
+describe("segnaPassataAOperatore", () => {
+  it("ritorna true quando lo stato cambia davvero in questa chiamata", async () => {
+    const supabase = creaSupabaseFinto({
+      conversazioni: { update: [{ data: [{ id: "conv-1" }], error: null }] },
+    });
+
+    await expect(segnaPassataAOperatore(supabase, "conv-1")).resolves.toBe(true);
+    expect(supabase.registro.update).toEqual([
+      { tabella: "conversazioni", payload: { stato: "passata_a_operatore" } },
+    ]);
+  });
+
+  it("ritorna false se era già passata a un operatore (nessuna riga aggiornata)", async () => {
+    // Il filtro `.neq("stato", "passata_a_operatore")` sta nella query, non in
+    // una lettura precedente: Postgres non trova righe da aggiornare e
+    // restituisce un array vuoto, senza errore.
+    const supabase = creaSupabaseFinto({
+      conversazioni: { update: [{ data: [], error: null }] },
+    });
+
+    await expect(segnaPassataAOperatore(supabase, "conv-1")).resolves.toBe(false);
+  });
+
+  it("un errore vero lancia comunque: qui il fail-open non si applica", async () => {
+    const supabase = creaSupabaseFinto({
+      conversazioni: { update: [{ data: null, error: { message: "boom" } }] },
+    });
+
+    await expect(segnaPassataAOperatore(supabase, "conv-1")).rejects.toThrow(/boom/);
   });
 });

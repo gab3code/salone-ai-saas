@@ -8,7 +8,10 @@ vi.mock("@/lib/sms/invio.server", () => ({ inviaSmsSeInclusoNelPiano: vi.fn().mo
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { inviaEmail } from "./mailjet.server";
 import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
-import { inviaNotificheNuovoAppuntamento } from "./notifiche.server";
+import {
+  inviaNotificheNuovoAppuntamento,
+  inviaNotificaPassaggioAOperatore,
+} from "./notifiche.server";
 
 const creaClientAdminFinto = vi.mocked(creaClientAdmin);
 const inviaEmailFinto = vi.mocked(inviaEmail);
@@ -203,5 +206,132 @@ describe("inviaNotificheNuovoAppuntamento", () => {
     );
 
     await expect(inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID)).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * 17/09/2026 -- l'email che rende vera la promessa "passa la mano a te con
+ * tutto il contesto della conversazione", fatta in quattro punti del sito e
+ * fino a ieri non mantenuta da nessuna riga di codice.
+ *
+ * Le due cose che devono valere: ci deve essere DAVVERO tutta la
+ * conversazione dentro (se il titolare deve riaprire il prodotto per capire
+ * di cosa si parla, il passaggio di consegne non è avvenuto), e un problema
+ * qui non deve mai propagarsi a chi sta chattando -- la risposta al cliente
+ * è già stata salvata.
+ */
+describe("inviaNotificaPassaggioAOperatore", () => {
+  const ENV_ORIGINALE = { ...process.env };
+  const CONVERSAZIONE_ID = "conv-1";
+
+  function adminConConversazione(opts: {
+    conversazione?: unknown;
+    messaggi?: unknown[];
+    profiloOwner?: { id: string } | null;
+  }) {
+    const base = creaSupabaseFinto({
+      conversazioni: {
+        select: [
+          {
+            data:
+              opts.conversazione === undefined
+                ? {
+                    canale: "web",
+                    clienti: { nome: "Giulia", telefono: "+393331234567", email: null },
+                    tenants: { nome: "Salone Test" },
+                  }
+                : opts.conversazione,
+            error: null,
+          },
+        ],
+      },
+      messaggi: {
+        select: [
+          {
+            data:
+              opts.messaggi ?? [
+                { ruolo: "cliente", contenuto: "Volevo lamentarmi del taglio di ieri", created_at: "2026-09-17T10:00:00Z" },
+                { ruolo: "assistente", contenuto: "Mi dispiace, avviso subito il salone.", created_at: "2026-09-17T10:00:05Z" },
+              ],
+            error: null,
+          },
+        ],
+      },
+      profiles: {
+        select: [{ data: opts.profiloOwner === undefined ? { id: "titolare-1" } : opts.profiloOwner, error: null }],
+      },
+    });
+    return {
+      ...base,
+      auth: {
+        admin: {
+          getUserById: vi
+            .fn()
+            .mockResolvedValue({ data: { user: { email: "titolare@esempio.it" } }, error: null }),
+        },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+  }
+
+  beforeEach(() => {
+    process.env.MJ_APIKEY_PUBLIC = "chiave-pubblica-test";
+    process.env.MJ_APIKEY_PRIVATE = "chiave-privata-test";
+    inviaEmailFinto.mockClear();
+    inviaEmailFinto.mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    process.env = { ...ENV_ORIGINALE };
+    vi.clearAllMocks();
+  });
+
+  it("manda al titolare la trascrizione completa, non solo un avviso", async () => {
+    creaClientAdminFinto.mockReturnValue(adminConConversazione({}));
+
+    await inviaNotificaPassaggioAOperatore(TENANT_ID, CONVERSAZIONE_ID);
+
+    expect(inviaEmailFinto).toHaveBeenCalledTimes(1);
+    const email = inviaEmailFinto.mock.calls[0][0];
+    expect(email.a).toBe("titolare@esempio.it");
+    expect(email.oggetto).toContain("Salone Test");
+    expect(email.html).toContain("Volevo lamentarmi del taglio di ieri");
+    expect(email.html).toContain("Mi dispiace, avviso subito il salone.");
+    expect(email.html).toContain("+393331234567");
+  });
+
+  it("dice esplicitamente quando non c'è nessun recapito, invece di lasciare una riga vuota", async () => {
+    creaClientAdminFinto.mockReturnValue(
+      adminConConversazione({
+        conversazione: { canale: "web", clienti: null, tenants: { nome: "Salone Test" } },
+      })
+    );
+
+    await inviaNotificaPassaggioAOperatore(TENANT_ID, CONVERSAZIONE_ID);
+
+    const email = inviaEmailFinto.mock.calls[0][0];
+    expect(email.html).toContain("non ha lasciato un recapito");
+  });
+
+  it("senza le chiavi Mailjet non tocca nemmeno il database", async () => {
+    delete process.env.MJ_APIKEY_PUBLIC;
+    delete process.env.MJ_APIKEY_PRIVATE;
+    creaClientAdminFinto.mockClear();
+
+    await inviaNotificaPassaggioAOperatore(TENANT_ID, CONVERSAZIONE_ID);
+
+    expect(creaClientAdminFinto).not.toHaveBeenCalled();
+    expect(inviaEmailFinto).not.toHaveBeenCalled();
+  });
+
+  it("fail-open: se il database esplode non rilancia (la risposta al cliente è già salvata)", async () => {
+    creaClientAdminFinto.mockImplementation(() => {
+      throw new Error("database irraggiungibile");
+    });
+
+    await expect(
+      inviaNotificaPassaggioAOperatore(TENANT_ID, CONVERSAZIONE_ID)
+    ).resolves.toBeUndefined();
+    expect(inviaEmailFinto).not.toHaveBeenCalled();
   });
 });
