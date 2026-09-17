@@ -24,6 +24,10 @@ import { FUSO_ORARIO_PREDEFINITO, realeAPseudoUtc } from "@/lib/fuso-orario";
 import { istruzioniContatto } from "@/lib/contatti";
 import { TETTI_CHAT_SALONE } from "@/lib/limiti-ip";
 import { consumaUsoAiPerIp } from "@/lib/limiti-ip.server";
+import {
+  eMessaggioOffensivo,
+  RISPOSTA_MESSAGGIO_OFFENSIVO,
+} from "@/lib/ai/messaggio-offensivo";
 
 /**
  * Endpoint pubblico della chat AI (Task #66) -- NESSUNA autenticazione
@@ -175,6 +179,30 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     await salvaMessaggio(supabase, conversazione.id, "cliente", messaggio);
+
+    // Un insulto secco non arriva mai al modello (17/09/2026).
+    //
+    // Qui siamo sulla pagina pubblica di un salone che paga, e finche' non
+    // scattava il taglio dei tre turni l'assistente rispondeva "non ho
+    // capito, puoi ripetere?" -- cioe' chiedeva di ripetere l'insulto, con
+    // il nome del salone sopra la chat. Il messaggio del cliente resta
+    // salvato (il titolare deve poterlo leggere), il turno conta come turno
+    // senza strumenti, e al terzo scatta il blocco che c'era gia'.
+    if (eMessaggioOffensivo(messaggio)) {
+      await salvaMessaggio(
+        supabase,
+        conversazione.id,
+        "assistente",
+        RISPOSTA_MESSAGGIO_OFFENSIVO
+      );
+      await aggiornaTurniSenzaStrumenti(
+        supabase,
+        conversazione.id,
+        false,
+        conversazione.turniSenzaToolConsecutivi
+      );
+      return NextResponse.json({ risposta: RISPOSTA_MESSAGGIO_OFFENSIVO });
+    }
 
     // "Adesso" passato esplicitamente in pseudo-UTC (mai il new Date() reale
     // di default di rispondiConversazione): il system prompt dell'AI

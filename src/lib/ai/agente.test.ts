@@ -178,6 +178,17 @@ describe("rispondiConversazione", () => {
     expect(testoSystem(primaChiamata)).toContain("giovedì");
   });
 
+  describe("messaggi offensivi (17/09/2026)", () => {
+    it("il prompt vieta esplicitamente di chiedere di ripetere", async () => {
+      const create = vi.fn().mockResolvedValue(testoFinale("Certo!"));
+      await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
+
+      const system = testoSystem(create.mock.calls[0][0]);
+      expect(system).toContain("offensivo, volgare o palesemente provocatorio");
+      expect(system).toContain("non chiedere MAI di ripetere");
+    });
+  });
+
   describe("tono dell'AI personalizzabile (Fase 5, Pro/Enterprise)", () => {
     it("usa il tono professionale di default se ctx non specifica nulla (nessun cambio per Free/Starter/Growth)", async () => {
       const create = vi.fn().mockResolvedValue(testoFinale("Certo!"));

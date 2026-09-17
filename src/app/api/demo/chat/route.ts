@@ -13,6 +13,10 @@ import {
 } from "@/lib/demo/limiti-demo";
 import { MESSAGGI_DEMO_PER_CONNESSIONE_AL_MESE } from "@/lib/limiti-ip";
 import { consumaMessaggioDemoPerConnessione } from "@/lib/limiti-ip.server";
+import {
+  eMessaggioOffensivo,
+  RISPOSTA_MESSAGGIO_OFFENSIVO,
+} from "@/lib/ai/messaggio-offensivo";
 
 /**
  * La chat della demo pubblica.
@@ -121,6 +125,28 @@ export async function POST(request: NextRequest) {
       },
       { status: 429 }
     );
+  }
+
+  // Un insulto secco non arriva mai al modello.
+  //
+  // Sta QUI, dopo il tetto di questa connessione e prima del contatore
+  // globale, per due motivi precisi: chi insulta consuma comunque i suoi
+  // venti messaggi del mese (altrimenti avrebbe tentativi infiniti), ma non
+  // consuma la quota condivisa della demo, che serve a chi la sta davvero
+  // provando. E non costa un centesimo di modello.
+  //
+  // Il turno fuori tema si conta lo stesso: due di questi e la conversazione
+  // si chiude, esattamente come prima.
+  if (eMessaggioOffensivo(messaggio)) {
+    const turniFuoriTema = (stato.turniFuoriTema ?? 0) + 1;
+    const chiusa = turniFuoriTema >= TURNI_FUORI_TEMA_DEMO;
+    return NextResponse.json({
+      risposta: chiusa
+        ? "Qui posso aiutarti solo con gli appuntamenti di questo salone di prova. Se vuoi vedere l'assistente sul TUO salone, con i tuoi servizi e i tuoi orari, registrati: è gratis e non serve la carta."
+        : RISPOSTA_MESSAGGIO_OFFENSIVO,
+      stato: { ...stato, turniFuoriTema },
+      ...(chiusa ? { conversazioneChiusa: true } : {}),
+    });
   }
 
   // Il tetto mensile globale: una riga sola nel database, quindi e' l'unico
