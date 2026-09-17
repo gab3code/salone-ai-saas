@@ -903,6 +903,19 @@ quel blocco va marcato come storico appena il merge e' avvenuto.
 Corollario: niente commenti con `#` in coda a una riga di comando data a Gabriel
 -- la sua zsh non ha `interactive_comments` e se lo mangia come argomento.
 
+Due corollari sul blocco SQL, imparati lo stesso giorno sulla sezione 3 dei
+limiti per IP:
+
+- **Una query per blocco.** L'editor SQL di Supabase mostra solo il risultato
+  dell'ULTIMA query eseguita. Cinque controlli incollati insieme danno un solo
+  risultato a schermo e sembrano quattro controlli persi. In piu', se
+  l'autocompletamento storpia una riga a meta' incolla, salta tutto il blocco
+  invece di un controllo solo.
+- **Mai affidarsi all'ordine di valutazione di `union all`.** Postgres non lo
+  garantisce. Una sequenza di chiamate a una funzione che scrive va incatenata
+  con CTE `materialized` dove ogni passo legge dal precedente, cosi' l'ordine
+  nasce da una dipendenza vera e non dalla fortuna.
+
 ## 28. Self-service SaaS
 
 Continua verso un sistema completamente self-service.

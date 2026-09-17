@@ -48,34 +48,74 @@ Stesso numero.
 
 ## 3. Il database
 
-La migrazione **0046** l'ho già applicata e verificata. Questi controlli sono
-per ricontrollare, incollali tutti insieme nell'SQL editor.
+La migrazione **0046** l'ho gia' applicata e verificata. Questi controlli sono
+per ricontrollare.
+
+> **Un blocco alla volta, anche qui.** L'editor SQL di Supabase mostra solo il
+> risultato dell'**ultima** query che gli dai: se le incolli tutte insieme, vedi
+> solo l'ultima e credi di aver perso le altre. E se l'autocompletamento
+> storpia una riga a meta' incolla, salta tutto il blocco.
+
+### 3.1 La tabella esiste e non contiene indirizzi IP
 
 ```sql
--- 1. La tabella esiste e NON contiene indirizzi IP, solo impronte.
 select column_name, data_type from information_schema.columns
  where table_name = 'limiti_ip' order by ordinal_position;
+```
 
--- 2. Le funzioni sono chiuse a tutti tranne il server.
+Atteso: tre righe, `chiave` / `finestra` / `usati`. **Nessuna colonna "ip"**: in
+chiaro l'indirizzo non lo scriviamo da nessuna parte, salviamo solo un'impronta.
+
+### 3.2 Le funzioni sono chiuse a tutti tranne il server
+
+```sql
 select has_function_privilege('service_role','consuma_limite_ip(text, integer, integer)','execute') as server_puo,
        has_function_privilege('authenticated','consuma_limite_ip(text, integer, integer)','execute') as titolare_puo,
        has_function_privilege('anon','consuma_limite_ip(text, integer, integer)','execute') as chiunque_puo;
-
--- 3. Il tetto orario funziona (limite 3): devono uscire 2, 1, 0, -1.
-select 'uso 1' as passo, consuma_limite_ip('verifica-gabriel', 3, 100)::text as restano
-union all select 'uso 2', consuma_limite_ip('verifica-gabriel', 3, 100)::text
-union all select 'uso 3', consuma_limite_ip('verifica-gabriel', 3, 100)::text
-union all select 'uso 4 (atteso -1)', consuma_limite_ip('verifica-gabriel', 3, 100)::text;
-
--- 4. Un altro chiamante non è toccato: deve uscire 2.
-select consuma_limite_ip('verifica-gabriel-2', 3, 100) as un_altro_ip;
-
--- 5. Pulizia della prova.
-delete from limiti_ip where chiave like 'verifica-gabriel%';
 ```
 
-**Attesi**: `chiave/finestra/usati` (nessuna colonna "ip"), poi `true / false / false`,
-poi `2, 1, 0, -1`, poi `2`.
+Atteso: `true / false / false`.
+
+E' il controllo che conta di piu' di tutta la sezione. Se `chiunque_puo` fosse
+`true`, il tetto sarebbe aggirabile dal browser con la chiave pubblica: un
+permesso che esiste solo nel codice dell'applicazione non e' un permesso.
+
+### 3.3 Il tetto orario funziona (limite 3)
+
+```sql
+with u1 as materialized (select consuma_limite_ip('verifica-gabriel', 3, 100) as restano),
+     u2 as materialized (select consuma_limite_ip('verifica-gabriel', 3, 100) as restano from u1),
+     u3 as materialized (select consuma_limite_ip('verifica-gabriel', 3, 100) as restano from u2),
+     u4 as materialized (select consuma_limite_ip('verifica-gabriel', 3, 100) as restano from u3)
+select 'uso 1' as passo, restano from u1
+union all select 'uso 2', restano from u2
+union all select 'uso 3', restano from u3
+union all select 'uso 4 (atteso -1)', restano from u4;
+```
+
+Atteso: `2, 1, 0, -1`. Il `-1` e' il rifiuto: niente piu' quota.
+
+Nota sulla forma: la prima versione di questo controllo era quattro `union all`
+di chiamate indipendenti, e con quella Postgres **non garantisce in che ordine
+valuta i rami** -- usciva `2, 1, 0, -1` per fortuna, non per costruzione. Qui
+ogni passo legge dal precedente (`from u1`, `from u2`, ...), quindi l'ordine e'
+imposto da una dipendenza vera, e `materialized` impedisce a Postgres di
+riscrivere la query fondendo i passi.
+
+### 3.4 Un altro chiamante non e' toccato
+
+```sql
+select consuma_limite_ip('verifica-gabriel-2', 3, 100) as un_altro_ip;
+```
+
+Atteso: `2`. Chiave diversa, contatore suo: e' il punto di tutto il lavoro --
+un visitatore non consuma la quota degli altri.
+
+### 3.5 Pulizia della prova
+
+```sql
+delete from limiti_ip where chiave like 'verifica-gabriel%';
+```
 
 ---
 
