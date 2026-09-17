@@ -86,8 +86,13 @@ test.describe("Scenario 22 -- cambio piano dal pannello admin", () => {
     // operatori configurati, quindi su Growth pagherebbe 39,90 + 15,00 -- ed
     // è esattamente il tipo di disallineamento che questa anteprima serve a
     // far vedere PRIMA di applicare, non dopo.
-    await expect(riga.getByText(/19,90/)).toBeVisible({ timeout: 20_000 });
-    await expect(riga.getByText(/54,90/)).toBeVisible();
+    // Si punta alla riga di riepilogo e non a "19,90" ovunque: la stessa
+    // cifra compare anche nell'elenco dei line item attuali, e un selettore
+    // per solo testo ne pescherebbe due.
+    const riepilogoPrezzo = riga.getByText(/al mese →/);
+    await expect(riepilogoPrezzo).toBeVisible({ timeout: 20_000 });
+    await expect(riepilogoPrezzo).toContainText("19,90");
+    await expect(riepilogoPrezzo).toContainText("54,90");
     // Il salone finirebbe per pagare di più: l'avviso deve esserci.
     await expect(riga.getByText(/fa pagare di più al cliente/)).toBeVisible();
 
