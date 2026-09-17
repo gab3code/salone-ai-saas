@@ -21,7 +21,7 @@ export default async function PaginaImpostazioni() {
 
   const { data: profilo } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
   const { data: tenant } = profilo
-    ? await supabase.from("tenants").select("piano, stato_abbonamento, codice_destinatario, pec_fatturazione").eq("id", profilo.tenant_id).single()
+    ? await supabase.from("tenants").select("piano, stato_abbonamento, codice_destinatario, pec_fatturazione, codice_fiscale").eq("id", profilo.tenant_id).single()
     : { data: null };
 
   return (
@@ -49,6 +49,7 @@ export default async function PaginaImpostazioni() {
         <DatiFattura
           codiceDestinatario={(tenant.codice_destinatario as string | null) ?? null}
           pecFatturazione={(tenant.pec_fatturazione as string | null) ?? null}
+          codiceFiscale={(tenant.codice_fiscale as string | null) ?? null}
         />
       )}
 

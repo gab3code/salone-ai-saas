@@ -26,9 +26,11 @@ import { salvaDatiFattura } from "./dati-fattura-azioni";
 export function DatiFattura({
   codiceDestinatario,
   pecFatturazione,
+  codiceFiscale,
 }: {
   codiceDestinatario: string | null;
   pecFatturazione: string | null;
+  codiceFiscale: string | null;
 }) {
   const mancano = !codiceDestinatario && !pecFatturazione;
   const [errore, setErrore] = useState<string | null>(null);
@@ -82,6 +84,22 @@ export function DatiFattura({
             defaultValue={pecFatturazione ?? ""}
             placeholder="nome@pec.esempio.it"
             className="rounded border border-zinc-300 px-2 py-1"
+          />
+        </label>
+        {/* Il codice fiscale sta qui e non al checkout: serve solo a chi la
+            partita IVA non ce l'ha -- raro fra i saloni, ma perfettamente
+            normale (un'associazione, chi compra a titolo personale). Un campo
+            in più nella schermata di pagamento lo vedrebbero tutti per
+            servire pochi; qui lo trova chi ne ha bisogno. */}
+        <label className="flex flex-col gap-1 text-sm">
+          Codice fiscale, se non hai la partita IVA
+          <input
+            type="text"
+            name="codice_fiscale"
+            defaultValue={codiceFiscale ?? ""}
+            placeholder="16 caratteri"
+            maxLength={16}
+            className="rounded border border-zinc-300 px-2 py-1 uppercase"
           />
         </label>
         <button

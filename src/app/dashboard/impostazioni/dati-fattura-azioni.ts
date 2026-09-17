@@ -5,6 +5,7 @@ import { creaClientServer } from "@/lib/supabase/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
 import { puoGestireFatturazione } from "@/lib/ruoli";
+import { identificativoFiscaleValido } from "@/lib/fiscale";
 
 /**
  * Salva i dati che servono a consegnare la fattura elettronica: codice
@@ -29,6 +30,7 @@ export async function salvaDatiFattura(formData: FormData) {
 
   const codice = String(formData.get("codice_destinatario") ?? "").trim().toUpperCase();
   const pec = String(formData.get("pec_fatturazione") ?? "").trim().toLowerCase();
+  const codiceFiscale = String(formData.get("codice_fiscale") ?? "").trim().toUpperCase();
 
   // Il codice destinatario è di 6 caratteri per la PA e 7 per i privati; si
   // accettano entrambe le lunghezze e solo lettere/cifre. "0000000" è un
@@ -39,10 +41,20 @@ export async function salvaDatiFattura(formData: FormData) {
   if (pec && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pec)) {
     return { errore: "La PEC non sembra un indirizzo valido." };
   }
+  // Si valida il carattere di controllo, non solo la lunghezza: un refuso in
+  // un codice fiscale non dà un errore il giorno stesso, dà una fattura
+  // scartata dallo SdI giorni dopo, quando è già stata contata come emessa.
+  if (codiceFiscale && !identificativoFiscaleValido(codiceFiscale)) {
+    return { errore: "Il codice fiscale non è valido: ricontrolla, il carattere di controllo non torna." };
+  }
 
   const { error } = await creaClientAdmin()
     .from("tenants")
-    .update({ codice_destinatario: codice || null, pec_fatturazione: pec || null })
+    .update({
+      codice_destinatario: codice || null,
+      pec_fatturazione: pec || null,
+      codice_fiscale: codiceFiscale || null,
+    })
     .eq("id", accesso.tenantId);
 
   if (error) return { errore: `Errore salvando i dati di fatturazione: ${error.message}` };

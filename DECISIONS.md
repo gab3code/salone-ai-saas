@@ -5271,3 +5271,29 @@ a memoria il suo codice SdI sarebbe sproporzionato rispetto al danno, che è una
 lui. In compenso li si chiede una seconda volta dove costa meno: un riquadro su
 /dashboard/impostazioni, evidenziato finché mancano, visibile solo a chi ha un piano a pagamento.
 E il pannello admin segnala i paganti che non li hanno, così si vedono senza cercarli.
+
+## 2026-09-17 — Chi non ha partita IVA si fattura col codice fiscale, e il controllo lo fa il carattere di controllo
+
+**Domande di Gabriel**: serve verificare che la partita IVA sia reale? E se vendiamo a qualcuno
+che la partita IVA non ce l'ha, come si fa?
+
+**Verifica della partita IVA**: la fa già Stripe. `tax_id_collection` ne controlla il formato e,
+per le partite IVA europee, ne verifica l'esistenza su VIES in modo asincrono. Non serve
+riscriverla da noi, e soprattutto non serve **conservarla** da noi: resta sul Customer di Stripe,
+che è la sua fonte di verità.
+
+**Senza partita IVA si vende lo stesso**: la fattura elettronica si emette indicando il codice
+fiscale al posto della partita IVA, con codice destinatario "0000000". Caso raro fra i saloni, ma
+normale in sé (un'associazione, chi compra a titolo personale). Stripe però del codice fiscale
+non ha proprio il concetto, quindi quello ce lo teniamo noi (migrazione 0032).
+
+**Dove si chiede**: nelle impostazioni, non al checkout. Un terzo campo nella schermata di
+pagamento lo vedrebbero tutti per servire pochissimi; nelle impostazioni lo trova chi ne ha
+bisogno. Stessa logica con cui codice destinatario e PEC sono opzionali.
+
+**Come si valida**: carattere di controllo, non solo lunghezza (`src/lib/fiscale.ts`, 10 test).
+Un refuso in un codice fiscale non dà un errore il giorno stesso: dà una fattura **scartata dallo
+SdI** giorni dopo, quando è già stata contata come emessa, e per rimediare serve una nota di
+variazione. Controllarlo mentre viene digitato costa niente. Le funzioni verificano che
+l'identificativo sia ben formato, non che appartenga a quella persona: l'esistenza la accertano
+VIES e lo SdI, ed è il livello giusto per un campo di un modulo.
