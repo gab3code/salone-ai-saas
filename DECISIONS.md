@@ -6233,3 +6233,57 @@ La **personalizzazione** (seconda meta' della richiesta di Gabriel): un clone pu
 da qualunque fonte, quindi "prova l'assistente sul TUO salone, senza sporcarti l'agenda" e' ora un
 lavoro piccolo -- si clona dai servizi e dagli orari veri del titolare invece che dal modello.
 Non fatto in questo giro.
+
+## 17/09/2026 (sera) -- La demo a tenant veri, smontata il giorno stesso
+
+Gabriel: "verifica che non ci incasini il sistema, deve essere l'opzione migliore... per esempio
+ho capito il salone copiato, ma se il responsabile inizia ad usare la demo come vero salone
+diventa un problema serio".
+
+Ha trovato il difetto di fondo, e riguardandola con quella domanda in mano il difetto era piu'
+largo di quello che lui aveva visto. Ragionamento completo in `docs/brief-demo-senza-rischi.md`,
+scritto PRIMA di toccare codice; qui il sunto.
+
+**Tre problemi, non uno.**
+
+1. *Un tenant demo e' indistinguibile da un salone vero per tutto il resto del sistema.* Avevo
+   gia' dovuto escluderlo a mano dal pannello di piattaforma (contava 129,80 euro di MRR mai
+   incassati, che oggi sarebbe stato TUTTO il fatturato mostrato) e dal giro notturno dei
+   promemoria. Ma quelle erano le due cose che conoscevo oggi: ogni job, ogni metrica e ogni
+   query scritti da domani dovrebbero ricordarsi `e_demo = false`. Non e' un costo pagato una
+   volta, e' una tassa su ogni funzione futura -- e prima o poi qualcuno se la dimentica.
+2. *Il danno dell'uso improprio ricade su terzi.* In dashboard non ci si entra (il tenant non ha
+   utenti), quindi non ci si gestisce davvero un'attivita'. Ma il link pubblico si puo' dare ai
+   propri clienti: quelli prenotano, l'assistente conferma, e due giorni dopo la pulizia
+   cancella tutto. Persone che si presentano a un appuntamento che non esiste piu'. Che sia
+   autoinflitto non lo rende accettabile.
+3. *E' troppa superficie per una funzione di marketing.* Tre migrazioni, una funzione di
+   clonazione, un cookie, due tetti, una pulizia e tre esclusioni sparse, su un prodotto che non
+   ha ancora incassato un euro.
+
+**La decisione: niente tenant.** La demo diventa senza stato -- dati del salone nel codice,
+agenda nella sessione di chi guarda, zero scritture. Non e' la "demo grafica e basta" che Gabriel
+offriva come ripiego: l'assistente resta vero e calcola la disponibilita' con
+`calcolaSlotDisponibili`, **la stessa identica funzione pura del motore di prenotazione**. Questo
+e' il dettaglio che rende la scelta onesta invece che una scorciatoia: se la logica di
+disponibilita' fosse sepolta dentro le query, una demo a dati finti sarebbe un secondo motore che
+diverge, e allora l'approccio a cloni avrebbe avuto ragione.
+
+**Cosa e' stato fatto stasera** (migrazione 0045, applicata e verificata):
+- cancellati i due saloni finti -- controllato prima che non ci fosse finito dentro niente di
+  reale (zero appuntamenti, zero clienti, zero conversazioni). Finche' esistevano erano
+  raggiungibili a `/s/demo`, e il problema 2 restava aperto;
+- tolte `crea_clone_demo`, `consuma_messaggio_demo` e le colonne dei cloni;
+- `e_demo` invece RESTA: il codice gia' in produzione la legge in piu' query, e toglierla adesso
+  romperebbe il sito fino al deploy successivo. Senza righe a true e' innocua;
+- nuova tabella `contatori_globali` con `consuma_contatore_globale`: il tetto mensile della demo
+  non puo' piu' appoggiarsi a un tenant che non esiste. Deliberatamente generica, e' il posto
+  giusto per qualunque tetto che non appartiene a un singolo salone;
+- rimosso dal codice tutto il pezzo a tenant, cosi' il repository torna coerente con il database.
+
+**Lezione, e non e' la prima volta oggi.** Ho costruito due architetture in mezza giornata e le
+ho buttate entrambe, e tutte e due le volte il difetto e' saltato fuori da una domanda di Gabriel
+("sicuro che non ci fa buttare soldi?", "se lo usa come salone vero?") e non da una mia
+rilettura. La domanda da farsi prima di scrivere non e' "funziona?" ma "che succede se qualcuno
+lo usa per quello per cui non e' fatto?". Il brief in `docs/` esiste per obbligarmi a
+rispondere a quella domanda per iscritto prima di cominciare, non dopo.

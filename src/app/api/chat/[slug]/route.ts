@@ -17,7 +17,6 @@ import {
   LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE,
   LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI,
 } from "@/lib/ai/limiti";
-import { QUOTA_MENSILE_MESSAGGI_DEMO, strumentiPerDemo } from "@/lib/demo";
 import { pianoHaKnowledgeBaseAi } from "@/lib/piani";
 import type { StileTonoAI } from "@/lib/ai/agente";
 import { contaMessaggiClienteQuestoMese, ultimoMessaggioTroppoRecente } from "@/lib/ai/limiti.server";
@@ -72,7 +71,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("nome, piano, fuso_orario, tono_ai, tono_ai_nota, telefono, telefono_whatsapp, e_demo, demo_clonato_da")
+    .select("nome, piano, fuso_orario, tono_ai, tono_ai_nota, telefono, telefono_whatsapp")
     .eq("id", tenantId)
     .single();
 
@@ -108,44 +107,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       tenant.piano === "pro"
         ? ((await supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId)).count ?? 0)
         : 1;
-    // Il salone dimostrativo e' pubblico e non lo paga nessun abbonato, quindi
-    // il suo tetto e' piu' basso -- ma soprattutto e' contato in un altro
-    // modo, e questa e' la parte che conta.
-    //
-    // `usatiQuestoMese` interroga la tabella `messaggi`. Per un salone vero
-    // va benissimo. Per la demo NO: la pulizia notturna cancella le sue
-    // conversazioni dopo due giorni, e `messaggi` ha `on delete cascade` su
-    // `conversazione_id` -- quindi il conteggio si azzererebbe da solo ogni
-    // due notti e un tetto mensile diventerebbe un tetto biennale moltiplicato
-    // per quindici. Il contatore della demo vive su `tenants`, dove la
-    // pulizia non arriva, e si consuma con la funzione della migrazione 0043
-    // (che controlla e incrementa nella stessa UPDATE, e rifiuta su un tenant
-    // non dimostrativo).
-    const esaurito = tenant.e_demo
-      ? await (async () => {
-          // Il contatore sta sul MODELLO, non sul clone. Ogni visitatore ha
-          // il suo salone, quindi contare sul clone darebbe a ognuno la
-          // quota intera -- cioe' nessuna quota. `demo_clonato_da` risale al
-          // modello; sui modelli stessi e' nullo e si conta su di loro.
-          const idPerLaQuota = (tenant.demo_clonato_da as string | null) ?? tenantId;
-          const { data: restano, error } = await supabase.rpc("consuma_messaggio_demo", {
-            p_tenant_id: idPerLaQuota,
-            p_limite: QUOTA_MENSILE_MESSAGGI_DEMO,
-          });
-          // In caso di errore si chiude, non si apre: qui non c'e' nessun
-          // cliente reale da proteggere da un falso positivo, e dall'altra
-          // parte c'e' una bolletta.
-          if (error) return true;
-          return typeof restano !== "number" || restano < 0;
-        })()
-      : usatiQuestoMese >= limiteMensileMessaggi(tenant.piano, numeroOperatori);
-    if (esaurito) {
+    if (usatiQuestoMese >= limiteMensileMessaggi(tenant.piano, numeroOperatori)) {
       return NextResponse.json(
-        {
-          errore: tenant.e_demo
-            ? "La demo ha esaurito i messaggi di questo mese. La pagina resta navigabile, e il primo del mese riparte."
-            : "Questa attività ha raggiunto il limite mensile di messaggi AI. Contattala direttamente per prenotare.",
-        },
+        { errore: "Questa attività ha raggiunto il limite mensile di messaggi AI. Contattala direttamente per prenotare." },
         { status: 429 }
       );
     }
@@ -231,12 +195,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         haInformazioniAttivita,
         telefono: tenant?.telefono ?? null,
         telefonoWhatsapp: tenant?.telefono_whatsapp ?? null,
-        // Sul salone dimostrativo l'assistente puo' fare tutto TRANNE
-        // cercare le prenotazioni da un numero di telefono: li' dentro i
-        // numeri sono di visitatori veri, e basterebbe provarne qualcuno
-        // per leggere nome e orario di uno sconosciuto. `crea_prenotazione`
-        // resta, perche' prenotare davvero e' il punto della demo.
-        strumentiConsentiti: tenant?.e_demo ? strumentiPerDemo() : undefined,
       },
       undefined, // client Anthropic di default (parametro 5° è "adesso", non va confuso)
       adessoPseudo

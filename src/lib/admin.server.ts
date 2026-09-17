@@ -196,13 +196,7 @@ export async function caricaPannelloPiattaforma(
       .select(
         "id, nome, slug, piano, stato_abbonamento, piano_manuale, sospesa, sospesa_motivo, created_at, stripe_customer_id, stripe_subscription_id, codice_destinatario, pec_fatturazione, partita_iva_verifica"
       )
-      // I due saloni dimostrativi stanno su growth e pro, quindi senza questa
-      // riga il pannello di piattaforma li conterebbe come clienti paganti e
-      // il MRR mostrerebbe 129,80 euro che nessuno ha mai versato -- per di
-      // piu' oggi, con zero clienti veri, sarebbe TUTTO il fatturato mostrato.
-      // Un numero inventato in un pannello che serve a decidere e' peggio di
-      // nessun numero.
-      .eq("e_demo", false)
+
       .order("created_at", { ascending: false }),
     admin.from("membri_tenant").select("tenant_id, user_id, ruolo"),
     admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),

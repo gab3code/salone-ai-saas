@@ -2107,19 +2107,23 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
   **La linea è: regola deterministica sì, prosa generata sopra i numeri no.** Una regola o è giusta
   o è sbagliata e si può controllare; un paragrafo è un'opinione che sembra un dato.
 
-- [x] ~~**Demo pubblica**~~ **FATTA 17/09/2026** (migrazione 0042). Nata da una domanda di
-      Gabriel che ha scoperto un buco: un titolare Starter non ha mai visto la chat, perche' sulla
-      SUA pagina pubblica il widget non viene proprio disegnato. **Due** saloni e non uno, sua
-      scelta: lo stesso `Atelier Camelia` su Growth e su Pro con un interruttore, cosi' la
-      differenza fra i piani si prova invece di leggerla. Indirizzo fisso `/demo`, che porta a
-      `/s/demo`: la demo NON e' una pagina a parte, e' la stessa pagina pubblica di ogni salone
-      con dentro dati finti -- una demo costruita a parte diverge dal prodotto al primo cambio.
-      Si prenota davvero. Difese: tetto di 400 messaggi al mese su tutta la demo, nessun invio
-      reale di email o SMS (controllo messo nel punto piu' in basso che tutti attraversano, piu'
-      l'esclusione dal giro notturno), `cerca_prenotazioni_cliente` tolto perche' nella demo i
-      numeri di telefono sono di persone vere, e cancellazione automatica dopo due giorni di
-      tutto quello che i visitatori lasciano. Nessun numero di telefono nel salone finto, di
-      proposito: un numero inventato e' di qualcuno. Vedi DECISIONS.md per il ragionamento intero.
+- [ ] **Demo pubblica -- costruita e smontata il 17/09/2026, da rifare senza tenant.**
+      Costruita come due saloni veri (migrazione 0042) e poi come un salone clonato per
+      visitatore (0044). Smontata la sera stessa (0045) dopo un'obiezione di Gabriel: "se il
+      responsabile inizia ad usare la demo come vero salone diventa un problema serio".
+      Aveva ragione, e il difetto era piu' largo: un salone demo fatto di TENANT VERI e'
+      indistinguibile da un salone vero per tutto il resto del sistema (andava escluso a mano dal
+      MRR del pannello e dal giro notturno, e ogni job futuro dovrebbe ricordarsene), e il link
+      pubblico si puo' dare in giro -- clienti che prenotano e si presentano a un appuntamento
+      che la pulizia ha cancellato due giorni dopo.
+      **Come va rifatta** (brief completo in `docs/brief-demo-senza-rischi.md`): senza stato.
+      I dati del salone finto vivono nel codice, l'agenda vive nella sessione di chi guarda, e
+      non si scrive niente da nessuna parte. L'assistente resta VERO -- risponde col modello e
+      calcola la disponibilita' con `calcolaSlotDisponibili`, la stessa identica funzione pura
+      del motore, non una copia. Il tetto mensile ha gia' il suo posto (`contatori_globali` +
+      `consuma_contatore_globale`, migrazione 0045, applicata e verificata).
+      **Quello che resta da scrivere**: la costante col salone finto, l'esecutore di strumenti
+      che ci lavora sopra, l'endpoint della chat della demo, la pagina.
 - [ ] **Video di sessanta secondi.** Ora che la demo esiste, il video e' una registrazione di
       schermo di due minuti: si apre `/demo`, si chiede un appuntamento all'assistente, si mostra
       che finisce in agenda. Resta da fare, ed e' l'ultimo pezzo di materiale di vendita che manca.
