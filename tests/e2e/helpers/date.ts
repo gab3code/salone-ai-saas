@@ -12,6 +12,8 @@
  * ambiguità nei giorni a cavallo di un weekend.
  */
 
+import { realeAPseudoUtc, FUSO_ORARIO_PREDEFINITO } from "@/lib/fuso-orario";
+
 export interface GiornoDiProva {
   data: Date; // mezzanotte UTC del giorno scelto
   ymd: string; // "YYYY-MM-DD"
@@ -33,8 +35,25 @@ function costruisciGiorno(data: Date): GiornoDiProva {
  * ciclo esiste solo per non rompersi se un test personalizza gli orari.
  */
 export function prossimoGiornoAperto(giorniSettimanaChiusi: number[] = [0]): GiornoDiProva {
-  const oggi = new Date();
-  const candidato = new Date(Date.UTC(oggi.getUTCFullYear(), oggi.getUTCMonth(), oggi.getUTCDate() + 1));
+  // "Domani" per il SALONE, non domani in UTC (18/09/2026).
+  //
+  // Prima qui c'era `new Date()` letto con i getter UTC. Dalle 22:00 UTC in
+  // poi -- cioe' da mezzanotte italiana -- quel calcolo restituiva il giorno
+  // civile che per il salone era gia' OGGI, e l'helper smetteva di mantenere
+  // la promessa scritta nel suo nome.
+  //
+  // Due scenari sono caduti la stessa notte per questo, in modi diversi e
+  // per questo difficili da collegare: il 10 prenotava "domani alle 10:00"
+  // che era in realta' oggi, finiva dentro le 24 ore di preavviso e trovava
+  // il pulsante di cancellazione giustamente sparito; l'1 chiedeva all'AI di
+  // prenotare per una data che per lei era oggi, e l'AI, invece di
+  // prenotare, chiedeva conferma del giorno.
+  //
+  // Stessa convenzione pseudo-UTC del resto del progetto (fuso-orario.ts).
+  const oggiSalone = realeAPseudoUtc(new Date(), FUSO_ORARIO_PREDEFINITO);
+  const candidato = new Date(
+    Date.UTC(oggiSalone.getUTCFullYear(), oggiSalone.getUTCMonth(), oggiSalone.getUTCDate() + 1)
+  );
   for (let i = 0; i < 8; i++) {
     const g = costruisciGiorno(new Date(candidato.getTime() + i * 86_400_000));
     if (!giorniSettimanaChiusi.includes(g.giornoSettimana)) return g;

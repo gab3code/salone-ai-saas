@@ -997,7 +997,18 @@ async function trovaEAvvisaListaAttesa(
   }
 ): Promise<ListaAttesaAvvisata | null> {
   const { servizio_id: servizioId, operatore_id: operatoreId, inizio } = appuntamentoCancellato;
-  if (!servizioId || !operatoreId || !inizio) return null;
+  // DIAGNOSTICA TEMPORANEA (18/09/2026): lo Scenario 10 vede il candidato
+  // restare "in_attesa" dopo una cancellazione che avrebbe dovuto proporlo,
+  // e da fuori non si distingue quale dei quattro punti di uscita qui sotto
+  // sia stato imboccato. Da togliere appena la causa e' confermata.
+  if (!servizioId || !operatoreId || !inizio) {
+    console.error("[lista-attesa] esco subito: dati mancanti sull'appuntamento cancellato", {
+      servizioId,
+      operatoreId,
+      inizio,
+    });
+    return null;
+  }
 
   try {
     const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
@@ -1013,7 +1024,10 @@ async function trovaEAvvisaListaAttesa(
       .eq("servizio_id", servizioId)
       .eq("stato", "in_attesa")
       .order("created_at", { ascending: true });
-    if (error || !candidati) return null;
+    if (error || !candidati) {
+      console.error("[lista-attesa] query dei candidati fallita", { errore: error?.message });
+      return null;
+    }
 
     // Filtro in JS, non nella query: l'OR "operatore_id è null OPPURE è
     // questo" (idem per data_preferita) è più chiaro qui che con `.or(...)`
@@ -1032,7 +1046,15 @@ async function trovaEAvvisaListaAttesa(
         (c.operatore_id === null || c.operatore_id === operatoreId) &&
         (c.data_preferita === null || c.data_preferita === giornoLiberatoYMD)
     );
-    if (!match) return null;
+    if (!match) {
+      console.error("[lista-attesa] nessun candidato compatibile", {
+        candidati: candidati.length,
+        servizioId,
+        operatoreId,
+        giornoLiberatoYMD,
+      });
+      return null;
+    }
 
     const { error: erroreUpdate } = await supabase
       .from("lista_attesa")
@@ -1043,7 +1065,10 @@ async function trovaEAvvisaListaAttesa(
       })
       .eq("id", match.id)
       .eq("tenant_id", tenantId);
-    if (erroreUpdate) return null;
+    if (erroreUpdate) {
+      console.error("[lista-attesa] update a 'proposto' fallito", { errore: erroreUpdate.message });
+      return null;
+    }
 
     await contattaClienteListaAttesaSeAutomatico(
       supabase,
@@ -1055,7 +1080,13 @@ async function trovaEAvvisaListaAttesa(
     );
 
     return { id: match.id, clienteNome: match.cliente_nome, clienteTelefono: match.cliente_telefono };
-  } catch {
+  } catch (errore) {
+    // Il fail-open resta (un problema qui non deve impedire una
+    // cancellazione), ma smette di essere MUTO: prima questo catch
+    // ingoiava la causa e da fuori il match sembrava semplicemente non
+    // esistere. Se il candidato resta "in_attesa" senza nessuna delle
+    // righe di log qui sopra, l'eccezione e' finita qui.
+    console.error("[lista-attesa] eccezione durante il match", errore);
     return null;
   }
 }
