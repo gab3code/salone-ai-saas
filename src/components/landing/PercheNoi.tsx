@@ -34,7 +34,7 @@ const DIFFERENZIATORI = [
     icona: UserCheck,
     titolo: "L'AI sa quando fermarsi",
     testo:
-      "Richieste ambigue, reclami, casi fuori dal normale: passati a te con tutto il contesto, non gestiti a forza da un modello che indovina.",
+      "Richieste ambigue, reclami, casi fuori dal normale: l'assistente si ferma e manda il cliente da te, con telefono e WhatsApp, invece di gestirli a forza indovinando.",
   },
 ];
 

@@ -5,6 +5,11 @@ import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { inviaEmail } from "./mailjet.server";
 import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
+import {
+  CANALE_CONFERMA_PREDEFINITO,
+  canaleConfermaValido,
+  inviiConferma,
+} from "@/lib/notifiche-prenotazione";
 
 /** Escape minimo per inserire testo libero (nome cliente, servizio, note) dentro l'HTML dell'email. */
 export function escapeHtml(testo: string): string {
@@ -121,7 +126,10 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
     const [{ data: appuntamento }, fusoOrario] = await Promise.all([
       admin
         .from("appuntamenti")
-        .select("inizio, note, clienti(nome, email, telefono), servizi(nome), operatori(nome), tenants(nome, piano)")
+        // Stringa unica e letterale, mai concatenata: Supabase deduce i tipi
+        // del risultato dal testo del `select`, e una concatenazione glielo
+        // rende opaco (il risultato diventa `GenericStringError`).
+        .select("inizio, note, clienti(nome, email, telefono), servizi(nome), operatori(nome), tenants(nome, piano, notifica_titolare_nuova_prenotazione, conferma_cliente_canale)")
         .eq("id", appuntamentoId)
         .eq("tenant_id", tenantId)
         .single(),
@@ -136,7 +144,12 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
     const cliente = uno<{ nome: string | null; email: string | null; telefono: string | null }>(appuntamento.clienti);
     const servizio = uno<{ nome: string }>(appuntamento.servizi);
     const operatore = uno<{ nome: string }>(appuntamento.operatori);
-    const tenant = uno<{ nome: string; piano: string }>(appuntamento.tenants);
+    const tenant = uno<{
+      nome: string;
+      piano: string;
+      notifica_titolare_nuova_prenotazione: boolean | null;
+      conferma_cliente_canale: string | null;
+    }>(appuntamento.tenants);
 
     const nomeTenant = tenant?.nome ?? "Salone AI";
     const nomeServizio = servizio?.nome ?? "servizio";
@@ -146,7 +159,14 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
 
     const rigaOperatore = nomeOperatore ? `<p>Operatore: ${escapeHtml(nomeOperatore)}</p>` : "";
 
-    const emailTitolare = await trovaEmailTitolare(admin, tenantId);
+    // Il titolare può spegnere del tutto l'email a ogni prenotazione
+    // (17/09/2026): chi guarda il calendario tutto il giorno la trova solo
+    // rumore. `!== false` e non `=== true` di proposito -- se la colonna
+    // fosse nulla per qualunque motivo, il comportamento resta quello
+    // storico (si manda), invece di zittire un salone senza che l'abbia
+    // chiesto.
+    const avvisaTitolare = tenant?.notifica_titolare_nuova_prenotazione !== false;
+    const emailTitolare = avvisaTitolare ? await trovaEmailTitolare(admin, tenantId) : null;
     if (emailTitolare) {
       await inviaEmail({
         a: emailTitolare,
@@ -162,7 +182,19 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
       });
     }
 
-    if (cliente?.email) {
+    // Cosa riceve il cliente, deciso dal salone (17/09/2026). La regola
+    // sta tutta in `inviiConferma`, testata a parte senza database e senza
+    // mandare niente a nessuno: qui si esegue soltanto.
+    const canaleScelto =
+      tenant?.conferma_cliente_canale && canaleConfermaValido(tenant.conferma_cliente_canale)
+        ? tenant.conferma_cliente_canale
+        : CANALE_CONFERMA_PREDEFINITO;
+    const invii = inviiConferma(canaleScelto, tenant?.piano ?? "", {
+      haEmail: !!cliente?.email,
+      haTelefono: !!cliente?.telefono,
+    });
+
+    if (invii.email && cliente?.email) {
       // Link "gestisci la tua prenotazione" (Fase 4 di PIANO.md): solo
       // cancellazione per ora (vedi src/app/gestisci/[id]/page.tsx per il
       // perché "sposta" non è ancora incluso). Omesso del tutto se l'URL
@@ -185,114 +217,19 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
           ${rigaGestisci}
         `,
       });
-    } else if (cliente?.telefono) {
-      // Fallback SMS (Fase 5+SMS, 14/09/2026): SOLO quando il cliente non
-      // ha lasciato un'email -- `inviaSmsSeInclusoNelPiano` ricontrolla
-      // comunque il piano e la quota, questo `else if` è solo per non fare
-      // la chiamata quando è già certamente inutile (piano senza SMS, testo
-      // semplice: niente link, un SMS non supporta HTML e un URL nudo
-      // aumenta il rischio phishing).
+    }
+
+    if (invii.sms && cliente?.telefono) {
+      // SMS (Fase 5+SMS, 14/09/2026). `inviaSmsSeInclusoNelPiano`
+      // ricontrolla comunque piano e quota: `inviiConferma` sopra evita solo
+      // di fare la chiamata quando è già certamente inutile. Testo semplice:
+      // niente link, un SMS non supporta HTML e un URL nudo aumenta il
+      // rischio phishing.
       const rigaOperatoreSms = nomeOperatore ? ` con ${nomeOperatore}` : "";
       const messaggioSms = `${nomeTenant}: prenotazione confermata per ${nomeServizio}${rigaOperatoreSms}, ${quando}.`;
       await inviaSmsSeInclusoNelPiano(admin, tenantId, tenant?.piano ?? "", cliente.telefono, messaggioSms);
     }
   } catch (errore) {
     console.error("[email] Errore inviando le notifiche di nuovo appuntamento:", errore);
-  }
-}
-
-/**
- * Avvisa il titolare quando l'assistente AI passa la mano a una persona
- * (17/09/2026, controllo notturno chiesto da Gabriel).
- *
- * PERCHÉ ESISTE. Il sito promette in quattro punti diversi (`Funzionalita.tsx`,
- * `Vetrina.tsx`, `PercheNoi.tsx`, `Faq.tsx`) che l'AI "passa la mano a te con
- * tutto il contesto della conversazione". Nel codice il passaggio scriveva
- * solo `conversazioni.stato = 'passata_a_operatore'` e finiva lì: nessuno
- * veniva avvisato, e nella dashboard non esiste una pagina conversazioni dove
- * accorgersene. Il codice lo sapeva -- `api/chat/[slug]/route.ts` ha un
- * commento del 15/09/2026 che dice "mai promettere un passaggio a un operatore
- * che oggi non avvisa davvero nessuno" -- ma la promessa sul sito era rimasta.
- * Questa funzione chiude il buco dal lato giusto: rende vera la promessa
- * invece di ammorbidirla.
- *
- * "Tutto il contesto" è letterale: l'email contiene la trascrizione completa
- * della conversazione, così il titolare può rispondere senza dover chiedere al
- * cliente di ripetere -- che è esattamente la differenza tra un passaggio di
- * consegne e un "ti richiamo io".
- *
- * Fail-open come ogni altra notifica di questo file: un problema qui non deve
- * mai far fallire la risposta al cliente, che è già stata salvata.
- */
-export async function inviaNotificaPassaggioAOperatore(
-  tenantId: string,
-  conversazioneId: string
-): Promise<void> {
-  if (!(process.env.MJ_APIKEY_PUBLIC && process.env.MJ_APIKEY_PRIVATE)) return;
-
-  try {
-    const admin = creaClientAdmin();
-
-    const [{ data: conversazione }, { data: messaggi }, emailTitolare] = await Promise.all([
-      admin
-        .from("conversazioni")
-        .select("canale, clienti(nome, telefono, email), tenants(nome)")
-        .eq("id", conversazioneId)
-        .eq("tenant_id", tenantId)
-        .maybeSingle(),
-      admin
-        .from("messaggi")
-        .select("ruolo, contenuto, created_at")
-        .eq("conversazione_id", conversazioneId)
-        .order("created_at", { ascending: true }),
-      trovaEmailTitolare(admin, tenantId),
-    ]);
-    if (!emailTitolare) return;
-
-    const uno = <T>(v: unknown): T | null => (Array.isArray(v) ? ((v[0] as T) ?? null) : (v as T | null));
-    const tenant = uno<{ nome: string }>(conversazione?.tenants);
-    const cliente = uno<{ nome: string | null; telefono: string | null; email: string | null }>(
-      conversazione?.clienti
-    );
-    const nomeTenant = tenant?.nome ?? "la tua attività";
-
-    // Chi è, per quel poco che si sa: la chat pubblica non chiede
-    // un'identità, quindi molto spesso è tutto nullo -- e va detto, invece
-    // di lasciare una riga vuota che sembra un errore dell'email.
-    const righeContatto = [
-      cliente?.nome ? `Nome: ${escapeHtml(cliente.nome)}` : null,
-      cliente?.telefono ? `Telefono: ${escapeHtml(cliente.telefono)}` : null,
-      cliente?.email ? `Email: ${escapeHtml(cliente.email)}` : null,
-    ].filter((r): r is string => r !== null);
-    const contatto =
-      righeContatto.length > 0
-        ? `<p>${righeContatto.join("<br />")}</p>`
-        : "<p>Chi ha scritto non ha lasciato un recapito: la risposta va data nella stessa chat.</p>";
-
-    // `messaggi` include anche i ruoli "sistema"/"operatore", che invece
-    // `caricaMessaggi` esclude perché non servono al prompt del modello.
-    // Qui servono tutti: il destinatario è una persona che deve capire cosa
-    // è successo, non il modello.
-    const trascrizione = (messaggi ?? [])
-      .map((m) => {
-        const chi =
-          m.ruolo === "cliente" ? "Cliente" : m.ruolo === "assistente" ? "Assistente" : "Sistema";
-        return `<p style="margin:0 0 8px"><strong>${chi}:</strong> ${escapeHtml(m.contenuto)}</p>`;
-      })
-      .join("");
-
-    await inviaEmail({
-      a: emailTitolare,
-      oggetto: `[${nomeTenant}] Una conversazione aspetta una tua risposta`,
-      nomeMittente: nomeTenant,
-      html: `
-        <p>L'assistente ha passato a te una conversazione sulla chat della pagina pubblica.</p>
-        ${contatto}
-        <p><strong>Conversazione completa</strong></p>
-        ${trascrizione}
-      `,
-    });
-  } catch (errore) {
-    console.error("[email] Errore inviando la notifica di passaggio a operatore:", errore);
   }
 }

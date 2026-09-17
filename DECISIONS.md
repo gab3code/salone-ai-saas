@@ -5541,3 +5541,125 @@ questo -- *"due copie dello stesso listino divergono sempre, e divergono in sile
 copia scollegata era proprio quella che il cliente legge prima di pagare. Ora la landing importa
 i centesimi da `piani.ts`; il formato con il simbolo davanti resta una scelta tipografica della
 pagina marketing, ma il numero è uno solo.
+
+---
+
+## 17/09/2026 (mattina) -- L'assistente non avvisa nessuno: manda il cliente a farsi sentire
+
+Gabriel, rileggendo il lavoro della notte: *"non funziona meglio lasciare semplicemente il
+numero di telefono in chat o di whatsapp e dire al cliente di chiamare/scrivere?"*.
+
+### Cosa è stato scartato, e perché
+
+Nella notte avevo costruito l'opposto: quando l'AI passa la mano, un'email al titolare con la
+trascrizione completa della conversazione. Era metà funzione, e i difetti li ho elencati io
+stesso prima che Gabriel decidesse:
+
+1. **Il cliente resta appeso lo stesso.** Chi scrive dalla chat pubblica spesso non lascia
+   nessun recapito: l'AI dice "ho avvisato l'attività" e poi non succede niente.
+2. **Il titolare non ha dove rispondere.** Non esiste una pagina conversazioni nella dashboard.
+3. **L'email è il canale sbagliato per l'urgenza.** Una che sta tagliando i capelli non legge la
+   posta, e quel messaggio finisce fra le notifiche di prenotazione che già mandiamo.
+4. **Difetto vero, non di design**: l'email era idempotente per conversazione, ma bastava un
+   messaggio ("voglio parlare con una persona") per farla partire, e ogni nuova sessione è una
+   conversazione nuova. Il tetto era solo la quota AI mensile: fino a mille email al titolare.
+
+Le due strade erano tenerla minima (catturare nome e numero prima di escalare) o costruire una
+casella nella dashboard. Gabriel ha proposto una terza, migliore di entrambe.
+
+### Cosa c'è adesso
+
+**L'assistente dà al cliente i recapiti dell'attività e lo invita a chiamare o a scrivere su
+WhatsApp.** Niente promesse di richiamata, niente notifiche, nessuna casella da costruire. Chi
+ha scritto esce dalla chat con in mano un modo concreto di farsi sentire subito, sul canale dove
+il salone lavora già.
+
+Perché è meglio: non dipende dal fatto che il cliente lasci un numero né che il titolare
+richiami, e WhatsApp copre proprio il caso che l'email non copriva -- chi scrive alle 23 non
+vuole telefonare, e il titolare risponde quando può.
+
+**Cosa si perde, detto per intero**: se il cliente non si fa sentire, il titolare non saprà mai
+che c'era un reclamo o una richiesta non gestita. È il prezzo della scelta, e Gabriel lo ha
+accettato consapevolmente. Un giorno la casella si potrà costruire; oggi non serve.
+
+### I pezzi
+
+- `src/lib/contatti.ts` (nuovo, logica pura): `istruzioniContatto` compone la frase a partire da
+  telefono e WhatsApp configurati. **Quando i due numeri coincidono non lo ripete due volte** --
+  "chiama il 333... o scrivi su WhatsApp al 333..." fa sembrare l'assistente rotto; diventa
+  "chiamare o scrivere su WhatsApp al 333...". `numeroPerWhatsapp` aggiunge il prefisso italiano
+  quando manca, e non scambia per prefisso un "39" che è l'inizio del numero (393... è un
+  cellulare italiano).
+- Colonna `tenants.telefono_whatsapp`, chiamata così e **non** `whatsapp_numero`: su `tenants`
+  ci sono già quattro colonne `whatsapp_*` che sono identificativi dell'API Meta. Una quinta
+  nello stesso prefisso avrebbe garantito che prima o poi qualcuno leggesse quella sbagliata.
+- Nuova pagina impostazioni **Contatti**, con la spunta "su WhatsApp uso lo stesso numero" e
+  l'anteprima dal vivo della frase vera che l'AI dirà -- costruita dalla stessa
+  `istruzioniContatto` del prompt, non da una copia.
+- `tenants.telefono` ha di nuovo **un solo scrittore**. Dal 14/09 lo salvava la pagina
+  "Cancellazione online", dove era finito per comodità: un campo importante sotto un titolo che
+  parla d'altro. Ora quella pagina lo mostra e rimanda a Contatti.
+- Widget di chat: un numero introdotto dalla parola "WhatsApp" apre **wa.me**, non il
+  tastierino. I numeri erano già toccabili dal 15/09, ma tutti come `tel:` -- e mandare su una
+  telefonata chi voleva scrivere avrebbe reso inutile metà della funzione. La finestra di
+  riconoscimento è di 30 caratteri prima del numero, così in "chiamare il 02... oppure scrivere
+  su WhatsApp al 333..." il primo numero resta una telefonata.
+- Il banner "La conversazione è stata passata a un operatore umano" diceva una cosa falsa e
+  faceva aspettare una risposta che non arriva: ora dice di contattare l'attività con i recapiti
+  appena dati.
+- Copy della landing corretto in quattro punti (Faq, Funzionalita, PercheNoi, Vetrina): non più
+  "passa la mano a te con tutto il contesto", ma quello che succede davvero.
+
+---
+
+## 17/09/2026 (mattina) -- Chi riceve cosa quando entra una prenotazione
+
+Richiesta di Gabriel: *"mettere la possibilità dalle impostazioni di non ricevere mail per le
+prenotazioni, di ricevere solo le mail, di ricevere solo l'sms, di non ricevere niente"*, e poi
+*"tutto deve essere personalizzabile dallo staff in maniera intuitiva"*.
+
+Alla domanda "riguarda le email che arrivano a te o le conferme ai tuoi clienti?" ha risposto
+**tutte e due, separate**.
+
+### Perché erano le uniche due notifiche senza interruttore
+
+Inventario fatto prima di costruire -- sei cose raggiungono un cliente finale:
+
+| Cosa | Canale | Si poteva spegnere? |
+|---|---|---|
+| Conferma di prenotazione | email, o SMS se non ha email | **no** |
+| Promemoria prima dell'appuntamento | email o SMS | sì (cancellando le regole) |
+| Follow-up "non prenoti da 60 giorni" | email o SMS | **no**, è fisso |
+| Auguri di compleanno | email o SMS | sì |
+| Richiesta di recensione | solo email | sì |
+| "Si è liberato un posto" | email o SMS | sì |
+
+Più l'email al titolare a ogni prenotazione, anch'essa non spegnibile. Il follow-up inattivi
+resta senza controllo: segnalato a Gabriel, non toccato perché non l'ha chiesto.
+
+### Le scelte di progettazione
+
+**Due blocchi separati, non un interruttore solo.** "Non voglio più un'email per ogni
+prenotazione" e "i miei clienti non devono ricevere niente" sono decisioni diverse: mescolarle
+avrebbe fatto spegnere per sbaglio la cosa sbagliata.
+
+**Un testo con `check`, non quattro booleani.** Le quattro possibilità si escludono a vicenda, e
+con i booleani si arriverebbe a stati che non vogliono dire niente (email=false, sms=false e
+"manda comunque"?).
+
+**`email_o_sms` è il default** perché è esattamente il comportamento di prima: nessun tenant
+esistente cambia comportamento da solo. E un valore nullo o fuori elenco ricade sempre lì, mai
+sul silenzio -- un dato sporco non deve zittire le notifiche di un salone senza che l'abbia
+chiesto.
+
+**`solo_sms` manda l'SMS anche a chi HA lasciato l'email**: è l'unico caso in cui lo facciamo, ed
+è una scelta esplicita del salone. Ci sono attività i cui clienti l'email non la leggono mai.
+
+**Il gate SMS è applicato tre volte** (la UI non lo offre sotto Pro, la server action lo rifiuta,
+`inviaSmsSeInclusoNelPiano` ricontrolla al momento dell'invio) e non è ridondanza inutile: senza
+il secondo, un tenant Growth potrebbe salvare "solo SMS" e restare in uno stato assurdo -- crede
+di aver scelto un canale, e i suoi clienti non ricevono niente.
+
+**Le opzioni non incluse nel piano si vedono comunque**, disattivate e con il motivo scritto:
+nasconderle farebbe sembrare il prodotto più povero di quello che è, ed è lo stesso principio
+delle etichette "da Growth"/"da Pro" messe sulla landing la notte prima.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { linkWhatsapp } from "@/lib/contatti";
 
 /**
  * Widget chat AI riutilizzabile per la pagina pubblica del salone (Fase 4,
@@ -51,12 +52,35 @@ const REGEX_TELEFONO =
   /(?<!\d)((?:\+39[\s]?)?(?:0\d{1,3}[\s./-]?\d{5,8}|3\d{2}[\s./-]?\d{6,7}))(?!\d)/g;
 
 /**
+ * Quanto testo guardare, prima di un numero, per capire se è un WhatsApp.
+ * Trenta caratteri coprono "scrivere su WhatsApp al " con margine e non
+ * arrivano alla frase precedente -- che è il punto: in "chiamare il
+ * 02 1234567 oppure scrivere su WhatsApp al 333 1234567" il PRIMO numero non
+ * deve diventare un link WhatsApp solo perché la parola compare più avanti.
+ */
+const FINESTRA_INDIZIO_WHATSAPP = 30;
+
+function precedutoDaWhatsapp(testoPrima: string): boolean {
+  return /whatsapp/i.test(testoPrima.slice(-FINESTRA_INDIZIO_WHATSAPP));
+}
+
+/**
  * Applica REGEX_TELEFONO a un pezzo di testo che NON è già un URL (vedi
- * formattaTestoConLink) e trasforma ogni numero trovato in un link
- * `tel:` -- blu, sottolineato, stesso stile del link generico -- che mostra
- * il numero così com'è scritto dall'AI ma chiama con solo cifre e "+"
- * nell'href (uno `tel:02 99999999` con spazi funziona quasi ovunque, ma
- * ripulirlo costa nulla ed evita sorprese su client più permalosi).
+ * formattaTestoConLink) e trasforma ogni numero trovato in un link toccabile,
+ * blu e sottolineato come il link generico.
+ *
+ * DOVE PORTA (17/09/2026): `tel:` normalmente, `wa.me` quando il numero è
+ * introdotto dalla parola WhatsApp. Da oggi l'assistente, quando non sa
+ * risolvere qualcosa, dice di chiamare o di scrivere su WhatsApp (REGOLA
+ * ASSOLUTA 8 in ai/agente.ts, recapiti dalla pagina impostazioni
+ * "Contatti"): se il numero WhatsApp aprisse il tastierino del telefono,
+ * metà della funzione non servirebbe a niente -- chi scrive alle 23 vuole
+ * scrivere, non telefonare.
+ *
+ * L'href `tel:` porta solo cifre e "+"; quello WhatsApp passa da
+ * `linkWhatsapp`, che aggiunge il prefisso italiano quando manca -- la
+ * stessa funzione dell'anteprima nelle impostazioni, mai una seconda copia
+ * della regola.
  */
 function formattaTelefoni(testo: string, chiavePrefisso: string): ReactNode[] {
   const pezzi = testo.split(REGEX_TELEFONO);
@@ -66,10 +90,12 @@ function formattaTelefoni(testo: string, chiavePrefisso: string): ReactNode[] {
       if (pezzo) risultato.push(pezzo);
       return;
     }
+    const linkWa = precedutoDaWhatsapp(pezzi[j - 1] ?? "") ? linkWhatsapp(pezzo) : null;
     risultato.push(
       <a
         key={`${chiavePrefisso}-tel-${j}`}
-        href={`tel:${pezzo.replace(/[^\d+]/g, "")}`}
+        href={linkWa ?? `tel:${pezzo.replace(/[^\d+]/g, "")}`}
+        {...(linkWa ? { target: "_blank", rel: "noopener noreferrer" } : {})}
         className="font-medium text-blue-600 underline underline-offset-2"
       >
         {pezzo}
@@ -338,9 +364,14 @@ export default function ChatWidgetPubblico({
               <div ref={fineListaRef} />
             </div>
 
+            {/* 17/09/2026: diceva "La conversazione è stata passata a un
+                operatore umano", e lasciava aspettare una risposta che non
+                arriva -- da questa chat non parte nessuna notifica. Ora dice
+                la verità, e il recapito da usare è nella risposta qui sopra,
+                già toccabile. */}
             {trasferito && (
               <p className="mx-3 mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                La conversazione è stata passata a un operatore umano.
+                Su questo non posso aiutarti io: contatta direttamente l&apos;attività con i recapiti qui sopra.
               </p>
             )}
             {errore && <p className="mx-3 mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{errore}</p>}

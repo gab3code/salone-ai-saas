@@ -17,11 +17,11 @@ import {
   LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE,
   LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI,
 } from "@/lib/ai/limiti";
-import { inviaNotificaPassaggioAOperatore } from "@/lib/email/notifiche.server";
 import { pianoHaKnowledgeBaseAi } from "@/lib/piani";
 import type { StileTonoAI } from "@/lib/ai/agente";
 import { contaMessaggiClienteQuestoMese, ultimoMessaggioTroppoRecente } from "@/lib/ai/limiti.server";
 import { FUSO_ORARIO_PREDEFINITO, realeAPseudoUtc } from "@/lib/fuso-orario";
+import { istruzioniContatto } from "@/lib/contatti";
 
 /**
  * Endpoint pubblico della chat AI (Task #66) -- NESSUNA autenticazione
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("nome, piano, fuso_orario, tono_ai, tono_ai_nota, telefono")
+    .select("nome, piano, fuso_orario, tono_ai, tono_ai_nota, telefono, telefono_whatsapp")
     .eq("id", tenantId)
     .single();
 
@@ -128,18 +128,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (troppiMessaggi || troppiTurniSenzaStrumenti) {
       await salvaMessaggio(supabase, conversazione.id, "cliente", messaggio);
-      // 15/09/2026: mai promettere un passaggio a un operatore che non avvisa
-      // nessuno. Dal 17/09/2026 avvisa davvero (email al titolare con tutta
-      // la conversazione, vedi `inviaNotificaPassaggioAOperatore`), quindi la
-      // frase lo può dire -- senza promettere tempi, e continuando a offrire
-      // la strada certa: chiamare, col numero se il tenant lo ha configurato.
-      const rispostaAntiAbuso = tenant.telefono
-        ? `Non riesco a risponderti oltre da qui. Ho avvisato l'attività, che riceve tutta la conversazione: per una risposta subito chiamaci al ${tenant.telefono}.`
-        : "Non riesco a risponderti oltre da qui. Ho avvisato l'attività, che riceve tutta la conversazione: per una risposta subito contattala direttamente.";
+      // Mai promettere un passaggio a un operatore che non avvisa nessuno
+      // (15/09/2026, riconfermato il 17/09 dopo aver provato e scartato
+      // l'email al titolare): si dà il recapito vero, costruito dalla stessa
+      // `istruzioniContatto` della REGOLA 8 del prompt -- un solo posto che
+      // decide come si dice "fatti sentire".
+      const comeContattare = istruzioniContatto({
+        telefono: tenant.telefono ?? null,
+        telefonoWhatsapp: tenant.telefono_whatsapp ?? null,
+      });
+      const rispostaAntiAbuso = `Non riesco a risponderti oltre da qui. Puoi ${
+        comeContattare ?? "contattare l'attività direttamente"
+      }, ti aiutano subito.`;
       await salvaMessaggio(supabase, conversazione.id, "assistente", rispostaAntiAbuso);
-      if (await segnaPassataAOperatore(supabase, conversazione.id)) {
-        await inviaNotificaPassaggioAOperatore(tenantId, conversazione.id);
-      }
+      await segnaPassataAOperatore(supabase, conversazione.id);
       return NextResponse.json({ risposta: rispostaAntiAbuso, trasferitoAUmano: true });
     }
 
@@ -192,19 +194,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         tonoAiNota,
         haInformazioniAttivita,
         telefono: tenant?.telefono ?? null,
+        telefonoWhatsapp: tenant?.telefono_whatsapp ?? null,
       },
       undefined, // client Anthropic di default (parametro 5° è "adesso", non va confuso)
       adessoPseudo
     );
 
     await salvaMessaggio(supabase, conversazione.id, "assistente", risultato.rispostaTesto);
-    if (risultato.trasferitoAUmano && (await segnaPassataAOperatore(supabase, conversazione.id))) {
-      // Attesa esplicita, non fire-and-forget: su Vercel la funzione può
-      // terminare appena la risposta è scritta, e una promise non attesa
-      // verrebbe interrotta a metà -- l'avviso al titolare è esattamente la
-      // cosa che non deve sparire. `inviaNotificaPassaggioAOperatore` è
-      // fail-open e non rilancia mai, quindi non può rompere la risposta.
-      await inviaNotificaPassaggioAOperatore(tenantId, conversazione.id);
+    if (risultato.trasferitoAUmano) {
+      await segnaPassataAOperatore(supabase, conversazione.id);
     }
     // Aggiorna il contatore anti-abuso DOPO la risposta (fail-open, non
     // deve mai far fallire un turno riuscito -- vedi conversazione.server.ts).

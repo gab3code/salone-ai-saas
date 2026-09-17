@@ -88,12 +88,6 @@ export function creaSupabaseFinto(tabelle: Record<string, OperazioniTabella>) {
       not() {
         return chain;
       },
-      // Aggiunto il 17/09/2026 per `segnaPassataAOperatore`, che usa
-      // `.neq("stato", "passata_a_operatore")` per aggiornare solo quando lo
-      // stato cambia davvero.
-      neq() {
-        return chain;
-      },
       in() {
         return chain;
       },

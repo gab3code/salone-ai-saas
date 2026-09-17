@@ -125,7 +125,7 @@ const FUNZIONI: Voce[] = [
     // 12/09/2026: "come obiettivo ci sta ma solo whatsapp, è inutile" --
     // restano un'ambizione futura per l'assistente multi-canale, non
     // qualcosa da promettere già oggi in home).
-    descrizione: "Lo stesso assistente risponde e prenota da solo su chat web e WhatsApp, e passa la mano a te quando serve una persona.",
+    descrizione: "Lo stesso assistente risponde e prenota da solo su chat web e WhatsApp, e quando serve una persona manda il cliente da te, con il tuo numero in chiaro.",
     icona: MessageSquareText,
     grande: true,
     // Chat web da Growth, WhatsApp da Pro: l'etichetta indica il piano da cui

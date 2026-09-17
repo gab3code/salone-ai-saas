@@ -8,10 +8,7 @@ vi.mock("@/lib/sms/invio.server", () => ({ inviaSmsSeInclusoNelPiano: vi.fn().mo
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { inviaEmail } from "./mailjet.server";
 import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
-import {
-  inviaNotificheNuovoAppuntamento,
-  inviaNotificaPassaggioAOperatore,
-} from "./notifiche.server";
+import { inviaNotificheNuovoAppuntamento } from "./notifiche.server";
 
 const creaClientAdminFinto = vi.mocked(creaClientAdmin);
 const inviaEmailFinto = vi.mocked(inviaEmail);
@@ -25,7 +22,12 @@ const RIGA_APPUNTAMENTO_BASE = {
   clienti: { nome: "Giulia Bianchi", email: null as string | null, telefono: "+393331234567" as string | null },
   servizi: { nome: "Taglio" },
   operatori: { nome: "Marco" },
-  tenants: { nome: "Salone Test", piano: "pro" },
+  tenants: {
+    nome: "Salone Test",
+    piano: "pro",
+    notifica_titolare_nuova_prenotazione: true,
+    conferma_cliente_canale: "email_o_sms",
+  },
 };
 
 /**
@@ -210,75 +212,34 @@ describe("inviaNotificheNuovoAppuntamento", () => {
 });
 
 /**
- * 17/09/2026 -- l'email che rende vera la promessa "passa la mano a te con
- * tutto il contesto della conversazione", fatta in quattro punti del sito e
- * fino a ieri non mantenuta da nessuna riga di codice.
- *
- * Le due cose che devono valere: ci deve essere DAVVERO tutta la
- * conversazione dentro (se il titolare deve riaprire il prodotto per capire
- * di cosa si parla, il passaggio di consegne non è avvenuto), e un problema
- * qui non deve mai propagarsi a chi sta chattando -- la risposta al cliente
- * è già stata salvata.
+ * Preferenze di notifica (17/09/2026, richiesta di Gabriel). La regola su
+ * COSA mandare vive in `notifiche-prenotazione.ts` ed è testata lì senza
+ * database; qui si verifica solo che questo modulo la legga dal tenant e la
+ * esegua davvero -- che è la parte che, sbagliata, manda un messaggio a
+ * qualcuno che aveva chiesto di non riceverne.
  */
-describe("inviaNotificaPassaggioAOperatore", () => {
+describe("inviaNotificheNuovoAppuntamento -- preferenze del tenant", () => {
   const ENV_ORIGINALE = { ...process.env };
-  const CONVERSAZIONE_ID = "conv-1";
 
-  function adminConConversazione(opts: {
-    conversazione?: unknown;
-    messaggi?: unknown[];
-    profiloOwner?: { id: string } | null;
-  }) {
-    const base = creaSupabaseFinto({
-      conversazioni: {
-        select: [
-          {
-            data:
-              opts.conversazione === undefined
-                ? {
-                    canale: "web",
-                    clienti: { nome: "Giulia", telefono: "+393331234567", email: null },
-                    tenants: { nome: "Salone Test" },
-                  }
-                : opts.conversazione,
-            error: null,
-          },
-        ],
-      },
-      messaggi: {
-        select: [
-          {
-            data:
-              opts.messaggi ?? [
-                { ruolo: "cliente", contenuto: "Volevo lamentarmi del taglio di ieri", created_at: "2026-09-17T10:00:00Z" },
-                { ruolo: "assistente", contenuto: "Mi dispiace, avviso subito il salone.", created_at: "2026-09-17T10:00:05Z" },
-              ],
-            error: null,
-          },
-        ],
-      },
-      profiles: {
-        select: [{ data: opts.profiloOwner === undefined ? { id: "titolare-1" } : opts.profiloOwner, error: null }],
+  function conTenant(sovrascritture: Record<string, unknown>, cliente?: Record<string, unknown>) {
+    return creaAdminFinto({
+      appuntamento: {
+        ...RIGA_APPUNTAMENTO_BASE,
+        ...(cliente ? { clienti: cliente as typeof RIGA_APPUNTAMENTO_BASE.clienti } : {}),
+        tenants: { ...RIGA_APPUNTAMENTO_BASE.tenants, ...sovrascritture },
       },
     });
-    return {
-      ...base,
-      auth: {
-        admin: {
-          getUserById: vi
-            .fn()
-            .mockResolvedValue({ data: { user: { email: "titolare@esempio.it" } }, error: null }),
-        },
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any;
   }
 
   beforeEach(() => {
     process.env.MJ_APIKEY_PUBLIC = "chiave-pubblica-test";
     process.env.MJ_APIKEY_PRIVATE = "chiave-privata-test";
+    process.env.SKEBBY_EMAIL = "skebby@test";
+    process.env.SKEBBY_PASSWORD = "skebby";
     inviaEmailFinto.mockClear();
     inviaEmailFinto.mockResolvedValue(true);
+    inviaSmsFinto.mockClear();
+    inviaSmsFinto.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -286,52 +247,76 @@ describe("inviaNotificaPassaggioAOperatore", () => {
     vi.clearAllMocks();
   });
 
-  it("manda al titolare la trascrizione completa, non solo un avviso", async () => {
-    creaClientAdminFinto.mockReturnValue(adminConConversazione({}));
-
-    await inviaNotificaPassaggioAOperatore(TENANT_ID, CONVERSAZIONE_ID);
-
-    expect(inviaEmailFinto).toHaveBeenCalledTimes(1);
-    const email = inviaEmailFinto.mock.calls[0][0];
-    expect(email.a).toBe("titolare@esempio.it");
-    expect(email.oggetto).toContain("Salone Test");
-    expect(email.html).toContain("Volevo lamentarmi del taglio di ieri");
-    expect(email.html).toContain("Mi dispiace, avviso subito il salone.");
-    expect(email.html).toContain("+393331234567");
-  });
-
-  it("dice esplicitamente quando non c'è nessun recapito, invece di lasciare una riga vuota", async () => {
+  it("con l'avviso al titolare spento, il titolare non riceve niente e il cliente sì", async () => {
     creaClientAdminFinto.mockReturnValue(
-      adminConConversazione({
-        conversazione: { canale: "web", clienti: null, tenants: { nome: "Salone Test" } },
+      conTenant({ notifica_titolare_nuova_prenotazione: false }, {
+        nome: "Giulia Bianchi",
+        email: "giulia@esempio.it",
+        telefono: null,
       })
     );
 
-    await inviaNotificaPassaggioAOperatore(TENANT_ID, CONVERSAZIONE_ID);
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
 
-    const email = inviaEmailFinto.mock.calls[0][0];
-    expect(email.html).toContain("non ha lasciato un recapito");
+    expect(inviaEmailFinto).toHaveBeenCalledTimes(1);
+    expect(inviaEmailFinto.mock.calls[0][0].a).toBe("giulia@esempio.it");
   });
 
-  it("senza le chiavi Mailjet non tocca nemmeno il database", async () => {
-    delete process.env.MJ_APIKEY_PUBLIC;
-    delete process.env.MJ_APIKEY_PRIVATE;
-    creaClientAdminFinto.mockClear();
+  it("con 'nessuna' il cliente non riceve nulla, ma il titolare resta avvisato", async () => {
+    // Le due scelte sono indipendenti apposta: spegnere le conferme ai
+    // clienti non deve rendere cieco chi gestisce l'agenda.
+    creaClientAdminFinto.mockReturnValue(conTenant({ conferma_cliente_canale: "nessuna" }));
 
-    await inviaNotificaPassaggioAOperatore(TENANT_ID, CONVERSAZIONE_ID);
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
 
-    expect(creaClientAdminFinto).not.toHaveBeenCalled();
-    expect(inviaEmailFinto).not.toHaveBeenCalled();
+    expect(inviaSmsFinto).not.toHaveBeenCalled();
+    expect(inviaEmailFinto).toHaveBeenCalledTimes(1);
+    expect(inviaEmailFinto.mock.calls[0][0].a).toBe("titolare@esempio.it");
   });
 
-  it("fail-open: se il database esplode non rilancia (la risposta al cliente è già salvata)", async () => {
-    creaClientAdminFinto.mockImplementation(() => {
-      throw new Error("database irraggiungibile");
-    });
+  it("con 'solo_sms' l'SMS parte anche se il cliente ha lasciato l'email", async () => {
+    creaClientAdminFinto.mockReturnValue(
+      conTenant({ conferma_cliente_canale: "solo_sms" }, {
+        nome: "Giulia Bianchi",
+        email: "giulia@esempio.it",
+        telefono: "+393331234567",
+      })
+    );
 
-    await expect(
-      inviaNotificaPassaggioAOperatore(TENANT_ID, CONVERSAZIONE_ID)
-    ).resolves.toBeUndefined();
-    expect(inviaEmailFinto).not.toHaveBeenCalled();
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
+
+    expect(inviaSmsFinto).toHaveBeenCalledTimes(1);
+    // L'unica email partita è quella al titolare, non la conferma al cliente.
+    expect(inviaEmailFinto).toHaveBeenCalledTimes(1);
+    expect(inviaEmailFinto.mock.calls[0][0].a).toBe("titolare@esempio.it");
+  });
+
+  it("con 'solo_email' chi non ha lasciato l'email non riceve l'SMS di scorta", async () => {
+    creaClientAdminFinto.mockReturnValue(
+      conTenant({ conferma_cliente_canale: "solo_email" }, {
+        nome: "Giulia Bianchi",
+        email: null,
+        telefono: "+393331234567",
+      })
+    );
+
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
+
+    expect(inviaSmsFinto).not.toHaveBeenCalled();
+  });
+
+  it("una preferenza nulla o inventata ricade sul comportamento storico invece di zittire il salone", async () => {
+    creaClientAdminFinto.mockReturnValue(
+      conTenant(
+        { conferma_cliente_canale: "solo_piccione", notifica_titolare_nuova_prenotazione: null },
+        { nome: "Giulia Bianchi", email: "giulia@esempio.it", telefono: null }
+      )
+    );
+
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
+
+    // Titolare + cliente: esattamente come si comportava prima che queste
+    // preferenze esistessero.
+    expect(inviaEmailFinto).toHaveBeenCalledTimes(2);
   });
 });

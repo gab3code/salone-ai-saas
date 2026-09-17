@@ -43,7 +43,7 @@ const SCENE: Scena[] = [
   },
   {
     titolo: "L'assistente AI, sempre presente",
-    testo: "Risponde su chat web e WhatsApp a domande su orari e prezzi e prenota da sola — e passa la mano a te quando serve davvero una persona.",
+    testo: "Risponde su chat web e WhatsApp a domande su orari e prezzi e prenota da sola — e quando serve davvero una persona manda il cliente da te, con il tuo numero.",
     icona: MessageSquareText,
   },
   {

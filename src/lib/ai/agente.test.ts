@@ -82,11 +82,15 @@ describe("rispondiConversazione", () => {
 
     expect(risultato.trasferitoAUmano).toBe(true);
     expect(risultato.usoStrumenti).toBe(true);
-    // Mai promettere un passaggio a un operatore che oggi non avvisa nessuno
-    // (15/09/2026, vedi DECISIONS.md) -- senza un telefono configurato nel
-    // contesto di test, invita solo a contattare l'attività direttamente.
+    // Mai promettere un passaggio a un operatore che non avvisa nessuno
+    // (15/09/2026, riconfermato il 17/09 dopo aver scartato l'email al
+    // titolare) -- senza recapiti nel contesto di test, invita solo a
+    // contattare l'attività direttamente.
     expect(risultato.rispostaTesto).toMatch(/contattare l'attività direttamente/i);
     expect(risultato.rispostaTesto).not.toMatch(/operatore/i);
+    // E non deve dire che ha avvisato qualcuno: da questa chat non parte
+    // nessuna notifica.
+    expect(risultato.rispostaTesto).not.toMatch(/avvisat/i);
     // Si ferma al limite di sicurezza, non chiama il modello all'infinito.
     expect(create.mock.calls.length).toBeLessThanOrEqual(8);
   });
@@ -99,6 +103,36 @@ describe("rispondiConversazione", () => {
     } as ClienteAnthropic);
 
     expect(risultato.rispostaTesto).toMatch(/02 99999999/);
+  });
+
+  /**
+   * 17/09/2026, decisione di Gabriel: l'unica uscita vera per chi ha scritto
+   * è farsi sentire su un canale del salone. Quando l'attività ha anche un
+   * WhatsApp, la frase di ripiego deve offrirlo -- chi scrive alle 23 non
+   * vuole telefonare.
+   */
+  it("offre anche WhatsApp quando l'attività ce l'ha, e non ripete il numero se è lo stesso", async () => {
+    const create = vi.fn().mockResolvedValue(usoStrumento("trasferisci_a_operatore", { motivo: "loop" }));
+
+    const dueNumeri = await rispondiConversazione(
+      [],
+      "...",
+      { ...ctx, telefono: "02 99999999", telefonoWhatsapp: "333 1234567" },
+      { messages: { create } } as ClienteAnthropic
+    );
+    expect(dueNumeri.rispostaTesto).toMatch(/02 99999999/);
+    expect(dueNumeri.rispostaTesto).toMatch(/WhatsApp al 333 1234567/);
+
+    const stessoNumero = await rispondiConversazione(
+      [],
+      "...",
+      { ...ctx, telefono: "333 1234567", telefonoWhatsapp: "+39 3331234567" },
+      { messages: { create } } as ClienteAnthropic
+    );
+    // "chiama il 333... o scrivi su WhatsApp al 333..." con lo stesso numero
+    // ripetuto fa sembrare l'assistente rotto.
+    expect(stessoNumero.rispostaTesto).toMatch(/chiamare o scrivere su WhatsApp al 333 1234567/);
+    expect(stessoNumero.rispostaTesto.match(/333 1234567/g)).toHaveLength(1);
   });
 
   it("usoStrumenti resta false su una risposta di puro testo (proxy anti-abuso, vedi limiti.ts)", async () => {

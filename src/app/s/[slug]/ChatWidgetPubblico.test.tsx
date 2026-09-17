@@ -24,7 +24,7 @@ describe("formattaTestoConLink -- numeri di telefono (richiesta di Gabriel 15/09
   });
 
   it("rende cliccabile un cellulare con prefisso internazionale ('+39 347 1234567')", () => {
-    const risultato = formattaTestoConLink("Scrivimi su WhatsApp al +39 347 1234567 quando puoi.");
+    const risultato = formattaTestoConLink("Chiamami al +39 347 1234567 quando puoi.");
     expect(link(risultato[1])).toEqual({ href: "tel:+393471234567", testo: "+39 347 1234567" });
   });
 
@@ -62,5 +62,44 @@ describe("formattaTestoConLink -- numeri di telefono (richiesta di Gabriel 15/09
   it("testo senza numeri né link resta invariato", () => {
     const risultato = formattaTestoConLink("Siamo aperti dal lunedì al sabato.");
     expect(risultato).toEqual(["Siamo aperti dal lunedì al sabato."]);
+  });
+});
+
+/**
+ * 17/09/2026. Da oggi l'assistente, quando non sa risolvere qualcosa, dice
+ * al cliente di chiamare o di scrivere su WhatsApp (REGOLA ASSOLUTA 8 in
+ * ai/agente.ts). Se il numero WhatsApp aprisse il tastierino del telefono,
+ * metà della funzione non servirebbe a niente: chi scrive alle 23 vuole
+ * scrivere, non telefonare.
+ */
+describe("formattaTestoConLink -- WhatsApp", () => {
+  it("un numero introdotto da 'WhatsApp' apre WhatsApp, non il tastierino", () => {
+    const risultato = formattaTestoConLink("Scrivici su WhatsApp al 333 1234567.");
+    expect(link(risultato[1])).toEqual({
+      href: "https://wa.me/393331234567",
+      testo: "333 1234567",
+    });
+  });
+
+  it("nella frase con due numeri, solo quello dopo 'WhatsApp' diventa un link WhatsApp", () => {
+    // È la frase che costruisce `istruzioniContatto` quando l'attività ha
+    // due numeri diversi: se la parola "WhatsApp" agganciasse anche il primo,
+    // chi vuole telefonare finirebbe su WhatsApp e viceversa.
+    const risultato = formattaTestoConLink(
+      "Puoi chiamare il 02 1234567 oppure scrivere su WhatsApp al 333 1234567."
+    );
+    const collegamenti = risultato.filter((n) => typeof n !== "string");
+    expect(collegamenti).toHaveLength(2);
+    expect(link(collegamenti[0]).href).toBe("tel:021234567");
+    expect(link(collegamenti[1]).href).toBe("https://wa.me/393331234567");
+  });
+
+  it("un numero lontano dalla parola WhatsApp resta una telefonata", () => {
+    // La finestra è di 30 caratteri apposta: "WhatsApp" nominato all'inizio
+    // di una frase lunga non deve trasformare un numero che arriva dopo.
+    const risultato = formattaTestoConLink(
+      "Su WhatsApp rispondiamo a rilento, quindi è meglio se ci chiami al 02 1234567."
+    );
+    expect(link(risultato[1]).href).toBe("tel:021234567");
   });
 });

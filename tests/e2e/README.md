@@ -41,6 +41,7 @@ npx playwright show-report        # apre il report HTML dell'ultimo run (screens
 | `09-servizi-consecutivi.spec.ts` | 9 | Chat AI vera prenota due servizi di fila con lo stesso operatore (funzionalità del 16/09/2026) |
 | `12-prenotazione-manuale-dashboard.spec.ts` | 12 | Lo staff crea un appuntamento dal pannello, checkbox+slot+form reali, nessuna AI |
 | `24-cancellazione-cliente.spec.ts` | -- (17/09/2026) | Il titolare cancella una scheda cliente: la riga sparisce, gli appuntamenti restano con `cliente_id` a null. Uno staff non vede il pulsante e il cliente sopravvive. |
+| `25-contatti-e-notifiche.spec.ts` | -- (17/09/2026) | Telefono e WhatsApp salvati dalle impostazioni (incluso il travaso della spunta "stesso numero", che senza il codice apposta salverebbe vuoto), e le preferenze di notifica: interruttore del titolare, quattro scelte per i clienti, opzioni SMS chiuse sotto Pro. |
 
 **1-9-12 sono stati eseguiti dal vivo il 16/09/2026 e sono VERDI (6/6)** -- hanno trovato e fatto
 correggere due bug reali lungo il percorso, vedi DECISIONS.md.

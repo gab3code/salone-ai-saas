@@ -48,6 +48,12 @@ export default async function PaginaImpostazioni() {
         Dati per la fattura
       </a>
 
+      <a href="/dashboard/impostazioni/contatti" className="text-sm underline">
+        Contatti (telefono e WhatsApp)
+      </a>
+      <a href="/dashboard/impostazioni/notifiche" className="text-sm underline">
+        Notifiche delle prenotazioni
+      </a>
       <a href="/dashboard/impostazioni/calendari" className="text-sm underline">
         Calendari personali
       </a>

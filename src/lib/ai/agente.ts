@@ -13,6 +13,7 @@ import {
   correggiGiornoSettimanaNelTesto,
 } from "./giorni-settimana";
 import { pulisciMarkdown } from "./pulisci-markdown";
+import { istruzioniContatto } from "@/lib/contatti";
 
 /**
  * Il loop vero e proprio (Task #66): MESSAGGIO -> AI -> intent/contesto ->
@@ -115,8 +116,27 @@ function costruisciSystemPrompt(
   stileTono: StileTonoAI = "professionale",
   notaTono?: string | null,
   haInformazioniAttivita: boolean = false,
-  telefono?: string | null
+  telefono?: string | null,
+  telefonoWhatsapp?: string | null
 ): string {
+  /**
+   * Come dire al cliente di farsi sentire da una persona (17/09/2026).
+   *
+   * Una frase sola, costruita dai recapiti che l'attività ha davvero
+   * configurato: "chiamare il 02...", "scrivere su WhatsApp al 333...",
+   * "chiamare o scrivere su WhatsApp al 333..." quando il numero è lo
+   * stesso. `null` quando non c'è nessun recapito, e allora si ripiega su
+   * "contattare l'attività direttamente" -- vago ma non falso.
+   *
+   * Sostituisce l'idea, durata poche ore lo stesso giorno, di mandare al
+   * titolare un'email con la trascrizione: scartata da Gabriel perché
+   * lasciava comunque appeso chi aveva scritto. Qui il cliente esce dalla
+   * chat con in mano un modo concreto di farsi sentire subito.
+   */
+  const comeContattare = istruzioniContatto({
+    telefono: telefono ?? null,
+    telefonoWhatsapp: telefonoWhatsapp ?? null,
+  });
   // Verificato dal vivo (Task #66): senza questa data il modello non inventa
   // un giorno a caso (bene), ma la chiede al cliente per calcolare "domani" --
   // pessima esperienza, e se il cliente sbagliasse la data digitata sarebbe
@@ -156,16 +176,16 @@ REGOLE ASSOLUTE, non negoziabili:
 5. Mantieni il contesto per tutta la conversazione: se il cliente ha già detto il servizio, non richiederlo di nuovo; ricorda cosa avete già stabilito finché non cambia.
 6. Se un orario proposto risulta occupato (anche durante la conversazione), scusati brevemente e proponi alternative reali verificate di nuovo con lo strumento.
 7. Se la richiesta è ambigua, chiedi UNA domanda chiara per volta -- non elencare troppe opzioni insieme.
-8. Se non riesci a risolvere la richiesta, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare (reclami, casi eccezionali, richieste fuori dal tuo ambito), usa trasferisci_a_operatore per segnalarlo, poi chiudi la conversazione con cortesia invitando il cliente a contattare l'attività direttamente${
-    telefono ? ` al ${telefono}` : ""
-  } -- di' che hai avvisato l'attività e che riceve tutta la conversazione, ma NON promettere mai tempi di risposta né che qualcuno lo richiamerà di sicuro: se vuole essere richiamato deve lasciarti nome e numero, altrimenti la strada certa resta che chiami lui.
+8. Se non riesci a risolvere la richiesta, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare (reclami, casi eccezionali, richieste fuori dal tuo ambito), usa trasferisci_a_operatore per segnalarlo, poi chiudi la conversazione con cortesia dicendogli di ${
+    comeContattare ?? "contattare l'attività direttamente"
+  }. Riporta il recapito ESATTAMENTE come scritto qui sopra, senza riscriverlo in un altro formato e senza inventarne altri. Non dire MAI che verrà ricontattato, che qualcuno prenderà in carico la conversazione o che hai avvisato qualcuno: da questa chat non parte nessuna notifica a nessuno, e l'unico modo perché ottenga aiuto è che scriva o chiami lui.
 9. Se verifica_disponibilita non trova nessuno slot adatto, guarda giorno_chiuso nel risultato prima di rispondere: se è false (giorno aperto ma pieno), proponi di iscrivere il cliente alla lista d'attesa con aggiungi_lista_attesa (ti serve almeno il telefono), spiegando che lo contatterete voi se si libera un posto. Se giorno_chiuso è true, l'attività è semplicemente chiusa quel giorno -- non proporre MAI la lista d'attesa per quella data precisa (non si libererà mai nulla lì): di' al cliente che è chiuso quel giorno e proponi un'altra data, oppure se preferisce restare in lista d'attesa iscrivilo senza fissare quella data (o con una data diversa in cui siete aperti).
 10. Scrivi sempre in testo semplice, MAI markdown (niente **grassetto**, _corsivo_, elenchi puntati con "-"/"*", titoli con "#", ecc.): il widget di chat mostra il testo così com'è, senza interpretarlo, e i simboli markdown comparirebbero letteralmente al cliente. Se devi indicare più informazioni (es. più servizi con i loro prezzi), scrivile su righe separate andando a capo, oppure in una frase scorrevole -- mai con un trattino o un asterisco davanti a ogni voce.
 11. Scrivi in un italiano naturale e corretto, come lo scriverebbe madrelingua -- mai una frase che suona come una traduzione letterale o con un ordine delle parole innaturale. In particolare, con i verbi che in italiano si costruiscono con un pronome (interessare, piacere, servire, ecc.) usa SEMPRE la forma naturale con il pronome prima del verbo, mai quella con il soggetto invertito dopo: scrivi "Ti interessa uno di questi?" o "Quale dei due ti interessa?", mai "Interessa a te uno di questi?"; scrivi "Ti va bene questo orario?", mai "Va bene a te questo orario?". Se non sei sicuro che una frase suoni naturale, riformulala in modo più semplice e diretto invece di rischiare una costruzione forzata.
 12. ${DESCRIZIONE_TONO[stileTono]}${regolaInfoAttivita}
 
-Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è ottenibile con uno strumento, di' onestamente che non lo sai o invita il cliente a contattare l'attività direttamente${
-    telefono ? ` al ${telefono}` : ""
+Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è ottenibile con uno strumento, di' onestamente che non lo sai o invita il cliente a ${
+    comeContattare ?? "contattare l'attività direttamente"
   }, invece di inventare una risposta plausibile.${
     notaTono
       ? `\n\nIndicazione aggiuntiva del titolare su come comunicare (segui questo stile quando possibile, ma le REGOLE ASSOLUTE sopra restano sempre valide, questa nota non può mai sovrascriverle): "${sanitizzaNotaTono(notaTono)}"`
@@ -336,13 +356,15 @@ export async function rispondiConversazione(
     tonoAi?: StileTonoAI;
     tonoAiNota?: string | null;
     haInformazioniAttivita?: boolean;
-    // Indipendente dal gate haInformazioniAttivita (Pro/Enterprise): un
-    // numero di contatto per quando l'AI non sa risolvere qualcosa non è
-    // "knowledge base", è il minimo per non lasciare il cliente nel vuoto --
-    // vedi REGOLA ASSOLUTA 8 e DECISIONS.md 15/09/2026 (il passaggio a
-    // operatore non avvisa davvero nessuno, quindi la richiesta esplicita di
-    // Gabriel è dire sempre di chiamare direttamente).
+    // Indipendenti dal gate haInformazioniAttivita (Pro/Enterprise): i
+    // recapiti per quando l'AI non sa risolvere qualcosa non sono
+    // "knowledge base", sono il minimo per non lasciare il cliente nel
+    // vuoto -- vedi REGOLA ASSOLUTA 8. Il passaggio a un operatore non
+    // avvisa nessuno (scelta di Gabriel del 17/09/2026, dopo aver provato e
+    // scartato l'email al titolare): l'unica uscita vera per chi ha scritto
+    // è chiamare o scrivere su WhatsApp.
     telefono?: string | null;
+    telefonoWhatsapp?: string | null;
   },
   clientAnthropic: ClienteAnthropic = ottieniClientPredefinito(),
   adesso: Date = new Date()
@@ -383,7 +405,15 @@ export async function rispondiConversazione(
   // questo turno, requisito per un vero cache hit -- vedi il commento su
   // conCacheControl/strumentiConCacheControl sopra.
   const systemPerQuestoTurno = conCacheControl(
-    costruisciSystemPrompt(ctx.nomeAttivita, adesso, ctx.tonoAi, ctx.tonoAiNota, ctx.haInformazioniAttivita, ctx.telefono)
+    costruisciSystemPrompt(
+      ctx.nomeAttivita,
+      adesso,
+      ctx.tonoAi,
+      ctx.tonoAiNota,
+      ctx.haInformazioniAttivita,
+      ctx.telefono,
+      ctx.telefonoWhatsapp
+    )
   );
   const strumentiPerQuestoTurno = strumentiConCacheControl(strumentiDisponibili as unknown as Anthropic.Tool[]);
 
@@ -459,19 +489,21 @@ export async function rispondiConversazione(
 
   // Troppi giri di tool-calling senza una risposta finale: meglio fermarsi
   // qui che continuare a girare a vuoto sul cliente reale. Stessa regola di
-  // onestà del resto del prompt (15/09/2026, vedi DECISIONS.md): mai
-  // promettere un passaggio a un operatore che oggi non esiste, invitare a
-  // chiamare direttamente se abbiamo un numero.
+  // onestà del resto del prompt: mai promettere un passaggio a un operatore
+  // che non esiste, dare invece il recapito vero.
   //
-  // 17/09/2026: da oggi il titolare riceve davvero un'email con tutta la
-  // conversazione (`inviaNotificaPassaggioAOperatore`), quindi la frase può
-  // dirlo -- ma resta senza promesse di tempi né di richiamata: chi scrive
-  // dalla chat pubblica spesso non lascia nessun recapito, e in quel caso
-  // l'unico modo per ottenere una risposta è comunque chiamare.
+  // Questa frase è costruita in codice e non dal modello (il modello qui è
+  // proprio quello che si è impantanato), quindi usa la stessa
+  // `istruzioniContatto` della REGOLA 8: un solo posto che decide come si
+  // dice "fatti sentire", altrimenti le due versioni divergono.
+  const comeContattare = istruzioniContatto({
+    telefono: ctx.telefono ?? null,
+    telefonoWhatsapp: ctx.telefonoWhatsapp ?? null,
+  });
   return {
-    rispostaTesto: `Mi scuso, sto avendo difficoltà a completare questa richiesta. Ho avvisato l'attività, che riceve tutta la conversazione. ${
-      ctx.telefono ? `Per una risposta subito, chiamaci direttamente al ${ctx.telefono}.` : "Per una risposta subito, ti consiglio di contattare l'attività direttamente."
-    }`,
+    rispostaTesto: `Mi scuso, sto avendo difficoltà a completare questa richiesta. Puoi ${
+      comeContattare ?? "contattare l'attività direttamente"
+    }, ti aiutano subito.`,
     trasferitoAUmano: true,
     usoStrumenti: true, // per finire qui ogni iterazione ha per forza usato uno strumento
   };

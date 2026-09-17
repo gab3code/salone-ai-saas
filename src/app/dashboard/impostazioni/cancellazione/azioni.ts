@@ -11,13 +11,13 @@ import { puoConfigurareAttivita } from "@/lib/ruoli";
  * autenticato, RLS del titolare già permette l'update della propria riga
  * `tenants` (policy "tenant_update" in 0001_init.sql).
  *
- * Salva anche `telefono` insieme alla soglia: girando il codice per questa
- * funzionalità è emerso che `tenants.telefono` (colonna già esistente, usata
- * sulla pagina pubblica e ora anche nel messaggio di blocco cancellazione)
- * non aveva NESSUNA pagina delle impostazioni da cui modificarlo -- gap
- * onestamente segnalato, non taciuto (vedi PIANO.md). Sistemarlo qui è il
- * punto più naturale: è esattamente il numero che serve perché questa
- * funzionalità sia utile, non ha senso rimandarlo a un'altra pagina.
+ * NON scrive più `telefono` (17/09/2026). Dal 14/09 lo faceva, perché era
+ * l'unico posto da cui quel numero si potesse modificare: un campo
+ * importante nascosto sotto un titolo che parla d'altro. Ora ha la sua
+ * pagina, "Contatti", insieme al numero WhatsApp, e questa si limita a
+ * mostrarlo. Due schermate che scrivono la stessa colonna sono la ricetta
+ * per farle divergere -- è lo stesso problema del listino della landing
+ * scollegato da `piani.ts`, trovato nel controllo della notte prima.
  */
 export async function aggiornaFinestraCancellazione(formData: FormData) {
   const supabase = await creaClientServer();
@@ -34,11 +34,9 @@ export async function aggiornaFinestraCancellazione(formData: FormData) {
     return { errore: "Non più di 720 ore (30 giorni)." };
   }
 
-  const telefono = String(formData.get("telefono") || "").trim().slice(0, 40) || null;
-
   const { error } = await supabase
     .from("tenants")
-    .update({ ore_minime_cancellazione: ore, telefono })
+    .update({ ore_minime_cancellazione: ore })
     .eq("id", tenantId);
 
   revalidatePath("/dashboard/impostazioni/cancellazione");

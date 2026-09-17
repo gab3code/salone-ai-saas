@@ -5,11 +5,16 @@ Segui l'ordine: i passi dopo il 3 danno per scontato che i primi tre siano verdi
 
 ---
 
+> **Aggiornamento della mattina.** La migrazione `0035` (passo 3) **l'ho applicata io** quando
+> me l'hai chiesto: le quattro policy su `clienti` ci sono, verificate. È arrivata anche la
+> `0039` (numero WhatsApp + preferenze di notifica), anch'essa già applicata. Nessuna
+> migrazione in sospeso.
+
 ## 1. Prendi il lavoro e mandalo su
 
 ```bash
 cd ~/dev/salone-ai-saas
-git log --oneline -8          # devono esserci 6 commit nuovi sopra a5abc90
+git log --oneline -10         # devono esserci 7 commit nuovi sopra a5abc90
 git push
 ```
 
@@ -25,7 +30,7 @@ npx eslint src tests --max-warnings=0
 npm test
 ```
 
-Atteso: **tutti e tre puliti, 571 test verdi**.
+Atteso: **tutti e tre puliti, 598 test verdi**.
 
 `eslint` ora deve dare **zero errori E zero warning**: se ne compare anche uno solo,
 è arrivato con il tuo push, non con il mio -- prima di stanotte il progetto ne aveva
@@ -39,17 +44,9 @@ Atteso: build completata, nessuna pagina in errore.
 
 ---
 
-## 3. LA MIGRAZIONE CHE DEVI APPLICARE TU
+## 3. ~~LA MIGRAZIONE CHE DEVI APPLICARE TU~~ -- FATTA
 
-**Prima di lanciare gli E2E.** La `0035` è stata rifiutata dal classificatore di
-sicurezza (come era già successo per la `0030`), quindi sul database non c'è. Senza,
-la cancellazione di un cliente è owner-only solo nell'applicazione: uno staff che
-apre la console del browser la cancella lo stesso.
-
-Supabase → SQL Editor → incolla il contenuto di
-`supabase/migrations/0035_cancellazione_cliente.sql` → Run.
-
-Sono quattro `create policy` e un `drop policy`. Controlla dopo:
+Applicata la mattina del 17/09, su tua richiesta. Se vuoi ricontrollare:
 
 ```sql
 select policyname, cmd from pg_policies where tablename = 'clienti';
@@ -59,8 +56,8 @@ Attese **quattro** righe: `lettura_tenant` (SELECT), `scrittura_membri_insert`
 (INSERT), `scrittura_membri_update` (UPDATE), `cancellazione_owner` (DELETE).
 Se vedi ancora `isolamento_tabella` / ALL, la migrazione non è passata.
 
-Le altre tre migrazioni di stanotte (**0036**, **0037**, **0038**) le ho già
-applicate io: non rifarle.
+Applicate anche **0036**, **0037**, **0038** (notte) e **0039** (mattina: numero WhatsApp e
+preferenze di notifica).
 
 ---
 
@@ -70,11 +67,11 @@ applicate io: non rifarle.
 npm run test:e2e:deterministici
 ```
 
-Sono quelli senza AI (11→24), i più veloci e i più stabili. Atteso: **tutti verdi**.
+Sono quelli senza AI (11→25), i più veloci e i più stabili. Atteso: **tutti verdi**.
 
 Se fallisce **solo** il caso nuovo dentro lo Scenario 23
-(*"un collaboratore non cancella un cliente nemmeno dal database"*), quasi
-certamente hai saltato il passo 3.
+(*"un collaboratore non cancella un cliente nemmeno dal database"*), vuol dire che la 0035
+non è più in piedi -- ma l'ho applicata e verificata io, quindi non dovrebbe succedere.
 
 Poi, quando hai qualche minuto e non ti dispiace spendere qualche centesimo di token:
 
@@ -91,6 +88,7 @@ Lo Scenario 1 (chat AI vera) ogni tanto è capriccioso: se fallisce solo lui, ri
 |---|---|
 | Scenario **24** (nuovo) | Il titolare cancella una scheda cliente; gli appuntamenti restano, senza nome. Uno staff non vede il pulsante. |
 | Scenario **23** (esteso) | Lo stesso confine vale contro il database nudo. |
+| Scenario **25** (nuovo) | Contatti (telefono + WhatsApp, con la spunta "stesso numero") e preferenze di notifica, incluse le opzioni SMS chiuse sotto Pro. |
 | Scenari **11, 14, 17, 19, 22** | Invariati: servono a dire che non ho rotto niente. |
 
 ---
@@ -108,6 +106,12 @@ Dopo che Vercel ha finito il deploy del push:
 4. **/privacy**: ci sono i dati di fatturazione, la verifica VIES e le assenze.
 5. **Dashboard → un cliente qualsiasi**: in fondo ai dati anagrafici c'è
    "Cancella definitivamente questo cliente". Provalo su un cliente finto.
+6. **Impostazioni → Contatti**: metti il tuo numero e guarda l'anteprima -- è la frase vera che
+   l'assistente dirà a un cliente, non un esempio.
+7. **Impostazioni → Notifiche**: spegni "Avvisami a ogni nuova prenotazione", poi prenota dalla
+   pagina pubblica: a te non deve arrivare niente, al cliente sì.
+8. **Chat sulla pagina pubblica**: chiedi all'assistente di parlare con una persona. Deve darti
+   il numero, e da telefono il WhatsApp deve aprire WhatsApp, non il tastierino.
 
 ---
 
@@ -174,6 +178,6 @@ me lo chiedi esplicitamente.
   `PREZZO_BASE_CENTESIMI` / `PREZZO_OPERATORE_EXTRA_CENTESIMI` in
   `src/lib/piani.ts`, e va confrontata con i Price su Stripe -- non modificata a mano
   sulla landing, che è esattamente il problema che abbiamo appena tolto.
-- **Vuoi tornare indietro su tutto**: i sei commit di stanotte sono separati per
-  argomento (promesse della landing / pagine legali / codice orfano / test /
-  linter Supabase), quindi si possono revertire uno alla volta.
+- **Vuoi tornare indietro su qualcosa**: i commit sono separati per argomento (promesse della
+  landing / pagine legali / codice orfano / test / linter Supabase / contatti e notifiche),
+  quindi si possono revertire uno alla volta.

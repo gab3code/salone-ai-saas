@@ -11,7 +11,8 @@ export function PannelloCancellazione({
   telefonoIniziale: string;
 }) {
   const [ore, setOre] = useState(String(oreIniziali));
-  const [telefono, setTelefono] = useState(telefonoIniziale);
+  // Solo da mostrare: si modifica in "Contatti" (17/09/2026).
+  const telefono = telefonoIniziale;
   const [inCorso, setInCorso] = useState(false);
   const [messaggio, setMessaggio] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
 
@@ -50,21 +51,23 @@ export function PannelloCancellazione({
         (cancellazione online sempre permessa, anche l&apos;ultimo minuto).
       </p>
 
-      <label className="flex flex-col gap-1 text-sm">
-        Telefono della tua attività
-        <input
-          type="tel"
-          name="telefono"
-          value={telefono}
-          onChange={(e) => setTelefono(e.target.value)}
-          placeholder="Es. 02 1234567"
-          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-        />
-      </label>
-      <p className="text-xs text-zinc-400">
-        Mostrato ai clienti bloccati dalla finestra qui sopra e nella tua pagina pubblica di prenotazione. Lascialo
-        vuoto se preferisci non pubblicarlo.
-      </p>
+      {/* Sola lettura (17/09/2026): il telefono si modifica in "Contatti",
+          che è l'unico posto che lo scrive. Qui resta visibile perché senza
+          un numero questa funzione non ha senso -- chi viene bloccato dalla
+          finestra deve poter chiamare qualcuno. */}
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm">
+        <p className="text-xs font-medium text-zinc-500">Numero mostrato a chi viene bloccato</p>
+        {telefono ? (
+          <p className="mt-0.5 text-zinc-800">{telefono}</p>
+        ) : (
+          <p className="mt-0.5 text-amber-800">
+            Nessun numero: chi prova a cancellare troppo tardi non sa chi chiamare.
+          </p>
+        )}
+        <a href="/dashboard/impostazioni/contatti" className="mt-1 inline-block text-xs underline">
+          Modifica in Contatti
+        </a>
+      </div>
 
       <button
         type="submit"

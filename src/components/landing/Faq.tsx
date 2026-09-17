@@ -37,7 +37,16 @@ const DOMANDE = [
   {
     domanda: "L'assistente AI risponde sempre in modo corretto?",
     risposta:
-      "Gestisce da sola le richieste comuni — orari, prezzi, disponibilità, prenotazioni — ma riconosce le situazioni ambigue, i reclami e i casi fuori dal normale e li passa a te con tutto il contesto della conversazione, invece di indovinare una risposta.",
+      // 17/09/2026 -- diceva "li passa a te con tutto il contesto della
+      // conversazione". Per qualche ora è stato vero (un'email al titolare
+      // con la trascrizione), poi Gabriel ha scartato quella strada:
+      // lasciava comunque appeso chi aveva scritto, arrivava su un canale
+      // che un titolare al lavoro non guarda, e non c'era un posto nel
+      // prodotto dove rispondere. Quello che l'assistente fa DAVVERO è
+      // passare la palla AL CLIENTE: gli dà telefono e WhatsApp
+      // dell'attività (impostazioni -> Contatti) e lo invita a farsi
+      // sentire. Il copy ora descrive quello.
+      "Gestisce da sola le richieste comuni — orari, prezzi, disponibilità, prenotazioni — ma riconosce le situazioni ambigue, i reclami e i casi fuori dal normale: invece di indovinare una risposta, passa il cliente a te dandogli il tuo telefono e il tuo WhatsApp e invitandolo a scriverti o chiamarti.",
   },
   {
     domanda: "Funziona anche su WhatsApp?",

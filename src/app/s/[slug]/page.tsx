@@ -6,6 +6,7 @@ import { caricaProfiloPubblico } from "@/lib/pagina-pubblica.server";
 import { caricaRecensioniPubbliche } from "@/lib/recensioni.server";
 import FlussoPrenotazione from "./FlussoPrenotazione";
 import ChatWidgetPubblico from "./ChatWidgetPubblico";
+import { linkWhatsapp, numeroPerWhatsapp } from "@/lib/contatti";
 import { formatoEuroDaCentesimi as formatoEuro } from "@/lib/piani";
 
 /**
@@ -58,6 +59,16 @@ export default async function PaginaPubblicaSalone({
 
   const categorie = Array.from(new Set(profilo.servizi.map((s) => s.categoria ?? "Servizi")));
 
+  // WhatsApp (17/09/2026). Il link si costruisce solo se il numero è
+  // utilizzabile: meglio nessuna voce che una che apre una chat con nessuno.
+  // Il numero si RIPETE accanto alla parola solo quando è diverso dal
+  // telefono già mostrato -- altrimenti la riga dei contatti conterrebbe lo
+  // stesso numero due volte di fila.
+  const linkWa = linkWhatsapp(profilo.telefonoWhatsapp);
+  const mostraNumeroWa =
+    !!profilo.telefonoWhatsapp &&
+    numeroPerWhatsapp(profilo.telefonoWhatsapp) !== numeroPerWhatsapp(profilo.telefono);
+
   // Fase 3, 16/09/2026: `null` se il titolare ha spento l'interruttore
   // generale (vedi 0026_recensioni.sql) -- in quel caso la sezione non
   // compare affatto, non solo vuota.
@@ -93,6 +104,22 @@ export default async function PaginaPubblicaSalone({
             {profilo.telefono && (
               <a href={`tel:${profilo.telefono}`} className="underline decoration-white/40 hover:text-white">
                 {profilo.telefono}
+              </a>
+            )}
+            {/* WhatsApp accanto al telefono (17/09/2026): è il canale su cui
+                l'assistente manda chi ha bisogno di una persona, e chi
+                arriva qui dalla chat deve ritrovarlo anche sulla pagina.
+                Mostrato solo se il link regge (numero utilizzabile) e solo
+                se il numero è DIVERSO dal telefono -- altrimenti sarebbero
+                due voci identiche una accanto all'altra. */}
+            {linkWa && (
+              <a
+                href={linkWa}
+                target="_blank"
+                rel="noreferrer"
+                className="underline decoration-white/40 hover:text-white"
+              >
+                WhatsApp{mostraNumeroWa ? ` ${profilo.telefonoWhatsapp}` : ""}
               </a>
             )}
             {profilo.email && (

@@ -120,26 +120,22 @@ export async function salvaMessaggio(
 /**
  * Segna la conversazione come passata a una persona.
  *
- * Ritorna `true` SOLO quando lo stato è cambiato davvero in questa chiamata
- * (17/09/2026). Serve a chi deve avvisare il titolare
- * (`inviaNotificaPassaggioAOperatore`): senza il `neq`, ogni messaggio
- * successivo in una conversazione già passata a un operatore rifarebbe
- * l'update e farebbe partire un'altra email identica. Il filtro sta nella
- * query, non in una lettura-poi-scrittura, così due richieste in parallelo
- * non possono entrambe credere di essere la prima.
+ * Non fa altro, ed è voluto (17/09/2026, decisione di Gabriel). Per qualche
+ * ora questa funzione ha fatto anche partire un'email al titolare con la
+ * trascrizione; l'idea è stata scartata perché lasciava comunque appeso chi
+ * aveva scritto, arrivava su un canale che un titolare al lavoro non guarda,
+ * e non aveva un posto nel prodotto dove rispondere. La strada scelta è
+ * l'opposta: l'assistente dà al cliente il telefono e il WhatsApp
+ * dell'attività e gli dice di chiamare o scrivere -- vedi la REGOLA ASSOLUTA
+ * 8 in `agente.ts`. Lo stato serve alle metriche del pannello di
+ * piattaforma, non a innescare niente.
  */
-export async function segnaPassataAOperatore(
-  supabase: SupabaseClient,
-  conversazioneId: string
-): Promise<boolean> {
-  const { data, error } = await supabase
+export async function segnaPassataAOperatore(supabase: SupabaseClient, conversazioneId: string): Promise<void> {
+  const { error } = await supabase
     .from("conversazioni")
     .update({ stato: "passata_a_operatore" })
-    .eq("id", conversazioneId)
-    .neq("stato", "passata_a_operatore")
-    .select("id");
+    .eq("id", conversazioneId);
   if (error) throw new Error(`Errore aggiornando lo stato della conversazione: ${error.message}`);
-  return (data ?? []).length > 0;
 }
 
 /**

@@ -51,6 +51,8 @@ export interface ProfiloPubblico {
   descrizione: string | null;
   indirizzo: string | null;
   telefono: string | null;
+  /** Numero WhatsApp da mostrare (17/09/2026). Nulla a che vedere con le colonne whatsapp_* dell'API Meta. */
+  telefonoWhatsapp: string | null;
   email: string | null;
   sitoWeb: string | null;
   social: Record<string, string>;
@@ -88,7 +90,7 @@ export async function caricaProfiloPubblico(
   const { data: tenant, error: erroreTenant } = await supabase
     .from("tenants")
     .select(
-      "id, slug, nome, descrizione, indirizzo, telefono, email, sito_web, social, logo_url, cover_url, piano, caparra_attiva, caparra_tipo, caparra_valore"
+      "id, slug, nome, descrizione, indirizzo, telefono, telefono_whatsapp, email, sito_web, social, logo_url, cover_url, piano, caparra_attiva, caparra_tipo, caparra_valore"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -147,6 +149,7 @@ export async function caricaProfiloPubblico(
     descrizione: tenant.descrizione,
     indirizzo: tenant.indirizzo,
     telefono: tenant.telefono,
+    telefonoWhatsapp: tenant.telefono_whatsapp,
     email: tenant.email,
     sitoWeb: tenant.sito_web,
     social: (tenant.social as Record<string, string> | null) ?? {},

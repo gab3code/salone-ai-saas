@@ -65,6 +65,13 @@ diversi del documento, e sparse non si guardano. Sono in ordine: dalla più bloc
 
 ### Aperte, non bloccanti
 
+6-bis. **Il follow-up "non prenoti da 60 giorni" non ha un interruttore.** Trovato il
+   17/09/2026 facendo l'inventario delle notifiche ai clienti finali: è l'unica delle sei che
+   parte senza che il salone possa spegnerla, e il numero di giorni è fisso nel codice.
+   Conferma di prenotazione (risolta il 17/09), promemoria, compleanno, recensioni e lista
+   d'attesa hanno tutte il loro controllo. Non bloccante, ma è una mail che parte a nome di un
+   salone senza il suo consenso esplicito.
+
 7. **`indirizzo_nazione`** (migrazione 0033) è scritta e mai riletta. Non è un errore: serve
    quando si comporrà l'XML SdI, e quello è il momento di portarla dentro `DatiFatturazione`.
    Vedi il commento della migrazione 0036.
