@@ -52,7 +52,7 @@ export default async function PaginaCompleanno() {
           <p className="text-sm text-zinc-600">
             Il promemoria di compleanno è incluso dal piano <strong>Pro</strong> in su.
           </p>
-          <Link href="/#prezzi" className="mt-4 inline-block rounded bg-black px-3 py-2 text-sm font-medium text-white">
+          <Link href="/dashboard/abbonamento?piano=pro" className="mt-4 inline-block rounded bg-black px-3 py-2 text-sm font-medium text-white">
             Passa a Pro
           </Link>
         </div>

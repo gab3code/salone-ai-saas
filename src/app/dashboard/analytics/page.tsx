@@ -49,7 +49,7 @@ export default async function PaginaAnalytics() {
             Analytics è incluso dal piano <strong>Growth</strong> in su. La dashboard mostra già oggi i numeri del
             momento (appuntamenti di oggi, nuovi clienti, clienti inattivi).
           </p>
-          <Link href="/#prezzi" className="mt-4 inline-block rounded bg-black px-3 py-2 text-sm font-medium text-white">
+          <Link href="/dashboard/abbonamento?piano=growth" className="mt-4 inline-block rounded bg-black px-3 py-2 text-sm font-medium text-white">
             Passa a Growth
           </Link>
         </div>

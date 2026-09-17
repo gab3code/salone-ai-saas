@@ -44,8 +44,15 @@ export default async function PaginaAbbonamento({
     .single();
   const pianoAttuale = (tenant?.piano as string) ?? "free";
 
+  // Chi ha già un abbonamento vivo non passa da qui per cambiare piano: il
+  // checkout glielo rifiuterebbe (creerebbe un SECONDO abbonamento sullo
+  // stesso cliente, il difetto da 109,80 € al mese chiuso stanotte), quindi
+  // portarlo fino al modulo e fermarlo alla fine sarebbe un vicolo cieco
+  // servito tardi. Gli si mostra subito la strada giusta.
+  const giaAbbonato = pianoAttuale !== "free";
+
   const sp = await searchParams;
-  const scelto = pianoEPagante(sp.piano) ? sp.piano : null;
+  const scelto = !giaAbbonato && pianoEPagante(sp.piano) ? sp.piano : null;
   const dati = scelto ? await leggiDatiFatturazione(supabase, sessione.tenantId) : null;
 
   return (
@@ -85,12 +92,16 @@ export default async function PaginaAbbonamento({
                   )}
                   {eAttuale ? (
                     <span className="mt-auto text-xs text-zinc-500">È il tuo piano</span>
+                  ) : giaAbbonato ? (
+                    <span className="mt-auto text-xs text-zinc-500">
+                      Si cambia dal portale qui sotto
+                    </span>
                   ) : (
                     <Link
                       href={`/dashboard/abbonamento?piano=${piano}`}
                       className="mt-auto rounded-lg bg-zinc-900 px-3 py-1.5 text-center text-xs font-medium text-white"
                     >
-                      {pianoAttuale === "free" ? "Attiva" : "Passa a questo"}
+                      Attiva
                     </Link>
                   )}
                 </div>
@@ -104,11 +115,13 @@ export default async function PaginaAbbonamento({
             a emettere fattura per ogni pagamento.
           </p>
 
-          {pianoAttuale !== "free" && (
+          {giaAbbonato && (
             <div className="max-w-3xl rounded-2xl border border-zinc-200 p-4">
-              <p className="text-sm font-medium text-zinc-700">Metodo di pagamento e fatture</p>
+              <p className="text-sm font-medium text-zinc-700">Gestisci il tuo abbonamento</p>
               <p className="mt-0.5 text-xs text-zinc-500">
-                Carta, ricevute e disdetta si gestiscono dal portale di Stripe.
+                Cambio di piano, carta, ricevute e disdetta si fanno dal portale di Stripe: così
+                l&apos;abbonamento attuale viene sostituito invece di affiancargliene un secondo.
+                Se nel portale non trovi il cambio piano, scrivici e lo facciamo noi.
               </p>
               <PulsantePortaleAbbonamento />
             </div>

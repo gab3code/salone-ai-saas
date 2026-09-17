@@ -49,7 +49,7 @@ export default async function PaginaTonoAi() {
             Il tono personalizzabile è incluso dal piano <strong>Pro</strong> in su. Il tuo assistente risponde già
             oggi con un tono professionale e cordiale di default.
           </p>
-          <Link href="/#prezzi" className="mt-4 inline-block rounded bg-black px-3 py-2 text-sm font-medium text-white">
+          <Link href="/dashboard/abbonamento?piano=pro" className="mt-4 inline-block rounded bg-black px-3 py-2 text-sm font-medium text-white">
             Passa a Pro
           </Link>
         </div>

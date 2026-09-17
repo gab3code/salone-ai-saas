@@ -50,7 +50,7 @@ export default async function PaginaPromemoria() {
           <p className="text-sm text-zinc-600">
             I promemoria automatici sono inclusi dal piano <strong>Growth</strong> in su.
           </p>
-          <Link href="/#prezzi" className="mt-4 inline-block rounded bg-black px-3 py-2 text-sm font-medium text-white">
+          <Link href="/dashboard/abbonamento?piano=growth" className="mt-4 inline-block rounded bg-black px-3 py-2 text-sm font-medium text-white">
             Passa a Growth
           </Link>
         </div>

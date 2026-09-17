@@ -191,7 +191,10 @@ export async function POST(request: NextRequest) {
     payment_method_types: ["card"],
     line_items: lineItems,
     success_url: `${origin}/dashboard?checkout=successo`,
-    cancel_url: `${origin}/#prezzi`,
+    // Chi annulla il pagamento torna DENTRO l'app, sulla pagina da cui era
+    // partito: mandarlo sul sito vetrina è quello che faceva sembrare il
+    // prodotto due prodotti diversi.
+    cancel_url: `${origin}/dashboard/abbonamento?piano=${encodeURIComponent(piano)}`,
     client_reference_id: tenant.id,
     // Niente `tax_id_collection`, niente indirizzo, niente campi
     // personalizzati: quei dati li abbiamo già raccolti e validati sul nostro
