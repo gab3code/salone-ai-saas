@@ -435,9 +435,22 @@ export async function cambiaPianoAttivita(
     esitoStripe.statoStripe as Parameters<typeof statoAbbonamentoDaStripe>[0]
   );
 
+  // `piano_manuale` si spegne solo quando i due sistemi concordano DAVVERO.
+  //
+  // Nel ramo "chiudi l'abbonamento" non concordano: Stripe continua a
+  // fatturare il piano vecchio fino alla fine del periodo già pagato
+  // (`cancel_at_period_end`), mentre qui il tenant è appena passato a Free o
+  // a Enterprise. Spegnere il flag lì significherebbe che il primo webhook
+  // utile -- e ne basta uno qualsiasi, anche l'aggiunta di un operatore --
+  // ricava il piano dai price ancora presenti e riscrive quello vecchio: il
+  // cambio piano si annullerebbe da solo, senza che nessuno abbia toccato
+  // niente. Finché la chiusura non è effettiva, la decisione dell'admin va
+  // protetta.
+  const restaManuale = esitoStripe.chiusoAFinePeriodo;
+
   const { error } = await admin
     .from("tenants")
-    .update({ piano, stato_abbonamento: statoDaStripe, piano_manuale: false })
+    .update({ piano, stato_abbonamento: statoDaStripe, piano_manuale: restaManuale })
     .eq("id", tenantId);
 
   if (error) {
@@ -455,6 +468,7 @@ export async function cambiaPianoAttivita(
     stato_prima: prima.stato_abbonamento,
     stato_dopo: statoDaStripe,
     conguaglio: azioneStripe,
+    piano_manuale_dopo: restaManuale,
     totale_prima_centesimi: esitoStripe.totalePrimaCentesimi,
     totale_dopo_centesimi: esitoStripe.totaleDopoCentesimi,
     chiuso_a_fine_periodo: esitoStripe.chiusoAFinePeriodo,

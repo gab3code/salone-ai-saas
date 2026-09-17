@@ -59,11 +59,20 @@ test.describe("Scenario 17 -- cambio piano e quota per operatore", () => {
       .poll(async () => (await abbonamento!.leggiItem()).map((i) => i.priceId), { timeout: 15_000 })
       .toContain(priceExtraStarter!);
 
-    // Il salone passa a Growth. Nella realtà lo fa il webhook Stripe
-    // (`sincronizzaAbbonamento`), che scrive solo `piano`/`stato_abbonamento`
-    // sul tenant senza toccare i line item: quindi scriverlo qui riproduce
-    // esattamente lo stato in cui il sistema si trova subito dopo un upgrade
-    // reale, con la riga del piano vecchio ancora attaccata.
+    // Il salone passa a Growth DAVVERO: si cambia il price della riga base
+    // sull'abbonamento, che è quello che succede con un upgrade dal Customer
+    // Portal. Scrivere solo `tenants.piano` -- come faceva questo test fino
+    // al 17/09/2026 -- non è un cambio piano ma un disallineamento fra
+    // database e Stripe, e da quando la quota per operatore si sceglie in
+    // base al piano DAVVERO FATTURATO il prodotto si rifiuta (giustamente)
+    // di attaccare una quota Growth a una base Starter.
+    //
+    // Quel disallineamento è anche la ragione per cui questo scenario era
+    // intermittente: il webhook di Stripe, consegnato alla produzione che
+    // scrive sullo stesso database, riportava `piano` a starter quando
+    // faceva in tempo ad arrivare prima del terzo operatore -- e il test
+    // falliva o passava a seconda della latenza di consegna.
+    await abbonamento.cambiaPianoBase("growth");
     await tenant.supabase.from("tenants").update({ piano: "growth" }).eq("id", tenant.id);
 
     // Si aspetta di RILEGGERE growth dal database prima di proseguire.
@@ -76,17 +85,10 @@ test.describe("Scenario 17 -- cambio piano e quota per operatore", () => {
     // diceva growth e il server ha letto altro.
     await expect
       .poll(
-        async () => {
-          const { data } = await tenant.supabase
-            .from("tenants")
-            .select("piano")
-            .eq("id", tenant.id)
-            .single();
-          return data?.piano;
-        },
-        { timeout: 10_000, message: "il cambio piano deve essere visibile sul database" }
+        async () => (await abbonamento!.leggiItem()).map((i) => i.priceId),
+        { timeout: 15_000, message: "la riga base su Stripe deve essere passata a Growth" }
       )
-      .toBe("growth");
+      .toContain(priceIdPerPiano("growth"));
 
     // Prima occasione utile in cui la sincronizzazione rigira: un altro
     // operatore. È anche il caso peggiore -- la quantità cambia E il price
@@ -113,6 +115,6 @@ test.describe("Scenario 17 -- cambio piano e quota per operatore", () => {
             "dopo il passaggio a Growth deve restare SOLO la quota da 15€ (x2), mai quella da 10€",
         }
       )
-      .toEqual([`${priceIdPerPiano("starter")} x1`, `${priceExtraGrowth} x2`].sort());
+      .toEqual([`${priceIdPerPiano("growth")} x1`, `${priceExtraGrowth} x2`].sort());
   });
 });

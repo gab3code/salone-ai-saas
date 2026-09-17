@@ -31,6 +31,15 @@ export interface AbbonamentoDiProva {
   subscriptionId: string;
   /** Rilegge da Stripe i line item attuali: è l'asserzione vera di questi scenari. */
   leggiItem(): Promise<{ priceId: string; quantita: number | undefined }[]>;
+  /**
+   * Cambia il price della riga BASE, come fa un upgrade vero dal Customer
+   * Portal. Serve allo Scenario 17: da quando la quota per operatore si
+   * sceglie in base al piano davvero fatturato (vedi il commento in
+   * `sincronizzaQuantitaOperatoriStripe`), cambiare solo `tenants.piano`
+   * non è più un cambio piano -- è un disallineamento, e il prodotto lo
+   * tratta come tale apposta.
+   */
+  cambiaPianoBase(piano: PianoPagante): Promise<void>;
   pulisci(): Promise<void>;
 }
 
@@ -39,6 +48,7 @@ export async function creaAbbonamentoDiProva(
   nome: string
 ): Promise<AbbonamentoDiProva> {
   const stripe = creaClientStripeTest();
+  const pianoIniziale = piano;
 
   const customer = await stripe.customers.create({
     name: `E2E ${nome}`,
@@ -64,6 +74,16 @@ export async function creaAbbonamentoDiProva(
     }));
   }
 
+  async function cambiaPianoBase(piano: PianoPagante) {
+    const attuale = await stripe.subscriptions.retrieve(subscription.id);
+    const rigaBase = attuale.items.data.find((item) => item.price.id === priceIdPerPiano(pianoIniziale));
+    if (!rigaBase) throw new Error("Riga base non trovata sull'abbonamento di prova");
+    await stripe.subscriptions.update(subscription.id, {
+      items: [{ id: rigaBase.id, price: priceIdPerPiano(piano) }],
+      proration_behavior: "none",
+    });
+  }
+
   async function pulisci() {
     // Best-effort in entrambi i passaggi: un oggetto di test rimasto su
     // Stripe non deve far fallire un test che ha già verificato quello che
@@ -72,5 +92,5 @@ export async function creaAbbonamentoDiProva(
     await stripe.customers.del(customer.id).catch(() => {});
   }
 
-  return { customerId: customer.id, subscriptionId: subscription.id, leggiItem, pulisci };
+  return { customerId: customer.id, subscriptionId: subscription.id, leggiItem, cambiaPianoBase, pulisci };
 }

@@ -1704,6 +1704,122 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       prematuro con zero clienti paganti. Non uno swap delle metriche di prodotto già in
       dashboard (quelle restano come sono, è un'altra cosa).
 
+### Revisione sicurezza -- FATTA 17/09/2026 (codice), migrazione DA APPLICARE
+
+Revisione avversariale della Fase 6 su quattro assi (isolamento fra saloni, soldi, input
+non fidato, segreti). **Nessun dato di un salone finisce a un altro salone**: RLS regge, i 14
+usi del service_role risolvono sempre il tenant dalla sessione o dallo slug, le 20+ tabelle
+hanno tutte RLS, nessuna policy `using (true)`, gli id di `/gestisci` e `/recensisci` sono UUID
+non enumerabili, e i tool dell'AI non possono operare su un tenant diverso da quello della
+conversazione. Quello che è emerso sta un livello sotto, ed era peggio.
+
+**1. I permessi esistevano solo nell'applicazione** (migrazione `0030_permessi_a_livello_database.sql`,
+DA APPLICARE A MANO). RLS isolava i tenant ma non sapeva niente dei ruoli, e le tabelle sono
+raggiungibili direttamente da PostgREST con la anon key -- pubblica per definizione, sta nel
+bundle del browser -- più il JWT dell'utente, che è nei suoi cookie. Due conseguenze verificate
+leggendo policy e grant: (a) `create policy tenant_update on tenants for update using (id =
+auth_tenant_id())` autorizzava l'UPDATE di TUTTE le colonne, quindi una PATCH su
+`/rest/v1/tenants` con `{"piano":"enterprise","piano_manuale":true}` regalava a chiunque il piano
+più caro in modo PERMANENTE (con `piano_manuale` acceso il webhook Stripe smette di correggere:
+il meccanismo della 0028 rivoltato contro di noi), e `{"sospesa":false}` annullava una
+sospensione decisa dal pannello admin; (b) le policy `for all` sulle tabelle di configurazione
+non distinguono owner da staff, quindi un dipendente poteva cancellare servizi e cambiare prezzi
+-- esattamente ciò che `puoConfigurareAttivita` gli nega. La regola stabilita da qui in avanti:
+**un permesso che esiste solo nel codice dell'applicazione non è un permesso.** La migrazione
+aggiunge `auth_ruolo()`/`e_owner()` (stessa definizione di `normalizzaRuolo`, ruolo sconosciuto =
+meno potere), GRANT per colonna su `tenants` con elenco esplicito, e policy separate
+lettura/scrittura sulle tabelle di configurazione.
+
+**2. Chiunque poteva leggere e cancellare le prenotazioni di chiunque, dalla chat pubblica.**
+`cerca_prenotazioni_cliente` accettava un numero di telefono qualsiasi e restituiva nome e
+appuntamenti futuri di quella persona; `modifica_prenotazione` e `cancella_prenotazione`
+accettavano quegli id verificando solo l'appartenenza al tenant. Nessun controllo che chi
+scriveva possedesse quel numero -- l'unica cosa che ci somigliava era una frase nel system
+prompt, che non è un controllo. Bastava conoscere un cellulare per farsi dare nome e agenda di
+una persona e poi svuotarle l'agenda. Chiuso con `ContestoStrumento.telefonoVerificato`:
+**un'identità dichiarata non è un'identità verificata**. Gli strumenti funzionano solo su un
+canale che garantisce il numero di chi scrive (WhatsApp, dove il mittente è il canale stesso);
+nella chat del sito rispondono sempre la stessa cosa -- identica anche per un numero
+inesistente, altrimenti la differenza direbbe a un estraneo chi è cliente di quel salone.
+Costo accettato: nella chat del sito il cliente non sposta più da solo. Non è una perdita
+grave perché il link personale `/gestisci/<id>` gli arriva già nella mail di conferma e nel
+promemoria. Scenari 2 e 10 riscritti: il 2 adesso è la prova che dall'esterno non si tocca
+niente, il 10 cancella dal link personale (che è il percorso vero) e continua a verificare la
+lista d'attesa.
+
+**3. Doppio abbonamento sullo stesso cliente.** `/api/stripe/checkout` non controllava se il
+tenant avesse già un abbonamento vivo, e il webhook si limitava a sovrascrivere
+`stripe_subscription_id`. Bastava tornare su `/dashboard?piano=<altro>` -- cosa che succede da
+sola, il link di conferma email della registrazione riporta lì con il piano nell'URL -- per
+ritrovarsi due abbonamenti attivi, per esempio 19,90 + 89,90 = 109,80 al mese, di cui il
+prodotto ne conosce uno solo: il primo diventa invisibile e non verrebbe cancellato nemmeno
+cancellando l'attività. Adesso il checkout risponde 409 e rimanda al Customer Portal, che
+sostituisce invece di affiancare.
+
+**4. Caparra incassata "a fiducia".** Su `checkout.session.completed` l'appuntamento veniva
+creato senza controllare `payment_status`. Basta accendere dalla Dashboard di Stripe un metodo a
+notifica differita (SEPA, Bancontact, Klarna) -- un click, zero codice -- perché quell'evento
+arrivi con `payment_status: "unpaid"`: appuntamento confermato, slot occupato, e giorni dopo
+l'addebito fallisce senza che nessuno se ne accorga. Cioè esattamente il no-show che la caparra
+dovrebbe impedire, pagato da noi. Adesso si esce senza toccare niente e si aspetta
+`checkout.session.async_payment_succeeded`; `async_payment_failed` ed `expired` chiudono la
+richiesta invece di lasciarla "in attesa" per sempre. **Serve aggiungere quei tre eventi
+all'endpoint webhook su Stripe.**
+
+**5. Eventi Stripe fuori ordine.** `sincronizzaAbbonamento` si fidava dello snapshot dentro
+l'evento. Stripe non garantisce l'ordine e ritenta per giorni: un `updated` vecchio consegnato
+dopo un `deleted` riportava il tenant su un piano a pagamento che nessuno paga più, e nessun
+evento futuro lo avrebbe corretto perché quella subscription è morta. Adesso l'handler rilegge
+la subscription da Stripe: scrive sempre lo stato di ADESSO, quindi è idempotente e insensibile
+all'ordine.
+
+**6. La quota "operatore extra" si sceglieva dal piano del DATABASE.** Se il piano è stato
+cambiato dal pannello senza toccare Stripe (caso previsto, `azioneStripe: "nessuna"`), la
+sincronizzazione attaccava la quota Growth da 15 a un abbonamento che fattura la base Starter da
+19,90: 34,90 al mese, una combinazione che non esiste in nessun listino, invisibile perché la
+funzione è fail-open. Adesso il piano si legge dalla riga base dell'abbonamento. L'invariante
+diventa verificabile a occhio sulla fattura: la riga "operatore extra" appartiene sempre allo
+stesso piano della riga base sopra di lei.
+
+**Lo Scenario 17 era questo, non un bug di prodotto.** L'intermittenza aveva una causa
+completa: sull'account Stripe sandbox esiste un endpoint webhook (`we_1UFP0R...`, verificato)
+che punta alla produzione su Vercel, la quale scrive sull'UNICO progetto Supabase esistente --
+lo stesso che usano i test locali. Ogni `subscriptions.update()` fatto da un test genera un
+`customer.subscription.updated` consegnato alla produzione, che ricava il piano dai price
+dell'abbonamento (base Starter, perché il test non la cambiava mai) e riporta `tenants.piano` a
+starter. Se il webhook arrivava prima del terzo operatore il test falliva, se arrivava dopo
+passava: una gara fra due latenze, da cui il 50%. Il sistema si stava comportando correttamente
+-- Stripe è la fonte di verità -- ed era il test a verificare uno stato incoerente. Riscritto:
+adesso cambia davvero il price base, come un upgrade dal Customer Portal. **Un argomento in più
+per il database di test separato**, già in Fase 6ter: i test locali scrivono nel database di
+produzione e ne fanno partire i webhook.
+
+**Non risolto, dichiarato invece che nascosto:**
+- [ ] **Uno staff può portarsi via la rubrica clienti via PostgREST.** Legge legittimamente i
+      clienti dentro il prodotto, quindi nessuna policy può distinguere "guardarli uno per uno"
+      da "scaricarli tutti": in SQL quella differenza non è esprimibile. Per chiuderla davvero le
+      letture dei clienti devono passare solo da server action con service_role. Lavoro separato,
+      non banale.
+- [ ] **Password CalDAV e refresh token Google leggibili da qualunque membro del tenant.** La
+      0030 chiude la scrittura (solo l'owner collega e scollega) ma non la lettura: sono in
+      chiaro in colonna, e uno staff può leggerle e usarle fuori dal prodotto, anche dopo essere
+      stato rimosso (`rimuoviMembro` non revoca niente). Si lega alla voce già aperta in Fase
+      6bis sul cifraggio a riposo: vanno fatte insieme, e prima del primo cliente vero con un
+      calendario collegato.
+- [ ] **L'invito a un membro viene consumato dal trigger PRIMA che l'email sia confermata.** Se
+      la conferma email fosse disattivata sul progetto Supabase (impostazione fuori dal codice,
+      e `registrati/page.tsx` gestisce esplicitamente anche quel caso), chi indovina l'indirizzo
+      invitato -- tipicamente `info@...` -- entrerebbe nell'attività altrui. Da verificare
+      nell'impostazione e, comunque, da rendere indipendente da essa.
+- [ ] **Ridare al cliente l'autonomia in chat, in modo sicuro.** Uno strumento che, dato un
+      numero, MANDA il link di gestione a quel numero senza rivelare niente in chat: se quel
+      numero ha una prenotazione il link arriva solo al suo proprietario, e la chat risponde la
+      stessa cosa in ogni caso. Restituisce la funzione tolta al punto 2 senza riaprirla.
+      Dipende da SMS (Skebby, quindi P.IVA) o dall'email del cliente quando c'è.
+- [ ] **Sospendere un'attività non tocca Stripe**: continua a pagare il piano pieno pur non
+      potendo più ricevere prenotazioni. Sembra una scelta deliberata (sospensione punitiva),
+      ma va resa consapevole invece che implicita.
+
 ## Fase 6bis -- Sincronizzazione calendari esterni (deciso con Gabriel il 02/09/2026, non nei 33 punti originali)
 Il calendario del database (`appuntamenti`) resta l'unica fonte di verità (punto 9) -- questa
 fase aggiunge una sincronizzazione bidirezionale verso il calendario personale

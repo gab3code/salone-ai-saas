@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   const admin = creaClientAdmin();
   const { data: tenant } = await admin
     .from("tenants")
-    .select("id, nome, stripe_customer_id")
+    .select("id, nome, stripe_customer_id, stripe_subscription_id")
     .eq("id", profilo.tenant_id)
     .single();
   if (!tenant) {
@@ -65,6 +65,38 @@ export async function POST(request: NextRequest) {
   }
 
   const stripe = creaClientStripe();
+
+  // Chi ha già un abbonamento vivo NON passa da qui: cambia piano dal
+  // Customer Portal, che sostituisce l'abbonamento invece di affiancargliene
+  // un secondo.
+  //
+  // Senza questo controllo bastava tornare su /dashboard?piano=<altro> --
+  // cosa che succede da sola: il link di conferma email della registrazione
+  // riporta lì con il piano nell'URL, e `AvviaCheckoutSeNecessario` apre il
+  // checkout appena vede un piano diverso da quello attuale. Il risultato
+  // erano due abbonamenti attivi sullo stesso Customer, per esempio Starter
+  // 19,90 + Pro 89,90 = 109,80 al mese, di cui il tenant ne conosce uno solo:
+  // il primo diventa invisibile al prodotto (gli eventi non trovano più il
+  // tenant) e non verrebbe cancellato nemmeno cancellando l'attività.
+  if (tenant.stripe_subscription_id) {
+    try {
+      const esistente = await stripe.subscriptions.retrieve(tenant.stripe_subscription_id as string);
+      const viva = !["canceled", "incomplete_expired"].includes(esistente.status);
+      if (viva) {
+        return NextResponse.json(
+          {
+            errore:
+              "Hai già un abbonamento attivo. Per cambiare piano usa 'Gestisci abbonamento': così quello attuale viene sostituito, invece di aggiungerne un secondo.",
+          },
+          { status: 409 }
+        );
+      }
+    } catch {
+      // Abbonamento non più leggibile su Stripe (cancellato e ripulito,
+      // account diverso): si prosegue col checkout, che è il comportamento
+      // giusto per un tenant che di fatto non ha più niente.
+    }
+  }
 
   // Un solo Customer Stripe per tenant, riusato tra checkout successivi
   // (upgrade/downgrade) invece di crearne uno nuovo ogni volta -- altrimenti

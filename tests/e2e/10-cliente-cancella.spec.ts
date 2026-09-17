@@ -1,12 +1,21 @@
 import { test, expect } from "@playwright/test";
 import { creaTenantDiProva, type TenantDiProva } from "./helpers/tenant-di-prova";
 import { creaAppuntamentoConfermato } from "./helpers/appuntamento-di-prova";
-import { apriChat, inviaMessaggioChat } from "./helpers/chat";
 import { prossimoGiornoAperto } from "./helpers/date";
 
 /**
- * Scenario 10 (punto 27 di CLAUDE.md): il cliente cancella un appuntamento
- * via chat. `cancellaAppuntamentoTenant` (booking-engine.server.ts, "single
+ * Scenario 10 -- il cliente cancella un appuntamento DAL SUO LINK PERSONALE.
+ *
+ * Fino al 17/09/2026 la cancellazione avveniva in chat, dettando il proprio
+ * numero di telefono. Quella strada è stata chiusa dalla revisione di
+ * sicurezza: nella chat pubblica un numero dettato non prova niente, e
+ * chiunque poteva cancellare gli appuntamenti di chiunque altro (vedi lo
+ * Scenario 2, che adesso è la prova che non si può più). Il percorso vero del
+ * cliente è il link `/gestisci/<id>` che riceve nella mail di conferma e nel
+ * promemoria: un UUID che ha solo lui.
+ *
+ * Cambia da dove parte il gesto, non cosa deve succedere dopo, ed è quel
+ * "dopo" che questo scenario protegge. `cancellaAppuntamentoTenant` (booking-engine.server.ts, "single
  * source of truth" condivisa con la dashboard) non elimina MAI la riga --
  * la marca `stato="cancellato"` -- e prova anche a far scattare la lista
  * d'attesa (`trovaEAvvisaListaAttesa`): se esiste un candidato compatibile
@@ -57,29 +66,18 @@ test.describe("Scenario 10 -- il cliente cancella un appuntamento via chat", () 
       .select("id")
       .single();
 
-    await page.goto(`/s/${tenant.slug}`);
-    await apriChat(page);
-    let ultimaRisposta = await inviaMessaggioChat(
-      page,
-      `Ciao, vorrei cancellare il mio appuntamento. Il mio numero è ${telefono}.`
-    );
+    await page.goto(`/gestisci/${appuntamento.id}`);
+    await page.getByRole("button", { name: "Cancella la prenotazione" }).click();
+    await page.getByRole("button", { name: "Sì, cancella" }).click();
 
     async function statoAttuale() {
       const { data } = await tenant.supabase.from("appuntamenti").select("stato").eq("id", appuntamento.id).single();
       return data?.stato ?? null;
     }
 
-    let stato = await statoAttuale();
-    let tentativi = 0;
-    while (stato !== "cancellato" && tentativi < 2) {
-      ultimaRisposta = await inviaMessaggioChat(page, "Sì, confermo, cancella pure.");
-      stato = await statoAttuale();
-      tentativi++;
-    }
-
-    expect(stato, `L'AI non ha cancellato l'appuntamento entro 3 turni. Ultima risposta: "${ultimaRisposta}"`).toBe(
-      "cancellato"
-    );
+    await expect
+      .poll(statoAttuale, { timeout: 15_000, message: "la cancellazione dal link personale deve passare" })
+      .toBe("cancellato");
 
     // Mai una delete fisica: la riga esiste ancora, solo con stato diverso.
     const { data: rigaAncoraEsistente } = await tenant.supabase

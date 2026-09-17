@@ -1,7 +1,12 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { creaClientStripe } from "./server";
-import { pianoEPagante, priceIdOperatoreExtra, tuttiPriceIdOperatoreExtra } from "./piani";
+import {
+  pianoEPagante,
+  pianoPerPriceId,
+  priceIdOperatoreExtra,
+  tuttiPriceIdOperatoreExtra,
+} from "./piani";
 
 /**
  * Tiene allineato il line item "operatore extra" su Stripe (vedi
@@ -49,7 +54,6 @@ export async function sincronizzaQuantitaOperatoriStripe(
       .eq("id", tenantId)
       .single();
     if (!tenant || !tenant.stripe_subscription_id) return;
-    if (!pianoEPagante(tenant.piano)) return;
 
     const { count } = await supabase
       .from("operatori")
@@ -59,17 +63,47 @@ export async function sincronizzaQuantitaOperatoriStripe(
     const quantitaVoluta = Math.max(0, (count ?? 0) - 1);
 
     const stripe = creaClientStripe();
-    const priceIdVoluto = priceIdOperatoreExtra(tenant.piano);
+    const subscription = await stripe.subscriptions.retrieve(tenant.stripe_subscription_id);
+
+    // Il piano su cui calcolare la quota è quello DAVVERO FATTURATO, letto
+    // dalla riga base dell'abbonamento -- non `tenants.piano`.
+    //
+    // I due possono legittimamente non coincidere, e quando succede è il
+    // database ad avere torto ai fini della fattura: il pannello admin
+    // permette di cambiare piano senza toccare Stripe (`azioneStripe:
+    // "nessuna"`, migrazione 0028), e in quel caso leggere `tenants.piano`
+    // significherebbe attaccare la quota da 15€ di Growth a un abbonamento
+    // che fattura la base Starter da 19,90 -- una combinazione che non esiste
+    // in nessun listino, che nessuno noterebbe (questa funzione è fail-open)
+    // e che il cliente scoprirebbe da una fattura.
+    //
+    // La stessa scelta spegne anche una intermittenza degli E2E: qualunque
+    // sfasamento temporaneo fra database e Stripe (un webhook che deve ancora
+    // arrivare, uno arrivato fuori ordine) smette di poter cambiare il PREZZO
+    // che si applica. L'invariante diventa semplice e verificabile a occhio
+    // sulla fattura: la riga "operatore extra" appartiene sempre allo stesso
+    // piano della riga base che le sta sopra.
+    const pianoFatturato =
+      subscription.items.data
+        .map((item) => pianoPerPriceId(item.price.id))
+        .find((piano) => piano !== null) ?? null;
+
+    // Nessun price base riconosciuto (env non configurato, prezzo creato a
+    // mano su Stripe): si ripiega su quello che dice il database, che è
+    // comunque meglio di non fare niente.
+    const piano = pianoFatturato ?? tenant.piano;
+    if (!pianoEPagante(piano)) return;
+
+    const priceIdVoluto = priceIdOperatoreExtra(piano);
     const priceIdNoti = new Set(tuttiPriceIdOperatoreExtra());
 
     console.info("[stripe] Sincronizzo operatori extra", {
       tenantId,
-      piano: tenant.piano,
+      piano,
+      pianoSulDatabase: tenant.piano,
       quantitaVoluta,
       priceIdVoluto,
     });
-
-    const subscription = await stripe.subscriptions.retrieve(tenant.stripe_subscription_id);
     // Qualunque add-on "operatore extra" già presente, anche di un altro
     // piano: sono quelli da rimuovere o sostituire.
     const addOnPresenti = subscription.items.data.filter((item) => priceIdNoti.has(item.price.id));

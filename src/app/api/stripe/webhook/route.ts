@@ -54,6 +54,26 @@ async function completaPagamentoCaparra(
   // Idempotenza: Stripe può reinviare lo stesso evento più di una volta.
   if (richiesta.stato !== "in_attesa") return;
 
+  // La sessione è "completata" anche quando i soldi NON sono ancora arrivati.
+  // Succede con ogni metodo a notifica differita (addebito SEPA, Bancontact,
+  // Klarna): basta accenderne uno dalla Dashboard di Stripe, zero righe di
+  // codice, e `checkout.session.completed` comincia ad arrivare con
+  // `payment_status: "unpaid"`. Senza questo controllo la caparra sarebbe
+  // presa per buona, l'appuntamento confermato e lo slot occupato -- e
+  // giorni dopo l'addebito fallirebbe senza che nessuno se ne accorga. Cioè
+  // esattamente il no-show che la caparra dovrebbe impedire, pagato da noi.
+  //
+  // Si esce SENZA toccare lo stato: la richiesta resta "in_attesa" e verrà
+  // completata dal `checkout.session.async_payment_succeeded` che Stripe
+  // manda quando l'incasso va a buon fine davvero.
+  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") {
+    console.info("[stripe] Caparra non ancora incassata, appuntamento non creato", {
+      sessione: session.id,
+      stato_pagamento: session.payment_status,
+    });
+    return;
+  }
+
   const paymentIntentId =
     typeof session.payment_intent === "string" ? session.payment_intent : (session.payment_intent?.id ?? null);
 
@@ -158,10 +178,54 @@ export async function POST(request: NextRequest) {
       break;
     }
 
+    // Metodi di pagamento a notifica differita (addebito SEPA, Bancontact,
+    // Klarna): la sessione si chiude subito, i soldi arrivano dopo. Il primo
+    // evento conferma l'incasso vero ed è lì che la prenotazione va creata;
+    // gli altri due chiudono la richiesta invece di lasciarla "in attesa"
+    // per sempre.
+    case "checkout.session.async_payment_succeeded": {
+      await completaPagamentoCaparra(admin, stripe, evento.data.object as Stripe.Checkout.Session);
+      break;
+    }
+
+    case "checkout.session.async_payment_failed":
+    case "checkout.session.expired": {
+      const sessione = evento.data.object as Stripe.Checkout.Session;
+      if (sessione.metadata?.tipo === "caparra") {
+        await admin
+          .from("richieste_caparra")
+          .update({ stato: "annullata" })
+          .eq("stripe_checkout_session_id", sessione.id)
+          .eq("stato", "in_attesa");
+      }
+      break;
+    }
+
     case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
-      await sincronizzaAbbonamento(admin, evento.data.object as Stripe.Subscription);
+      const daEvento = evento.data.object as Stripe.Subscription;
+      // Si RILEGGE la subscription da Stripe invece di fidarsi dello
+      // snapshot dentro l'evento.
+      //
+      // Stripe non garantisce l'ordine di consegna e ritenta per giorni:
+      // un `updated` vecchio rimasto in coda, consegnato dopo un `deleted`,
+      // riporterebbe il tenant su un piano a pagamento che nessuno paga più
+      // -- e nessun evento futuro lo correggerebbe, perché quella
+      // subscription è morta. Rileggendo, l'handler diventa idempotente e
+      // insensibile all'ordine: qualunque evento arrivi, scrive lo stato di
+      // ADESSO. Se la rilettura fallisce si usa lo snapshot, che è comunque
+      // meglio di non aggiornare niente.
+      let aggiornata = daEvento;
+      try {
+        aggiornata = await stripe.subscriptions.retrieve(daEvento.id);
+      } catch (errore) {
+        console.error("[stripe] Rilettura subscription fallita, uso lo snapshot dell'evento", {
+          subscription: daEvento.id,
+          errore: (errore as Error).message,
+        });
+      }
+      await sincronizzaAbbonamento(admin, aggiornata);
       break;
     }
 

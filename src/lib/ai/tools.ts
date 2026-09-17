@@ -50,6 +50,54 @@ export interface ContestoStrumento {
   // crea_prenotazione per i tenant senza caparra attiva).
   slug?: string;
   origin?: string;
+  /**
+   * Numero di telefono di cui il CANALE garantisce il possesso -- non quello
+   * che il visitatore dichiara in chat.
+   *
+   * Su WhatsApp coincide con il mittente del messaggio: è il canale stesso a
+   * provare che quel numero è suo. Nella chat del sito non esiste niente del
+   * genere, quindi resta `undefined`: chiunque può aprire /s/<slug> e
+   * scrivere il numero di un'altra persona.
+   *
+   * Da questa distinzione dipendono tre strumenti (cercare, spostare e
+   * cancellare le prenotazioni di un cliente). Prima del 17/09/2026 non
+   * esisteva: quegli strumenti si fidavano del numero dettato in chat, e un
+   * visitatore anonimo poteva farsi leggere nome e appuntamenti di chiunque
+   * e poi cancellarglieli. La regola adesso è: **un'identità dichiarata non
+   * è un'identità verificata**, e il prodotto tratta le due cose in modo
+   * diverso.
+   */
+  telefonoVerificato?: string | null;
+}
+
+/**
+ * Risposta unica quando uno strumento tocca i dati di un cliente e il canale
+ * non ne prova l'identità. È volutamente identica a prescindere dal fatto
+ * che quel numero esista o no fra i clienti del salone: rispondere "non
+ * trovato" per un numero e "riservato" per un altro direbbe comunque a un
+ * estraneo chi è cliente di quel salone.
+ */
+const RISPOSTA_RISERVATA = {
+  riservato: true,
+  spiegazione:
+    "In questa chat non posso leggere, spostare o cancellare le prenotazioni di un cliente: chiunque potrebbe scrivere il numero di un'altra persona. Di' al cliente che il link per spostare o cancellare è nella mail di conferma e nel promemoria che ha ricevuto, e se non lo trova proponi di passare la conversazione a una persona del salone.",
+} as const;
+
+/** L'appuntamento indicato appartiene davvero al cliente con quel telefono? */
+async function appuntamentoDelTelefono(
+  supabase: SupabaseClient,
+  tenantId: string,
+  appuntamentoId: string,
+  telefono: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("appuntamenti")
+    .select("id, clienti!inner(telefono)")
+    .eq("tenant_id", tenantId)
+    .eq("id", appuntamentoId)
+    .maybeSingle();
+  const cliente = data?.clienti as unknown as { telefono: string | null } | null;
+  return !!cliente && cliente.telefono === telefono;
 }
 
 /**
@@ -152,13 +200,11 @@ export const STRUMENTI_AI = [
   {
     name: "cerca_prenotazioni_cliente",
     description:
-      "Cerca le prenotazioni future di un cliente esistente tramite il suo numero di telefono, per identificarlo o per sapere cosa modificare/cancellare.",
+      "Cerca le prenotazioni future del cliente con cui stai parlando. Funziona SOLO su canali in cui il numero di chi scrive è garantito dal canale stesso (WhatsApp). Nella chat del sito restituisce sempre una risposta riservata, qualunque numero venga dettato: in quel caso non insistere e non riprovare con un altro numero, di\u2019 al cliente che il link per spostare o cancellare è nella mail di conferma e nel promemoria, e offriti di passarlo a una persona del salone.",
     input_schema: {
       type: "object",
-      properties: {
-        telefono: { type: "string", description: "Numero di telefono del cliente." },
-      },
-      required: ["telefono"],
+      properties: {},
+      required: [],
     },
   },
   {
@@ -375,14 +421,17 @@ async function eseguiStrumentoInterno(
     }
 
     case "cerca_prenotazioni_cliente": {
-      const telefono = input.telefono;
-      if (typeof telefono !== "string" || !telefono.trim()) return { errore: "telefono obbligatorio." };
+      // Il numero NON si prende dall'input: si prende dal canale, e solo se
+      // il canale lo garantisce. Quello dettato in chat resta ignorato anche
+      // quando c'è -- altrimenti basterebbe dettarne un altro.
+      const telefono = ctx.telefonoVerificato?.trim();
+      if (!telefono) return RISPOSTA_RISERVATA;
 
       const { data: cliente } = await supabase
         .from("clienti")
         .select("id, nome")
         .eq("tenant_id", tenantId)
-        .eq("telefono", telefono.trim())
+        .eq("telefono", telefono)
         .maybeSingle();
       if (!cliente) return { trovato: false, prenotazioni: [] };
 
@@ -531,6 +580,15 @@ async function eseguiStrumentoInterno(
       const inizioData = parsaOrarioLocale(inizio);
       if (!inizioData) return { errore: "inizio non valido, usa il formato YYYY-MM-DDTHH:MM." };
 
+      // Appartenenza al tenant non basta: senza questo controllo, un id
+      // valido (indovinato o ottenuto altrove) lascerebbe spostare
+      // l'appuntamento di un'altra persona.
+      const telefonoModifica = ctx.telefonoVerificato?.trim();
+      if (!telefonoModifica) return RISPOSTA_RISERVATA;
+      if (!(await appuntamentoDelTelefono(supabase, tenantId, appuntamento_id, telefonoModifica))) {
+        return RISPOSTA_RISERVATA;
+      }
+
       const risultato = await modificaAppuntamentoTenant(supabase, tenantId, appuntamento_id, {
         operatoreId: operatore_id,
         inizio: inizioData,
@@ -547,6 +605,12 @@ async function eseguiStrumentoInterno(
             "appuntamento_id deve essere l'id esatto (uuid) restituito da cerca_prenotazioni_cliente, non una descrizione.",
         };
       }
+      const telefonoCancella = ctx.telefonoVerificato?.trim();
+      if (!telefonoCancella) return RISPOSTA_RISERVATA;
+      if (!(await appuntamentoDelTelefono(supabase, tenantId, appuntamentoId, telefonoCancella))) {
+        return RISPOSTA_RISERVATA;
+      }
+
       const risultato = await cancellaAppuntamentoTenant(supabase, tenantId, appuntamentoId);
       if (!risultato.ok) return { errore: risultato.errore };
       return { cancellato: true };

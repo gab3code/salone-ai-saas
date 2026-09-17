@@ -165,9 +165,54 @@ describe("eseguiStrumento -- validazione input prima di toccare il database", ()
     expect(String(risultato.errore)).toMatch(/elenca_servizi|elenca_operatori/);
   });
 
-  it("cerca_prenotazioni_cliente senza telefono restituisce un errore esplicito", async () => {
-    const risultato = await eseguiStrumento("cerca_prenotazioni_cliente", {}, ctx);
-    expect(risultato.errore).toBeDefined();
+  /**
+   * Il numero dettato in chat non e' un'identita' (17/09/2026, revisione di
+   * sicurezza della Fase 6). Questi tre casi sono la prova che i dati di un
+   * cliente non escono da un canale che non ne garantisce il possesso --
+   * prima bastava scrivere il numero di un'altra persona per farsi leggere i
+   * suoi appuntamenti e poi cancellarglieli.
+   */
+  it("cerca_prenotazioni_cliente non risponde se il canale non garantisce il numero", async () => {
+    const risultato = await eseguiStrumento(
+      "cerca_prenotazioni_cliente",
+      { telefono: "3339998888" },
+      ctx
+    );
+    expect(risultato.riservato).toBe(true);
+    expect(risultato.prenotazioni).toBeUndefined();
+    expect(risultato.cliente_nome).toBeUndefined();
+    // Stessa identica risposta per un numero che non esiste: altrimenti la
+    // differenza fra le due direbbe a un estraneo chi e' cliente del salone.
+    const inesistente = await eseguiStrumento(
+      "cerca_prenotazioni_cliente",
+      { telefono: "3330000000" },
+      ctx
+    );
+    expect(inesistente).toEqual(risultato);
+  });
+
+  it("cancella_prenotazione non cancella niente senza un numero verificato", async () => {
+    const risultato = await eseguiStrumento(
+      "cancella_prenotazione",
+      { appuntamento_id: "11111111-1111-4111-8111-111111111111" },
+      ctx
+    );
+    expect(risultato.riservato).toBe(true);
+    expect(risultato.cancellato).toBeUndefined();
+  });
+
+  it("modifica_prenotazione non sposta niente senza un numero verificato", async () => {
+    const risultato = await eseguiStrumento(
+      "modifica_prenotazione",
+      {
+        appuntamento_id: "11111111-1111-4111-8111-111111111111",
+        operatore_id: "22222222-2222-4222-8222-222222222222",
+        inizio: "2026-09-20T10:00",
+      },
+      ctx
+    );
+    expect(risultato.riservato).toBe(true);
+    expect(risultato.modificato).toBeUndefined();
   });
 
   it("aggiungi_lista_attesa senza cliente_telefono restituisce un errore esplicito", async () => {
