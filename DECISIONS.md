@@ -5008,3 +5008,151 @@ narrowing con `in`.
 **Non incluso in questo giro**: nessun nuovo scenario Playwright dedicato (richiederebbe
 simulare il trigger QStash con un ritardo di 2 ore, non banale in un test E2E) -- da verificare
 a mano da Gabriel dopo il deploy, con le variabili QStash aggiunte anche su Vercel.
+
+## 2026-09-16 — Prezzi: operatori illimitati da Starter, quota per operatore extra 10/15/20, multi-sede solo Enterprise
+
+**Decisione di Gabriel**. Nessun piano limita più il numero di operatori (tranne Free, 1). Il
+prezzo base di ogni piano include il primo operatore; ognuno oltre il primo costa 10 € su
+Starter, 15 € su Growth, 20 € su Pro. Il multi-sede resta esclusiva di Enterprise.
+
+**Alternative considerate**: quota per operatore solo da Pro in su (prima proposta), poi solo da
+Growth. Scartate perché lasciavano su Starter l'asimmetria peggiore: "operatori illimitati" a
+19,90 € a prescindere da quanti sono.
+
+**Motivazione**: su Pro la quota nasce per recuperare il costo SMS reale, che scala con gli
+appuntamenti e quindi con gli operatori. Su Starter e Growth quel costo NON esiste
+(`PIANI_CON_SMS` è solo pro/enterprise): lì non è recupero di costo, è cattura di valore per
+posto di lavoro — lo stesso modello di Booksy, che fa pagare per operatore già dal piano
+d'ingresso. Le cifre sono più basse proprio perché il costo sottostante non c'è.
+
+**Cifre tonde e non 9,99**: scelta esplicita di Gabriel.
+
+## 2026-09-16 — Starter si tiene, contro il consiglio di Claude
+
+**Decisione di Gabriel**, presa dopo che Claude aveva proposto di eliminare Starter perché "non
+ha un'arma contro Fresha, che è gratis".
+
+**Motivazione di Gabriel**: è il piano con il margine più alto in assoluto — spese quasi nulle,
+nessun costo AI, nessun costo SMS — e serve a chi vuole il gestionale senza l'AI a un prezzo
+basso. Eliminarlo avrebbe tolto l'abbonamento più profittevole.
+
+**Claude aveva torto** e lo registra qui: il ragionamento sbagliato era valutare Starter come
+prodotto di acquisizione contro un concorrente gratuito, invece che come prodotto di margine per
+un segmento che l'AI non la vuole.
+
+## 2026-09-16 — Multi-sede: più tenant collegati a un account, non "sedi" dentro un tenant
+
+**Decisione**: una catena con più negozi resta più tenant separati, collegati da un unico
+account che ci passa in mezzo con un selettore (`membri_tenant`, migrazione 0027).
+`profiles.tenant_id` diventa "sede attiva" e resta identico per il database.
+
+**Alternativa considerata**: una tabella `sedi` dentro il tenant.
+
+**Motivazione**: `auth_tenant_id()` è il perno di OGNI policy RLS del progetto. Restando "un
+tenant = un luogo", quella funzione e tutte le policy esistenti non si toccano — zero rischio di
+introdurre una falla di isolamento per aggiungere una funzione di listino. Conseguenza:
+`profiles.tenant_id` passa da `on delete cascade` a `on delete set null` (migrazione 0029),
+altrimenti cancellare una sede cancellerebbe il profilo di un titolare che ne possiede un'altra.
+
+## 2026-09-16 — Pannello admin: niente impersonificazione, niente dati personali dei clienti finali
+
+**Decisione**: `/admin` mostra solo conteggi aggregati. Nessun "entra come questo salone",
+nessun nome, contatto o trascrizione di conversazione dei clienti finali.
+
+**Motivazione**: sui dati dei clienti finali Salone AI è responsabile del trattamento per conto
+del salone, non titolare. Contarli serve davvero (i tetti dei piani e la fatturazione per
+operatore si applicano su quei numeri); leggerli uno per uno no. L'impersonificazione è la
+funzione più comoda di un pannello del genere ed è anche la più pericolosa: un bug lì vale
+l'accesso completo a qualunque attività. Da rivalutare quando il supporto sarà un lavoro vero.
+
+## 2026-09-17 — Il ricavo stimato richiede un abbonamento Stripe vero, non solo lo stato "attivo"
+
+**Decisione**: `ricavoMensileStimatoCentesimi` conta una riga solo se `stato_abbonamento =
+'attivo'` **e** esiste `stripe_subscription_id`. Gli account attivi senza abbonamento si contano
+a parte come "omaggio".
+
+**Motivazione**: con il solo controllo sullo stato, ogni piano assegnato a mano dal pannello
+(account omaggio, demo, Enterprise a preventivo) entrava nel MRR. La stima si gonfiava proprio
+con i clienti che non pagano — il modo peggiore in cui un numero possa sbagliare, perché resta
+credibile.
+
+## 2026-09-17 — Cambio piano dal pannello admin: anteprima obbligatoria, e Stripe si tocca solo scegliendolo
+
+**Decisione**: nel pannello si sceglie esplicitamente fra "solo qui" (database, `piano_manuale`
+acceso) e "aggiorna anche Stripe". Nel secondo caso il pulsante di conferma resta disabilitato
+finché non è stata letta un'anteprima con le cifre **lette da Stripe**, non dal listino in
+`admin.ts`. Se il cambio fa pagare di più, la UI lo dice a chiare lettere. Portare un'attività a
+Free o Enterprise non cancella l'abbonamento: imposta `cancel_at_period_end`.
+
+**Motivazione**: è l'unico punto del prodotto che cambia quanto una persona paga davvero. Un
+aumento va concordato col cliente prima, non applicato da un pannello — il codice non lo
+impedisce (una correzione concordata al telefono è legittima) ma non lo lascia passare in
+silenzio. La chiusura a fine periodo è l'unica forma di cancellazione che si annulla da sola.
+
+**Conseguenza scoperta il 17/09**: nel ramo "chiudi l'abbonamento" i due sistemi NON concordano
+(Stripe fattura il piano vecchio fino a scadenza), quindi `piano_manuale` deve restare acceso —
+altrimenti il primo webhook utile riscrive il piano vecchio e il cambio si annulla da solo.
+
+## 2026-09-17 — I permessi di ruolo scendono nel database (migrazione 0030)
+
+**Decisione**: ogni permesso owner/staff che esiste in `permessi.server.ts` deve esistere anche
+come policy RLS o come GRANT di colonna. Regola stabilita: **un permesso che vive solo nel
+codice dell'applicazione non è un permesso.**
+
+**Motivazione**: le tabelle sono raggiungibili da PostgREST con la anon key (pubblica, sta nel
+bundle del browser) più il JWT dell'utente (nei suoi cookie). Chiunque sappia aprire la console
+del browser parla col database saltando l'applicazione. Prima della 0030: una PATCH su
+`/rest/v1/tenants` con `{"piano":"enterprise","piano_manuale":true}` regalava il piano più caro
+in modo permanente, e uno staff poteva cancellare servizi e cambiare prezzi.
+
+**Limite dichiarato**: uno staff legge legittimamente la rubrica clienti dentro il prodotto,
+quindi nessuna policy può distinguere "guardarli uno per uno" da "scaricarli tutti". In SQL
+quella differenza non è esprimibile: per chiuderla, le letture dei clienti dovranno passare solo
+da server action con service_role.
+
+## 2026-09-17 — Un'identità dichiarata non è un'identità verificata (strumenti AI)
+
+**Decisione**: gli strumenti che toccano i dati di un cliente (`cerca_prenotazioni_cliente`,
+`modifica_prenotazione`, `cancella_prenotazione`) funzionano solo quando il CANALE garantisce il
+numero di chi scrive — su WhatsApp il mittente è il canale stesso. Nella chat del sito
+rispondono sempre la stessa cosa, identica anche per un numero inesistente.
+
+**Motivazione**: prima bastava scrivere in chat il cellulare di un'altra persona per farsi dare
+il suo nome e i suoi appuntamenti, e poi cancellarglieli. La risposta è identica per un numero
+che non esiste perché la differenza fra le due direbbe comunque a un estraneo chi è cliente di
+quel salone.
+
+**Costo accettato**: nella chat del sito il cliente non sposta più da solo. Mitigazione: il link
+personale `/gestisci/<id>` gli arriva già nella mail di conferma e nel promemoria. Restituzione
+prevista: uno strumento che MANDA il link al numero indicato senza rivelare niente in chat.
+
+## 2026-09-17 — La quota per operatore si sceglie dal piano davvero fatturato, non da `tenants.piano`
+
+**Decisione**: `sincronizzaQuantitaOperatoriStripe` ricava il piano dalla riga base
+dell'abbonamento Stripe (`pianoPerPriceId`), usando `tenants.piano` solo come ripiego quando
+nessun price è riconosciuto.
+
+**Motivazione**: database e Stripe possono legittimamente non coincidere (piano cambiato dal
+pannello con "solo qui", webhook in ritardo), e quando succede è il database ad avere torto ai
+fini della fattura. Leggendo il database si attaccava la quota Growth da 15 € a un abbonamento
+che fattura la base Starter da 19,90: 34,90 al mese, una combinazione che non esiste in nessun
+listino. L'invariante adesso è verificabile a occhio sulla fattura: la riga "operatore extra"
+appartiene sempre allo stesso piano della riga base sopra di lei.
+
+## 2026-09-17 — Scenario 17 intermittente: la causa era il webhook di produzione, non il codice
+
+**Diagnosi chiusa**. Sull'account Stripe sandbox esiste un endpoint webhook
+(`we_1UFP0RCTPsGON8WAG2LahFPK`, verificato) che punta a `salone-ai-saas.vercel.app`, e la
+produzione scrive sull'UNICO progetto Supabase esistente — lo stesso che usano i test locali.
+Ogni `subscriptions.update()` fatto da un test genera un `customer.subscription.updated`
+consegnato alla produzione, che ricava il piano dai price dell'abbonamento (base Starter, perché
+il test non la cambiava mai) e riporta `tenants.piano` a starter. Se arrivava prima del terzo
+operatore il test falliva, se arrivava dopo passava: una gara fra due latenze, da cui il ~50%.
+
+**Il sistema si comportava correttamente**: Stripe è la fonte di verità e stava correggendo un
+database in disaccordo. Era il test a verificare uno stato incoerente. Riscritto perché cambi
+davvero il price base, come un upgrade dal Customer Portal.
+
+**Conseguenza**: i test locali scrivono nel database di produzione e ne fanno partire i webhook.
+È un argomento in più — il più concreto finora — per il database di test separato già in Fase
+6ter.
