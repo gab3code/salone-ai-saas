@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { PulsantePortaleAbbonamento } from "./pulsante-portale-abbonamento";
+import { DatiFattura } from "./dati-fattura";
 
 /**
  * Impostazioni (Fase 5): finora esisteva solo la sotto-pagina
@@ -20,7 +21,7 @@ export default async function PaginaImpostazioni() {
 
   const { data: profilo } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
   const { data: tenant } = profilo
-    ? await supabase.from("tenants").select("piano, stato_abbonamento").eq("id", profilo.tenant_id).single()
+    ? await supabase.from("tenants").select("piano, stato_abbonamento, codice_destinatario, pec_fatturazione").eq("id", profilo.tenant_id).single()
     : { data: null };
 
   return (
@@ -43,6 +44,13 @@ export default async function PaginaImpostazioni() {
           </Link>
         )}
       </section>
+
+      {tenant && tenant.piano !== "free" && (
+        <DatiFattura
+          codiceDestinatario={(tenant.codice_destinatario as string | null) ?? null}
+          pecFatturazione={(tenant.pec_fatturazione as string | null) ?? null}
+        />
+      )}
 
       <a href="/dashboard/impostazioni/calendari" className="text-sm underline">
         Calendari personali

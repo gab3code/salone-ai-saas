@@ -5249,3 +5249,25 @@ serve un servizio che parli con lo SdI, pilotato dal webhook del pagamento.
 **Bloccato dalla P.IVA** per la parte di emissione, ma non per la raccolta: i dati si cominciano
 a raccogliere subito, così il giorno in cui la P.IVA c'è non si devono rincorrere i clienti già
 acquisiti per farsi dare il loro codice SdI.
+
+## 2026-09-17 — Codice destinatario e PEC restano OPZIONALI: senza, la fattura si emette lo stesso
+
+**Domanda di Gabriel**: se quei dati servono per forza, rendiamoli obbligatori — a meno che
+qualcuno non voglia la fattura elettronica, e allora possiamo non fargliela.
+
+**Verificato prima di rispondere, ed è la cosa che cambia la decisione**: senza codice
+destinatario la fattura elettronica **si emette comunque**, con "0000000". Lo SdI la deposita
+nell'area riservata del cassetto fiscale del destinatario e la fattura è valida a tutti gli
+effetti; l'emittente deve avvisare il cliente e dargli una copia PDF, e il cliente da lì deduce
+il costo normalmente. Quindi quei due campi sono una comodità per chi riceve, non un requisito
+per chi emette.
+
+**E no, non si può "non fargliela"**: dal 2024 la fattura elettronica via SdI è obbligatoria per
+ogni cessione, forfettari inclusi. Non è una scelta del cliente né nostra — è un obbligo
+dell'emittente. Quello che il cliente può non avere è il canale di consegna preferito.
+
+**Decisione**: restano opzionali al checkout. Bloccare un pagamento perché un parrucchiere non sa
+a memoria il suo codice SdI sarebbe sproporzionato rispetto al danno, che è una scomodità per
+lui. In compenso li si chiede una seconda volta dove costa meno: un riquadro su
+/dashboard/impostazioni, evidenziato finché mancano, visibile solo a chi ha un piano a pagamento.
+E il pannello admin segnala i paganti che non li hanno, così si vedono senza cercarli.
