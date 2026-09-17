@@ -69,6 +69,16 @@ test.describe("Scenario 19 -- permessi del collaboratore", () => {
       /\/dashboard$/
     );
 
+    await page.goto("/dashboard/abbonamento");
+    await expect(page, "scegliere un piano è del titolare, non di un dipendente").toHaveURL(
+      /\/dashboard$/
+    );
+
+    await page.goto("/dashboard/fatturazione");
+    await expect(page, "i dati fiscali dell'attività non li tocca un dipendente").toHaveURL(
+      /\/dashboard$/
+    );
+
     // --- la configurazione si vede, ma in sola lettura ---
     await page.goto("/dashboard/configura");
     await expect(page.getByText("Piega")).toBeVisible({ timeout: 15_000 });

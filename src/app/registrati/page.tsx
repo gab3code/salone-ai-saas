@@ -119,7 +119,10 @@ function FormRegistrazione() {
     // (default Supabase), serve prima cliccare il link ricevuto: ci pensa
     // `emailRedirectTo` sopra a riportare il piano scelto.
     if (data.session) {
-      router.push(pianoValido ? `/dashboard?piano=${pianoValido}` : "/dashboard");
+      // Dritti alla pagina dell'abbonamento, non alla dashboard: chi ha
+      // appena scelto un piano deve trovarsi davanti quello che serve per
+      // attivarlo, non la home con un redirect che scatta dopo.
+      router.push(pianoValido ? `/dashboard/abbonamento?piano=${pianoValido}` : "/dashboard");
       router.refresh();
     } else {
       setInviata(true);

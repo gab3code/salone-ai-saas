@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
-import { PulsantePortaleAbbonamento } from "./pulsante-portale-abbonamento";
 
 /**
  * Impostazioni (Fase 5): finora esisteva solo la sotto-pagina
@@ -35,13 +34,14 @@ export default async function PaginaImpostazioni() {
         <p className="mt-2 text-lg font-semibold capitalize">{tenant?.piano ?? "free"}</p>
         <p className="text-sm text-zinc-500 capitalize">{tenant?.stato_abbonamento ?? "--"}</p>
 
-        {tenant && tenant.piano !== "free" ? (
-          <PulsantePortaleAbbonamento />
-        ) : (
-          <Link href="/#prezzi" className="mt-4 inline-block rounded bg-black px-3 py-2 text-sm font-medium text-white">
-            Passa a un piano a pagamento
-          </Link>
-        )}
+        {/* Mai più un link alla landing per chi è già dentro l'app: la
+            scelta del piano vive in /dashboard/abbonamento. */}
+        <Link
+          href="/dashboard/abbonamento"
+          className="mt-4 inline-block rounded bg-black px-3 py-2 text-sm font-medium text-white"
+        >
+          {tenant && tenant.piano !== "free" ? "Gestisci abbonamento" : "Passa a un piano a pagamento"}
+        </Link>
       </section>
 
       <a href="/dashboard/fatturazione" className="text-sm underline">

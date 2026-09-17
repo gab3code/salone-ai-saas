@@ -9,7 +9,6 @@ import { caricaMetriche } from "@/lib/metriche.server";
 import { urlBaseSito } from "@/lib/email/notifiche.server";
 import { generaQrCodeDataUrl } from "@/lib/qrcode.server";
 import { esci } from "./azioni";
-import { AvviaCheckoutSeNecessario } from "./avvia-checkout-se-necessario";
 import { CondividiLink } from "./CondividiLink";
 import { SelettoreSede } from "./SelettoreSede";
 import { InvitiRicevuti } from "./InvitiRicevuti";
@@ -25,7 +24,16 @@ export default async function PaginaDashboard({
 }: {
   searchParams: Promise<{ piano?: string; checkout?: string }>;
 }) {
-  const { checkout } = await searchParams;
+  const { checkout, piano: pianoRichiesto } = await searchParams;
+
+  // Vecchi link e email di conferma già spedite possono ancora portare qui
+  // con `?piano=`. Si reindirizza LATO SERVER, prima che la pagina venga
+  // disegnata: il lampo di dashboard che si vedeva prima del pagamento
+  // nasceva proprio dal contrario -- la decisione la prendeva un componente
+  // client, cioè il browser, a pagina già a schermo.
+  if (pianoRichiesto) {
+    redirect(`/dashboard/abbonamento?piano=${encodeURIComponent(pianoRichiesto)}`);
+  }
   const supabase = await creaClientServer();
 
   const {
@@ -97,7 +105,6 @@ export default async function PaginaDashboard({
 
       {tenant && vedeNumeri && (
         <Suspense fallback={null}>
-          <AvviaCheckoutSeNecessario pianoAttuale={tenant.piano} />
         </Suspense>
       )}
 

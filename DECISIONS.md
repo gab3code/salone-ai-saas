@@ -5402,3 +5402,35 @@ segnale nel pannello admin. Si segnala, non si impedisce.
 
 **Serve aggiungere `customer.tax_id.updated` all'endpoint webhook** (e `customer.tax_id.created`,
 che arriva insieme): senza, l'esito non arriva mai e la colonna resta vuota.
+
+## 2026-09-17 — Una pagina sola per l'abbonamento, e il rimbalzo si sposta sul server
+
+**Due difetti segnalati da Gabriel usando il prodotto**, non leggendolo -- ed erano entrambi
+reali.
+
+**Primo**: attivare un piano passava da quattro schermate. Registrazione, un lampo di dashboard,
+la pagina dei dati fattura, di nuovo un lampo di dashboard, e finalmente Stripe. Costruito a
+pezzi in momenti diversi, mai guardato nell'insieme.
+
+**Secondo**: dalle impostazioni, "passa a un piano a pagamento" portava alla sezione prezzi della
+**landing**. Cioè spediva sul sito vetrina qualcuno che era già dentro l'applicazione e già
+riconosciuto. Era un ripiego di quando dentro l'app non esisteva nessun posto dove scegliere un
+piano.
+
+**Il lampo di dashboard non era estetica.** `AvviaCheckoutSeNecessario` era un componente
+CLIENT montato sulla dashboard: la pagina doveva essere disegnata, poi partiva il JavaScript, poi
+la chiamata, poi il redirect. Il lampo era strutturale, non un caso. Adesso il rimbalzo avviene
+con un `redirect()` sul server, prima che venga disegnato qualsiasi cosa, e il componente client
+è stato cancellato.
+
+**Decisione**: una pagina sola, `/dashboard/abbonamento`, che fa da listino e da modulo di
+attivazione. Senza parametri mostra i tre piani con prezzo e prova, il piano attuale e il portale
+Stripe per chi già paga. Con `?piano=` mostra solo quello che serve per attivarlo: cosa stai
+attivando, quanto costa, i dati per la fattura, e un bottone che porta a Stripe. La registrazione
+con un piano scelto punta direttamente qui -- sia il redirect immediato sia quello della conferma
+email -- e le impostazioni linkano qui invece che alla landing.
+
+**Scelta di Gabriel sul modulo di registrazione**: resta com'è (salone, nome, email, password). I
+dati fiscali si chiedono subito dopo, quando l'account esiste. Metterli dentro la registrazione
+sembrava un passaggio in meno ma non lo è: in quel momento non c'è nessun posto dove salvarli, e
+con la conferma email attiva si perderebbero fra il "crea account" e il click sul link.

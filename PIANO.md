@@ -2042,6 +2042,17 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       89,90 € scatta ogni mese; conservazione a norma per 10 anni, non basta tenere i file.
       Vedi DECISIONS.md per il perché dei campi al checkout invece che alla registrazione.
 
+### Attivazione del piano: una pagina sola -- FATTO 17/09/2026
+
+- [x] **`/dashboard/abbonamento`**: listino, scelta del piano, dati fattura e pagamento in un
+      posto solo. Sostituisce quattro schermate (registrazione, lampo di dashboard, dati fattura,
+      lampo di dashboard, Stripe) e il link alla landing che dalle impostazioni spediva fuori
+      dall'app chi era già dentro. Il rimbalzo verso il pagamento è passato da un componente
+      client montato sulla dashboard -- che produceva il lampo perché decideva a pagina già
+      disegnata -- a un `redirect()` sul server. Coperto da due test nello Scenario 14 (il
+      redirect avviene sul server; dalle impostazioni non si finisce sulla landing) e due nello
+      Scenario 19 (uno staff non entra né in abbonamento né in fatturazione).
+
 ### Dati di fatturazione raccolti prima del pagamento -- FATTO 17/09/2026
 
 - [x] **Modulo nostro, prima di Stripe** (`/dashboard/fatturazione`, migrazione `0033`, applicata).

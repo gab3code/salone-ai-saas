@@ -136,4 +136,42 @@ test.describe("Scenario 14 -- upgrade del piano", () => {
       .single();
     expect(dopo?.stripe_customer_id).toBeNull();
   });
+
+  /**
+   * Il giro di attivazione, rifatto il 17/09/2026 perché quello vecchio
+   * passava da quattro schermate e faceva lampeggiare la dashboard prima del
+   * pagamento. Il lampo non era estetica: la decisione di andare a pagare la
+   * prendeva un componente client, cioè il browser, a pagina già disegnata.
+   * Adesso il rimbalzo avviene sul server, prima che venga disegnato
+   * qualsiasi cosa -- e questo test è quello che se ne accorgerebbe se
+   * qualcuno rimettesse la logica lato client.
+   */
+  test("chi arriva con un piano scelto finisce sulla pagina di attivazione, non sulla dashboard", async ({
+    page,
+  }) => {
+    tenant = await creaTenantDiProva({ nome: "Salone Test E2E Scenario14d", piano: "free" });
+    await accediComeTitolare(page, tenant.email, tenant.password);
+
+    await page.goto("/dashboard?piano=growth");
+    await expect(page, "il redirect deve avvenire sul server").toHaveURL(
+      /\/dashboard\/abbonamento\?piano=growth/
+    );
+    await expect(page.getByText("Stai attivando")).toBeVisible({ timeout: 15_000 });
+    // I dati della fattura si chiedono qui, sulla stessa schermata: non c'è
+    // nessun altro passaggio fra la scelta del piano e il pagamento.
+    await expect(page.getByLabel("Partita IVA")).toBeVisible();
+  });
+
+  test("dalle impostazioni non si finisce più sulla landing", async ({ page }) => {
+    // Era un ripiego di quando dentro l'app non esisteva un posto dove
+    // scegliere un piano: chi era già dentro e già riconosciuto veniva
+    // spedito sul sito vetrina.
+    tenant = await creaTenantDiProva({ nome: "Salone Test E2E Scenario14e", piano: "free" });
+    await accediComeTitolare(page, tenant.email, tenant.password);
+
+    await page.goto("/dashboard/impostazioni");
+    await page.getByRole("link", { name: "Passa a un piano a pagamento" }).click();
+    await expect(page).toHaveURL(/\/dashboard\/abbonamento/);
+    await expect(page.getByRole("heading", { name: "Abbonamento" })).toBeVisible();
+  });
 });

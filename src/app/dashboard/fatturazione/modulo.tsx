@@ -21,9 +21,12 @@ import type { DatiFatturazione, ErroriFatturazione } from "@/lib/fatturazione";
 export function ModuloFatturazione({
   iniziali,
   piano,
+  etichettaBottone,
 }: {
   iniziali: DatiFatturazione;
+  /** Quando c'è, dopo il salvataggio si va dritti al pagamento di quel piano. */
   piano: string | null;
+  etichettaBottone?: string;
 }) {
   const [dati, setDati] = useState<DatiFatturazione>(iniziali);
   const [errori, setErrori] = useState<ErroriFatturazione>({});
@@ -56,11 +59,29 @@ export function ModuloFatturazione({
         return;
       }
       setSalvato(true);
-      // Se si era arrivati qui per pagare, si riparte da dove ci si era
-      // fermati invece di lasciare l'utente su un modulo salvato senza sapere
-      // cosa fare.
-      if (piano) router.push(`/dashboard?piano=${encodeURIComponent(piano)}`);
-      else router.refresh();
+
+      if (!piano) {
+        router.refresh();
+        return;
+      }
+
+      // Si era qui per pagare: si va a Stripe subito, senza rimbalzare per
+      // la dashboard. Il rimbalzo era il motivo per cui si vedeva lampeggiare
+      // la home prima del pagamento -- la decisione veniva presa dal browser
+      // a pagina già disegnata.
+      const risposta = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ piano }),
+      });
+      const corpo = await risposta.json();
+      if (risposta.ok && corpo.url) {
+        window.location.href = corpo.url;
+        return;
+      }
+      setErroreGenerale(
+        corpo.errore ?? "Dati salvati, ma il pagamento non è partito. Riprova fra un momento."
+      );
     });
   }
 
@@ -144,7 +165,11 @@ export function ModuloFatturazione({
         disabled={inCorso}
         className="self-start rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
-        {inCorso ? "Salvo..." : piano ? "Salva e vai al pagamento" : "Salva"}
+        {inCorso
+          ? piano
+            ? "Un momento..."
+            : "Salvo..."
+          : (etichettaBottone ?? (piano ? "Salva e vai al pagamento" : "Salva"))}
       </button>
     </form>
   );
