@@ -1994,6 +1994,28 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       cliente vero non lo è più: un run interrotto ha già lasciato sei tenant orfani il
       16/09/2026. Serve un secondo progetto Supabase per i test, con le stesse migrazioni.
 
+### Stripe Connect per le caparre -- BLOCCANTE prima del primo cliente pagante (17/09/2026)
+
+- [ ] **Le caparre devono nascere sull'account del salone, non sul nostro.** Oggi la sessione di
+      checkout della caparra è creata sull'account della piattaforma senza Connect: l'anticipo
+      del cliente finale finisce sul saldo di Salone AI e non esiste modo di girarlo al salone.
+      Decisione di Gabriel del 17/09: **direct charges** su account collegati, i soldi non devono
+      passare dal nostro conto nemmeno per un istante (vedi DECISIONS.md per il perché delle tre
+      modalità Connect se ne sia scelta una sola). Cambia solo la caparra: l'abbonamento che il
+      salone paga a noi resta dov'è.
+      Lavoro previsto: scelta fra account Express e Standard (decisione aperta), colonna
+      `tenants.stripe_account_id`, passaggio di onboarding per collegare il conto, header
+      `Stripe-Account` sulla creazione della sessione e sui rimborsi, gate della caparra su "conto
+      collegato", webhook Connect, aggiornamento di termini e informativa perché il ruolo cambia
+      (non siamo più noi a incassare).
+- [ ] **Script di verifica dei prezzi Stripe prima del passaggio in live.** I sei price ID vivono
+      in variabili d'ambiente. Sbagliare quello di un piano base fa esplodere il checkout e te ne
+      accorgi subito; sbagliare quello di una quota operatore fa restituire `null` a
+      `priceIdOperatoreExtra` e la sincronizzazione **non fa niente in silenzio** -- i saloni con
+      più operatori pagherebbero solo la base, e lo scopriresti dai ricavi che non tornano. Uno
+      script che verifica che tutti e sei i prezzi esistano su Stripe e costino la cifra attesa,
+      da lanciare come primo comando dopo aver messo le chiavi live.
+
 ## Fase 7 -- Parità/superiorità estetica con Estetia, responsive completo (punti 25, 26, 27, 28)
 Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davvero "fatto" e non
 "abbastanza carino":

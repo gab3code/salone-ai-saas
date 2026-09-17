@@ -124,6 +124,22 @@ export async function avviaPagamentoCaparraTenant(
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
+    // Solo carte, esplicitamente (17/09/2026). Senza questa riga la sessione
+    // eredita TUTTI i metodi accesi sull'account -- verificato dal vivo:
+    // Klarna, Bancontact, Satispay, Amazon Pay, Link, Blik, EPS, Pix, MB WAY.
+    // Due motivi per restringere.
+    //
+    // Il primo è di sostanza: alcuni di quei metodi notificano l'incasso in
+    // differita, cioè `checkout.session.completed` arriva con
+    // `payment_status: "unpaid"`. Gestirlo si può (e ora si gestisce), ma su
+    // una caparra di dieci o venti euro non c'è nessun motivo di accettare
+    // quella complessità: eliminarla in radice costa una riga.
+    //
+    // Il secondo è di buon senso: offrire il pagamento a rate su un anticipo
+    // da 10 euro per una piega fa sembrare il prodotto assemblato senza
+    // guardarlo. Apple Pay e Google Pay continuano a funzionare: viaggiano
+    // sopra il circuito delle carte.
+    payment_method_types: ["card"],
     line_items: [
       {
         price_data: {

@@ -5156,3 +5156,46 @@ davvero il price base, come un upgrade dal Customer Portal.
 **Conseguenza**: i test locali scrivono nel database di produzione e ne fanno partire i webhook.
 È un argomento in più — il più concreto finora — per il database di test separato già in Fase
 6ter.
+
+## 2026-09-17 — Le caparre passano da Stripe Connect: i soldi dei clienti dei saloni non toccano il nostro conto
+
+**Decisione di Gabriel**, presa nel momento in cui è emerso il problema: «assolutamente da fare
+Stripe Connect, quei soldi non devono neanche passare da me, neanche vicino».
+
+**Il problema trovato** (17/09/2026, mentre si preparava il passaggio all'account live): la
+sessione di checkout della caparra viene creata sull'account Stripe della piattaforma, senza
+Connect, senza `transfer_data`, senza account collegato. Quindi l'anticipo che il cliente finale
+di un salone paga finisce sul saldo di Salone AI, e non esiste nessun meccanismo per girarlo al
+salone. In test-mode è invisibile; in live sarebbero tre problemi insieme: il salone non incassa
+quello che gli spetta, la piattaforma raccoglie denaro per conto di terzi (attività regolamentata,
+non una cosa in cui si finisce per distrazione), e quelle somme transitano come incassi propri —
+dannoso con un regime forfettario e un tetto di ricavi.
+
+**Decisione tecnica**: **direct charges** su account collegati, non destination charges e non
+separate charges & transfers. Con le direct charges l'addebito nasce sull'account del salone
+(header `Stripe-Account`), il salone è il venditore, e il denaro non entra mai nel saldo della
+piattaforma nemmeno per un istante. Le altre due modalità farebbero passare i fondi da noi, che è
+esattamente ciò che questa decisione esclude.
+
+**Perimetro**: cambia SOLO la caparra. L'abbonamento che il salone paga a Salone AI resta
+sull'account della piattaforma, dov'è giusto che stia.
+
+**Conseguenze da mettere in conto**: l'onboarding acquista un passaggio (il salone collega un
+conto prima di poter chiedere caparre); la caparra diventa una funzione disponibile solo a chi
+l'ha collegato; rimborsi e contestazioni diventano del salone, non nostri; termini di servizio e
+informativa vanno aggiornati perché il ruolo cambia — non siamo più noi a incassare.
+
+**Quando**: prima del primo cliente pagante reale, e comunque prima di aprire Stripe in modalità
+live. Farlo adesso, con zero caparre reali incassate, è incomparabilmente più semplice che dopo.
+
+## 2026-09-17 — La caparra accetta solo carte
+
+**Decisione**: `payment_method_types: ["card"]` sulla sessione di checkout della caparra.
+
+**Motivazione**: senza quella riga la sessione eredita tutti i metodi accesi sull'account —
+verificato dal vivo: Klarna, Bancontact, Satispay, Amazon Pay, Link, Blik, EPS, Pix, MB WAY.
+Alcuni notificano l'incasso in differita (`payment_status: "unpaid"` a sessione completata):
+gestirlo si può ed è stato fatto, ma su un anticipo da dieci euro non c'è motivo di accettare
+quella complessità quando eliminarla costa una riga. In più, offrire il pagamento a rate su una
+caparra da 10 € per una piega fa sembrare il prodotto assemblato senza guardarlo. Apple Pay e
+Google Pay continuano a funzionare: viaggiano sopra il circuito delle carte.
