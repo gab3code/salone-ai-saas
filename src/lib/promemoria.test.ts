@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   appuntamentiDaAvvisarePerRegola,
   clientiDaAvvisarePerInattivita,
+  comporreMessaggioFollowUp,
+  finestraRipetizioneGiorni,
+  giorniInattivitaValidi,
   type AppuntamentoPerPromemoria,
   type ClientePerPromemoriaInattivita,
   type RegolaPromemoria,
@@ -187,5 +190,80 @@ describe("clientiDaAvvisarePerInattivita", () => {
       ADESSO
     );
     expect(risultato.map((r) => r.id)).toEqual(["cliente-1"]);
+  });
+});
+
+/**
+ * Follow-up configurabile (17/09/2026, migrazione 0040). Le tre cose che
+ * possono andare storte in modo invisibile: una soglia sporca che fa saltare
+ * il job notturno, una finestra di ripetizione che scende sotto i due mesi e
+ * trasforma la fidelizzazione in spam, e un messaggio con `{nome}` su un
+ * cliente che il nome non ce l'ha.
+ */
+describe("soglia di inattività configurabile", () => {
+  it("un valore fuori dai paletti o sporco ricade sul predefinito invece di rompere il cron", () => {
+    expect(giorniInattivitaValidi(90)).toBe(90);
+    expect(giorniInattivitaValidi(14)).toBe(14);
+    expect(giorniInattivitaValidi(365)).toBe(365);
+    expect(giorniInattivitaValidi(13)).toBe(60);
+    expect(giorniInattivitaValidi(366)).toBe(60);
+    expect(giorniInattivitaValidi(60.5)).toBe(60);
+    expect(giorniInattivitaValidi(null)).toBe(60);
+    expect(giorniInattivitaValidi(undefined)).toBe(60);
+  });
+
+  it("la finestra di ripetizione non scende MAI sotto i 60 giorni", () => {
+    // Il titolare decide quando un cliente è "sparito", non quanto spesso
+    // gli si può riscrivere: senza questo pavimento, una soglia di 14 giorni
+    // significherebbe ventisei messaggi l'anno alla stessa persona.
+    expect(finestraRipetizioneGiorni(14)).toBe(60);
+    expect(finestraRipetizioneGiorni(59)).toBe(60);
+    expect(finestraRipetizioneGiorni(60)).toBe(60);
+    // Sopra i 60, invece, segue la soglia: chi considera "sparito" un
+    // cliente dopo 180 giorni non vuole riscrivergli dopo due mesi.
+    expect(finestraRipetizioneGiorni(180)).toBe(180);
+  });
+
+  it("usa la finestra giusta per decidere chi è già stato avvisato di recente", () => {
+    const adesso = new Date("2026-09-17T08:00:00Z");
+    const avvisato40GiorniFa = new Date("2026-08-08T08:00:00Z");
+    const cliente = {
+      id: "c1",
+      email: "c@esempio.it",
+      telefono: null,
+      tenantPiano: "growth",
+      promemoriaInattivitaInviatoAt: avvisato40GiorniFa,
+    };
+    const inattivi = new Set(["c1"]);
+
+    // Soglia bassa (20 giorni): la finestra resta 60, quindi 40 giorni fa
+    // è ancora troppo recente per riscrivere.
+    expect(clientiDaAvvisarePerInattivita([cliente], inattivi, adesso, 20)).toHaveLength(0);
+    // Mai avvisato: parte comunque.
+    expect(
+      clientiDaAvvisarePerInattivita(
+        [{ ...cliente, promemoriaInattivitaInviatoAt: null }],
+        inattivi,
+        adesso,
+        20
+      )
+    ).toHaveLength(1);
+  });
+});
+
+describe("comporreMessaggioFollowUp", () => {
+  it("sostituisce {nome} e usa il testo predefinito quando non ce n'è uno", () => {
+    expect(comporreMessaggioFollowUp(null, "Giulia")).toContain("Ciao Giulia");
+    expect(comporreMessaggioFollowUp("  ", "Giulia")).toContain("Ciao Giulia");
+    expect(comporreMessaggioFollowUp("Ehi {nome}, torna a trovarci!", "Marco")).toBe(
+      "Ehi Marco, torna a trovarci!"
+    );
+  });
+
+  it("su un cliente senza nome non lascia 'Ciao ,' con lo spazio prima della virgola", () => {
+    expect(comporreMessaggioFollowUp(null, null)).toBe(
+      "Ciao, è passato un po' dal tuo ultimo appuntamento — ti aspettiamo!"
+    );
+    expect(comporreMessaggioFollowUp("Ciao {nome}!", "   ")).toBe("Ciao!");
   });
 });

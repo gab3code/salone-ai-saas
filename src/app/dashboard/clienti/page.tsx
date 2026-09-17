@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { elencaClientiInattivi } from "@/lib/metriche";
+import { giorniInattivitaValidi } from "@/lib/promemoria";
 import { originePerCliente } from "@/lib/origine-cliente";
 
 /**
@@ -46,10 +47,21 @@ export default async function PaginaClienti({
 
   const { data: clientiGrezzi, error } = await query;
 
+  // Soglia "cliente sparito" scelta dal salone (migrazione 0040): la stessa
+  // che usano la card della dashboard e il follow-up automatico. Se questa
+  // pagina restasse a 60 fisso, il filtro mostrerebbe un insieme diverso da
+  // quello a cui partono davvero le email.
+  const { data: tenantSoglia } = await supabase
+    .from("tenants")
+    .select("follow_up_inattivi_giorni")
+    .eq("id", tenantId)
+    .maybeSingle();
+  const giorniInattivita = giorniInattivitaValidi(tenantSoglia?.follow_up_inattivi_giorni);
+
   // Una query sola per: (a) il conteggio appuntamenti per cliente mostrato
-  // in tabella, (b) l'elenco di chi è "inattivo da 60 giorni" se richiesto
-  // dal filtro, (c) l'origine di ogni cliente (vedi origine-cliente.ts) --
-  // non tre giri separati sulla stessa tabella.
+  // in tabella, (b) l'elenco di chi è inattivo se richiesto dal filtro,
+  // (c) l'origine di ogni cliente (vedi origine-cliente.ts) -- non tre giri
+  // separati sulla stessa tabella.
   const { data: righeAppuntamenti } = await supabase
     .from("appuntamenti")
     .select("cliente_id, inizio, stato, creato_da, created_at")
@@ -82,7 +94,7 @@ export default async function PaginaClienti({
         servizioId: null,
       })),
       new Date(),
-      60
+      giorniInattivita
     );
     clienti = clienti.filter((c) => inattivi.has(c.id));
   }
@@ -100,7 +112,7 @@ export default async function PaginaClienti({
 
       {filtro === "inattivi" && (
         <p className="mt-3 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Filtro attivo: clienti che hanno prenotato in passato ma non negli ultimi 60 giorni. {" "}
+          Filtro attivo: clienti che hanno prenotato in passato ma non negli ultimi {giorniInattivita} giorni.{" "}
           <Link href="/dashboard/clienti" className="underline">
             Mostra tutti
           </Link>

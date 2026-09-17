@@ -233,7 +233,7 @@ export default async function PaginaDashboard({
                     {metriche.clientiInattiviDa60Giorni === 1
                       ? "cliente non prenota"
                       : "clienti non prenotano"}{" "}
-                    da oltre 60 giorni.
+                    da oltre {metriche.giorniInattivitaUsati} giorni.
                   </span>
                   <Link
                     href="/dashboard/clienti?filtro=inattivi"

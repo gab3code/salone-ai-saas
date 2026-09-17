@@ -26,7 +26,7 @@ export async function caricaMetriche(supabase: SupabaseClient, tenantId: string)
   const adesso = realeAPseudoUtc(new Date(), fusoOrario);
   const giornoSettimanaOggi = adesso.getUTCDay();
 
-  const [orarioRes, appuntamentiRes, servizioRes, clientiRes] = await Promise.all([
+  const [orarioRes, appuntamentiRes, servizioRes, clientiRes, tenantRes] = await Promise.all([
     supabase
       .from("orari_apertura")
       .select("chiuso, apertura, chiusura, pausa_inizio, pausa_fine")
@@ -39,6 +39,10 @@ export async function caricaMetriche(supabase: SupabaseClient, tenantId: string)
       .eq("tenant_id", tenantId),
     supabase.from("servizi").select("id, prezzo_centesimi").eq("tenant_id", tenantId),
     supabase.from("clienti").select("id, created_at").eq("tenant_id", tenantId),
+    // Soglia "cliente sparito" scelta dal salone (migrazione 0040): la
+    // stessa che guida il follow-up automatico, così la card della dashboard
+    // e le email raccontano lo stesso insieme di persone.
+    supabase.from("tenants").select("follow_up_inattivi_giorni").eq("id", tenantId).maybeSingle(),
   ]);
 
   for (const [nome, res] of Object.entries({
@@ -67,6 +71,7 @@ export async function caricaMetriche(supabase: SupabaseClient, tenantId: string)
       id: c.id,
       createdAt: realeAPseudoUtc(new Date(c.created_at), fusoOrario),
     })),
+    giorniInattivita: tenantRes.data?.follow_up_inattivi_giorni ?? undefined,
     prezzoCentesimiPerServizio,
     orarioOggi: orarioRes.data
       ? {

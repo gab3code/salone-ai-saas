@@ -5,7 +5,9 @@ import { PIANI_CON_PROMEMORIA } from "@/lib/piani";
 import {
   appuntamentiDaAvvisarePerRegola,
   clientiDaAvvisarePerInattivita,
-  GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA,
+  comporreMessaggioFollowUp,
+  finestraRipetizioneGiorni,
+  giorniInattivitaValidi,
   LARGHEZZA_FINESTRA_ORE,
   type AppuntamentoPerPromemoria,
   type ClientePerPromemoriaInattivita,
@@ -29,6 +31,10 @@ interface TenantConPromemoria {
    * riga già letta per gli altri due promemoria. */
   compleanno_attivo: boolean;
   compleanno_messaggio: string | null;
+  /** Follow-up "ci manchi" (migrazione 0040, 17/09/2026). */
+  follow_up_inattivi_attivo: boolean;
+  follow_up_inattivi_giorni: number;
+  follow_up_inattivi_messaggio: string | null;
 }
 
 export interface EsitoPromemoriaGiornalieri {
@@ -196,12 +202,19 @@ async function avvisaAppuntamentiImminenti(admin: ClientAdmin, tenant: TenantCon
 
 /**
  * Follow-up "ci manchi" ai clienti inattivi (l'altra metà di "Promemoria
- * automatici", invariato -- non fa parte di questa richiesta di
- * configurabilità). Riusa `elencaClientiInattivi` (src/lib/metriche.ts) --
+ * automatici"). Riusa `elencaClientiInattivi` (src/lib/metriche.ts) --
  * stessa identica regola già mostrata in dashboard, non ricalcolata qui --
  * poi la funzione pura decide chi non è già stato avvisato di recente.
+ *
+ * 17/09/2026: interruttore, soglia e testo arrivano dal salone (migrazione
+ * 0040). Il controllo dell'interruttore sta in cima e prima di qualunque
+ * query: un salone che l'ha spento non deve nemmeno farci leggere la sua
+ * rubrica ogni notte.
  */
 async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromemoria, adesso: Date): Promise<number> {
+  if (!tenant.follow_up_inattivi_attivo) return 0;
+  const giorniInattivita = giorniInattivitaValidi(tenant.follow_up_inattivi_giorni);
+
   const [{ data: clientiGrezzi }, { data: righeAppuntamenti }] = await Promise.all([
     admin
       .from("clienti")
@@ -227,7 +240,7 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
       servizioId: null,
     })),
     adesso,
-    60
+    giorniInattivita
   );
 
   interface ClienteEsteso extends ClientePerPromemoriaInattivita {
@@ -247,7 +260,7 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
     });
   }
 
-  const daAvvisare = clientiDaAvvisarePerInattivita([...perId.values()], inattivi, adesso);
+  const daAvvisare = clientiDaAvvisarePerInattivita([...perId.values()], inattivi, adesso, giorniInattivita);
   if (daAvvisare.length === 0) return 0;
 
   const base = await urlBaseSito();
@@ -255,10 +268,11 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
     ? `<p><a href="${base}/s/${tenant.slug}">Prenota il tuo prossimo appuntamento</a></p>`
     : "";
 
-  // Stessa soglia usata dalla funzione pura (GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA) per
-  // vincolare l'update qui sotto -- unica fonte del numero di giorni, solo ricalcolata come data.
+  // Stessa finestra usata dalla funzione pura (`finestraRipetizioneGiorni`)
+  // per vincolare l'update qui sotto -- unica fonte del numero di giorni,
+  // solo ricalcolata come data.
   const sogliaRipetizioneIso = new Date(
-    adesso.getTime() - GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA * 24 * 60 * 60 * 1000
+    adesso.getTime() - finestraRipetizioneGiorni(giorniInattivita) * 24 * 60 * 60 * 1000
   ).toISOString();
 
   let inviati = 0;
@@ -285,6 +299,12 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
     // MAI entrambi, SMS solo se il piano lo include (già garantito da
     // clientiDaAvvisarePerInattivita, ricontrollato comunque da
     // inviaSmsSeInclusoNelPiano).
+    // Testo del salone, o quello predefinito. Uno solo per entrambi i
+    // canali: un cliente che riceve l'SMS e uno che riceve l'email devono
+    // leggere la stessa cosa, e chi scrive il messaggio non deve doverlo
+    // scrivere due volte.
+    const testo = comporreMessaggioFollowUp(tenant.follow_up_inattivi_messaggio, cliente.nome);
+
     let inviato: boolean;
     if (cliente.email) {
       inviato = await inviaEmail({
@@ -292,14 +312,18 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
         oggetto: `Ti aspettiamo da ${tenant.nome}`,
         nomeMittente: tenant.nome,
         html: `
-          <p>Ciao ${escapeHtml(cliente.nome ?? "")},</p>
-          <p>è passato un po' dal tuo ultimo appuntamento da <strong>${escapeHtml(tenant.nome)}</strong> -- ti aspettiamo!</p>
+          <p>${escapeHtml(testo)}</p>
           ${rigaPrenota}
         `,
       });
     } else if (cliente.telefono) {
-      const messaggioSms = `${tenant.nome}: e' passato un po' dal tuo ultimo appuntamento -- ti aspettiamo!`;
-      inviato = await inviaSmsSeInclusoNelPiano(admin, tenant.id, tenant.piano, cliente.telefono, messaggioSms);
+      inviato = await inviaSmsSeInclusoNelPiano(
+        admin,
+        tenant.id,
+        tenant.piano,
+        cliente.telefono,
+        `${tenant.nome}: ${testo}`
+      );
     } else {
       inviato = false;
     }
@@ -333,7 +357,9 @@ export async function eseguiPromemoriaGiornalieri(admin: ClientAdmin, adesso: Da
 
   const { data: tenants } = await admin
     .from("tenants")
-    .select(`id, nome, slug, piano, fuso_orario, ${COLONNE_TENANT_COMPLEANNO}`)
+    .select(
+      `id, nome, slug, piano, fuso_orario, ${COLONNE_TENANT_COMPLEANNO}, follow_up_inattivi_attivo, follow_up_inattivi_giorni, follow_up_inattivi_messaggio`
+    )
     .in("piano", pianiRilevanti);
 
   for (const tenant of tenants ?? []) {

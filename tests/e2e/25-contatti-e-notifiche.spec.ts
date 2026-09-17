@@ -107,4 +107,70 @@ test.describe("Scenario 25 -- contatti e notifiche", () => {
     expect(data?.notifica_titolare_nuova_prenotazione).toBe(false);
     expect(data?.conferma_cliente_canale).toBe("nessuna");
   });
+
+  /**
+   * Follow-up ai clienti spariti (migrazione 0040). Il controllo che conta
+   * non è che il numero si salvi, ma che si salvi NELL'UNICO posto: la
+   * stessa soglia governa il job notturno, la card della dashboard e il
+   * filtro della rubrica. Se una delle tre restasse a 60 fisso, un salone
+   * leggerebbe una cosa e riceverebbe email partite su un'altra.
+   */
+  test("la soglia del follow-up guida anche la card della dashboard e il filtro della rubrica", async ({
+    page,
+  }) => {
+    tenant = await creaTenantDiProva({ nome: "Salone E2E Scenario25d", piano: "growth" });
+
+    await accediComeTitolare(page, tenant.email, tenant.password);
+    await page.goto("/dashboard/impostazioni/promemoria");
+
+    await page.locator('input[name="giorni"]').fill("90");
+    await expect(
+      page.getByText(/non riscriviamo più di una volta ogni/),
+      "sopra i 60 giorni la finestra segue la soglia"
+    ).toContainText("90 giorni");
+
+    await page.locator('textarea[name="messaggio"]').fill("Ehi {nome}, torna a trovarci!");
+    await expect(page.getByText("Ehi Giulia, torna a trovarci!")).toBeVisible();
+
+    await page.getByRole("button", { name: "Salva" }).last().click();
+    await expect(page.getByText("Follow-up salvato.")).toBeVisible();
+
+    const { data } = await tenant.supabase
+      .from("tenants")
+      .select("follow_up_inattivi_attivo, follow_up_inattivi_giorni, follow_up_inattivi_messaggio")
+      .eq("id", tenant.id)
+      .single();
+    expect(data?.follow_up_inattivi_giorni).toBe(90);
+    expect(data?.follow_up_inattivi_messaggio).toBe("Ehi {nome}, torna a trovarci!");
+    expect(data?.follow_up_inattivi_attivo).toBe(true);
+
+    // Il numero deve essere cambiato ANCHE qui, non solo nelle impostazioni.
+    await page.goto("/dashboard/clienti?filtro=inattivi");
+    await expect(page.getByText(/non negli ultimi 90 giorni/)).toBeVisible();
+  });
+
+  test("con l'interruttore spento, sotto una soglia bassa, il valore resta quello scelto", async ({
+    page,
+  }) => {
+    tenant = await creaTenantDiProva({ nome: "Salone E2E Scenario25e", piano: "growth" });
+
+    await accediComeTitolare(page, tenant.email, tenant.password);
+    await page.goto("/dashboard/impostazioni/promemoria");
+
+    await page.getByText("Manda il messaggio automaticamente").click();
+    await page.locator('input[name="giorni"]').fill("14");
+    // Sotto i 60 la finestra NON segue la soglia: è il pavimento anti-spam.
+    await expect(page.getByText(/non riscriviamo più di una volta ogni/)).toContainText("60 giorni");
+
+    await page.getByRole("button", { name: "Salva" }).last().click();
+    await expect(page.getByText("Follow-up salvato.")).toBeVisible();
+
+    const { data } = await tenant.supabase
+      .from("tenants")
+      .select("follow_up_inattivi_attivo, follow_up_inattivi_giorni")
+      .eq("id", tenant.id)
+      .single();
+    expect(data?.follow_up_inattivi_attivo).toBe(false);
+    expect(data?.follow_up_inattivi_giorni).toBe(14);
+  });
 });

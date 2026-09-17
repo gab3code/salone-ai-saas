@@ -35,9 +35,64 @@ import { pianoHaPromemoria, pianoHaSms } from "@/lib/piani";
  */
 export const LARGHEZZA_FINESTRA_ORE = 24;
 
-/** Un cliente inattivo non riceve il follow-up ogni singolo giorno finché resta inattivo:
- * al massimo una volta ogni tot giorni, altrimenti sarebbe spam vero e proprio. */
+/**
+ * Un cliente inattivo non riceve il follow-up ogni singolo giorno finché
+ * resta inattivo: al massimo una volta ogni tot giorni, altrimenti sarebbe
+ * spam vero e proprio.
+ *
+ * Dal 17/09/2026 la SOGLIA di inattività è configurabile dal salone
+ * (`tenants.follow_up_inattivi_giorni`, migrazione 0040), ma questa finestra
+ * NO, ed è un pavimento: `finestraRipetizione` sotto non scende mai sotto
+ * questi 60 giorni. Sono due assi diversi -- il titolare decide quando uno
+ * dei suoi clienti è "sparito", non quanto spesso gli si può riscrivere --
+ * e senza il pavimento un salone che imposta 14 giorni finirebbe per
+ * scrivere alla stessa persona ventisei volte l'anno credendo di fare
+ * fidelizzazione.
+ */
 export const GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA = 60;
+
+/** Paletti della soglia configurabile (stesso `check` della migrazione 0040). */
+export const GIORNI_INATTIVITA_MIN = 14;
+export const GIORNI_INATTIVITA_MAX = 365;
+export const GIORNI_INATTIVITA_PREDEFINITI = 60;
+
+/** Quanti giorni devono passare prima di riscrivere allo stesso cliente. */
+export function finestraRipetizioneGiorni(giorniInattivita: number): number {
+  return Math.max(GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA, giorniInattivita);
+}
+
+/**
+ * Soglia valida, normalizzata: un valore assente o fuori dai paletti ricade
+ * sul predefinito invece di far fallire il job notturno. Il `check` sul
+ * database impedisce già di salvarne uno storto dalla UI -- questa è la rete
+ * per i dati che arrivano da altrove (un ripristino, una riga toccata a
+ * mano).
+ */
+export function giorniInattivitaValidi(valore: number | null | undefined): number {
+  if (typeof valore !== "number" || !Number.isInteger(valore)) return GIORNI_INATTIVITA_PREDEFINITI;
+  if (valore < GIORNI_INATTIVITA_MIN || valore > GIORNI_INATTIVITA_MAX) {
+    return GIORNI_INATTIVITA_PREDEFINITI;
+  }
+  return valore;
+}
+
+/** Testo predefinito del follow-up, quando il salone non ne scrive uno suo. */
+export const MESSAGGIO_FOLLOW_UP_PREDEFINITO =
+  "Ciao {nome}, è passato un po' dal tuo ultimo appuntamento — ti aspettiamo!";
+
+export const LUNGHEZZA_MASSIMA_MESSAGGIO_FOLLOW_UP = 300;
+
+/**
+ * Compone il messaggio sostituendo `{nome}`. Stessa identica meccanica di
+ * `comporreMessaggioCompleanno` (src/lib/compleanno.ts): un cliente senza
+ * nome non deve produrre "Ciao , è passato un po'", quindi dopo la
+ * sostituzione gli spazi doppi si richiudono.
+ */
+export function comporreMessaggioFollowUp(template: string | null, nomeCliente: string | null): string {
+  const base = template && template.trim() ? template : MESSAGGIO_FOLLOW_UP_PREDEFINITO;
+  const nome = nomeCliente && nomeCliente.trim() ? nomeCliente.trim() : "";
+  return base.replace(/\{nome\}/gi, nome).replace(/\s{2,}/g, " ").replace(/\s+([,.!?])/g, "$1").trim();
+}
 
 /** Tetto di regole per tenant (dashboard, vedi azioni.ts): oltre un certo numero di promemoria per
  * lo stesso appuntamento si scade nello spam anche con la migliore delle intenzioni. */
@@ -114,18 +169,24 @@ export interface ClientePerPromemoriaInattivita {
  * non una seconda regola scritta qui), sul piano giusto, con un modo di
  * contattarlo (email, o telefono solo se il piano include l'SMS -- stesso
  * principio del reminder pre-appuntamento sopra), e non avvisato negli
- * ultimi `GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA` giorni. A differenza del
- * reminder pre-appuntamento sopra, questo NON è configurabile in
- * numero/distanza (Gabriel non l'ha chiesto: "quanto tempo prima" non ha
- * senso per un'inattività, è un asse diverso).
+ * ultimi `finestraRipetizioneGiorni(giorniInattivita)` giorni.
+ *
+ * 17/09/2026: `giorniInattivita` arriva dal salone
+ * (`tenants.follow_up_inattivi_giorni`) e non è più 60 fisso. Chi decide
+ * l'insieme degli inattivi resta però `elencaClientiInattivi`, chiamata dal
+ * layer server con LA STESSA soglia usata dalla card della dashboard e dal
+ * filtro della rubrica: se qui si usasse un numero e là un altro, un salone
+ * vedrebbe scritto "3 clienti non prenotano da 90 giorni" e riceverebbe
+ * email partite su un insieme diverso.
  */
 export function clientiDaAvvisarePerInattivita(
   clienti: ClientePerPromemoriaInattivita[],
   clientiInattivi: Set<string>,
-  adesso: Date
+  adesso: Date,
+  giorniInattivita: number = GIORNI_INATTIVITA_PREDEFINITI
 ): ClientePerPromemoriaInattivita[] {
   const sogliaRipetizione = new Date(
-    adesso.getTime() - GIORNI_RIPETIZIONE_PROMEMORIA_INATTIVITA * 24 * 60 * 60 * 1000
+    adesso.getTime() - finestraRipetizioneGiorni(giorniInattivita) * 24 * 60 * 60 * 1000
   );
 
   return clienti.filter(

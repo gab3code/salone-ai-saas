@@ -5663,3 +5663,48 @@ di aver scelto un canale, e i suoi clienti non ricevono niente.
 **Le opzioni non incluse nel piano si vedono comunque**, disattivate e con il motivo scritto:
 nasconderle farebbe sembrare il prodotto più povero di quello che è, ed è lo stesso principio
 delle etichette "da Growth"/"da Pro" messe sulla landing la notte prima.
+
+---
+
+## 17/09/2026 -- Anche il follow-up "ci manchi" passa al titolare
+
+*"fallo anche per il follow up"*, dopo che gliel'avevo segnalato come l'ultima notifica ai
+clienti finali senza nessun controllo.
+
+Cosa faceva finora: ogni notte il cron cercava i clienti che non prenotano da **60 giorni
+esatti** e mandava loro un'email (o un SMS) a nome dell'attività. Numero fisso nel codice, testo
+fisso nel codice, nessun interruttore. È anche l'unica notifica del prodotto che parte di nostra
+iniziativa verso una persona che non ha chiesto niente -- quindi proprio quella che il titolare
+deve poter governare.
+
+Ora: interruttore, soglia in giorni e testo con `{nome}`, nella pagina "Promemoria automatici"
+insieme al reminder pre-appuntamento -- sono le due metà dello stesso motore e dello stesso
+cron, e un titolare le pensa come una cosa sola ("cosa scrive in automatico il mio salone").
+
+### Le tre decisioni non ovvie
+
+**Default acceso, non spento.** È l'opposto del promemoria di compleanno (0023), che nasce
+spento. La differenza: il compleanno era una funzione NUOVA, e un default acceso avrebbe iniziato
+a mandare messaggi che prima non partivano. Qui la funzione gira già, e un default spento la
+spegnerebbe da sola a tutti. Stessa regola applicata poche ore prima a `conferma_cliente_canale`:
+**una migrazione non cambia il comportamento di nessuno da sola.**
+
+**La soglia guida tre cose, non una.** "Chi non prenota da 60 giorni" era scritto a mano in tre
+punti: il job dei promemoria, la card della dashboard e il filtro di `/dashboard/clienti`. Se solo
+il primo prendesse il numero dalle impostazioni, un salone che imposta 90 vedrebbe la dashboard
+dire una cosa e riceverebbe email partite su un insieme diverso -- esattamente la divergenza
+silenziosa trovata la notte prima fra il listino della landing e `piani.ts`. Adesso la soglia
+entra in `ParametriMetriche` e nella pagina clienti, e `Metriche` espone
+`giorniInattivitaUsati` così la card scrive il numero vero invece di "60" stampato.
+
+**La finestra di ripetizione resta un asse a sé, con un pavimento a 60 giorni.** Il titolare
+decide quando un suo cliente è "sparito", non quanto spesso gli si può riscrivere: senza il
+pavimento, una soglia di 14 giorni significherebbe ventisei messaggi l'anno alla stessa persona,
+in buona fede e credendo di fare fidelizzazione. Sopra i 60 la finestra segue la soglia (chi
+considera sparito un cliente dopo 180 giorni non vuole riscrivergli dopo due mesi). È scritto
+nel pannello, non solo nel codice: *"allo stesso cliente non riscriviamo più di una volta ogni N
+giorni, anche se abbassi la soglia qui sopra"*.
+
+I paletti 14-365 sono nel `check` della migrazione E nella server action: l'errore di una
+constraint violata è illeggibile per un titolare, e l'azione è comunque un endpoint POST
+richiamabile senza aprire la pagina.

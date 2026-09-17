@@ -16,6 +16,7 @@
  * scelta dichiarata è che si marca solo l'eccezione, non la normalità.
  */
 import { inizioGiornoUTC, fineGiornoUTC } from "@/lib/fuso-orario";
+import { giorniInattivitaValidi } from "@/lib/promemoria";
 
 export interface AppuntamentoMetrica {
   inizio: Date;
@@ -47,6 +48,18 @@ export interface ParametriMetriche {
   clienti: ClienteMetrica[];
   prezzoCentesimiPerServizio: Map<string, number>;
   orarioOggi: OrarioOggi;
+  /**
+   * Dopo quanti giorni senza prenotare un cliente conta come "sparito".
+   *
+   * Configurabile dal salone dal 17/09/2026
+   * (`tenants.follow_up_inattivi_giorni`, migrazione 0040). Sta QUI e non
+   * solo nel job dei promemoria perché lo stesso numero deve valere per la
+   * card della dashboard, per il filtro della rubrica e per l'invio: se i
+   * tre usassero soglie diverse, un salone leggerebbe "3 clienti non
+   * prenotano da 90 giorni" e riceverebbe email partite su un altro
+   * insieme. Assente = 60, il valore che era scritto a mano prima.
+   */
+  giorniInattivita?: number;
 }
 
 export interface Metriche {
@@ -61,7 +74,15 @@ export interface Metriche {
   /** null se il salone è chiuso oggi (percentuale non ha senso su 0 minuti aperti). */
   percentualeOccupazioneOggi: number | null;
   /** Clienti con almeno una prenotazione confermata passata, ma nessuna negli ultimi 60 giorni. */
+  /**
+   * Quanti clienti non prenotano da `giorniInattivita` giorni. Il nome
+   * conserva "60" per non rompere i chiamanti, ma il numero non è più fisso:
+   * `giorniInattivitaUsati` qui sotto dice quale soglia ha prodotto questo
+   * conteggio, ed è quella che la dashboard deve scrivere a schermo.
+   */
   clientiInattiviDa60Giorni: number;
+  /** La soglia davvero usata per il conteggio qui sopra. */
+  giorniInattivitaUsati: number;
   /**
    * "Incassi previsti" (Gruppo B-bis punto 4 di PIANO.md, richiesto da Gabriel il 13/09/2026):
    * proiezione, NON un incasso reale registrato -- somma del prezzo dei servizi degli
@@ -157,7 +178,12 @@ export function calcolaMetriche(p: ParametriMetriche): Metriche {
   const percentualeOccupazioneOggi =
     minutiApertiOggi > 0 ? Math.round((minutiOccupatiOggi / minutiApertiOggi) * 100) : null;
 
-  const clientiInattiviDa60Giorni = elencaClientiInattivi(p.appuntamenti, p.adesso, 60).size;
+  const giorniInattivitaUsati = giorniInattivitaValidi(p.giorniInattivita);
+  const clientiInattiviDa60Giorni = elencaClientiInattivi(
+    p.appuntamenti,
+    p.adesso,
+    giorniInattivitaUsati
+  ).size;
 
   // Incassi previsti: guarda AVANTI da "adesso" (incluso il resto della
   // giornata odierna), non solo dal giorno successivo -- un appuntamento tra
@@ -186,6 +212,7 @@ export function calcolaMetriche(p: ParametriMetriche): Metriche {
     minutiOccupatiOggi,
     percentualeOccupazioneOggi,
     clientiInattiviDa60Giorni,
+    giorniInattivitaUsati,
     incassiPrevistiCentesimi7Giorni,
     incassiPrevistiCentesimi30Giorni,
   };
