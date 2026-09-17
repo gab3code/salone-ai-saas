@@ -1842,7 +1842,19 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       prematuro con zero clienti paganti. Non uno swap delle metriche di prodotto già in
       dashboard (quelle restano come sono, è un'altra cosa).
 
-### Revisione sicurezza -- FATTA 17/09/2026 (codice), migrazione DA APPLICARE
+### Revisione sicurezza -- FATTA 17/09/2026, migrazione 0030 APPLICATA E VERIFICATA (18/09/2026)
+
+> Verificato sul database di produzione il 18/09/2026, non solo sul file: su
+> `tenants` il permesso di UPDATE dell'intera tabella e' revocato, le colonne
+> concesse a `authenticated` sono 28, e fra queste NON ci sono `piano`,
+> `sospesa`, `piano_manuale` ne' `stripe_subscription_id`. Il titolare non
+> puo' regalarsi un piano nemmeno chiamando PostgREST a mano.
+>
+> Nota per la prossima volta: il registro delle migrazioni di Supabase NON
+> elenca la 0030 (ne' 0022, 0023, 0024, 0025), perche' quelle sono state
+> applicate a mano dall'editor SQL e li' non si registrano. L'elenco del
+> registro non e' la prova di cosa c'e' sul database: la prova e' interrogare
+> gli oggetti. Controllate una per una, ci sono tutte.
 
 Revisione avversariale della Fase 6 su quattro assi (isolamento fra saloni, soldi, input
 non fidato, segreti). **Nessun dato di un salone finisce a un altro salone**: RLS regge, i 14

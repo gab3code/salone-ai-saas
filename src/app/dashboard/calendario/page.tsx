@@ -410,7 +410,17 @@ export default async function PaginaCalendario({
           operatoreIdIniziale={operatoreId}
           dataIniziale={dataYMD}
           provaAssistente={
-            mostraProvaAssistente ? <RiquadroProvaAssistente rimasteIniziali={proveRimaste} /> : undefined
+            /* La key su un elemento che sembra singolo non e' superflua
+               (18/09/2026): questo JSX nasce in un Server Component, viene
+               serializzato e renderizzato dentro un Client Component, e
+               React lo tratta come voce di una lista. Senza key avvisava
+               "Each child in a list should have a unique key" a ogni
+               appuntamento inserito a mano -- ma solo su Starter, l'unico
+               piano in cui questo riquadro esiste, ed e' il motivo per cui
+               nessuna .map risultava colpevole. */
+            mostraProvaAssistente ? (
+              <RiquadroProvaAssistente key="prova-assistente" rimasteIniziali={proveRimaste} />
+            ) : undefined
           }
         />
       )}
