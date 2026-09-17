@@ -1994,6 +1994,22 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       cliente vero non lo è più: un run interrotto ha già lasciato sei tenant orfani il
       16/09/2026. Serve un secondo progetto Supabase per i test, con le stesse migrazioni.
 
+- [ ] **Email "la tua prova sta per scadere".** Il trial da 10 giorni su Growth è l'imbuto
+      principale, e oggi finisce senza che nessuno dica niente al salone: il primo segnale che
+      riceve è un addebito, oppure niente. Stripe manda `customer.subscription.trial_will_end`
+      tre giorni prima ed è il gancio naturale: un'email che dice quando scade, quanto costerà e
+      soprattutto **cosa ha fatto l'assistente in quei dieci giorni** -- quante prenotazioni ha
+      preso, quante fuori orario. Non un promemoria di pagamento: un riepilogo di ciò che
+      perderebbe smettendo. I numeri esistono già (`appuntamenti.creato_da = 'ai'`). Prima il
+      codice, poi si aggiunge l'evento all'endpoint webhook: oggi ne ascolta 7, che sono
+      esattamente quelli gestiti, e uno in più consegnato a vuoto è solo rumore.
+- [ ] **Contestazioni (`charge.dispute.created`) prima di aprire il live.** Nessuno le gestisce
+      oggi e con zero pagamenti reali non serve, ma una contestazione non vista è l'unica cosa che
+      costa soldi in silenzio: Stripe trattiene l'importo più la commissione di gestione e, se
+      nessuno risponde entro la scadenza, la perdita resta. Serve almeno una notifica. Da rivedere
+      insieme a Stripe Connect, perché con le direct charges la contestazione è del salone e non
+      nostra -- cambia chi va avvisato, non se avvisare.
+
 ### Stripe Connect per le caparre -- BLOCCANTE prima del primo cliente pagante (17/09/2026)
 
 - [ ] **Le caparre devono nascere sull'account del salone, non sul nostro.** Oggi la sessione di
