@@ -4,20 +4,22 @@ Copre tre push del 17/09: i limiti per IP (`abb7f271`), il suo test play
 (`33204763`) e le quote riviste (`b68ff252`).
 **Un blocco alla volta**, come sempre.
 
-> Nota del 17/09, sera: la sezione 1 chiedeva `5648f3fe` perche' era un controllo
-> *prima* di mergiare il bundle dei limiti per IP. Quel merge e' stato fatto, e
-> sopra ci sono altri due commit: l'atteso ora e' la punta, `b68ff252`.
-
 ---
 
 ## 1. Verifica di essere sul lavoro giusto
 
+Questo controllo non chiede una punta precisa: chiede che il codice da testare
+sia **presente nella storia**. Cosi' resta valido anche dopo i commit successivi.
+
 ```bash
 cd ~/dev/salone-ai-saas
-git log --oneline -1
+git merge-base --is-ancestor b68ff252 HEAD && echo "codice dei limiti presente"
+git status --porcelain
 ```
 
-Atteso: `b68ff252`. Se vedi altro, fermati e dimmelo.
+Atteso: la prima riga stampa `codice dei limiti presente`, la seconda non stampa
+niente (working tree pulito). Se la prima non stampa niente, ti manca il lavoro:
+fermati e dimmelo.
 
 Niente bundle e niente `npm install`: e' tutto gia' mergiato e pushato, e non ci
 sono dipendenze nuove.

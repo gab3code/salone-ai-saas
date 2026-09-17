@@ -875,6 +875,34 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27ter. Come si scrive la precondizione di un test play (17/09/2026)
+
+Sbagliata tre volte nello stesso giorno, quindi vale la pena scriverla.
+
+Un test play apre sempre con "sei sul lavoro giusto?". La versione sbagliata e':
+
+    git log --oneline -1
+    Atteso: <hash>
+
+Quell'hash scade da solo. Scade quando il bundle viene mergiato (l'atteso era la
+base, non la punta), scade a ogni push successivo, e scade perfino per il commit
+che corregge il test play. Gabriel si e' fermato a meta' test play per questo, e
+ha fatto bene a fermarsi: il documento gli stava dicendo che mancava del lavoro
+che invece c'era.
+
+La versione giusta chiede che il codice da testare sia **presente nella storia**,
+non che sia la punta:
+
+    git merge-base --is-ancestor <hash del lavoro> HEAD && echo "codice presente"
+    git status --porcelain
+
+Il primo comando resta vero per sempre; il secondo deve stampare niente. Un hash
+si cita come punta attesa solo dentro il blocco che fa il merge di un bundle, e
+quel blocco va marcato come storico appena il merge e' avvenuto.
+
+Corollario: niente commenti con `#` in coda a una riga di comando data a Gabriel
+-- la sua zsh non ha `interactive_comments` e se lo mangia come argomento.
+
 ## 28. Self-service SaaS
 
 Continua verso un sistema completamente self-service.
