@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Calendar, Check, MessageCircle, Sparkles } from "lucide-react";
-import { motion, useMotionValue, useSpring, useTransform, animate, useMotionTemplate } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform, animate, useMotionTemplate } from "motion/react";
 import { Grana } from "./Grana";
 import { MagneticButton } from "./MagneticButton";
 import { LiquidMetal } from "./LiquidMetal";

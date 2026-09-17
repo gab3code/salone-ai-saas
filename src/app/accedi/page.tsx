@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { creaClientBrowser } from "@/lib/supabase/client";
 import { Grana } from "@/components/landing/Grana";
 import { AuthHeader } from "@/components/landing/AuthHeader";

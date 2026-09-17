@@ -5768,3 +5768,50 @@ testa ai comandi". Provato davvero, quel `rm` da solo fa fallire `tsc` dall'altr
 `npm run build` (che li rigenera, e fa già il suo controllo TypeScript) → `npx tsc --noEmit`.
 Lezione piccola ma della stessa famiglia del test sul fuso orario: un comando "ovvio" che non ho
 eseguito prima di consigliarlo.
+
+---
+
+## 17/09/2026 -- Da `framer-motion` a `motion`, e sei dipendenze che non serviva più installare
+
+*"riesci a scaricare motion.dev nel nostro progetto?"*
+
+### La cosa da sapere: non è una libreria nuova
+
+`motion` (motion.dev) **è** framer-motion, rinominata. Il progetto aveva già
+`framer-motion@13.2.0` in quindici file. Installare `motion` accanto avrebbe messo due copie
+dello stesso motore di animazione nel bundle, quindi non l'ho affiancata: l'ho sostituita.
+`motion@13.4.0` dipende internamente da `framer-motion@13.4.0` -- è un pacchetto che
+ri-esporta, non un secondo motore.
+
+Conseguenza onesta: **quello che viene spedito al browser non cambia**, e non arriva nessuna
+capacità nuova. Era già tutto lì sotto l'altro nome. Quello che cambia è che d'ora in poi la
+documentazione su motion.dev corrisponde agli import del progetto (`motion/react`), invece di
+riferirsi a un nome che la libreria non usa più.
+
+Se quello che serviva erano i componenti a pagamento di Motion+ o gli esempi del sito, quelli
+sono un'altra cosa e non si installano con npm.
+
+### Sei dipendenze rimosse, e metà è colpa mia
+
+Controllate una per una cercando gli import veri in `src/`:
+
+| Pacchetto | Import trovati |
+|---|---|
+| `glimm` | 0 |
+| `liveline` | 0 |
+| `@base-ui/react` | 0 |
+| `iconoir-react` | 0 |
+| `class-variance-authority` | 0 |
+| `cn` | solo `src/lib/utils.ts`, che a sua volta non era importato da nessuno |
+
+Erano le dipendenze dell'isola `components/primitives|atoms|ui` che ho cancellato stanotte:
+tolti i 26 file, i pacchetti erano rimasti. `src/lib/utils.ts` (tre righe, un re-export di `cn`)
+era l'ultimo resto della stessa isola.
+
+Restano e servono davvero: `gsap` (ScrollTrigger in `Vetrina.tsx` e `ProdottoScroll.tsx`),
+`thinking-orbs` (Vetrina), `shadcn/tailwind.css` e `tw-animate-css` (importati da
+`globals.css`), `lucide-react` (15 file).
+
+Da 24 dipendenze a 18. Verificato dopo: tsc, eslint, 604 test, build, e la landing aperta in un
+browser vero a 1440 e 390 px -- zero errori in console, nessun overflow orizzontale, le
+animazioni (FlipWords, Reveal, tilt, ScrollTrigger) tutte vive.

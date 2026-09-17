@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type PointerEvent as ReactPointerEvent } from "react";
-import { useMotionValue, useSpring, useMotionTemplate, animate } from "framer-motion";
+import { useMotionValue, useSpring, useMotionTemplate, animate } from "motion/react";
 
 /**
  * Estratto da CTAFinale.tsx (quinto giro, seconda parte) -- Gabriel ha

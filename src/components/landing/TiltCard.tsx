@@ -1,11 +1,11 @@
 "use client";
 
 import { useRef, type MouseEvent, type ReactNode } from "react";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 
 /**
  * Card con inclinazione 3D che segue il cursore (ispirata al "3D Card Effect"
- * di Aceternity, riscritta da zero con framer-motion). Usata per le card
+ * di Aceternity, riscritta da zero con Motion). Usata per le card
  * "per chi è" e le card funzionalità -- molto più viva di un semplice hover
  * di colore.
  */

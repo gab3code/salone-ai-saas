@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 
 /**
  * Parola che ruota dentro il titolo (ispirato a "Flip Words" di Aceternity,

@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { creaClientBrowser } from "@/lib/supabase/client";
 import { pianoEPagante, ETICHETTA_PIANO, giorniDiProva } from "@/lib/stripe/piani";
 import { Grana } from "@/components/landing/Grana";

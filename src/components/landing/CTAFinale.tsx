@@ -1,7 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { Reveal, RevealStagger, RevealItem } from "./Reveal";
 import { Grana } from "./Grana";
 import { GlowBorder } from "./GlowBorder";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { animate, useInView } from "framer-motion";
+import { animate, useInView } from "motion/react";
 import { MessageCircleWarning, Euro, CalendarRange, CalendarX, TrendingDown, BellRing } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { GlowBorder } from "./GlowBorder";
