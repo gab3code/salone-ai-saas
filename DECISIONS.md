@@ -5815,3 +5815,27 @@ Restano e servono davvero: `gsap` (ScrollTrigger in `Vetrina.tsx` e `ProdottoScr
 Da 24 dipendenze a 18. Verificato dopo: tsc, eslint, 604 test, build, e la landing aperta in un
 browser vero a 1440 e 390 px -- zero errori in console, nessun overflow orizzontale, le
 animazioni (FlipWords, Reveal, tilt, ScrollTrigger) tutte vive.
+
+### Correzione, mezz'ora dopo: avevo tolto anche l'impalcatura
+
+Gabriel: *"21st e le altre cose importanti per l'ui ci sono ancora?"*. Domanda giusta, e la
+risposta onesta è che **una l'avevo tolta**.
+
+`src/lib/utils.ts` e `class-variance-authority` non erano codice morto: erano **impalcatura**.
+`components.json` (la configurazione shadcn, ancora lì) dichiara `"utils": "@/lib/utils"` e
+`"ui": "@/components/ui"`, e ogni componente preso da shadcn o da 21st.dev comincia con
+`import { cn } from "@/lib/utils"`. Esistono per il codice non ancora scritto: la regola
+"nessuno lo importa" non si applica.
+
+È la stessa regola applicata alla cosa sbagliata, e la distinzione va ricordata: **il codice
+morto si toglie, l'impalcatura di un flusso di lavoro dichiarato no.**
+
+Rimessa, ma con l'implementazione canonica invece del pacchetto `cn` che c'era prima: `clsx`
+(classi condizionali) + `tailwind-merge` (risoluzione dei conflitti Tailwind, per cui
+`cn("px-2","px-4")` dà `px-4` e non entrambe -- il motivo per cui `cn` esiste). È quella che la
+documentazione di shadcn e i componenti di 21st.dev danno per scontata, quindi un componente
+incollato funziona senza ritocchi. Verificata eseguendola, non solo compilandola.
+
+`class-variance-authority` NON l'ho rimessa: la installa la CLI di shadcn quando serve a un
+componente specifico, insieme a tutto il resto delle sue dipendenze. Rimettere per ipotesi è
+l'errore opposto a quello appena corretto.
