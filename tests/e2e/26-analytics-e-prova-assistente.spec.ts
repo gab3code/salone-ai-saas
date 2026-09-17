@@ -123,17 +123,25 @@ test.describe("Scenario 26 -- Analytics e prova dell'assistente", () => {
 
     // Sei clienti "maturi": prima visita 200 giorni fa, ritorno dopo 10
     // giorni. Sopra la soglia dei 5, quindi la percentuale esce.
+    // Un'ora diversa per ogni cliente: il tenant di prova ha un operatore
+    // solo, e il database ha un vincolo di esclusione (`niente_sovrapposizioni`)
+    // che impedisce due appuntamenti sovrapposti sulla stessa persona. Con
+    // tutti alle 10:00 il secondo inserimento fallisce -- ed e' giusto che
+    // fallisca, e' lo stesso vincolo che protegge un'agenda vera.
+    // Il servizio predefinito dura 30 minuti e il salone apre 9-19, quindi
+    // sei slot orari da 09:00 in poi stanno larghi.
     for (let i = 0; i < 6; i++) {
+      const ora = `${String(9 + i).padStart(2, "0")}:00`;
       const { clienteId } = await creaAppuntamentoConfermato(tenant, {
         giornoYMD: giorniFa(200),
-        oraHHMM: "10:00",
+        oraHHMM: ora,
         clienteNome: `Maturo ${i}`,
         clienteTelefono: `33311100${String(i).padStart(2, "0")}`,
       });
       // STESSO cliente, non uno nuovo: due visite di una persona sola.
       await creaAppuntamentoConfermato(tenant, {
         giornoYMD: giorniFa(190),
-        oraHHMM: "11:00",
+        oraHHMM: ora,
         clienteTelefono: `33311100${String(i).padStart(2, "0")}`,
         clienteIdEsistente: clienteId,
       });
@@ -142,7 +150,7 @@ test.describe("Scenario 26 -- Analytics e prova dell'assistente", () => {
     // NON deve peggiorare la percentuale di nessuna riga.
     await creaAppuntamentoConfermato(tenant, {
       giornoYMD: giorniFa(1),
-      oraHHMM: "10:00",
+      oraHHMM: "16:00",
       clienteNome: "Appena arrivato",
       clienteTelefono: "3339999999",
     });
