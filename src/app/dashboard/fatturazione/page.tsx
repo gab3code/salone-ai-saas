@@ -46,13 +46,13 @@ export default async function PaginaFatturazione({
       <header className="flex flex-col gap-2">
         <h1 className="text-xl font-semibold">Dati per la fattura</h1>
         <p className="max-w-xl text-sm text-zinc-600">
-          Ci servono una volta sola, e poi restano. Li usiamo per emetterti la fattura elettronica
-          di ogni pagamento: per legge dobbiamo emetterla, quindi senza questi dati non possiamo
+          Te li chiediamo una volta sola. Ogni volta che paghi siamo tenuti per legge a emetterti
+          una fattura elettronica, e per compilarla servono questi campi: senza, non possiamo
           attivare un piano a pagamento.
         </p>
         <p className="max-w-xl text-sm text-zinc-500">
-          I piani a pagamento sono per chi ha una partita IVA. Il piano Free resta disponibile
-          senza.
+          Per lo stesso motivo i piani a pagamento sono riservati a chi ha una partita IVA. Il
+          piano Free resta libero per tutti.
         </p>
       </header>
 

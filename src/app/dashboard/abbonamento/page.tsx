@@ -4,7 +4,12 @@ import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
 import { puoGestireFatturazione } from "@/lib/ruoli";
 import { pianoEPagante, ETICHETTA_PIANO, PIANI_PAGANTI, giorniDiProva } from "@/lib/stripe/piani";
-import { PREZZO_BASE_CENTESIMI, formatoEuroDaCentesimi } from "@/lib/admin";
+import {
+  PREZZO_BASE_CENTESIMI,
+  PREZZO_OPERATORE_EXTRA_CENTESIMI,
+  formatoEuroDaCentesimi,
+  prezzoMensileCentesimi,
+} from "@/lib/piani";
 import { leggiDatiFatturazione } from "@/lib/fatturazione.server";
 import { ModuloFatturazione } from "../fatturazione/modulo";
 import { PulsantePortaleAbbonamento } from "../impostazioni/pulsante-portale-abbonamento";
@@ -43,6 +48,19 @@ export default async function PaginaAbbonamento({
     .eq("id", sessione.tenantId)
     .single();
   const pianoAttuale = (tenant?.piano as string) ?? "free";
+
+  // Gli operatori configurati decidono il prezzo vero: la quota per operatore
+  // cambia con il piano (10 su Starter, 15 su Growth, 20 su Pro), quindi un
+  // salone con tre persone che passa da Starter a Growth non va da 19,90 a
+  // 39,90 ma da 39,90 a 69,90. Mostrare solo il prezzo base significherebbe
+  // fargli scoprire il resto sulla schermata di pagamento, che è il posto
+  // peggiore per una sorpresa.
+  const { count: numeroOperatori } = await supabase
+    .from("operatori")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", sessione.tenantId);
+  const operatori = numeroOperatori ?? 0;
+  const operatoriExtra = Math.max(0, operatori - 1);
 
   // Chi ha già un abbonamento vivo non passa da qui per cambiare piano: il
   // checkout glielo rifiuterebbe (creerebbe un SECONDO abbonamento sullo
@@ -84,9 +102,17 @@ export default async function PaginaAbbonamento({
                 >
                   <p className="text-sm font-medium">{ETICHETTA_PIANO[piano]}</p>
                   <p className="text-lg font-semibold">
-                    {formatoEuroDaCentesimi(PREZZO_BASE_CENTESIMI[piano] ?? 0)}
+                    {formatoEuroDaCentesimi(prezzoMensileCentesimi(piano, operatori))}
                     <span className="text-sm font-normal text-zinc-500">/mese</span>
                   </p>
+                  {operatoriExtra > 0 && (
+                    <p className="text-xs text-zinc-500">
+                      {formatoEuroDaCentesimi(PREZZO_BASE_CENTESIMI[piano] ?? 0)} di piano +{" "}
+                      {operatoriExtra}{" "}
+                      {operatoriExtra === 1 ? "operatore in più" : "operatori in più"} da{" "}
+                      {formatoEuroDaCentesimi(PREZZO_OPERATORE_EXTRA_CENTESIMI[piano] ?? 0)}
+                    </p>
+                  )}
                   {giorni !== undefined && (
                     <p className="text-xs text-emerald-700">{giorni} giorni di prova</p>
                   )}
@@ -110,18 +136,20 @@ export default async function PaginaAbbonamento({
           </div>
 
           <p className="max-w-3xl text-xs text-zinc-500">
-            Il prezzo include il primo operatore. Ogni operatore in più costa una quota fissa che
-            dipende dal piano. I piani a pagamento richiedono una partita IVA, perché siamo tenuti
-            a emettere fattura per ogni pagamento.
+            {operatoriExtra > 0
+              ? `Le cifre qui sopra sono quelle che pagheresti tu, con i ${operatori} operatori che hai adesso: il prezzo del piano include il primo, gli altri hanno una quota che cambia da piano a piano. Se assumi o togli qualcuno, l'abbonamento si aggiorna da solo.`
+              : "Il prezzo include un operatore. Ogni operatore in più ha una quota mensile che cambia da piano a piano, e l'abbonamento si aggiorna da solo quando ne aggiungi o ne togli uno."}{" "}
+            I piani a pagamento richiedono una partita IVA, perché per legge dobbiamo emettere
+            fattura per ogni pagamento.
           </p>
 
           {giaAbbonato && (
             <div className="max-w-3xl rounded-2xl border border-zinc-200 p-4">
               <p className="text-sm font-medium text-zinc-700">Gestisci il tuo abbonamento</p>
               <p className="mt-0.5 text-xs text-zinc-500">
-                Cambio di piano, carta, ricevute e disdetta si fanno dal portale di Stripe: così
-                l&apos;abbonamento attuale viene sostituito invece di affiancargliene un secondo.
-                Se nel portale non trovi il cambio piano, scrivici e lo facciamo noi.
+                Cambio di piano, carta, ricevute e disdetta si fanno dal portale: così
+                l&apos;abbonamento attuale viene sostituito invece di affiancargliene un secondo, e
+                la differenza viene conguagliata subito.
               </p>
               <PulsantePortaleAbbonamento />
             </div>
@@ -137,9 +165,16 @@ export default async function PaginaAbbonamento({
             <p className="text-sm text-zinc-500">Stai attivando</p>
             <p className="mt-1 text-lg font-semibold">
               {ETICHETTA_PIANO[scelto]} ·{" "}
-              {formatoEuroDaCentesimi(PREZZO_BASE_CENTESIMI[scelto] ?? 0)}
+              {formatoEuroDaCentesimi(prezzoMensileCentesimi(scelto, operatori))}
               <span className="text-sm font-normal text-zinc-500">/mese</span>
             </p>
+            {operatoriExtra > 0 && (
+              <p className="text-sm text-zinc-500">
+                {formatoEuroDaCentesimi(PREZZO_BASE_CENTESIMI[scelto] ?? 0)} di piano, più{" "}
+                {operatoriExtra} {operatoriExtra === 1 ? "operatore" : "operatori"} oltre il primo
+                da {formatoEuroDaCentesimi(PREZZO_OPERATORE_EXTRA_CENTESIMI[scelto] ?? 0)} ciascuno.
+              </p>
+            )}
             {giorniDiProva(scelto) !== undefined && (
               <p className="text-sm text-emerald-700">
                 {giorniDiProva(scelto)} giorni di prova prima del primo addebito.
@@ -156,8 +191,8 @@ export default async function PaginaAbbonamento({
           <div className="flex flex-col gap-2">
             <h2 className="text-sm font-medium text-zinc-700">Dati per la fattura</h2>
             <p className="max-w-xl text-sm text-zinc-500">
-              Ce li chiediamo una volta sola. Servono per emetterti la fattura elettronica di ogni
-              pagamento: per legge dobbiamo emetterla, quindi senza non possiamo attivare il piano.
+              Te li chiediamo una volta sola. Ogni volta che paghi siamo tenuti per legge a
+              emetterti una fattura elettronica, e per compilarla servono questi campi.
             </p>
           </div>
 

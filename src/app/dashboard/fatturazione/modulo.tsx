@@ -90,7 +90,7 @@ export function ModuloFatturazione({
       <Campo etichetta="Ragione sociale" errore={errori.denominazione}>
         <input
           {...campo("denominazione")}
-          placeholder="Come risulta alla tua partita IVA"
+          placeholder="Il nome con cui sei registrato, non l'insegna"
           className="w-full rounded border border-zinc-300 px-2 py-1.5"
         />
       </Campo>
@@ -98,13 +98,13 @@ export function ModuloFatturazione({
       <Campo etichetta="Partita IVA" errore={errori.partitaIva}>
         <input
           {...campo("partitaIva")}
-          placeholder="11 cifre"
+          placeholder="11 cifre, senza IT davanti"
           inputMode="numeric"
           className="w-full rounded border border-zinc-300 px-2 py-1.5"
         />
       </Campo>
 
-      <Campo etichetta="Indirizzo (via e numero)" errore={errori.via}>
+      <Campo etichetta="Indirizzo della sede, via e numero civico" errore={errori.via}>
         <input {...campo("via")} className="w-full rounded border border-zinc-300 px-2 py-1.5" />
       </Campo>
 
@@ -120,7 +120,7 @@ export function ModuloFatturazione({
         <Campo etichetta="Comune" errore={errori.comune}>
           <input {...campo("comune")} className="w-full rounded border border-zinc-300 px-2 py-1.5" />
         </Campo>
-        <Campo etichetta="Prov." errore={errori.provincia}>
+        <Campo etichetta="Provincia" errore={errori.provincia}>
           <input
             {...campo("provincia")}
             maxLength={2}
@@ -131,22 +131,24 @@ export function ModuloFatturazione({
       </div>
 
       <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-        <p className="text-sm font-medium text-zinc-700">Dove ti mandiamo la fattura</p>
+        <p className="text-sm font-medium text-zinc-700">Dove vuoi ricevere la fattura</p>
         <p className="mt-0.5 text-xs text-zinc-500">
-          Basta uno dei due. Se non li conosci scrivi <strong>0000000</strong> nel codice: la
-          fattura ti arriverà nel cassetto fiscale dell&apos;Agenzia delle Entrate, ed è comunque
-          valida.
+          Basta compilarne uno dei due: sono i recapiti che il tuo gestionale o il tuo
+          commercialista usano per farsi arrivare le fatture elettroniche. Se non sai quali sono,
+          chiediglieli — oppure scrivi <strong>0000000</strong> nel codice: la fattura finirà nel
+          tuo cassetto fiscale sul sito dell&apos;Agenzia delle Entrate, dove puoi scaricarla, ed è
+          valida allo stesso modo.
         </p>
         <div className="mt-3 flex flex-col gap-3">
-          <Campo etichetta="Codice destinatario SDI" errore={errori.codiceDestinatario}>
+          <Campo etichetta="Codice destinatario" errore={errori.codiceDestinatario}>
             <input
               {...campo("codiceDestinatario")}
               maxLength={7}
-              placeholder="7 caratteri"
+              placeholder="7 caratteri, lettere e numeri"
               className="w-full rounded border border-zinc-300 px-2 py-1.5 uppercase"
             />
           </Campo>
-          <Campo etichetta="oppure PEC" errore={errori.pec}>
+          <Campo etichetta="Oppure la PEC" errore={errori.pec}>
             <input
               {...campo("pec")}
               type="email"

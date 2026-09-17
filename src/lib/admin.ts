@@ -1,4 +1,15 @@
-import { limiteMensilePrenotazioni, limiteOperatori } from "@/lib/piani";
+import {
+  limiteMensilePrenotazioni,
+  limiteOperatori,
+  PREZZO_BASE_CENTESIMI,
+  PREZZO_OPERATORE_EXTRA_CENTESIMI,
+  formatoEuroDaCentesimi,
+} from "@/lib/piani";
+
+// Riesportati da qui perché mezzo progetto li importa già da `admin.ts`, ma
+// la loro casa è `piani.ts`: li legge anche la pagina dell'abbonamento, e due
+// liste di prezzi divergono sempre.
+export { PREZZO_BASE_CENTESIMI, PREZZO_OPERATORE_EXTRA_CENTESIMI, formatoEuroDaCentesimi };
 
 /**
  * Parte PURA del pannello admin (Fase 5): tipi, prezzi e tutti i calcoli
@@ -30,32 +41,6 @@ export function pianoAssegnabileValido(piano: string): boolean {
 export function statoAbbonamentoValido(stato: string): boolean {
   return (STATI_ABBONAMENTO as readonly string[]).includes(stato);
 }
-
-/**
- * Prezzi di listino in centesimi, per la stima dei ricavi nel pannello.
- *
- * ATTENZIONE: la verità sulla fatturazione è Stripe, non questa mappa. Serve
- * solo a mostrare una stima interna senza interrogare Stripe per ogni riga
- * della pagina. Se cambi i prezzi su Stripe e ti dimentichi di qui, il
- * numero mostrato sbaglia -- per questo il pannello lo etichetta come
- * "stimato" e non come incasso.
- * Enterprise è a preventivo: non ha un prezzo di listino, quindi non entra
- * mai nella stima (e il pannello dice quante attività sono escluse, invece
- * di far sparire il problema in un totale).
- */
-export const PREZZO_BASE_CENTESIMI: Record<string, number> = {
-  free: 0,
-  starter: 1990,
-  growth: 3990,
-  pro: 8990,
-};
-
-/** Quota mensile per ogni operatore oltre il primo (vedi stripe/piani.ts). */
-export const PREZZO_OPERATORE_EXTRA_CENTESIMI: Record<string, number> = {
-  starter: 1000,
-  growth: 1500,
-  pro: 2000,
-};
 
 export type RigaAdmin = {
   tenantId: string;
@@ -342,10 +327,6 @@ export function segnaliAttivita(riga: RigaAdmin, adesso: Date = new Date()): Seg
 /** Giorni interi fra due istanti, mai negativi. */
 export function giorniFra(prima: Date, dopo: Date): number {
   return Math.max(0, Math.floor((dopo.getTime() - prima.getTime()) / (24 * 60 * 60 * 1000)));
-}
-
-export function formatoEuroDaCentesimi(centesimi: number): string {
-  return (centesimi / 100).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 }
 
 /** Percentuale leggibile da una frazione 0..1. Una cifra decimale solo sotto il 10%. */

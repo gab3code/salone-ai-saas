@@ -208,3 +208,50 @@ export const PIANI_CON_PROMEMORIA_COMPLEANNO = new Set(["pro", "enterprise"]);
 export function pianoHaPromemoriaCompleanno(piano: string): boolean {
   return PIANI_CON_PROMEMORIA_COMPLEANNO.has(piano);
 }
+
+
+/**
+ * Listino, in centesimi. Sta QUI e non in `admin.ts` (dove è nato) perché lo
+ * leggono due posti molto diversi: il pannello di piattaforma, per stimare i
+ * ricavi, e la pagina dell'abbonamento, per dire a un salone quanto pagherà.
+ * Due copie dello stesso listino divergono sempre, e divergono in silenzio.
+ *
+ * ATTENZIONE: la verità sulla fatturazione resta Stripe. Questa mappa serve a
+ * mostrare cifre, non a incassarle. Se cambi un prezzo su Stripe e ti
+ * dimentichi di qui, quello che il cliente legge prima di pagare non è quello
+ * che gli verrà addebitato -- ed è il tipo di incoerenza che si nota subito.
+ * Enterprise è a preventivo e non ha listino, quindi non compare.
+ */
+export const PREZZO_BASE_CENTESIMI: Record<string, number> = {
+  free: 0,
+  starter: 1990,
+  growth: 3990,
+  pro: 8990,
+};
+
+/** Quota mensile per ogni operatore oltre il primo, diversa per piano. */
+export const PREZZO_OPERATORE_EXTRA_CENTESIMI: Record<string, number> = {
+  starter: 1000,
+  growth: 1500,
+  pro: 2000,
+};
+
+/**
+ * Quanto costa davvero un piano a un'attività che ha `operatori` persone.
+ *
+ * È la cifra che va mostrata prima di far scegliere, e non il solo prezzo
+ * base: la quota per operatore cambia con il piano (10 su Starter, 15 su
+ * Growth, 20 su Pro), quindi un salone con tre operatori che passa da Starter
+ * a Growth non va da 19,90 a 39,90 -- va da 39,90 a 69,90. Mostrare solo la
+ * base significherebbe fargli scoprire il resto sulla schermata di pagamento.
+ */
+export function prezzoMensileCentesimi(piano: string, operatori: number): number {
+  const base = PREZZO_BASE_CENTESIMI[piano];
+  if (base === undefined) return 0;
+  const quota = PREZZO_OPERATORE_EXTRA_CENTESIMI[piano] ?? 0;
+  return base + quota * Math.max(0, operatori - 1);
+}
+
+export function formatoEuroDaCentesimi(centesimi: number): string {
+  return (centesimi / 100).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+}

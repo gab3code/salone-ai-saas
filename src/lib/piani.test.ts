@@ -1,15 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  limiteMensilePrenotazioni,
-  limiteMensileSms,
-  limiteMembri,
-  limiteOperatori,
-  pianoHaAnalytics,
-  pianoHaKnowledgeBaseAi,
-  pianoHaListaAttesaAutomatica,
-  pianoHaSms,
-  pianoHaTeam,
-} from "./piani";
+import { limiteMembri, limiteMensilePrenotazioni, limiteMensileSms, limiteOperatori, pianoHaAnalytics, pianoHaKnowledgeBaseAi, pianoHaListaAttesaAutomatica, pianoHaSms, pianoHaTeam, prezzoMensileCentesimi } from "./piani";
 
 describe("limiteMensilePrenotazioni", () => {
   it("il piano free ha un tetto di 60 prenotazioni al mese", () => {
@@ -163,5 +153,36 @@ describe("limiteMembri / pianoHaTeam (Fase 5, deciso con Gabriel il 16/09/2026)"
     expect(limiteOperatori("starter")).toBe(Infinity);
     expect(limiteMembri("starter")).toBe(Infinity);
     expect(limiteOperatori("free")).toBe(1);
+  });
+});
+
+describe("prezzoMensileCentesimi", () => {
+  /**
+   * È la cifra che un salone legge PRIMA di scegliere un piano, quindi deve
+   * coincidere con quella che Stripe gli addebiterà. Il caso che conta è il
+   * confronto fra piani: la quota per operatore cambia con il piano, e chi ha
+   * più persone non vede la differenza che si aspetta.
+   */
+  it("somma la quota di ogni operatore oltre il primo, con la tariffa del piano", () => {
+    expect(prezzoMensileCentesimi("starter", 1)).toBe(1990);
+    expect(prezzoMensileCentesimi("starter", 3)).toBe(1990 + 1000 * 2);
+    expect(prezzoMensileCentesimi("growth", 3)).toBe(3990 + 1500 * 2);
+    expect(prezzoMensileCentesimi("pro", 3)).toBe(8990 + 2000 * 2);
+  });
+
+  it("con tre operatori il salto da Starter a Growth è 39,90 -> 69,90, non 19,90 -> 39,90", () => {
+    // È esattamente il motivo per cui la pagina mostra il prezzo vero e non
+    // quello base: la differenza percepita raddoppia.
+    expect(prezzoMensileCentesimi("starter", 3)).toBe(3990);
+    expect(prezzoMensileCentesimi("growth", 3)).toBe(6990);
+  });
+
+  it("zero operatori non va sotto il prezzo base", () => {
+    expect(prezzoMensileCentesimi("growth", 0)).toBe(3990);
+  });
+
+  it("free costa zero e un piano sconosciuto non inventa un prezzo", () => {
+    expect(prezzoMensileCentesimi("free", 5)).toBe(0);
+    expect(prezzoMensileCentesimi("enterprise", 5)).toBe(0);
   });
 });
