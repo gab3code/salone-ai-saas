@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { risolviDatabaseDiProva } from "./database-di-prova";
 
 /**
  * Client Supabase service_role per i test E2E -- stesso ruolo di
@@ -12,14 +13,13 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * separato: vedi `tests/e2e/helpers/carica-env.ts`.
  */
 export function creaClientAdminTest(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const chiave = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !chiave) {
-    throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY mancanti -- servono in .env.local per lanciare i test E2E (leggono lo stesso file dell'app)."
-    );
-  }
-  return createClient(url, chiave, {
+  // Quale database, lo decide un posto solo (database-di-prova.ts), lo stesso
+  // che playwright.config.ts usa per il server: se i due divergessero, i test
+  // leggerebbero da una parte e l'app scriverebbe dall'altra.
+  const esito = risolviDatabaseDiProva(process.env);
+  if (!esito.ok) throw new Error(`\n\n${esito.errore}\n`);
+
+  return createClient(esito.database.url, esito.database.chiaveServizio, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

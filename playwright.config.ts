@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { config as caricaEnv } from "dotenv";
+import { risolviDatabaseDiProva } from "./tests/e2e/helpers/database-di-prova";
 
 // I file di test girano come processo Node a sé stante (non dentro il
 // bundler di Next, che carica .env.local da solo per il server `npm run
@@ -7,6 +8,23 @@ import { config as caricaEnv } from "dotenv";
 // (tests/e2e/helpers/supabase-admin.ts) leggano le stesse variabili
 // dell'app invece di trovare `process.env` vuoto.
 caricaEnv({ path: ".env.local" });
+// .env.test DOPO .env.local e con override: e' il file che dice quale
+// database usano i test, e deve poter vincere su quello dell'app.
+caricaEnv({ path: ".env.test", override: true });
+
+// Fail-closed: senza una configurazione esplicita la suite non parte, invece
+// di creare tenant veri nel database di produzione come faceva fino al
+// 18/09/2026. Il messaggio dice cosa fare.
+const esitoDatabase = risolviDatabaseDiProva(process.env);
+if (!esitoDatabase.ok) throw new Error(`\n\n${esitoDatabase.errore}\n`);
+const databaseDiProva = esitoDatabase.database;
+
+if (databaseDiProva.eProduzione) {
+  console.warn(
+    "\n  ATTENZIONE: i test stanno girando sul database di PRODUZIONE (E2E_CONSENTI_PRODUZIONE=1).\n" +
+      "  Creeranno tenant, clienti e appuntamenti veri.\n"
+  );
+}
 
 /**
  * Config Playwright per i 15 scenari end-to-end del punto 30 di CLAUDE.md
@@ -67,7 +85,20 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000",
-    reuseExistingServer: true,
+    // Il server deve puntare allo STESSO database dei test, altrimenti i test
+    // leggono da una parte e l'app scrive dall'altra -- il modo piu' veloce
+    // per passare un pomeriggio a inseguire un bug che non esiste.
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: databaseDiProva.url,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: databaseDiProva.chiaveAnonima,
+      SUPABASE_SERVICE_ROLE_KEY: databaseDiProva.chiaveServizio,
+    },
+    // Riusare un server gia' acceso va bene solo quando il database e' quello
+    // di sempre. Con un database separato NO: quel server e' partito da
+    // .env.local e scriverebbe in produzione mentre i test guardano altrove.
+    // Meglio fallire perche' la porta e' occupata che scrivere nel posto
+    // sbagliato senza accorgersene.
+    reuseExistingServer: databaseDiProva.eProduzione,
     timeout: 120_000,
   },
 });
