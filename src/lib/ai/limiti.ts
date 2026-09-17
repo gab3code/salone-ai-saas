@@ -47,7 +47,17 @@ export function pianoHaTonoPersonalizzato(piano: string): boolean {
 const QUOTA_MENSILE_MESSAGGI_PER_PIANO: Record<string, number> = {
   growth: 1000,
   pro: 3000,
-  enterprise: Infinity,
+  // ALTO ma FINITO, corretto il 17/09/2026 dopo un audit. Prima era
+  // `Infinity`, che su carta vuol dire "nessun limite commerciale" e nella
+  // pratica voleva dire che l'unico endpoint PUBBLICO e NON AUTENTICATO che
+  // chiama il modello non aveva, per quei tenant, nessun tetto superiore:
+  // chiunque conoscesse lo slug poteva far crescere la bolletta all'infinito.
+  //
+  // Un tetto commerciale generoso e un tetto tecnico contro l'abuso sono due
+  // cose diverse, e Infinity le confondeva. 50.000 messaggi al mese sono
+  // fuori portata per qualunque uso legittimo (un salone grande non arriva a
+  // 3.000) e restano un muro contro uno script.
+  enterprise: 50_000,
 };
 
 // Quota AI per Pro scalata per operatore (decisione 14/09/2026, vedi

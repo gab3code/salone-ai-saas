@@ -5,6 +5,7 @@ import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { elencaClientiInattivi } from "@/lib/metriche";
 import { giorniInattivitaValidi } from "@/lib/promemoria";
 import { originePerCliente } from "@/lib/origine-cliente";
+import { filtroRicercaClienti, terminoRicercaSicuro } from "@/lib/ricerca";
 
 /**
  * CRM (punto 12): anagrafica cliente con storico -- qui l'elenco con
@@ -40,9 +41,12 @@ export default async function PaginaClienti({
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
 
-  if (q?.trim()) {
-    const termine = q.trim();
-    query = query.or(`nome.ilike.%${termine}%,telefono.ilike.%${termine}%`);
+  // Il termine si ripulisce PRIMA di entrare nel filtro: virgole, parentesi
+  // e punti hanno un significato nella grammatica di PostgREST, e i jolly di
+  // `like` permetterebbero di farsi tornare l'intera rubrica con un "%".
+  const termine = terminoRicercaSicuro(q);
+  if (termine) {
+    query = query.or(filtroRicercaClienti(termine));
   }
 
   const { data: clientiGrezzi, error } = await query;

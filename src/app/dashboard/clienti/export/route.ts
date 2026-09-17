@@ -5,6 +5,7 @@ import { puoEsportareClienti, ERRORE_PERMESSO_NEGATO } from "@/lib/ruoli";
 import { elencaClientiInattivi } from "@/lib/metriche";
 import { clientiACsv } from "@/lib/csv";
 import { originePerCliente } from "@/lib/origine-cliente";
+import { filtroRicercaClienti, terminoRicercaSicuro } from "@/lib/ricerca";
 
 /**
  * Esportazione CSV dei clienti del tenant loggato (PIANO.md "Export/import
@@ -37,7 +38,9 @@ export async function GET(request: NextRequest) {
   const tenantId = sessione.tenantId;
 
   const { searchParams } = request.nextUrl;
-  const q = searchParams.get("q")?.trim();
+  // Stessa ripulitura della rubrica: l'export deve esportare esattamente
+  // quello che la pagina mostra, filtro compreso.
+  const q = terminoRicercaSicuro(searchParams.get("q"));
   const filtro = searchParams.get("filtro");
 
   let query = supabase
@@ -47,7 +50,7 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: false });
 
   if (q) {
-    query = query.or(`nome.ilike.%${q}%,telefono.ilike.%${q}%`);
+    query = query.or(filtroRicercaClienti(q));
   }
 
   const { data: clientiGrezzi, error } = await query;

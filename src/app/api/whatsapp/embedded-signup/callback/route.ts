@@ -53,15 +53,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const corpo = await request.json();
-  const { code, wabaId, phoneNumberId, numeroMigratoDaAppMobile } = corpo as {
-    code?: string;
-    wabaId?: string;
-    phoneNumberId?: string;
-    numeroMigratoDaAppMobile?: boolean;
+  let corpo: unknown;
+  try {
+    corpo = await request.json();
+  } catch {
+    return NextResponse.json({ errore: "Corpo della richiesta non valido." }, { status: 400 });
+  }
+  const { code, wabaId, phoneNumberId, numeroMigratoDaAppMobile } = (corpo ?? {}) as {
+    code?: unknown;
+    wabaId?: unknown;
+    phoneNumberId?: unknown;
+    numeroMigratoDaAppMobile?: unknown;
   };
 
-  if (!code || !wabaId || !phoneNumberId) {
+  // `typeof === "string"` e non solo truthiness (audit del 17/09/2026): un
+  // oggetto o un numero passavano il controllo e finivano tali e quali dentro
+  // le chiamate all'API di Meta.
+  if (typeof code !== "string" || typeof wabaId !== "string" || typeof phoneNumberId !== "string") {
     return NextResponse.json(
       { errore: "Parametri mancanti: servono code, wabaId, phoneNumberId." },
       { status: 400 }
@@ -73,14 +81,20 @@ export async function POST(request: NextRequest) {
       code,
       wabaId,
       phoneNumberId,
-      numeroMigratoDaAppMobile,
+      numeroMigratoDaAppMobile: numeroMigratoDaAppMobile === true,
     });
 
-    // TODO: sostituire con il salvataggio reale su Supabase (vedi TODO sopra)
-    // appena il progetto e' collegato -- per ora solo conferma che la parte
-    // "parlare con Meta" ha funzionato, senza persistere nulla.
+    // La risposta dice la VERITA' (audit del 17/09/2026): prima tornava
+    // `collegato: true` mentre il TODO qui sotto dichiara che su Supabase non
+    // viene scritto niente. Un chiamante avrebbe creduto il collegamento
+    // salvato, e si sarebbe accorto del contrario solo molto piu' tardi.
+    //
+    // TODO: quando arrivera' il salvataggio su Supabase, `persistito` diventa
+    // true ed e' quello il segnale che l'interfaccia dovra' leggere.
     return NextResponse.json({
-      collegato: true,
+      parlatoConMeta: true,
+      persistito: false,
+      avviso: "Collegamento non ancora salvato: manca la persistenza su Supabase.",
       scadeIl: token.scadeIl?.toISOString() ?? null,
     });
   } catch (errore) {

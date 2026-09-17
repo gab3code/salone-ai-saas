@@ -139,6 +139,19 @@ export async function POST(request: NextRequest) {
 
   const admin = creaClientAdmin();
 
+  // Scritture fallite durante la lavorazione di questo evento.
+  //
+  // Serve perche' questo endpoint risponde 200 in fondo, e per Stripe 200
+  // vuol dire "ricevuto e lavorato": non ritenta MAI piu'. Fino al
+  // 17/09/2026 gli update qui sotto non controllavano l'errore, quindi una
+  // scrittura fallita su un pagamento gia' incassato spariva in silenzio e
+  // il salone restava con il piano vecchio dopo aver pagato -- senza che
+  // nessuno, da nessuna parte, potesse accorgersene.
+  //
+  // Con un 500 Stripe ritenta per giorni, che e' esattamente il
+  // comportamento voluto per un errore passeggero del database.
+  let scritturaFallita: string | null = null;
+
   switch (evento.type) {
     case "checkout.session.completed": {
       const session = evento.data.object as Stripe.Checkout.Session;
@@ -162,7 +175,7 @@ export async function POST(request: NextRequest) {
             .eq("id", tenantId)
             .maybeSingle();
 
-          await admin
+          const { error: erroreTenant } = await admin
             .from("tenants")
             .update({
               stripe_subscription_id: subscription.id,
@@ -174,6 +187,11 @@ export async function POST(request: NextRequest) {
                   }),
             })
             .eq("id", tenantId);
+          if (erroreTenant) {
+            // Soldi gia' incassati e piano non applicato: e' il caso in cui
+            // il silenzio costa di piu'.
+            scritturaFallita = `tenants (${tenantId}): ${erroreTenant.message}`;
+          }
         }
       }
       break;
@@ -193,11 +211,16 @@ export async function POST(request: NextRequest) {
     case "checkout.session.expired": {
       const sessione = evento.data.object as Stripe.Checkout.Session;
       if (sessione.metadata?.tipo === "caparra") {
-        await admin
+        const { error: erroreCaparra } = await admin
           .from("richieste_caparra")
           .update({ stato: "annullata" })
           .eq("stripe_checkout_session_id", sessione.id)
           .eq("stato", "in_attesa");
+        if (erroreCaparra) {
+          // Senza questa chiusura la richiesta resta "in_attesa" per sempre,
+          // e nessuno la guarda mai piu'.
+          scritturaFallita = `richieste_caparra (${sessione.id}): ${erroreCaparra.message}`;
+        }
       }
       break;
     }
@@ -289,6 +312,13 @@ export async function POST(request: NextRequest) {
     // fonte di verità sullo stato che finisce in stato_abbonamento.
     default:
       break;
+  }
+
+  if (scritturaFallita) {
+    console.error(`[stripe/webhook] ${evento.type}: scrittura fallita --`, scritturaFallita);
+    // 500 e non 200: Stripe ritenta, e il lavoro non si perde. Il dettaglio
+    // resta nei log e non esce nella risposta.
+    return NextResponse.json({ errore: "Scrittura fallita, riprovare." }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });

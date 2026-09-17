@@ -42,10 +42,22 @@ describe("limiti di piano per la chat AI", () => {
     expect(pianoHaTonoPersonalizzato("enterprise")).toBe(true);
   });
 
-  it("la quota mensile cresce con il piano, enterprise è illimitato", () => {
+  it("la quota mensile cresce con il piano, e nessun piano è senza tetto", () => {
     expect(limiteMensileMessaggi("growth")).toBeGreaterThan(0);
     expect(limiteMensileMessaggi("pro")).toBeGreaterThan(limiteMensileMessaggi("growth"));
-    expect(limiteMensileMessaggi("enterprise")).toBe(Infinity);
+    expect(limiteMensileMessaggi("enterprise")).toBeGreaterThan(limiteMensileMessaggi("pro"));
+  });
+
+  it("NESSUN piano ha quota infinita", () => {
+    // Corretto il 17/09/2026 dopo un audit: enterprise era `Infinity`.
+    // `/api/chat/[slug]` è pubblico e non autenticato, quindi un piano senza
+    // tetto voleva dire che chiunque conoscesse lo slug poteva far crescere
+    // la bolletta Anthropic senza nessun limite superiore. Un tetto
+    // commerciale generoso e un muro contro l'abuso sono due cose diverse.
+    for (const piano of ["free", "starter", "growth", "pro", "enterprise"]) {
+      expect(Number.isFinite(limiteMensileMessaggi(piano)), piano).toBe(true);
+      expect(Number.isFinite(limiteMensileMessaggi(piano, 50)), `${piano} con 50 operatori`).toBe(true);
+    }
   });
 
   it("la quota di Pro scala per operatore (stesso pattern della quota SMS)", () => {
@@ -55,9 +67,9 @@ describe("limiti di piano per la chat AI", () => {
     expect(limiteMensileMessaggi("pro", 3)).toBe(base * 3);
   });
 
-  it("growth ed enterprise NON scalano per operatore (prezzo piatto/illimitato)", () => {
+  it("growth ed enterprise NON scalano per operatore (prezzo piatto)", () => {
     expect(limiteMensileMessaggi("growth", 5)).toBe(limiteMensileMessaggi("growth", 1));
-    expect(limiteMensileMessaggi("enterprise", 5)).toBe(Infinity);
+    expect(limiteMensileMessaggi("enterprise", 5)).toBe(limiteMensileMessaggi("enterprise", 1));
   });
 
   it("l'intervallo anti-burst è positivo e ragionevole (non zero, non minuti)", () => {

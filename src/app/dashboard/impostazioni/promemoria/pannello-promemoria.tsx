@@ -33,10 +33,11 @@ export function PannelloPromemoria({ regoleIniziali }: { regoleIniziali: Regola[
     setMessaggio(null);
     startTransition(async () => {
       const risultato = await aggiungiRegolaPromemoria(formData);
-      if (risultato?.errore) {
-        setMessaggio({ tipo: "errore", testo: risultato.errore });
+      if (risultato?.errore || !risultato?.id) {
+        setMessaggio({ tipo: "errore", testo: risultato?.errore ?? "Errore salvando il promemoria." });
       } else {
-        setRegole((prev) => [...prev, { id: crypto.randomUUID(), orePreavviso: oreNumero }].sort((a, b) => a.orePreavviso - b.orePreavviso));
+        // L'id arriva dal server: vedi il commento nell'azione.
+        setRegole((prev) => [...prev, { id: risultato.id, orePreavviso: oreNumero }].sort((a, b) => a.orePreavviso - b.orePreavviso));
         setOreNuova("");
         setMessaggio({ tipo: "ok", testo: "Promemoria aggiunto." });
       }

@@ -46,7 +46,15 @@ export async function aggiungiRegolaPromemoria(formData: FormData) {
     return { errore: `Massimo ${MAX_REGOLE_PROMEMORIA_PER_TENANT} promemoria attivi per volta.` };
   }
 
-  const { error } = await supabase.from("regole_promemoria").insert({ tenant_id: tenantId, ore_preavviso: ore });
+  // Si fa tornare l'ID VERO (audit del 17/09/2026): con un id inventato
+  // dalla UI, il "Rimuovi" subito dopo cancellava zero righe senza nessun
+  // errore, la regola spariva dallo schermo e il cliente continuava a
+  // ricevere quel promemoria che il titolare credeva di aver tolto.
+  const { data, error } = await supabase
+    .from("regole_promemoria")
+    .insert({ tenant_id: tenantId, ore_preavviso: ore })
+    .select("id")
+    .single();
 
   revalidatePath("/dashboard/impostazioni/promemoria");
   if (error) {
@@ -54,7 +62,7 @@ export async function aggiungiRegolaPromemoria(formData: FormData) {
     if (error.code === "23505") return { errore: "Hai già un promemoria impostato su questo numero di ore." };
     return { errore: `Errore salvando il promemoria: ${error.message}` };
   }
-  return { ok: true as const };
+  return { ok: true as const, id: data.id as string };
 }
 
 /** Rimuove una regola -- il gate di piano non serve ricontrollarlo qui: una regola già esistente

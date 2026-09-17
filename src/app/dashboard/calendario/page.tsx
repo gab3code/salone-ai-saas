@@ -51,6 +51,7 @@ export default async function PaginaCalendario({
     operatore_id?: string;
     modifica?: string;
     lista_attesa_avviso?: string;
+    errore?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -72,6 +73,25 @@ export default async function PaginaCalendario({
   // direttamente -- letta qui sotto RLS, quindi solo se è davvero di questo
   // tenant. Nessun dato sensibile in URL (solo un uuid), coerente con
   // "modifica=<id>" già usato sopra.
+  // Le azioni di questa pagina girano dentro form di Server Component, che
+  // non hanno stato client per mostrare un errore. Fino all'audit del
+  // 17/09/2026 l'esito veniva semplicemente SCARTATO: uno spostamento
+  // rifiutato per conflitto d'orario, una cancellazione fallita o
+  // un'assenza non salvata sparivano senza dire niente, e il titolare
+  // restava convinto che fossero andate a buon fine. Nel caso dello
+  // spostamento e' anche pericoloso: il salone crede il cliente spostato,
+  // quel posto risulta libero e ci finisce qualcun altro.
+  //
+  // L'errore torna nell'indirizzo, che e' lo stesso meccanismo gia' usato
+  // qui sotto per il banner della lista d'attesa.
+  const tornaConErrore = (errore: string) => {
+    const parametri = new URLSearchParams({ data: dataYMD });
+    for (const id of servizioIds) parametri.append("servizio_id", id);
+    if (operatoreId) parametri.set("operatore_id", operatoreId);
+    parametri.set("errore", errore);
+    redirect(`/dashboard/calendario?${parametri.toString()}`);
+  };
+
   const avvisoListaAttesa = sp.lista_attesa_avviso
     ? (
         await supabase
@@ -164,6 +184,15 @@ export default async function PaginaCalendario({
         <h1 className="mt-2 text-xl font-semibold">Calendario</h1>
       </div>
 
+      {sp.errore && (
+        <p
+          role="alert"
+          className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          {sp.errore}
+        </p>
+      )}
+
       {avvisoListaAttesa && (
         <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           🔔 Lo slot appena liberato era atteso da{" "}
@@ -243,7 +272,8 @@ export default async function PaginaCalendario({
                         <form
                           action={async () => {
                             "use server";
-                            await segnaNoShow(a.id, !eAssente);
+                            const esito = await segnaNoShow(a.id, !eAssente);
+                            if (esito?.errore) tornaConErrore(esito.errore);
                           }}
                         >
                           <button type="submit" className="underline text-amber-700">
@@ -261,6 +291,7 @@ export default async function PaginaCalendario({
                         action={async () => {
                           "use server";
                           const risultato = await cancellaAppuntamento(a.id);
+                          if ("errore" in risultato && risultato.errore) tornaConErrore(risultato.errore);
                           // Match in lista d'attesa (Fase 6): torna sulla stessa vista con
                           // l'id della riga da segnalare, così il banner sopra compare subito
                           // senza dover aprire /dashboard/lista-attesa per accorgersene.
@@ -282,7 +313,8 @@ export default async function PaginaCalendario({
                     <form
                       action={async (formData: FormData) => {
                         "use server";
-                        await modificaAppuntamento(a.id, formData);
+                        const esito = await modificaAppuntamento(a.id, formData);
+                        if (esito?.errore) tornaConErrore(esito.errore);
                       }}
                       className="mt-3 flex flex-wrap items-end gap-2 border-t border-zinc-200 pt-3"
                     >

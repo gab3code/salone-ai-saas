@@ -40,10 +40,23 @@ describe("caricaImportoCaparraServizio", () => {
     expect(await caricaImportoCaparraServizio(supabase, TENANT_ID, SERVIZIO_ID)).toBe(0);
   });
 
-  it("torna 0 se tenant o servizio non esistono, mai un'eccezione", async () => {
+  it("torna null -- non 0 -- se non si riesce a leggere la configurazione", async () => {
+    // La differenza vale soldi (audit del 17/09/2026): 0 per il chiamante
+    // vuol dire "nessuna caparra richiesta", quindi un errore transitorio del
+    // database faceva prenotare senza deposito su un salone che invece lo
+    // chiede. Chi chiama deve poter distinguere "non e' dovuta" da "non lo
+    // so", e fermarsi nel secondo caso.
     const supabase = creaSupabaseFinto({
       tenants: { select: [{ data: null, error: null }] },
       servizi: { select: [{ data: null, error: null }] },
+    });
+    expect(await caricaImportoCaparraServizio(supabase, TENANT_ID, SERVIZIO_ID)).toBeNull();
+  });
+
+  it("zero resta zero quando la risposta e' certa: la caparra non e' attiva", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [{ data: { caparra_attiva: false, caparra_tipo: "percentuale", caparra_valore: 20 }, error: null }] },
+      servizi: { select: [{ data: { prezzo_centesimi: 5000 }, error: null }] },
     });
     expect(await caricaImportoCaparraServizio(supabase, TENANT_ID, SERVIZIO_ID)).toBe(0);
   });

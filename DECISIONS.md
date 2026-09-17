@@ -6370,3 +6370,62 @@ comunque.
 - Nella demo non si vede il passaggio "chiama il salone": il salone finto non ha numero di
   telefono, perche' un numero inventato appartiene quasi sempre a qualcuno.
 - La prenotazione non sopravvive a un ricaricamento. Per una demo e' indifferente.
+
+## 17/09/2026 -- Audit funzionale completo, e sei correzioni
+
+Gabriel ha chiesto un audit sulla funzionalita' (non sull'estetica) di tutto il progetto, lento
+ed esaustivo. Metodo: quattro letture parallele del repo file per file, poi **verifica a mano di
+ogni segnalazione grave prima di toccare qualunque cosa**. Report intero in
+`docs/audit-17-09-2026.md`.
+
+La verifica a mano non e' stata una formalita': **una segnalazione CRITICA su cinque era un
+falso positivo.** Diceva che manca `middleware.ts` e che quindi la sessione non viene mai
+rinfrescata. In Next.js 16 il middleware si chiama `proxy.ts`, il file esiste, chiama
+`getUser()` e ha il suo matcher. Applicarla senza controllare avrebbe aggiunto un secondo
+middleware a un progetto che ne ha gia' uno. Regola: **una segnalazione non verificata non e'
+un problema, e' un'ipotesi.**
+
+### Le due che costavano soldi
+
+1. **Si poteva prenotare senza pagare la caparra.** `caricaImportoCaparraServizio` ritornava 0
+   sia quando la caparra non e' attiva sia quando la query falliva, e per chi chiama 0 vuol dire
+   "nessuna caparra richiesta". Un errore transitorio del database diventava indistinguibile da
+   un salone che non l'ha attivata. Ora ritorna `null` quando non lo sa, e i chiamanti si
+   fermano. Il criterio: far pagare una caparra non dovuta si corregge con un rimborso, non
+   farla pagare quando era dovuta no.
+2. **`enterprise: Infinity` su un endpoint pubblico e non autenticato.** Nessun limite superiore
+   alla bolletta Anthropic per quei tenant, bastava conoscere lo slug. Ora 50.000/mese, con un
+   test che impedisce a qualunque piano di tornare infinito. Un tetto commerciale generoso e un
+   muro contro l'abuso sono due cose diverse, e `Infinity` le confondeva.
+
+### La piu' insidiosa
+
+**Stripe incassava e il piano non veniva applicato, in silenzio.** Due `update` senza controllo
+dell'errore in un endpoint che risponde sempre 200 -- e per Stripe 200 vuol dire "lavorato",
+quindi non ritenta mai piu'. Ora l'errore fa rispondere 500 e Stripe ritenta per giorni.
+
+E' il tipo di bug che non si vede leggendo il file: bisogna sapere cosa significa 200 per il
+mittente del webhook. Vale come promemoria per ogni webhook futuro.
+
+### La famiglia "l'utente crede di aver fatto una cosa e non l'ha fatta"
+
+- Rimuovere una FAQ o un promemoria **appena aggiunti** non cancellava niente: la UI si
+  inventava l'id con `crypto.randomUUID()` invece di usare quello vero, e un DELETE che non
+  trova niente non e' un errore. La riga spariva dallo schermo e tornava al ricaricamento --
+  e il promemoria continuava a partire.
+- Sul calendario, spostamento/cancellazione/assenza scartavano l'esito dell'azione. Il piu'
+  pericoloso e' lo spostamento: se fallisce per conflitto, il salone crede il cliente spostato,
+  quel posto risulta libero e ci finisce qualcun altro.
+
+Regola che ne esce: **un'interfaccia ottimista deve appoggiarsi a un id vero**, e un form che
+chiama un'azione che puo' restituire un errore deve avere un posto dove mostrarlo. Se quel posto
+non c'e', l'errore non esiste per l'utente.
+
+### Cosa NON ho toccato, e perche'
+
+Cinque punti sono scelte di progetto, non bug, e li ho lasciati con la mia proposta scritta:
+il fail-open del tetto SMS (documentato come deliberato), l'aggirabilita' delle difese
+anti-abuso legate a `identificatore_sessione` (serve un limite per IP, lavoro a se'), il claim
+di invio scritto prima di sapere se l'invio e' riuscito, l'assenza del recupero password
+(funzione nuova, non un fix -- ma va fatta prima del primo cliente pagante), e il listino
+duplicato fra `piani.ts` e Stripe.

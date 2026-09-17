@@ -22,10 +22,13 @@ export function PannelloFaq({ faqIniziali }: { faqIniziali: Faq[] }) {
     setMessaggio(null);
     startTransition(async () => {
       const risultato = await aggiungiFaq(formData);
-      if (risultato?.errore) {
-        setMessaggio({ tipo: "errore", testo: risultato.errore });
+      if (risultato?.errore || !risultato?.id) {
+        setMessaggio({ tipo: "errore", testo: risultato?.errore ?? "Errore salvando la domanda." });
       } else {
-        setFaq((prev) => [...prev, { id: crypto.randomUUID(), domanda: domandaNuova.trim(), risposta: rispostaNuova.trim() }]);
+        // L'id arriva dal server, non da `crypto.randomUUID()`: con un id
+        // inventato il "Rimuovi" subito dopo cancellava zero righe in
+        // silenzio, e la domanda tornava al ricaricamento.
+        setFaq((prev) => [...prev, { id: risultato.id, domanda: domandaNuova.trim(), risposta: rispostaNuova.trim() }]);
         setDomandaNuova("");
         setRispostaNuova("");
         setMessaggio({ tipo: "ok", testo: "Domanda aggiunta." });

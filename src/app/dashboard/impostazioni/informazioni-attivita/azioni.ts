@@ -93,10 +93,22 @@ export async function aggiungiFaq(formData: FormData) {
     return { errore: `Massimo ${MAX_FAQ_PER_TENANT} domande frequenti per volta.` };
   }
 
-  const { error } = await supabase.from("faq_attivita").insert({ tenant_id: tenantId, domanda, risposta });
+  // Si fa tornare l'ID VERO della riga appena scritta, e non si lascia che
+  // sia la UI a inventarselo (bug trovato nell'audit del 17/09/2026): con un
+  // id finto, premere "Rimuovi" su una domanda appena aggiunta cancellava
+  // zero righe -- senza nessun errore, perche' un DELETE che non trova
+  // niente non e' un errore -- e la domanda spariva dallo schermo per
+  // ricomparire al ricaricamento successivo. Nel frattempo continuava a
+  // occupare uno dei 40 posti disponibili.
+  const { data, error } = await supabase
+    .from("faq_attivita")
+    .insert({ tenant_id: tenantId, domanda, risposta })
+    .select("id")
+    .single();
 
   revalidatePath(PERCORSO);
-  return error ? { errore: `Errore salvando la domanda: ${error.message}` } : { ok: true as const };
+  if (error) return { errore: `Errore salvando la domanda: ${error.message}` };
+  return { ok: true as const, id: data.id as string };
 }
 
 /** Rimuove una FAQ -- il gate di piano non serve ricontrollarlo qui: una FAQ già esistente è

@@ -38,19 +38,32 @@ export type RisultatoAvvioCaparra =
  * centesimi -- 0 se il tenant non ha la caparra attiva o se questo
  * servizio/prezzo non genererebbe un importo addebitabile. Usata come
  * controllo leggero PRIMA di decidere se creare la prenotazione
- * direttamente o avviare il pagamento (vedi calcolaImportoCaparraCentesimi
- * per il perché 0 significa sempre "nessuna caparra", mai un errore).
+ * direttamente o avviare il pagamento.
+ *
+ * Ritorna `null` quando NON SI PUO' SAPERE (query fallita, righe mancanti),
+ * e un numero -- anche 0 -- quando la risposta e' certa.
+ *
+ * La distinzione e' nata da un audit del 17/09/2026. Prima questa funzione
+ * ritornava 0 in entrambi i casi, e 0 per il chiamante vuol dire "nessuna
+ * caparra richiesta": un errore transitorio del database diventava
+ * indistinguibile da un salone che la caparra non l'ha attivata, e il
+ * cliente prenotava senza versare il deposito anti-no-show. Nessuno se ne
+ * sarebbe accorto fino al primo no-show che quel deposito doveva proteggere.
+ *
+ * Con `null` il chiamante e' costretto a decidere cosa fare, e la scelta
+ * giusta e' fermarsi: far pagare una caparra non dovuta si corregge con un
+ * rimborso, non farla pagare quando era dovuta no.
  */
 export async function caricaImportoCaparraServizio(
   supabase: SupabaseClient,
   tenantId: string,
   servizioId: string
-): Promise<number> {
+): Promise<number | null> {
   const [tenantRes, servizioRes] = await Promise.all([
     supabase.from("tenants").select("caparra_attiva, caparra_tipo, caparra_valore").eq("id", tenantId).single(),
     supabase.from("servizi").select("prezzo_centesimi").eq("id", servizioId).eq("tenant_id", tenantId).single(),
   ]);
-  if (!tenantRes.data || !servizioRes.data) return 0;
+  if (!tenantRes.data || !servizioRes.data) return null;
 
   const config: ConfigCaparra = {
     attiva: tenantRes.data.caparra_attiva,

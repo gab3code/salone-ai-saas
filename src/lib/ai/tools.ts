@@ -528,6 +528,11 @@ async function eseguiStrumentoInterno(
       // richiesta e la catena ha più di un servizio, si chiede di prenotarli
       // uno alla volta invece di gestire male i soldi del cliente.
       const importoCaparra = await caricaImportoCaparraServizio(supabase, tenantId, servizio_ids[0]);
+      if (importoCaparra === null) {
+        // Non si e' potuto leggere se questa attivita' chiede una caparra:
+        // non si prenota alla cieca (vedi caparra.server.ts).
+        return { errore: "Non riesco a verificare le condizioni di prenotazione adesso. Riprova fra poco." };
+      }
       if (importoCaparra > 0 && servizio_ids.length > 1) {
         return {
           errore:

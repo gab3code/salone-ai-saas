@@ -182,6 +182,13 @@ export async function prenotaPubblico(
   const tenantId = tenant.id;
 
   const importoCaparra = await caricaImportoCaparraServizio(supabase, tenantId, dati.servizioId);
+  // `null` = non si e' riusciti a leggere la configurazione della caparra.
+  // Ci si ferma invece di tirare a indovinare: proseguire vorrebbe dire
+  // creare una prenotazione confermata senza deposito su un salone che forse
+  // lo richiede, e quel salone scoprirebbe il buco solo al primo no-show.
+  if (importoCaparra === null) {
+    return { ok: false, errore: "Non riesco a completare la prenotazione in questo momento. Riprova fra poco." };
+  }
   if (importoCaparra > 0) {
     return {
       ok: false,
