@@ -22,6 +22,8 @@ import type { StileTonoAI } from "@/lib/ai/agente";
 import { contaMessaggiClienteQuestoMese, ultimoMessaggioTroppoRecente } from "@/lib/ai/limiti.server";
 import { FUSO_ORARIO_PREDEFINITO, realeAPseudoUtc } from "@/lib/fuso-orario";
 import { istruzioniContatto } from "@/lib/contatti";
+import { TETTI_CHAT_SALONE } from "@/lib/limiti-ip";
+import { consumaUsoAiPerIp } from "@/lib/limiti-ip.server";
 
 /**
  * Endpoint pubblico della chat AI (Task #66) -- NESSUNA autenticazione
@@ -83,6 +85,33 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json(
       { errore: "La chat AI non è inclusa nel piano di questa attività." },
       { status: 403 }
+    );
+  }
+
+  // Tetto per singolo chiamante, PRIMA di toccare qualunque cosa -- prima
+  // ancora di creare o ripescare una conversazione.
+  //
+  // E' l'unica difesa di questo endpoint che non si aggira dal client. Tutte
+  // le altre (intervallo minimo fra messaggi, tetto per conversazione, turni
+  // fuori tema) sono agganciate a `identificatore_sessione`, che pero' lo
+  // sceglie chi chiama: uno script che ne genera uno nuovo a ogni richiesta
+  // le salta tutte, e restava solo la quota mensile del salone -- che una
+  // persona sola poteva bruciare in pochi minuti, togliendola ai clienti veri
+  // di quel salone.
+  //
+  // I numeri stanno larghi apposta (vedi limiti-ip.ts): qui dall'altra parte
+  // c'e' un cliente che sta prenotando, e bloccarlo costa al salone molto piu'
+  // di quanto costi a noi qualche messaggio in piu'.
+  const limiteIp = await consumaUsoAiPerIp(supabase, request.headers, "chat", TETTI_CHAT_SALONE);
+  if (!limiteIp.consentito) {
+    return NextResponse.json(
+      {
+        errore:
+          limiteIp.motivo === "tetto"
+            ? "Hai scritto molti messaggi in poco tempo. Riprova fra un'ora, oppure contatta direttamente l'attività."
+            : "Non riesco a rispondere in questo momento. Riprova fra poco.",
+      },
+      { status: 429 }
     );
   }
 

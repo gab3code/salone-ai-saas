@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { eseguiPromemoriaGiornalieri } from "@/lib/promemoria.server";
+import { pulisciLimitiIp } from "@/lib/limiti-ip.server";
 
 /**
  * Endpoint chiamato da Vercel Cron una volta al giorno (vedi vercel.json,
@@ -33,5 +34,16 @@ export async function GET(request: NextRequest) {
   const admin = creaClientAdmin();
   const esito = await eseguiPromemoriaGiornalieri(admin, new Date());
 
-  return NextResponse.json(esito);
+  // Le finestre dei limiti per IP piu' vecchie di 48 ore non servono piu' a
+  // nessuno: si cancellano qui invece di avere un cron loro (il piano Hobby
+  // di Vercel ne concede uno al giorno). Se fallisce non si porta dietro i
+  // promemoria, che sono la cosa importante delle due.
+  let limitiIpCancellati = 0;
+  try {
+    limitiIpCancellati = await pulisciLimitiIp(admin);
+  } catch (errore) {
+    console.error("[cron/promemoria] pulizia dei limiti per IP fallita:", errore);
+  }
+
+  return NextResponse.json({ ...esito, limitiIpCancellati });
 }

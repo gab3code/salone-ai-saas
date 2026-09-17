@@ -6429,3 +6429,60 @@ anti-abuso legate a `identificatore_sessione` (serve un limite per IP, lavoro a 
 di invio scritto prima di sapere se l'invio e' riuscito, l'assenza del recupero password
 (funzione nuova, non un fix -- ma va fatta prima del primo cliente pagante), e il listino
 duplicato fra `piani.ts` e Stripe.
+
+## 17/09/2026 -- Un tetto all'uso dell'AI per ogni IP, sulla demo E sui saloni veri
+
+Gabriel, dopo aver letto il punto "resta scoperto" dell'audit: "se e' quello per dare un limite
+diverso a ciascun [visitatore] che usa la demo allora e' assolutamente da mettere, e bisogna
+anche mettere limiti su ogni uso dell'AI da parte di ciascun ip".
+
+### Perche' serviva
+
+Tutte le difese anti-abuso della chat pubblica erano agganciate a `identificatore_sessione`,
+che pero' lo sceglie il client: uno script che ne genera uno nuovo a ogni richiesta apriva ogni
+volta una conversazione "fresca" e saltava l'intervallo minimo fra messaggi, il tetto per
+conversazione e il contatore dei turni fuori tema. Restava solo la quota mensile del tenant --
+che una persona sola poteva bruciare in pochi minuti, **togliendola ai clienti veri di quel
+salone**.
+
+Sulla demo il problema era lo stesso al contrario: il tetto mensile e' condiviso fra tutti i
+visitatori, quindi uno insistente consumava quello degli altri.
+
+**Questo e' il primo limite del progetto che non si aggira cambiando qualcosa nel client.**
+L'IP non lo decide chi chiama: lo mette la piattaforma.
+
+### Le scelte
+
+- **Un solo meccanismo per tutti e due gli endpoint.** Il problema e' lo stesso visto da due
+  lati, e una difesa scritta due volte diverge. Cambiano solo i numeri.
+- **Due finestre, non una**: una oraria contro la raffica, una giornaliera contro chi va piano
+  ma non si ferma mai. Con la sola oraria, uno script che manda il massimo ogni ora consuma
+  comunque una quota mensile in pochi giorni.
+- **Numeri asimmetrici, di proposito**: demo 30/ora e 60/giorno, chat di un salone vero 40/ora e
+  120/giorno. Sulla chat vera dall'altra parte c'e' un CLIENTE che sta prenotando, e bloccarlo
+  costa al salone molto piu' di quanto costi a noi qualche messaggio in piu'. Il caso da non
+  rompere e' piu' clienti dietro lo stesso indirizzo (il wi-fi di un ufficio, una rete mobile
+  che condivide l'uscita): per questo il tetto giornaliero e' dodici volte una conversazione
+  tipica e non due.
+- **E' il PRIMO controllo di tutti**, prima della quota del salone e prima del contatore globale
+  della demo. Un tentativo respinto non deve consumare niente di nessun altro, altrimenti
+  l'aggressore riuscirebbe comunque a togliere qualcosa a qualcuno.
+- **Nel database non c'e' nessun indirizzo IP**: c'e' uno SHA-256 con un sale del server. Serve
+  a riconoscere che due richieste vengono dalla stessa parte, che e' tutto quello che un
+  contatore deve sapere. Un indirizzo IP e' un dato personale, e per contare non serve
+  conservarlo. Le righe si cancellano da sole dopo 48 ore, nel giro notturno che gia' esiste.
+  Aggiunto anche all'informativa privacy: dichiararlo costa una riga, e non dichiararlo sarebbe
+  stato scorretto.
+- **Il sale non e' un segreto crittografico** e se `SALT_LIMITI_IP` manca si usa un valore fisso.
+  Un tetto che si spegne da solo quando manca una variabile d'ambiente non e' un tetto.
+
+### Le due direzioni opposte sul fallimento, e perche'
+
+- **Indirizzo non leggibile** (sviluppo in locale, intestazioni assenti): si lascia passare.
+  Dietro restano tutti gli altri tetti, e bloccare tutti perche' manca un'intestazione sarebbe
+  un danno peggiore del problema.
+- **Database che non risponde**: si BLOCCA. Qui la scelta e' l'opposto di quella della quota
+  mensile per tenant, che lascia passare per non rovinare la prenotazione di un cliente vero.
+  La differenza e' che quel controllo protegge un limite commerciale, questo esiste solo contro
+  l'abuso: in dubbio, meglio un messaggio in meno a una persona in buona fede che una difesa che
+  si spegne proprio quando serve.
