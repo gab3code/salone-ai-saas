@@ -7,9 +7,13 @@ import { prossimoGiornoAperto } from "./helpers/date";
 /**
  * Scenario 11 (punto 27 di CLAUDE.md) -- "cliente non si presenta".
  *
+ * AGGIORNATO 17/09/2026: adesso il pulsante esiste, e il secondo test qui
+ * sotto lo usa. Quello che segue è la nota originale del 16/09, tenuta
+ * perché spiega perché il primo test è scritto come è scritto.
+ *
  * IMPORTANTE, verificato leggendo il codice prima di scrivere questo test
- * (16/09/2026): marcare un appuntamento come no-show NON è un flusso di
- * prodotto implementato oggi. Lo stato `no_show` esiste solo a livello di
+ * (16/09/2026): marcare un appuntamento come no-show NON era un flusso di
+ * prodotto implementato. Lo stato `no_show` esiste solo a livello di
  * schema (colonna `appuntamenti.stato`, commento SQL, tipo TypeScript) e il
  * motore lo tratta già correttamente come "non occupa lo slot" -- coperto
  * da un unit test esistente (`booking-engine.test.ts`, "un appuntamento
@@ -29,7 +33,7 @@ import { prossimoGiornoAperto } from "./helpers/date";
  * contro la query reale che calcola gli slot liberi in dashboard, unendo
  * booking-engine.server.ts e la UI in un solo controllo end-to-end.
  */
-test.describe("Scenario 11 -- cliente non si presenta (no-show, funzionalità non ancora implementata)", () => {
+test.describe("Scenario 11 -- cliente non si presenta", () => {
   let tenant: TenantDiProva;
 
   test.afterEach(async () => {
@@ -89,5 +93,83 @@ test.describe("Scenario 11 -- cliente non si presenta (no-show, funzionalità no
       .eq("id", appuntamentoNoShow.id)
       .single();
     expect(rigaOriginale?.stato, "la riga no_show inserita all'inizio deve restare invariata").toBe("no_show");
+  });
+
+  /**
+   * Il pulsante vero (17/09/2026). Prima di oggi lo stato `no_show` non lo
+   * scriveva nessuna schermata: il tasso di no-show era strutturalmente zero
+   * ovunque venisse mostrato, pannello di piattaforma compreso -- un numero
+   * che non poteva essere diverso da zero, con l'aria di essere un dato. Ed
+   * è la promessa centrale del prodotto.
+   */
+  test("dalla dashboard si segna l'assenza su un appuntamento finito, e si annulla", async ({ page }) => {
+    tenant = await creaTenantDiProva({
+      nome: "Salone Test E2E Scenario11b",
+      piano: "starter",
+      servizi: [{ nome: "Piega", durataMinuti: 30, prezzoCentesimi: 2000 }],
+      operatori: [{ nome: "Rita", servizi: [0] }],
+    });
+
+    // Un appuntamento di ieri: deve essere già finito, altrimenti il pulsante
+    // non compare -- ed è la regola che si vuole verificare.
+    const ieri = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const ieriYMD = ieri.toISOString().slice(0, 10);
+    const appuntamento = await creaAppuntamentoConfermato(tenant, {
+      giornoYMD: ieriYMD,
+      oraHHMM: "10:00",
+      clienteNome: "Cliente Assente",
+      clienteTelefono: "3331110011",
+    });
+
+    await accediComeTitolare(page, tenant.email, tenant.password);
+    await page.goto(`/dashboard/calendario?data=${ieriYMD}`);
+
+    const riga = page.locator("li", { hasText: "Cliente Assente" });
+    await expect(riga).toBeVisible({ timeout: 15_000 });
+    await riga.getByRole("button", { name: "Non si è presentato" }).click();
+
+    async function statoAttuale() {
+      const { data } = await tenant.supabase
+        .from("appuntamenti")
+        .select("stato")
+        .eq("id", appuntamento.id)
+        .single();
+      return data?.stato;
+    }
+
+    await expect.poll(statoAttuale, { timeout: 15_000 }).toBe("no_show");
+    await expect(page.getByText("non si è presentato")).toBeVisible();
+
+    // Si può sbagliare: annullare deve riportarlo com'era, non lasciarlo in
+    // uno stato terzo.
+    await page.locator("li", { hasText: "Cliente Assente" }).getByRole("button", { name: "Annulla assenza" }).click();
+    await expect.poll(statoAttuale, { timeout: 15_000 }).toBe("confermato");
+  });
+
+  test("su un appuntamento non ancora finito il pulsante non c'è", async ({ page }) => {
+    // Non è un vezzo: marcare assente qualcuno che deve ancora arrivare non è
+    // un caso d'uso, è un errore di clic -- e il controllo esiste anche lato
+    // server, questo verifica che l'interfaccia non lo proponga nemmeno.
+    tenant = await creaTenantDiProva({
+      nome: "Salone Test E2E Scenario11c",
+      piano: "starter",
+      servizi: [{ nome: "Piega", durataMinuti: 30, prezzoCentesimi: 2000 }],
+      operatori: [{ nome: "Rita", servizi: [0] }],
+    });
+
+    const giorno = prossimoGiornoAperto();
+    await creaAppuntamentoConfermato(tenant, {
+      giornoYMD: giorno.ymd,
+      oraHHMM: "16:00",
+      clienteNome: "Cliente Futuro",
+      clienteTelefono: "3331110012",
+    });
+
+    await accediComeTitolare(page, tenant.email, tenant.password);
+    await page.goto(`/dashboard/calendario?data=${giorno.ymd}`);
+
+    const riga = page.locator("li", { hasText: "Cliente Futuro" });
+    await expect(riga).toBeVisible({ timeout: 15_000 });
+    await expect(riga.getByRole("button", { name: "Non si è presentato" })).toHaveCount(0);
   });
 });

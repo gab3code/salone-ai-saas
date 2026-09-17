@@ -957,6 +957,20 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       "Salone Test Fase1", piano growth, 5 appuntamenti reali nella finestra) via SQL diretto,
       `tsc`/`eslint`/`vitest` (201/201, +8 da questo giro)/`build` puliti (nuova rotta
       `/dashboard/analytics`).
+- [x] **No-show: adesso si può segnare davvero** (17/09/2026). Lo stato `no_show` esisteva dalla
+      migrazione 0001 nello schema, nel motore di prenotazione, nelle metriche e nei test -- ma
+      NESSUNA schermata lo scriveva mai. Il tasso di no-show era strutturalmente zero in ogni
+      punto che lo mostra, pannello di piattaforma compreso: un numero che non poteva essere
+      diverso da zero, con l'aria di essere un dato. Ed è la promessa centrale del prodotto.
+      Adesso sugli appuntamenti GIÀ FINITI compare "Non si è presentato" nel calendario, con
+      l'annullamento accanto; lo può usare anche uno staff, perché è chi sta alla cassa a vedere
+      che il cliente delle 15 non è arrivato. **Nessun pulsante "completato"**, di proposito: si
+      marca solo l'eccezione. Chiedere di confermare a mano ogni appuntamento andato bene
+      significa che dopo tre giorni nessuno lo fa più, e allora il dato è peggio di non averlo --
+      sembra vero ed esprime solo chi si è ricordato di cliccare. Il tasso si calcola sul totale
+      degli appuntamenti passati, che il database conosce già. Due test nello Scenario 11
+      (marcatura e annullamento, e che su un appuntamento futuro il pulsante non ci sia).
+      Resta aperta la sola definizione di "retention", sotto.
 - [ ] **Retention e no-show reale** (separato da Analytics sopra il 14/09/2026, non erano promesse
       scritte sul sito): due decisioni da prendere PRIMA di scrivere codice, non durante --
       1) definire cosa vuol dire "retention" per un titolare (es. % di clienti con almeno 2

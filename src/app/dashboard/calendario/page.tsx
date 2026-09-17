@@ -4,11 +4,22 @@ import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { trovaSlotDisponibiliTenant } from "@/lib/booking-engine.server";
 import { pseudoUtcAReale, realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
-import { cancellaAppuntamento, modificaAppuntamento } from "./azioni";
+import { cancellaAppuntamento, modificaAppuntamento, segnaNoShow } from "./azioni";
 import { PannelloNuovoAppuntamento } from "./pannello-nuovo-appuntamento";
 
 function oggiYMD(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * L'istante di adesso, letto dentro una funzione e non nel corpo del
+ * componente: la regola di purezza di React vieta una chiamata impura in
+ * render (giustamente -- un valore che cambia a ogni riga renderebbe la
+ * pagina non deterministica), e `oggiYMD` qui sopra segue già lo stesso
+ * schema. Serve per sapere quali appuntamenti sono finiti.
+ */
+function adessoMs(): number {
+  return Date.now();
 }
 
 function giornoAdiacente(dataYMD: string, delta: number): string {
@@ -100,6 +111,9 @@ export default async function PaginaCalendario({
   // Righe grezze convertite subito in pseudo-UTC: da qui in giù (display e
   // form di modifica) tutto il resto della pagina ragiona nella stessa
   // convenzione di sempre, mai un istante reale in mezzo al JSX.
+  // Una volta sola, non dentro il map.
+  const adesso = adessoMs();
+
   const appuntamenti = (appuntamentiRes.data ?? []).map((a) => ({
     ...a,
     inizio: realeAPseudoUtc(new Date(a.inizio), fusoOrario).toISOString(),
@@ -173,6 +187,8 @@ export default async function PaginaCalendario({
               const servizioNome = Array.isArray(a.servizi) ? a.servizi[0]?.nome : (a.servizi as { nome: string } | null)?.nome;
               const cliente = Array.isArray(a.clienti) ? a.clienti[0] : (a.clienti as { nome: string | null; telefono: string } | null);
               const inModifica = modificaId === a.id;
+              const eFinito = new Date(a.fine).getTime() <= adesso;
+              const eAssente = a.stato === "no_show";
               const parametriSenzaModifica = new URLSearchParams({ data: dataYMD });
               for (const id of servizioIds) parametriSenzaModifica.append("servizio_id", id);
               if (operatoreId) parametriSenzaModifica.set("operatore_id", operatoreId);
@@ -192,7 +208,27 @@ export default async function PaginaCalendario({
                         </>
                       )}
                     </span>
-                    <div className="flex gap-3 text-xs">
+                    <div className="flex items-center gap-3 text-xs">
+                      {eAssente && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">
+                          non si è presentato
+                        </span>
+                      )}
+                      {/* Il pulsante compare solo su un appuntamento finito:
+                          segnare assente qualcuno che deve ancora arrivare
+                          non è un caso d'uso, è un errore di clic. */}
+                      {eFinito && (
+                        <form
+                          action={async () => {
+                            "use server";
+                            await segnaNoShow(a.id, !eAssente);
+                          }}
+                        >
+                          <button type="submit" className="underline text-amber-700">
+                            {eAssente ? "Annulla assenza" : "Non si è presentato"}
+                          </button>
+                        </form>
+                      )}
                       <a
                         href={`/dashboard/calendario?${parametriSenzaModifica.toString()}&modifica=${a.id}`}
                         className="underline"

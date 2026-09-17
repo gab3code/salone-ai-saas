@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
+import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
+import { puoGestireAgenda } from "@/lib/ruoli";
 import {
   creaAppuntamentoTenant,
   modificaAppuntamentoTenant,
@@ -106,4 +108,63 @@ export async function modificaAppuntamento(id: string, formData: FormData) {
 
   revalidatePath("/dashboard/calendario");
   return { ok: true };
+}
+
+/**
+ * Marca un appuntamento passato come "non si è presentato", o annulla la
+ * marcatura.
+ *
+ * Perché esiste (17/09/2026): lo stato `no_show` era nello schema dalla
+ * migrazione 0001, nel motore di prenotazione, nelle metriche e nei test --
+ * ma NESSUNA schermata lo scriveva mai. Nessun bottone, da nessuna parte. Il
+ * risultato è che il tasso di no-show era strutturalmente zero in ogni punto
+ * del prodotto che lo mostra, incluso il pannello di piattaforma: un numero
+ * che non poteva essere diverso da zero, con l'aria di essere un dato.
+ * Peggio ancora: la protezione dai no-show è la promessa centrale del
+ * prodotto, e non era misurabile.
+ *
+ * **Si marca solo l'eccezione, non la normalità.** Nessun pulsante
+ * "completato": chiedere al salone di confermare a mano ogni appuntamento
+ * andato bene significa che smetterebbe di farlo dopo tre giorni, e allora
+ * il dato sarebbe peggio di non averlo -- sembrerebbe vero ed esprimerebbe
+ * solo chi si è ricordato di cliccare. Il tasso di no-show si calcola sul
+ * totale degli appuntamenti passati, che il database conosce già.
+ *
+ * **Solo appuntamenti finiti.** Marcare come assente qualcuno che deve
+ * ancora arrivare non è un caso d'uso, è un errore di clic.
+ *
+ * Lo può fare anche uno staff (`puoGestireAgenda`): è chi sta alla cassa a
+ * vedere che il cliente delle 15 non è arrivato.
+ */
+export async function segnaNoShow(id: string, assente: boolean) {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoGestireAgenda);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+
+  const { data: appuntamento } = await supabase
+    .from("appuntamenti")
+    .select("id, fine, stato")
+    .eq("tenant_id", accesso.tenantId)
+    .eq("id", id)
+    .maybeSingle();
+  if (!appuntamento) return { errore: "Appuntamento non trovato." };
+
+  if (new Date(appuntamento.fine as string).getTime() > Date.now()) {
+    return { errore: "Si può segnare un'assenza solo dopo l'orario dell'appuntamento." };
+  }
+  // Un appuntamento cancellato non è un no-show: il cliente aveva avvisato.
+  // Sono due cose diverse e vanno contate diversamente.
+  if (appuntamento.stato === "cancellato") {
+    return { errore: "Questo appuntamento era stato cancellato, non è un'assenza." };
+  }
+
+  const { error } = await supabase
+    .from("appuntamenti")
+    .update({ stato: assente ? "no_show" : "confermato" })
+    .eq("tenant_id", accesso.tenantId)
+    .eq("id", id);
+  if (error) return { errore: `Errore salvando l'esito: ${error.message}` };
+
+  revalidatePath("/dashboard/calendario");
+  return { ok: true as const };
 }
