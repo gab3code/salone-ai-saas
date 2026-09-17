@@ -64,6 +64,8 @@ export interface ProfiloPubblico {
   chatAiAttiva: boolean;
   /** true sul salone dimostrativo: la pagina aggiunge la barra che lo dichiara. */
   eDemo: boolean;
+  /** Lega i cloni Growth e Pro dello stesso visitatore, per l'interruttore in barra. */
+  demoGruppo: string | null;
   // Se il tenant ha anche la knowledge base dell'AI receptionist (Fase 2,
   // Pro/Enterprise, vedi pianoHaKnowledgeBaseAi in piani.ts) -- usato dal
   // widget SOLO per calibrare il messaggio di suggerimento iniziale (punto
@@ -92,7 +94,7 @@ export async function caricaProfiloPubblico(
   const { data: tenant, error: erroreTenant } = await supabase
     .from("tenants")
     .select(
-      "id, slug, nome, descrizione, indirizzo, telefono, telefono_whatsapp, email, sito_web, social, logo_url, cover_url, piano, caparra_attiva, caparra_tipo, caparra_valore, e_demo"
+      "id, slug, nome, descrizione, indirizzo, telefono, telefono_whatsapp, email, sito_web, social, logo_url, cover_url, piano, caparra_attiva, caparra_tipo, caparra_valore, e_demo, demo_gruppo"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -159,6 +161,7 @@ export async function caricaProfiloPubblico(
     coverUrl: tenant.cover_url,
     chatAiAttiva: pianoHaAccessoAIChatWeb(tenant.piano),
     eDemo: tenant.e_demo === true,
+    demoGruppo: (tenant.demo_gruppo as string | null) ?? null,
     haInformazioniAttivita: pianoHaKnowledgeBaseAi(tenant.piano),
     caparra: {
       attiva: tenant.caparra_attiva,

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SLUG_DEMO_GROWTH, SLUG_DEMO_PRO } from "@/lib/demo";
+import { SLUG_DEMO_GROWTH, SLUG_DEMO_PRO, slugCloneDemo } from "@/lib/demo";
 
 /**
  * La barra che dichiara che questo salone non esiste (Fase 6ter, 17/09/2026).
@@ -20,8 +20,14 @@ import { SLUG_DEMO_GROWTH, SLUG_DEMO_PRO } from "@/lib/demo";
  * Sta in alto e resta attaccata allo scorrimento: chi apre la chat a meta'
  * pagina non deve poter dimenticare dov'e'.
  */
-export function BarraDemo({ slug }: { slug: string }) {
-  const suPro = slug === SLUG_DEMO_PRO;
+export function BarraDemo({ slug, gruppo }: { slug: string; gruppo: string | null }) {
+  // Un visitatore con il suo salone ha DUE cloni legati dallo stesso gruppo:
+  // l'interruttore passa da uno all'altro senza fargli perdere quello che ha
+  // appena provato. Senza gruppo siamo sui due modelli condivisi, il ripiego
+  // di quando il tetto giornaliero dei cloni e' pieno.
+  const linkGrowth = gruppo ? `/s/${slugCloneDemo(gruppo, "growth")}` : `/s/${SLUG_DEMO_GROWTH}`;
+  const linkPro = gruppo ? `/s/${slugCloneDemo(gruppo, "pro")}` : `/s/${SLUG_DEMO_PRO}`;
+  const suPro = slug === linkPro.replace("/s/", "");
 
   return (
     <div className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-900 text-white">
@@ -29,15 +35,16 @@ export function BarraDemo({ slug }: { slug: string }) {
         <p className="text-sm">
           <strong>Salone di prova.</strong>{" "}
           <span className="text-zinc-300">
-            Non esiste: puoi prenotare davvero, ma non ti aspetta nessuno. Parla con l&apos;assistente in basso a
-            destra.
+            {gruppo
+              ? "Non esiste, ed è tuo soltanto: puoi prenotare davvero senza pestare i piedi a nessun altro, e non ti aspetta nessuno. Parla con l'assistente in basso a destra."
+              : "Non esiste: puoi prenotare davvero, ma non ti aspetta nessuno. Parla con l'assistente in basso a destra."}
           </span>
         </p>
 
         <div className="flex shrink-0 items-center gap-3">
           <div className="flex rounded-lg bg-zinc-800 p-0.5" role="group" aria-label="Piano da provare">
             <Link
-              href={`/s/${SLUG_DEMO_GROWTH}`}
+              href={linkGrowth}
               aria-current={!suPro ? "true" : undefined}
               className={`rounded-md px-3 py-1 text-xs font-medium ${
                 !suPro ? "bg-white text-zinc-900" : "text-zinc-300 hover:text-white"
@@ -46,7 +53,7 @@ export function BarraDemo({ slug }: { slug: string }) {
               Growth
             </Link>
             <Link
-              href={`/s/${SLUG_DEMO_PRO}`}
+              href={linkPro}
               aria-current={suPro ? "true" : undefined}
               className={`rounded-md px-3 py-1 text-xs font-medium ${
                 suPro ? "bg-white text-zinc-900" : "text-zinc-300 hover:text-white"

@@ -72,7 +72,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("nome, piano, fuso_orario, tono_ai, tono_ai_nota, telefono, telefono_whatsapp, e_demo")
+    .select("nome, piano, fuso_orario, tono_ai, tono_ai_nota, telefono, telefono_whatsapp, e_demo, demo_clonato_da")
     .eq("id", tenantId)
     .single();
 
@@ -123,8 +123,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // non dimostrativo).
     const esaurito = tenant.e_demo
       ? await (async () => {
+          // Il contatore sta sul MODELLO, non sul clone. Ogni visitatore ha
+          // il suo salone, quindi contare sul clone darebbe a ognuno la
+          // quota intera -- cioe' nessuna quota. `demo_clonato_da` risale al
+          // modello; sui modelli stessi e' nullo e si conta su di loro.
+          const idPerLaQuota = (tenant.demo_clonato_da as string | null) ?? tenantId;
           const { data: restano, error } = await supabase.rpc("consuma_messaggio_demo", {
-            p_tenant_id: tenantId,
+            p_tenant_id: idPerLaQuota,
             p_limite: QUOTA_MENSILE_MESSAGGI_DEMO,
           });
           // In caso di errore si chiude, non si apre: qui non c'e' nessun

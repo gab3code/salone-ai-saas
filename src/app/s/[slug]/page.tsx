@@ -77,7 +77,7 @@ export default async function PaginaPubblicaSalone({
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50">
-      {profilo.eDemo && <BarraDemo slug={slug} />}
+      {profilo.eDemo && <BarraDemo slug={slug} gruppo={profilo.demoGruppo} />}
 
       {/* ── hero ─────────────────────────────────────────── */}
       <header className="relative overflow-hidden bg-zinc-900 text-white">

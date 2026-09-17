@@ -110,3 +110,37 @@ export const STRUMENTI_VIETATI_DEMO: readonly string[] = ["cerca_prenotazioni_cl
 export function strumentiPerDemo(): readonly string[] {
   return STRUMENTI_AI.filter((nome) => !STRUMENTI_VIETATI_DEMO.includes(nome));
 }
+
+/**
+ * Quanti saloni demo si possono creare in un giorno.
+ *
+ * Creare tenant da una pagina pubblica e senza login e' comodo e pericoloso:
+ * senza un tetto e' un modo per riempire il database gratis. Ogni visitatore
+ * ne consuma DUE (il clone Growth e quello Pro), quindi questo numero e' in
+ * cloni, non in visitatori: 120 sono sessanta persone al giorno, molte piu'
+ * di quante ne vedra' la demo per un bel pezzo.
+ *
+ * Superato il tetto la demo NON si rompe: si torna a servire il salone
+ * condiviso, che e' il comportamento di prima. Peggiore, ma vivo.
+ */
+export const MAX_CLONI_DEMO_AL_GIORNO = 120;
+
+/** Nome del cookie che fa ritrovare a un visitatore il suo salone. */
+export const COOKIE_GRUPPO_DEMO = "salone_ai_demo";
+
+/**
+ * Per quanto un visitatore ritrova il suo salone tornando sul sito.
+ * Piu' corto della conservazione dei dati (`GIORNI_CONSERVAZIONE_DATI_DEMO`)
+ * sarebbe inutile, piu' lungo darebbe un cookie che punta a un salone gia'
+ * cancellato.
+ */
+export const GIORNI_COOKIE_DEMO = GIORNI_CONSERVAZIONE_DATI_DEMO;
+
+/** Identificatore casuale per un gruppo di cloni. Niente di segreto: serve solo a non collidere. */
+export function nuovoGruppoDemo(): string {
+  return `g${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
+}
+
+export function slugCloneDemo(gruppo: string, piano: "growth" | "pro"): string {
+  return piano === "pro" ? `demo-${gruppo}-pro` : `demo-${gruppo}`;
+}

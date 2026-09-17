@@ -6165,3 +6165,71 @@ mostrato. Corretto con un `.eq("e_demo", false)`.
   soldo perso, solo una demo brutta per un po'.
 - **Il numero di messaggi non e' il numero di chiamate al modello.** Un turno con il ciclo degli
   strumenti ne fa piu' di una (`MAX_ITERAZIONI_TOOL`). Il conto del costo va fatto sul peggio.
+
+## 17/09/2026 -- "Ma e' una demo uguale per tutti?" -- un salone a testa
+
+Gabriel, guardando la demo appena fatta: "ma e' una demo uguale per tutti? se e' cosi' non va
+bene". Aveva ragione due volte: l'agenda condivisa si sporca fra visitatori, e una demo che
+mostra un salone inventato converte meno di una che mostra il suo. Ha chiesto di risolverli
+entrambi, nell'ordine: prima l'isolamento, poi la personalizzazione.
+
+### La strada ovvia era quella sbagliata
+
+Filtrare per sessione: una colonna `sessione` su `appuntamenti` e un filtro dove serve. Sono
+andato a contare dove serve: **il motore di prenotazione legge `appuntamenti` in nove punti**
+(`booking-engine.server.ts`). E andrebbe modificato anche `niente_sovrapposizioni`, il vincolo di
+esclusione GiST che impedisce due appuntamenti sovrapposti sullo stesso operatore -- l'invariante
+piu' importante del prodotto, messa nel database proprio perche' non ci fidiamo del codice
+applicativo.
+
+Dimenticare un filtro = un visitatore vede la prenotazione di uno sconosciuto. Sbagliarlo dalla
+parte opposta = due clienti VERI allo stesso orario. Nove punti sono troppi per una funzione di
+marketing.
+
+### La strada giusta era gia' nel prodotto
+
+Salone AI e' multi-tenant: ogni lettura e' gia' filtrata per `tenant_id`, e quell'isolamento e'
+gia' collaudato, gia' testato e gia' difeso dalle RLS. Quindi **ogni visitatore riceve un salone
+tutto suo**, clonato dal modello: zero modifiche al motore, zero modifiche al vincolo, isolamento
+perfetto -- perche' il clone E' un salone vero.
+
+E' anche piu' semplice da smontare: cancellare un tenant porta via in cascata appuntamenti,
+clienti, conversazioni, servizi e orari. La pulizia e' una riga invece di un giro tabella per
+tabella.
+
+### I dettagli che decidono se funziona
+
+- **Due cloni per visitatore**, Growth e Pro, legati da `demo_gruppo`: l'interruttore in cima
+  alla pagina deve poter passare dall'uno all'altro senza far perdere quello che si e' provato.
+- **Il clone nasce intero o non nasce** (funzione `crea_clone_demo`, migrazione 0044): un clone
+  senza orari o senza abbinamenti operatore-servizio sarebbe una demo senza nessuno slot libero,
+  cioe' una dimostrazione del contrario di quello che vogliamo dimostrare. Se il secondo clone
+  fallisce si butta via anche il primo: mezzo gruppo manda l'interruttore su una pagina che non
+  esiste.
+- **La rimappatura degli id con un ciclo, non con un join sul nome.** Due servizi chiamati uguale
+  nello stesso salone (che il database permette) farebbero esplodere gli abbinamenti in un
+  prodotto cartesiano, senza nessun errore. Sei servizi e tre operatori: la chiarezza vale piu'
+  di una query sola.
+- **Niente tabelle temporanee dentro la funzione.** `create temporary table ... on commit drop`
+  esplode alla seconda chiamata nella stessa transazione, e questa funzione viene chiamata due
+  volte di fila. La corrispondenza vecchio/nuovo id sta in array.
+- **Si clona solo un MODELLO.** Senza il controllo `demo_clonato_da is null` nella funzione,
+  `crea_clone_demo` sarebbe un modo per duplicare il salone di chiunque. Verificato dal vivo:
+  clonare un clone viene rifiutato.
+- **La quota AI si conta sul MODELLO, non sul clone.** Ogni visitatore ha il suo salone: contare
+  sul clone darebbe a ognuno la quota intera, cioe' nessuna quota. `demo_clonato_da` risale al
+  modello.
+- **Tetto di 120 cloni al giorno.** Creare tenant da una pagina pubblica senza login e' comodo e
+  pericoloso: senza tetto e' un modo per riempire il database gratis. Superato il tetto la demo
+  non si rompe, si torna a servire il salone condiviso -- peggiore, ma vivo.
+- **`/demo` e' una rotta e non una pagina** perche' deve scrivere un cookie, e un Server Component
+  non puo'. Il cookie e' cio' che fa ritrovare al visitatore il suo salone invece di crearne uno
+  nuovo a ogni visita. Dura quanto la conservazione dei dati: piu' a lungo punterebbe a un salone
+  gia' cancellato, e c'e' un test che lo impone.
+
+### Quello che resta da fare
+
+La **personalizzazione** (seconda meta' della richiesta di Gabriel): un clone puo' essere seminato
+da qualunque fonte, quindi "prova l'assistente sul TUO salone, senza sporcarti l'agenda" e' ora un
+lavoro piccolo -- si clona dai servizi e dagli orari veri del titolare invece che dal modello.
+Non fatto in questo giro.
