@@ -875,6 +875,25 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27sexies. Aspettare il secondo effetto, non solo il primo (18/09/2026)
+
+Quando un'azione ha piu' effetti in sequenza, un test che aspetta il PRIMO e
+poi legge il secondo una volta sola e' una race condition travestita da
+asserzione.
+
+Lo Scenario 10 lo faceva: `expect.poll` fino a "appuntamento cancellato", poi
+una lettura secca dello stato in lista d'attesa. Ma nella server action la
+cancellazione viene prima, e la ricerca del candidato dopo, con altre due o
+tre query di mezzo. Nell'istante in cui il poll esce, la seconda riga non e'
+ancora cambiata.
+
+Col server caldo passava, col server freddo no. Ed e' il modo peggiore di
+fallire: dava la colpa al prodotto, che faceva la cosa giusta, e mandava a
+cercare un bug che non c'era -- sono stati tre giri prima di capirlo.
+
+Regola: ogni effetto che arriva DOPO quello su cui si sincronizza il test va
+aspettato a sua volta con `expect.poll`, non letto.
+
 ## 27quinquies. Cosa puo' catturare una Server Action inline (18/09/2026)
 
 Una Server Action scritta dentro il JSX (`action={async () => { "use server"; ... }}`)

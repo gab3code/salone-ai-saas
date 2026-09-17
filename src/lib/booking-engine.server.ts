@@ -997,10 +997,9 @@ async function trovaEAvvisaListaAttesa(
   }
 ): Promise<ListaAttesaAvvisata | null> {
   const { servizio_id: servizioId, operatore_id: operatoreId, inizio } = appuntamentoCancellato;
-  // DIAGNOSTICA TEMPORANEA (18/09/2026): lo Scenario 10 vede il candidato
-  // restare "in_attesa" dopo una cancellazione che avrebbe dovuto proporlo,
-  // e da fuori non si distingue quale dei quattro punti di uscita qui sotto
-  // sia stato imboccato. Da togliere appena la causa e' confermata.
+  // I punti di uscita qui sotto dicono chi sono stati (18/09/2026): prima
+  // ritornavano tutti null indistinguibili, e una cancellazione che non
+  // avvisava nessuno era impossibile da spiegare da fuori.
   if (!servizioId || !operatoreId || !inizio) {
     console.error("[lista-attesa] esco subito: dati mancanti sull'appuntamento cancellato", {
       servizioId,
@@ -1046,15 +1045,10 @@ async function trovaEAvvisaListaAttesa(
         (c.operatore_id === null || c.operatore_id === operatoreId) &&
         (c.data_preferita === null || c.data_preferita === giornoLiberatoYMD)
     );
-    if (!match) {
-      console.error("[lista-attesa] nessun candidato compatibile", {
-        candidati: candidati.length,
-        servizioId,
-        operatoreId,
-        giornoLiberatoYMD,
-      });
-      return null;
-    }
+    // Nessun candidato compatibile e' il caso NORMALE -- la maggior parte
+    // dei saloni non ha nessuno in lista d'attesa -- quindi qui non si
+    // logga niente: sarebbe una riga di rumore a ogni cancellazione.
+    if (!match) return null;
 
     const { error: erroreUpdate } = await supabase
       .from("lista_attesa")

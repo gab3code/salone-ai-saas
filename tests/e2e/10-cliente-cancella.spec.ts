@@ -100,14 +100,39 @@ test.describe("Scenario 10 -- il cliente cancella un appuntamento via chat", () 
       .maybeSingle();
     expect(rigaAncoraEsistente, "l'appuntamento cancellato non deve mai essere eliminato fisicamente").toBeTruthy();
 
+    // Anche questo va ASPETTATO, non letto una volta sola (18/09/2026).
+    //
+    // Il poll qui sopra esce appena l'appuntamento risulta cancellato, ma
+    // dentro la server action la cancellazione viene PRIMA della ricerca in
+    // lista d'attesa (fuso orario del tenant, candidati, update: altre due o
+    // tre query). Nell'istante in cui il poll esce, quella riga non e'
+    // ancora stata toccata.
+    //
+    // Con il server caldo quelle query volano e la lettura secca passava;
+    // col server freddo no. Il test falliva a intermittenza dando la colpa
+    // al prodotto, che invece fa la cosa giusta: appuntamento cancellato
+    // subito, avviso alla lista d'attesa un attimo dopo.
+    async function statoListaAttesa() {
+      const { data } = await tenant.supabase
+        .from("lista_attesa")
+        .select("stato")
+        .eq("id", rigaListaAttesa!.id)
+        .single();
+      return data?.stato ?? null;
+    }
+
+    await expect
+      .poll(statoListaAttesa, {
+        timeout: 15_000,
+        message: "il candidato compatibile in lista d'attesa deve passare a 'proposto'",
+      })
+      .toBe("proposto");
+
     const { data: listaAttesaAggiornata } = await tenant.supabase
       .from("lista_attesa")
-      .select("stato, slot_liberato_inizio")
+      .select("slot_liberato_inizio")
       .eq("id", rigaListaAttesa!.id)
       .single();
-    expect(listaAttesaAggiornata?.stato, "il candidato compatibile in lista d'attesa deve passare a 'proposto'").toBe(
-      "proposto"
-    );
     expect(listaAttesaAggiornata?.slot_liberato_inizio).toBeTruthy();
   });
 });
