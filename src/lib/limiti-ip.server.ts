@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { chiaveLimiteIp, ipDaIntestazioni, type TettiIp } from "@/lib/limiti-ip";
+import { chiaveDemoPerConnessione, chiaveLimiteIp, ipDaIntestazioni, type TettiIp } from "@/lib/limiti-ip";
 
 /**
  * Impronta dell'indirizzo, non l'indirizzo.
@@ -19,7 +19,7 @@ import { chiaveLimiteIp, ipDaIntestazioni, type TettiIp } from "@/lib/limiti-ip"
  * ambiente configurato a meta', perche' un tetto che si spegne da solo quando
  * manca una variabile non e' un tetto.
  */
-function improntaIp(ip: string): string {
+export function improntaIp(ip: string): string {
   const sale = process.env.SALT_LIMITI_IP ?? "salone-ai-limiti-ip";
   return createHash("sha256").update(`${sale}:${ip}`).digest("hex").slice(0, 32);
 }
@@ -78,6 +78,55 @@ export async function pulisciLimitiIp(admin: SupabaseClient): Promise<number> {
   const { data, error } = await admin.rpc("pulisci_limiti_ip");
   if (error) {
     console.error("[limiti-ip] pulizia fallita:", error.message);
+    return 0;
+  }
+  return typeof data === "number" ? data : 0;
+}
+
+/**
+ * Consuma un messaggio della demo per QUESTA connessione, con tetto mensile.
+ *
+ * Non usa `limiti_ip` ma `contatori_globali`, e non e' un dettaglio: la
+ * tabella dei limiti per IP viene ripulita ogni notte dalle finestre piu'
+ * vecchie di 48 ore, quindi un contatore mensile che vivesse li' si
+ * azzererebbe da solo due volte a settimana. E' esattamente il bug gia'
+ * trovato e corretto oggi sul tetto della demo, e vale la pena non rifarlo.
+ * `contatori_globali` invece si azzera da solo al cambio mese, che e'
+ * precisamente il comportamento voluto.
+ *
+ * Se non si legge l'indirizzo si lascia passare: dietro resta il tetto
+ * complessivo della demo. Se non risponde il database si blocca, perche'
+ * questo controllo esiste solo contro l'abuso.
+ */
+export async function consumaMessaggioDemoPerConnessione(
+  admin: SupabaseClient,
+  intestazioni: { get(nome: string): string | null },
+  limiteMensile: number
+): Promise<EsitoLimiteIp> {
+  const ip = ipDaIntestazioni(intestazioni);
+  if (!ip) {
+    console.warn("[limiti-ip] nessun indirizzo nelle intestazioni (demo): lascio passare.");
+    return { consentito: true, restanti: limiteMensile };
+  }
+
+  const { data, error } = await admin.rpc("consuma_contatore_globale", {
+    p_chiave: chiaveDemoPerConnessione(improntaIp(ip)),
+    p_limite: limiteMensile,
+  });
+
+  if (error) {
+    console.error("[limiti-ip] controllo mensile della demo fallito:", error.message);
+    return { consentito: false, motivo: "sconosciuto" };
+  }
+  if (typeof data !== "number" || data < 0) return { consentito: false, motivo: "tetto" };
+  return { consentito: true, restanti: data };
+}
+
+/** Toglie i contatori per connessione dei mesi passati. */
+export async function pulisciContatoriDemoPerConnessione(admin: SupabaseClient): Promise<number> {
+  const { data, error } = await admin.rpc("pulisci_contatori_globali");
+  if (error) {
+    console.error("[limiti-ip] pulizia dei contatori per connessione fallita:", error.message);
     return 0;
   }
   return typeof data === "number" ? data : 0;

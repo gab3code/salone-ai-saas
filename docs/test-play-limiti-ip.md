@@ -1,4 +1,4 @@
-# Test play -- limiti per IP (push del 17/09/2026, sera)
+# Test play -- limiti, quote e fuori tema (push del 17/09/2026, sera)
 
 Un commit solo sopra a quello che hai appena pushato (`5648f3fe`).
 **Un blocco alla volta**, come sempre.
@@ -35,7 +35,7 @@ npx eslint src tests --max-warnings=0
 npm test
 ```
 
-**Atteso**: build pulita, zero errori, zero warning, **700 test verdi** (erano 691).
+**Atteso**: build pulita, zero errori, zero warning, **705 test verdi** (erano 691).
 
 ```bash
 TZ=Europe/Rome npm test
@@ -87,18 +87,19 @@ Apri **/demo**, fai una conversazione intera fino a prenotare.
 **Atteso**: tutto come prima. I tetti stanno larghi (30 messaggi all'ora) e una
 prova completa ne usa cinque o sei: se li senti, qualcosa non va.
 
-### 4b. Il tetto per chi insiste
+### 4b. Il tetto MENSILE per connessione sulla demo
 
-Sulla demo, manda **31 messaggi brevi di fila** nella stessa ora (vanno bene
-anche i suggerimenti cliccati ripetutamente).
+Sulla demo, manda **21 messaggi** (anche cliccando i suggerimenti). Non serve
+farli di fila: il tetto e' del mese, non dell'ora.
 
-**Atteso**: verso il trentunesimo compare *"Hai provato la demo parecchie volte
-di fila. Riprova fra un'ora..."*. La pagina resta navigabile.
+**Atteso**: al ventunesimo compare *"Hai già provato la demo per questo mese.
+Se vuoi vedere l'assistente sul TUO salone, registrati..."*. La pagina resta
+navigabile.
 
-Per sbloccarti subito senza aspettare un'ora:
+Per sbloccarti subito:
 
 ```sql
-delete from limiti_ip;
+delete from contatori_globali where chiave like 'demo_ip:%';
 ```
 
 ### 4c. Un altro dispositivo non è bloccato
@@ -107,7 +108,17 @@ Subito dopo aver raggiunto il tetto al punto 4b, apri **/demo dal telefono in
 rete mobile** (non dal wi-fi di casa: serve un indirizzo diverso).
 
 **Atteso**: funziona normalmente. È il punto della richiesta — un visitatore
-non si mangia la demo degli altri.
+non si mangia la demo degli altri, e la demo non si spegne per tutti.
+
+### 4c-bis. La demo non si blocca tutta
+
+```sql
+select chiave, mese, usati from contatori_globali where chiave = 'demo_messaggi';
+```
+
+**Atteso**: `usati` è molto sotto 3000. Con 20 messaggi a testa servono 150
+connessioni diverse per arrivarci: a quel punto la demo sta funzionando, e
+quegli ~8$ li paghiamo volentieri.
 
 ### 4d. La chat di un salone vero non si è rotta
 
@@ -129,6 +140,49 @@ messaggi, e rileggi.
 controllo per IP viene per primo: un tentativo respinto non deve togliere
 niente a nessun altro.
 
+### 4f. L'assistente chiude se si parla d'altro (demo)
+
+Sulla demo scrivi due domande completamente fuori tema di fila, per esempio
+*"quanto fa 12 per 8?"* e poi *"scrivimi una poesia sul mare"*.
+
+**Atteso**: alla seconda risponde *"Qui posso aiutarti solo con gli
+appuntamenti di questo salone di prova..."* e **la casella di testo si spegne**.
+Per ricominciare basta ricaricare.
+
+Poi rifai la prova ma **in mezzo chiedigli un orario** (*"avete posto
+giovedì?"*): il contatore si azzera e la conversazione continua. È così che
+deve comportarsi con un cliente che si esprime in modo strano ma sta
+davvero prenotando.
+
+### 4g. Su un salone vero è più paziente
+
+Su un salone **Growth o Pro**, dalla chat della pagina pubblica fai **due**
+domande fuori tema.
+
+**Atteso**: risponde ancora. Lì il limite è più alto (tre) apposta: dall'altra
+parte c'è un cliente che paga quel salone, e cacciarlo per un giudizio
+sbagliato costa più di qualche messaggio sprecato.
+
+---
+
+## 4bis. Il contatore dei messaggi in dashboard
+
+Serve un account **Growth o Pro**.
+
+1. Apri la **dashboard**.
+
+**Atteso**: fra i dati dell'attività c'è una riga nuova, **"Messaggi
+dell'assistente: N di 2500 questo mese"**. Prima questo numero non era scritto
+da nessuna parte, e la quota finiva senza preavviso.
+
+2. Per vedere l'avviso senza aspettare, alza finta l'uso: non c'è un modo
+   pulito da SQL (il conteggio legge i messaggi veri), quindi fidati del
+   numero che vedi — se è corretto rispetto a quanto hai chattato, funziona.
+
+**Nota sul tetto di Growth**: è passato da 1.000 a **2.500**. Mille erano circa
+4-5 conversazioni al giorno, troppo poco per un salone che va bene — e quando
+finivano, l'assistente smetteva di rispondere ai clienti di chi paga.
+
 ---
 
 ## 5. Pulizia automatica
@@ -140,9 +194,26 @@ notturno delle 8:00 (`/api/cron/promemoria`), che ora restituisce anche
 ```sql
 select count(*) as finestre_vecchie from limiti_ip
  where finestra < now() - interval '48 hours';
+
+select count(*) as contatori_vecchi from contatori_globali
+ where chiave like 'demo_ip:%' and mese < to_char(now() - interval '1 month', 'YYYY-MM');
 ```
 
-**Atteso**: 0.
+**Atteso**: 0 e 0. Il giro notturno restituisce anche `limitiIpCancellati`,
+`contatoriDemoCancellati` e `avvisiQuota` nel suo JSON.
+
+### L'avviso all'80%
+
+Parte dallo stesso giro notturno, una volta sola per mese e per salone. Per
+provarlo senza aspettare di consumare 2.000 messaggi, azzera la marcatura e
+guarda cosa succede alla prossima esecuzione:
+
+```sql
+update tenants set avviso_quota_ai_mese = null where slug = 'tuo-slug';
+```
+
+(Poi serve comunque essere sopra l'80% della quota: se non ci sei, non parte
+niente — ed è giusto.)
 
 ---
 

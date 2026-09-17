@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { eseguiPromemoriaGiornalieri } from "@/lib/promemoria.server";
-import { pulisciLimitiIp } from "@/lib/limiti-ip.server";
+import { pulisciContatoriDemoPerConnessione, pulisciLimitiIp } from "@/lib/limiti-ip.server";
+import { inviaAvvisiQuotaAi } from "@/lib/ai/avviso-quota.server";
 
 /**
  * Endpoint chiamato da Vercel Cron una volta al giorno (vedi vercel.json,
@@ -39,11 +40,22 @@ export async function GET(request: NextRequest) {
   // di Vercel ne concede uno al giorno). Se fallisce non si porta dietro i
   // promemoria, che sono la cosa importante delle due.
   let limitiIpCancellati = 0;
+  let contatoriDemoCancellati = 0;
   try {
     limitiIpCancellati = await pulisciLimitiIp(admin);
+    contatoriDemoCancellati = await pulisciContatoriDemoPerConnessione(admin);
   } catch (errore) {
-    console.error("[cron/promemoria] pulizia dei limiti per IP fallita:", errore);
+    console.error("[cron/promemoria] pulizia dei limiti fallita:", errore);
   }
 
-  return NextResponse.json({ ...esito, limitiIpCancellati });
+  // L'avviso "quota AI quasi finita". Come la pulizia, un suo errore non deve
+  // portarsi dietro i promemoria, che sono la cosa importante del giro.
+  let avvisiQuota = null;
+  try {
+    avvisiQuota = await inviaAvvisiQuotaAi(admin, new Date());
+  } catch (errore) {
+    console.error("[cron/promemoria] avvisi di quota AI falliti:", errore);
+  }
+
+  return NextResponse.json({ ...esito, limitiIpCancellati, contatoriDemoCancellati, avvisiQuota });
 }

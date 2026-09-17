@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { TETTI_CHAT_SALONE, TETTI_DEMO, chiaveLimiteIp, ipDaIntestazioni } from "./limiti-ip";
+import {
+  MESSAGGI_DEMO_PER_CONNESSIONE_AL_MESE,
+  TETTI_CHAT_SALONE,
+  chiaveDemoPerConnessione,
+  chiaveLimiteIp,
+  ipDaIntestazioni,
+} from "./limiti-ip";
 
 function intestazioni(valori: Record<string, string>) {
   return { get: (nome: string) => valori[nome.toLowerCase()] ?? null };
@@ -44,24 +50,27 @@ describe("chiaveLimiteIp", () => {
 });
 
 describe("i numeri dei tetti", () => {
-  it("il tetto giornaliero è più alto di quello orario", () => {
-    for (const [nome, t] of Object.entries({ demo: TETTI_DEMO, chat: TETTI_CHAT_SALONE })) {
-      expect(t.perGiorno, nome).toBeGreaterThan(t.perOra);
-    }
+  it("il tetto giornaliero della chat è più alto di quello orario", () => {
+    expect(TETTI_CHAT_SALONE.perGiorno).toBeGreaterThan(TETTI_CHAT_SALONE.perOra);
   });
 
-  it("la chat di un salone vero è più permissiva della demo", () => {
-    // Dall'altra parte c'è un cliente che sta prenotando: bloccarlo costa al
-    // salone molto più di quanto costi a noi qualche messaggio in più.
-    expect(TETTI_CHAT_SALONE.perOra).toBeGreaterThan(TETTI_DEMO.perOra);
-    expect(TETTI_CHAT_SALONE.perGiorno).toBeGreaterThan(TETTI_DEMO.perGiorno);
+  it("la chat di un salone vero non chiude in faccia a un cliente", () => {
+    // Dall'altra parte c'è un cliente che sta prenotando da un salone che
+    // paga: bloccarlo costa più di qualche messaggio in più. Una
+    // conversazione tipica sono dieci messaggi.
+    expect(TETTI_CHAT_SALONE.perOra).toBeGreaterThanOrEqual(30);
+    expect(TETTI_CHAT_SALONE.perGiorno).toBeGreaterThanOrEqual(100);
   });
 
-  it("nessun tetto è così basso da rompere una conversazione normale", () => {
-    // Una prenotazione completa sta in cinque o sei messaggi, una complicata
-    // in una decina.
-    for (const [nome, t] of Object.entries({ demo: TETTI_DEMO, chat: TETTI_CHAT_SALONE })) {
-      expect(t.perOra, nome).toBeGreaterThanOrEqual(20);
-    }
+  it("la demo ha un tetto MENSILE, stretto ma sufficiente a provarla", () => {
+    // Una prenotazione completa sono cinque o sei messaggi: venti sono circa
+    // tre prove intere. Sotto le due prove non basterebbe a farsi un'idea.
+    expect(MESSAGGI_DEMO_PER_CONNESSIONE_AL_MESE / 6).toBeGreaterThanOrEqual(3);
+    expect(MESSAGGI_DEMO_PER_CONNESSIONE_AL_MESE).toBeLessThan(TETTI_CHAT_SALONE.perGiorno);
+  });
+
+  it("la chiave del contatore mensile della demo è separata dalle altre", () => {
+    expect(chiaveDemoPerConnessione("abc")).not.toBe(chiaveLimiteIp("demo", "abc"));
+    expect(chiaveDemoPerConnessione("abc")).not.toBe(chiaveDemoPerConnessione("def"));
   });
 });

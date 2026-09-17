@@ -48,6 +48,7 @@ export function ChatDemo({ piano }: { piano: "growth" | "pro" }) {
   const [testo, setTesto] = useState("");
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  const [chiusa, setChiusa] = useState(false);
   const fine = useRef<HTMLDivElement>(null);
 
   async function invia(messaggio: string) {
@@ -66,13 +67,22 @@ export function ChatDemo({ piano }: { piano: "growth" | "pro" }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ piano, messaggio: pulito, storico, stato }),
       });
-      const dati = (await risposta.json()) as { risposta?: string; stato?: StatoDemo; errore?: string };
+      const dati = (await risposta.json()) as {
+        risposta?: string;
+        stato?: StatoDemo;
+        errore?: string;
+        conversazioneChiusa?: boolean;
+      };
 
       if (!risposta.ok || dati.errore) {
         setErrore(dati.errore ?? "Qualcosa non ha funzionato. Riprova.");
       } else {
         setMessaggi((m) => [...m, { ruolo: "assistente", contenuto: dati.risposta ?? "" }]);
         if (dati.stato) setStato(dati.stato);
+        // Il server chiude la conversazione quando si e' parlato d'altro due
+        // volte di fila: da li' in poi la casella resta spenta, e per
+        // riprovare basta ricaricare.
+        if (dati.conversazioneChiusa) setChiusa(true);
       }
     } catch {
       setErrore("Non riesco a raggiungere l'assistente. Controlla la connessione.");
@@ -84,6 +94,7 @@ export function ChatDemo({ piano }: { piano: "growth" | "pro" }) {
 
   const suggerimenti = piano === "pro" ? [...SUGGERIMENTI, ...SUGGERIMENTI_PRO] : SUGGERIMENTI;
   const agendaPiena = stato.appuntamenti.length >= APPUNTAMENTI_MASSIMI_DEMO;
+  const bloccata = agendaPiena || chiusa;
 
   return (
     <div className="flex flex-col gap-4">
@@ -145,14 +156,20 @@ export function ChatDemo({ piano }: { piano: "growth" | "pro" }) {
             value={testo}
             onChange={(e) => setTesto(e.target.value)}
             maxLength={LUNGHEZZA_MASSIMA_MESSAGGIO_DEMO}
-            placeholder={agendaPiena ? "Hai già preso tutti gli appuntamenti di prova" : "Scrivi qui..."}
-            disabled={inCorso || agendaPiena}
+            placeholder={
+              chiusa
+                ? "Ricarica la pagina per ricominciare"
+                : agendaPiena
+                  ? "Hai già preso tutti gli appuntamenti di prova"
+                  : "Scrivi qui..."
+            }
+            disabled={inCorso || bloccata}
             aria-label="Messaggio per l'assistente"
             className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm disabled:bg-zinc-50"
           />
           <button
             type="submit"
-            disabled={inCorso || agendaPiena || testo.trim() === ""}
+            disabled={inCorso || bloccata || testo.trim() === ""}
             className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
           >
             Invia

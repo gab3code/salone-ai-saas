@@ -6486,3 +6486,70 @@ L'IP non lo decide chi chiama: lo mette la piattaforma.
   La differenza e' che quel controllo protegge un limite commerciale, questo esiste solo contro
   l'abuso: in dubbio, meglio un messaggio in meno a una persona in buona fede che una difesa che
   si spegne proprio quando serve.
+
+## 17/09/2026 (notte) -- Le quote riviste da capo, dopo una domanda di Gabriel
+
+"I limiti imposti per le chat sono abbastanza? che limiti ha la demo e ciascun abbonamento?"
+
+Fare il conto per rispondergli ha ribaltato la domanda. **Sui costi i tetti erano
+abbondantemente sufficienti** (una prenotazione completa costa ~0,02$, quindi il tetto di Growth
+valeva ~3,3$ al mese su 39,90€ incassati). Il problema era l'opposto: **erano troppo bassi dalla
+parte del cliente che paga.**
+
+### Growth: da 1.000 a 2.500
+
+Mille messaggi sono 120-150 conversazioni al mese, cioe' 4-5 al giorno. Per un salone che va
+bene e che mette il link della pagina pubblica ovunque non sono tante -- e la quota di Growth
+non scala con gli operatori, quindi uno con cinque poltrone aveva lo stesso tetto di chi lavora
+da solo.
+
+Quando finiva, ai clienti di quel salone l'assistente rispondeva "contatta direttamente
+l'attivita'". Cioe': **il salone paga, e a meta' mese il prodotto si spegne per un limite che
+protegge noi.** 2.500 messaggi sono ~8$ nel caso peggiore: il tetto vecchio proteggeva qualcosa
+che non aveva bisogno di essere protetto cosi' stretto.
+
+### Il numero adesso si vede, e arriva un avviso
+
+Il difetto peggiore non era il numero, era che **non era scritto da nessuna parte**: il titolare
+scopriva la quota finita solo se glielo diceva un cliente. Ora e' in dashboard ("Messaggi
+dell'assistente: N di 2500 questo mese") e a 80% parte una email, una volta sola per mese
+(`tenants.avviso_quota_ai_mese` impedisce di rimandarla ogni notte).
+
+### La demo: da orario a MENSILE per connessione
+
+Gabriel: "non puo' essere bloccata tutta la demo, ogni connessione che usa la demo deve avere un
+limite davvero stretto, che basta a provarla, e poi non puo' piu' provarla entro un mese".
+
+Aveva ragione su tutte e due le parti, ed erano collegate:
+- **20 messaggi al mese per connessione** (circa tre prove complete). Il ragionamento e' diverso
+  da quello della chat dei saloni: li' un tetto orario ha senso perche' la stessa persona puo'
+  aver bisogno di scrivere di nuovo domani -- e' un cliente. Qui no: chi prova la demo la prova,
+  e se dopo venti messaggi non ha capito se il prodotto gli serve, altri venti non lo aiutano.
+  Un tetto orario sarebbe stato solo un modo per farlo tornare ogni ora.
+- **Il tetto complessivo da 600 a 3.000.** Ha cambiato mestiere: quando era l'unico, doveva
+  essere basso; adesso che il lavoro lo fa quello per connessione, e' tornato a essere il muro
+  esterno. Con 600 e venti a testa bastavano trenta connessioni diverse per spegnere la demo per
+  tutti, cioe' proprio nel mese in cui avesse cominciato a funzionare.
+
+**Trappola evitata**: il contatore mensile per connessione NON poteva vivere in `limiti_ip`, che
+il giro notturno ripulisce dalle finestre piu' vecchie di 48 ore -- si sarebbe azzerato da solo
+due volte a settimana. E' esattamente il bug gia' trovato e corretto stamattina sul tetto della
+demo. Vive in `contatori_globali`, che si azzera da solo al cambio mese, con una pulizia dedicata
+per le righe dei mesi passati.
+
+### Fuori tema: severo sulla demo, paziente sui saloni veri
+
+Scelta di Gabriel fra tre opzioni. Sulla demo: al primo turno fuori tema riporta al discorso, al
+secondo chiude e la casella si spegne. Sui saloni veri resta a tre, perche' **dall'altra parte
+c'e' un cliente che paga quel salone**, e cacciarlo per un giudizio sbagliato costa molto piu' di
+qualche messaggio sprecato.
+
+"Fuori tema" non e' giudicato da un secondo passaggio di AI -- costerebbe quanto il problema che
+risolve. Si usa lo stesso indizio comportamentale gia' in uso nel prodotto: una conversazione che
+prenota chiama quasi sempre uno strumento entro pochi turni, una che chiacchiera non lo fa mai.
+Il contatore si azzera appena l'assistente torna a fare il suo mestiere, cosi' un cliente che si
+esprime male ma sta davvero prenotando non viene cacciato.
+
+Sulla demo quel contatore viaggia nello stato che il browser rimanda indietro, quindi si puo'
+falsificare. Non e' un buco: chi lo fa aggira solo il taglio del fuori tema, e resta il tetto di
+venti messaggi al mese, che sta nel database e non si tocca.

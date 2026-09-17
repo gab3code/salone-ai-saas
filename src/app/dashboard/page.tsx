@@ -6,6 +6,9 @@ import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
 import { puoConfigurareAttivita, puoGestireMembri, puoVedereAnalytics } from "@/lib/ruoli";
 import { elencaInvitiRicevuti, elencaSediUtente } from "@/lib/membri.server";
 import { caricaMetriche } from "@/lib/metriche.server";
+import { contaMessaggiClienteQuestoMese } from "@/lib/ai/limiti.server";
+import { limiteMensileMessaggi } from "@/lib/ai/limiti";
+import { pianoHaAccessoAIChatWeb } from "@/lib/ai/limiti";
 import { urlBaseSito } from "@/lib/email/notifiche.server";
 import { generaQrCodeDataUrl } from "@/lib/qrcode.server";
 import { esci } from "./azioni";
@@ -70,6 +73,28 @@ export default async function PaginaDashboard({
   ]);
 
   const metriche = tenant && profilo?.tenant_id ? await caricaMetriche(supabase, profilo.tenant_id) : null;
+
+  // Quanti messaggi AI ha usato questo mese.
+  //
+  // Fino al 17/09/2026 questo numero non era scritto DA NESSUNA PARTE: quando
+  // la quota finiva, l'assistente smetteva di rispondere ai clienti di un
+  // salone che paga, e il titolare lo scopriva solo se glielo diceva
+  // qualcuno. Mostrarlo costa una query e toglie di mezzo tutta quella
+  // categoria di sorprese -- ed e' anche il miglior argomento per passare a
+  // Pro, perche' chi si avvicina al tetto lo vede da solo.
+  const mostraQuotaAi = !!tenant && vedeNumeri && pianoHaAccessoAIChatWeb(tenant.piano);
+  const operatoriPerQuota =
+    mostraQuotaAi && tenant.piano === "pro" && profilo?.tenant_id
+      ? ((await supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", profilo.tenant_id))
+          .count ?? 1)
+      : 1;
+  const quotaAi =
+    mostraQuotaAi && profilo?.tenant_id
+      ? {
+          usati: await contaMessaggiClienteQuestoMese(supabase, profilo.tenant_id),
+          limite: limiteMensileMessaggi(tenant.piano, operatoriPerQuota),
+        }
+      : null;
 
   // Link pubblico da condividere (Google Business, bio Instagram, QR in
   // negozio) -- stesso helper già usato per il link nell'email di
@@ -164,6 +189,24 @@ export default async function PaginaDashboard({
                 <dd>{tenant.piano}</dd>
                 <dt className="text-zinc-500">Stato abbonamento</dt>
                 <dd>{tenant.stato_abbonamento}</dd>
+                {quotaAi && (
+                  <>
+                    <dt className="text-zinc-500">Messaggi dell&apos;assistente</dt>
+                    <dd>
+                      <span className="tabular-nums">
+                        {quotaAi.usati} di {quotaAi.limite}
+                      </span>
+                      <span className="text-zinc-500"> questo mese</span>
+                      {quotaAi.usati >= quotaAi.limite * 0.8 && (
+                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">
+                          {quotaAi.usati >= quotaAi.limite
+                            ? "esauriti: l'assistente non risponde più fino al mese prossimo"
+                            : "quasi finiti"}
+                        </span>
+                      )}
+                    </dd>
+                  </>
+                )}
               </>
             )}
             <dt className="text-zinc-500">Tu</dt>

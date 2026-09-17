@@ -5,9 +5,14 @@ import type { NomeStrumento } from "@/lib/ai/tools";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { FUSO_ORARIO_DEMO, NOME_SALONE_DEMO } from "@/lib/demo/salone-finto";
 import { eseguiStrumentoDemo, statoDemoVuoto, type StatoDemo } from "@/lib/demo/strumenti-demo";
-import { CHIAVE_CONTATORE_DEMO, MESSAGGI_DEMO_AL_MESE, validaRichiestaDemo } from "@/lib/demo/limiti-demo";
-import { TETTI_DEMO } from "@/lib/limiti-ip";
-import { consumaUsoAiPerIp } from "@/lib/limiti-ip.server";
+import {
+  CHIAVE_CONTATORE_DEMO,
+  MESSAGGI_DEMO_AL_MESE,
+  TURNI_FUORI_TEMA_DEMO,
+  validaRichiestaDemo,
+} from "@/lib/demo/limiti-demo";
+import { MESSAGGI_DEMO_PER_CONNESSIONE_AL_MESE } from "@/lib/limiti-ip";
+import { consumaMessaggioDemoPerConnessione } from "@/lib/limiti-ip.server";
 
 /**
  * La chat della demo pubblica.
@@ -63,10 +68,12 @@ function statoPulito(grezzo: unknown): StatoDemo {
   if (!grezzo || typeof grezzo !== "object") return statoDemoVuoto();
   const app = (grezzo as { appuntamenti?: unknown }).appuntamenti;
   if (!Array.isArray(app)) return statoDemoVuoto();
+  const turni = (grezzo as { turniFuoriTema?: unknown }).turniFuoriTema;
   return {
     appuntamenti: app
       .filter((a) => !!a && typeof a === "object" && typeof (a as { inizio?: unknown }).inizio === "string")
       .map((a) => a as StatoDemo["appuntamenti"][number]),
+    turniFuoriTema: typeof turni === "number" && turni >= 0 ? Math.min(turni, 10) : 0,
   };
 }
 
@@ -92,17 +99,24 @@ export async function POST(request: NextRequest) {
 
   const admin = creaClientAdmin();
 
-  // PRIMA di tutto il resto: il tetto per singolo chiamante. Il tetto mensile
-  // qui sotto e' condiviso fra tutti i visitatori, quindi senza questo uno
-  // solo poteva consumare la demo di tutti gli altri. Un tentativo respinto
-  // qui non consuma il contatore globale, che e' il punto.
-  const limiteIp = await consumaUsoAiPerIp(admin, request.headers, "demo", TETTI_DEMO);
-  if (!limiteIp.consentito) {
+  // PRIMA di tutto il resto: il tetto MENSILE di questa connessione.
+  //
+  // E' il limite che conta davvero sulla demo, e viene prima del tetto
+  // complessivo qui sotto proprio perche' un tentativo respinto non deve
+  // consumare niente di nessun altro. Venti messaggi al mese sono circa tre
+  // prove complete: bastano a capire se il prodotto serve, e chi ne vuole di
+  // piu' non sta valutando niente.
+  const limiteConnessione = await consumaMessaggioDemoPerConnessione(
+    admin,
+    request.headers,
+    MESSAGGI_DEMO_PER_CONNESSIONE_AL_MESE
+  );
+  if (!limiteConnessione.consentito) {
     return NextResponse.json(
       {
         errore:
-          limiteIp.motivo === "tetto"
-            ? "Hai provato la demo parecchie volte di fila. Riprova fra un'ora: il limite serve a lasciarla disponibile anche agli altri."
+          limiteConnessione.motivo === "tetto"
+            ? "Hai gia' provato la demo per questo mese. Se vuoi vedere l'assistente sul TUO salone, registrati: e' gratis e non serve la carta."
             : "Non riesco a verificare il limite di utilizzo adesso. Riprova fra poco.",
       },
       { status: 429 }
@@ -174,6 +188,23 @@ export async function POST(request: NextRequest) {
       undefined,
       realeAPseudoUtc(new Date(), FUSO_ORARIO_DEMO)
     );
+
+    // Fuori tema: si conta quante volte di fila l'assistente non ha avuto
+    // bisogno di nessuno strumento. Non serve un secondo giro di AI per
+    // giudicare se si e' in tema -- costerebbe quanto il problema che
+    // risolve -- e questo e' lo stesso indizio che usa il prodotto vero.
+    const turniFuoriTema = risultato.usoStrumenti ? 0 : (stato.turniFuoriTema ?? 0) + 1;
+    statoCorrente = { ...statoCorrente, turniFuoriTema };
+
+    if (turniFuoriTema >= TURNI_FUORI_TEMA_DEMO) {
+      return NextResponse.json({
+        risposta:
+          "Qui posso aiutarti solo con gli appuntamenti di questo salone di prova. Se vuoi vedere l'assistente sul TUO salone, con i tuoi servizi e i tuoi orari, registrati: è gratis e non serve la carta.",
+        stato: { ...statoCorrente, turniFuoriTema: TURNI_FUORI_TEMA_DEMO },
+        conversazioneChiusa: true,
+        proveRimaste: restano,
+      });
+    }
 
     return NextResponse.json({
       risposta: risultato.rispostaTesto,

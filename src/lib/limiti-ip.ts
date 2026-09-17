@@ -20,13 +20,31 @@ export interface TettiIp {
 }
 
 /**
- * La demo: numeri tarati su una persona che prova.
+ * La demo: un tetto MENSILE per connessione, non orario.
  *
- * Una prenotazione completa sta in cinque o sei messaggi, quindi 30 all'ora
- * sono cinque prove di fila senza mai sfiorare il tetto. 60 al giorno sono il
- * doppio: chi ne vuole di piu' non sta provando il prodotto.
+ * Scelta di Gabriel del 17/09/2026: "ogni connessione che usa la demo deve
+ * avere un limite davvero stretto, che basta a provarla, e poi non puo' piu'
+ * provarla entro un mese".
+ *
+ * Il ragionamento e' diverso da quello della chat dei saloni. Li' un tetto
+ * orario ha senso perche' la stessa persona puo' avere bisogno di scrivere di
+ * nuovo domani: e' un cliente. Qui no -- chi prova la demo la prova, e se
+ * dopo venti messaggi non ha capito se il prodotto gli serve, altri venti non
+ * lo aiuteranno. Un tetto orario sarebbe solo un modo per farlo tornare ogni
+ * ora.
+ *
+ * VENTI, e non meno: una prenotazione completa sta in cinque o sei messaggi,
+ * quindi sono circa tre prove intere. Bastano a provarla, a riprovarla con
+ * una domanda diversa e a farla vedere a un socio -- e coprono il caso di due
+ * persone dietro la stessa connessione (il wi-fi di un ufficio, una rete
+ * mobile che condivide l'uscita) senza che una blocchi l'altra.
  */
-export const TETTI_DEMO: TettiIp = { perOra: 30, perGiorno: 60 };
+export const MESSAGGI_DEMO_PER_CONNESSIONE_AL_MESE = 20;
+
+/** Chiave del contatore mensile per connessione, in `contatori_globali`. */
+export function chiaveDemoPerConnessione(improntaIp: string): string {
+  return `demo_ip:${improntaIp}`;
+}
 
 /**
  * La chat pubblica di un salone vero: numeri piu' alti, e di proposito.

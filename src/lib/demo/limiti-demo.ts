@@ -17,18 +17,39 @@ export const CHIAVE_CONTATORE_DEMO = "demo_messaggi";
 /**
  * Messaggi al mese su tutta la demo, per tutti i visitatori messi insieme.
  *
- * E' il tetto che conta, perche' e' l'unico che un aggressore non puo'
- * aggirare aprendo una scheda nuova: vive nel database, su una riga sola.
- * Una conversazione di prenotazione completa sta in cinque o sei messaggi,
- * quindi 600 sono un centinaio di prove complete al mese -- molte piu' di
- * quante ne servano a una landing che non ha ancora traffico, e poche
- * abbastanza da restare una spesa da pochi euro anche nel caso peggiore.
+ * ALZATO da 600 a 3.000 il 17/09/2026, e il motivo e' che ha cambiato
+ * mestiere. Quando era l'unico tetto, doveva essere basso. Adesso il limite
+ * che fa il lavoro e' quello per connessione (venti al mese, in
+ * `limiti-ip.ts`), e questo e' tornato a essere quello che deve essere: il
+ * MURO ESTERNO.
+ *
+ * Gabriel: "non puo' essere bloccata tutta la demo". Con 600 e venti a testa
+ * bastavano trenta connessioni diverse per spegnerla per tutti -- cioe'
+ * proprio nel mese in cui la demo avesse cominciato a funzionare. Con 3.000
+ * ne servono centocinquanta, e a quel punto saremmo contenti di pagare gli
+ * ~8$ che costano.
  *
  * Esaurito il tetto la demo NON si rompe: la pagina resta navigabile e la
- * chat spiega che riparte il primo del mese. Meglio una demo muta per
- * qualche giorno che una bolletta a sorpresa.
+ * chat spiega che riparte il primo del mese. Meglio una demo muta per qualche
+ * giorno che una bolletta a sorpresa.
  */
-export const MESSAGGI_DEMO_AL_MESE = 600;
+export const MESSAGGI_DEMO_AL_MESE = 3000;
+
+/**
+ * Dopo quanti turni consecutivi FUORI TEMA l'assistente chiude.
+ *
+ * Severo sulla demo (scelta di Gabriel del 17/09/2026): al primo fuori tema
+ * riporta al discorso, al secondo chiude. Sui saloni veri il limite
+ * equivalente e' piu' alto (3, in `ai/limiti.ts`) perche' li' dall'altra
+ * parte c'e' un cliente che paga quel salone, e cacciarlo per un giudizio
+ * sbagliato costa molto di piu' di qualche messaggio sprecato.
+ *
+ * "Fuori tema" non e' giudicato da un secondo passaggio di AI, che
+ * costerebbe quanto il problema che risolve: si usa lo stesso indizio del
+ * prodotto vero -- una conversazione che prenota chiama quasi sempre uno
+ * strumento entro pochi turni, una che chiacchiera non lo fa mai.
+ */
+export const TURNI_FUORI_TEMA_DEMO = 2;
 
 /**
  * Messaggi in una singola conversazione.

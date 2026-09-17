@@ -70,10 +70,19 @@ export interface AppuntamentoDemo {
 
 export interface StatoDemo {
   appuntamenti: AppuntamentoDemo[];
+  /**
+   * Turni consecutivi in cui l'assistente non ha usato nessuno strumento.
+   *
+   * E' l'indizio di "si sta parlando d'altro", lo stesso gia' usato dal
+   * prodotto vero: una conversazione che prenota chiama quasi sempre uno
+   * strumento entro pochi turni, una che chiacchiera non lo fa mai. Si
+   * azzera appena l'assistente torna a fare il suo mestiere.
+   */
+  turniFuoriTema?: number;
 }
 
 export function statoDemoVuoto(): StatoDemo {
-  return { appuntamenti: [] };
+  return { appuntamenti: [], turniFuoriTema: 0 };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

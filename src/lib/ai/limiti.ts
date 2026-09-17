@@ -45,7 +45,18 @@ export function pianoHaTonoPersonalizzato(piano: string): boolean {
 // mese -- vedi il calcolo costi in DECISIONS.md. Da rivedere con dati reali
 // di utilizzo appena disponibili.
 const QUOTA_MENSILE_MESSAGGI_PER_PIANO: Record<string, number> = {
-  growth: 1000,
+  // Alzata da 1.000 a 2.500 il 17/09/2026. Mille messaggi sono circa 120-150
+  // conversazioni al mese, cioe' 4-5 al giorno: per un salone che va bene e
+  // che mette il link della pagina pubblica ovunque, non sono tante. E la
+  // quota di Growth NON scala con gli operatori, quindi un salone con cinque
+  // poltrone aveva lo stesso tetto di uno che lavora da solo.
+  //
+  // Quando la quota finisce, l'assistente smette di rispondere ai clienti di
+  // un salone CHE PAGA, per un limite che protegge noi. Con i costi reali
+  // (circa 0,02$ a prenotazione completa) 2.500 messaggi sono ~8$ al mese nel
+  // caso peggiore su 39,90€ incassati: il tetto vecchio proteggeva qualcosa
+  // che non aveva bisogno di essere protetto cosi' stretto.
+  growth: 2500,
   pro: 3000,
   // ALTO ma FINITO, corretto il 17/09/2026 dopo un audit. Prima era
   // `Infinity`, che su carta vuol dire "nessun limite commerciale" e nella
