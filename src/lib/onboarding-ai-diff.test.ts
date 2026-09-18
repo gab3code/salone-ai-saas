@@ -1,10 +1,36 @@
 import { describe, expect, it } from "vitest";
 import {
   calcolaDiff,
+  diffOrari,
   diffVuoto,
+  type OrarioAttuale,
   type StatoSalone,
   type StatoDesiderato,
 } from "./onboarding-ai-diff";
+
+/** Un giorno aperto, con la possibilita' di cambiarne un pezzo. */
+function giorno(giornoSettimana: number, extra: Partial<OrarioAttuale> = {}): OrarioAttuale {
+  return {
+    giornoSettimana,
+    chiuso: false,
+    apertura: "08:00",
+    chiusura: "18:00",
+    pausaInizio: null,
+    pausaFine: null,
+    ...extra,
+  };
+}
+
+/** Domenica chiusa, il resto 08:00-18:00: la settimana di un salone vero. */
+const SETTIMANA: OrarioAttuale[] = [
+  giorno(0, { chiuso: true, apertura: null, chiusura: null }),
+  giorno(1),
+  giorno(2),
+  giorno(3),
+  giorno(4),
+  giorno(5),
+  giorno(6),
+];
 
 const ANNA = { id: "op-anna", nome: "Anna", descrizione: "Colorista", attivo: true };
 const BRUNO = { id: "op-bruno", nome: "Bruno", descrizione: null, attivo: true };
@@ -19,6 +45,7 @@ const SALONE: StatoSalone = {
     { operatoreId: ANNA.id, servizioId: COLORE.id },
     { operatoreId: BRUNO.id, servizioId: TAGLIO.id },
   ],
+  orari: SETTIMANA,
 };
 
 /** Lo stato desiderato "non cambia niente": utile come base dei test. */
@@ -33,6 +60,7 @@ function statoIdentico(): StatoDesiderato {
       { id: COLORE.id, nome: COLORE.nome, durataMinuti: COLORE.durataMinuti, prezzoEuro: COLORE.prezzoEuro },
     ],
     associazioni: null,
+    orari: [],
   };
 }
 
@@ -169,6 +197,7 @@ describe("chi fa cosa", () => {
           servizio: { id: COLORE.id, nome: "Colore", durataMinuti: 90, prezzoEuro: 60 },
         },
       ],
+      orari: [],
     };
     const diff = calcolaDiff(SALONE, desiderato);
     expect(diff.associazioni.filter((a) => a.tipo === "rimuovi")).toEqual([]);
@@ -196,16 +225,85 @@ describe("chi fa cosa", () => {
 
 describe("un salone vuoto", () => {
   it("tutto e' una creazione, niente e' una rimozione", () => {
-    const vuoto: StatoSalone = { operatori: [], servizi: [], associazioni: [] };
+    const vuoto: StatoSalone = { operatori: [], servizi: [], associazioni: [], orari: SETTIMANA };
     const desiderato: StatoDesiderato = {
       operatori: [{ id: null, nome: "Anna", descrizione: null }],
       servizi: [{ id: null, nome: "Taglio", durataMinuti: 30, prezzoEuro: 25 }],
       associazioni: null,
+      orari: [],
     };
     const diff = calcolaDiff(vuoto, desiderato);
     expect(diff.operatori.every((m) => m.tipo === "crea")).toBe(true);
     expect(diff.servizi.every((m) => m.tipo === "crea")).toBe(true);
     expect(diff.operatori).toHaveLength(1);
     expect(diff.servizi).toHaveLength(1);
+  });
+});
+
+describe("orari: il bug del sabato (18/09/2026)", () => {
+  it('"il sabato siamo aperti" NON tocca gli altri sei giorni', () => {
+    // E' il caso esatto segnalato da Gabriel. Prima di diffOrari, questa
+    // richiesta riportava lunedi'-venerdi' agli orari di default.
+    const modifiche = diffOrari(SETTIMANA, [giorno(6, { apertura: "09:00", chiusura: "13:00" })]);
+    expect(modifiche).toHaveLength(1);
+    expect(modifiche[0].giornoSettimana).toBe(6);
+    expect(modifiche[0].prima.chiusura).toBe("18:00");
+    expect(modifiche[0].dopo.chiusura).toBe("13:00");
+  });
+
+  it("un giorno che il modello non nomina non compare nel diff, qualunque cosa sia", () => {
+    expect(diffOrari(SETTIMANA, [])).toEqual([]);
+  });
+
+  it("un giorno ripetuto identico non e' una modifica", () => {
+    // Il modello quasi sempre ripete tutta la settimana. I giorni uguali
+    // devono sparire, se no la revisione chiede di confermare sette righe di
+    // cui sei non cambiano niente e la settima si perde in mezzo.
+    expect(diffOrari(SETTIMANA, SETTIMANA)).toEqual([]);
+  });
+
+  it("aprire un giorno chiuso e chiudere un giorno aperto sono entrambe modifiche", () => {
+    const modifiche = diffOrari(SETTIMANA, [
+      giorno(0, { apertura: "10:00", chiusura: "13:00" }),
+      giorno(3, { chiuso: true, apertura: null, chiusura: null }),
+    ]);
+    expect(modifiche.map((m) => m.giornoSettimana)).toEqual([0, 3]);
+    expect(modifiche[0].prima.chiuso).toBe(true);
+    expect(modifiche[0].dopo.chiuso).toBe(false);
+    expect(modifiche[1].dopo.chiuso).toBe(true);
+  });
+
+  it("su un giorno chiuso gli orari non si confrontano", () => {
+    // Un modello che scrive "chiuso" e lascia dentro 09:00-19:00 non sta
+    // proponendo un cambio di orario: nel database un giorno chiuso ha gli
+    // orari a null per definizione.
+    const chiusaDavvero = SETTIMANA[0];
+    const chiusaConOrariInutili = giorno(0, { chiuso: true, apertura: "09:00", chiusura: "19:00" });
+    expect(diffOrari([chiusaDavvero], [chiusaConOrariInutili])).toEqual([]);
+  });
+
+  it("la pausa pranzo conta come modifica", () => {
+    const modifiche = diffOrari(SETTIMANA, [giorno(2, { pausaInizio: "13:00", pausaFine: "14:00" })]);
+    expect(modifiche).toHaveLength(1);
+    expect(modifiche[0].dopo.pausaInizio).toBe("13:00");
+  });
+
+  it("un giorno che nel database non esiste viene ignorato invece di far esplodere tutto", () => {
+    expect(diffOrari([], [giorno(6)])).toEqual([]);
+  });
+
+  it("le modifiche escono in ordine di giorno, non nell'ordine del modello", () => {
+    const modifiche = diffOrari(SETTIMANA, [
+      giorno(5, { chiusura: "20:00" }),
+      giorno(1, { chiusura: "20:00" }),
+      giorno(3, { chiusura: "20:00" }),
+    ]);
+    expect(modifiche.map((m) => m.giornoSettimana)).toEqual([1, 3, 5]);
+  });
+
+  it("un diff con soli orari non e' un diff vuoto", () => {
+    const desiderato = statoIdentico();
+    desiderato.orari = [giorno(6, { chiusura: "13:00" })];
+    expect(diffVuoto(calcolaDiff(SALONE, desiderato))).toBe(false);
   });
 });

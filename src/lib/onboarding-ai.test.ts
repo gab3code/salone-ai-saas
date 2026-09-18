@@ -19,7 +19,9 @@ describe("validaBozzaGrezza", () => {
       true
     );
 
-    expect(bozza.orari).toHaveLength(7);
+    // Due giorni nell'input, due nella bozza: gli altri cinque non sono
+    // stati nominati e non devono comparire da nessuna parte.
+    expect(bozza.orari).toHaveLength(2);
     expect(bozza.orari.find((o) => o.giornoSettimana === 1)).toEqual({
       giornoSettimana: 1,
       chiuso: false,
@@ -41,11 +43,44 @@ describe("validaBozzaGrezza", () => {
     expect(bozza.oreMinimeCancellazione).toBe(24);
   });
 
-  it("un giorno omesso dal modello diventa chiuso di default, mai un orario inventato", () => {
-    const bozza = validaBozzaGrezza({ orari: [{ giorno_settimana: 2, chiuso: false, apertura: "09:00", chiusura: "18:00" }] }, false);
-    expect(bozza.orari).toHaveLength(7);
-    const lunedi = bozza.orari.find((o) => o.giornoSettimana === 1); // 1 = lunedì, omesso nell'input
-    expect(lunedi).toMatchObject({ chiuso: true, apertura: null, chiusura: null });
+  it("UN GIORNO OMESSO RESTA OMESSO: non diventa 'chiuso'", () => {
+    // Fino al 18/09/2026 qui si riempivano i buchi con "chiuso", e sembrava
+    // la scelta prudente. Era invece quella che ha rotto il salone di
+    // Gabriel: "il sabato siamo aperti" arrivava a chi scrive come una
+    // settimana intera, con sei giorni che nessuno aveva nominato.
+    //
+    // Il giorno omesso deve restare INVISIBILE: cosi' diffOrari non lo
+    // guarda e chi applica lo lascia com'e'.
+    const bozza = validaBozzaGrezza(
+      { orari: [{ giorno_settimana: 2, chiuso: false, apertura: "09:00", chiusura: "18:00" }] },
+      false
+    );
+    expect(bozza.orari).toHaveLength(1);
+    expect(bozza.orari[0].giornoSettimana).toBe(2);
+    expect(bozza.orari.find((o) => o.giornoSettimana === 1)).toBeUndefined();
+  });
+
+  it("i giorni escono in ordine, anche se il modello li elenca a caso", () => {
+    const bozza = validaBozzaGrezza(
+      {
+        orari: [
+          { giorno_settimana: 5, chiuso: true },
+          { giorno_settimana: 1, chiuso: true },
+          { giorno_settimana: 3, chiuso: true },
+        ],
+      },
+      false
+    );
+    expect(bozza.orari.map((o) => o.giornoSettimana)).toEqual([1, 3, 5]);
+  });
+
+  it("un giorno detto CHIUSO resta nella bozza: quello si', e' un ordine", () => {
+    // La differenza che tutta questa storia serve a preservare: "chiuso" e'
+    // una cosa che il titolare ha detto, "assente" e' una cosa di cui non ha
+    // parlato. La prima si applica, la seconda no.
+    const bozza = validaBozzaGrezza({ orari: [{ giorno_settimana: 0, chiuso: true }] }, false);
+    expect(bozza.orari).toHaveLength(1);
+    expect(bozza.orari[0]).toMatchObject({ giornoSettimana: 0, chiuso: true, apertura: null });
   });
 
   it("l'id di una riga esistente viene conservato, un id non valido diventa null", () => {
@@ -112,7 +147,9 @@ describe("validaBozzaGrezza", () => {
     expect(() => validaBozzaGrezza("testo a caso", true)).not.toThrow();
     expect(() => validaBozzaGrezza(42, true)).not.toThrow();
     const bozza = validaBozzaGrezza(undefined, true);
-    expect(bozza.orari).toHaveLength(7);
+    // Nessun giorno, non sette giorni chiusi: da un input illeggibile non
+    // deve uscire una settimana da applicare a qualcuno.
+    expect(bozza.orari).toEqual([]);
     expect(bozza.operatori).toEqual([]);
   });
 

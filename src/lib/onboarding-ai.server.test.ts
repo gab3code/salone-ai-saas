@@ -25,7 +25,7 @@ function soloTesto(testo: string) {
  * configurazione gia' popolata stanno in onboarding-ai-diff.test.ts, dove il
  * confronto e' puro e non serve nessun modello finto.
  */
-const SALONE_VUOTO: StatoSalone = { operatori: [], servizi: [], associazioni: [] };
+const SALONE_VUOTO: StatoSalone = { operatori: [], servizi: [], associazioni: [], orari: [] };
 
 describe("generaBozzaOnboarding", () => {
   it("restituisce una bozza valida a partire da una risposta ben formata del modello", async () => {
@@ -59,6 +59,37 @@ describe("generaBozzaOnboarding", () => {
     expect(params.tools[0].name).toBe("restituisci_bozza");
     // Piano senza knowledge base AI: lo schema non deve nemmeno proporre quei campi al modello.
     expect(params.tools[0].input_schema.properties.informazioni_attivita).toBeUndefined();
+  });
+
+  it("AL MODELLO SI FANNO VEDERE GLI ORARI CHE CI SONO, e gli si chiede solo quelli che cambiano", async () => {
+    // Meta' della correzione del bug del sabato (18/09/2026) vive qui, e non
+    // si vede da nessun altro test: se il modello non sa che orari ha il
+    // salone, per aprire il sabato e' costretto a riscrivere la settimana, e
+    // i numeri che mette negli altri giorni se li inventa.
+    const create = vi.fn().mockResolvedValue(usoStrumentoBozza({ operatori: [{ nome: "Maria" }] }));
+    const salone: StatoSalone = {
+      ...SALONE_VUOTO,
+      orari: [
+        { giornoSettimana: 1, chiuso: false, apertura: "08:00", chiusura: "18:00", pausaInizio: null, pausaFine: null },
+        { giornoSettimana: 0, chiuso: true, apertura: null, chiusura: null, pausaInizio: null, pausaFine: null },
+      ],
+    };
+
+    await generaBozzaOnboarding("Il sabato ora siamo aperti", false, salone, {}, {
+      messages: { create },
+    } as ClienteAnthropic);
+
+    const params = create.mock.calls[0][0];
+    const testoInviato = JSON.stringify(params.messages);
+    expect(testoInviato).toContain("ORARI DI APERTURA ATTUALI");
+    expect(testoInviato).toContain("08:00");
+
+    // E lo schema deve dirgli di mandare solo i cambiamenti: senza questa
+    // riga il modello ripete tutta la settimana e la revisione si riempie di
+    // giorni che non cambiano niente.
+    const descrizioneOrari = params.tools[0].input_schema.properties.orari.description as string;
+    expect(descrizioneOrari).toContain("CAMBIANO");
+    expect(descrizioneOrari).not.toContain("verranno considerati chiusi");
   });
 
   it("include i campi di knowledge base nello schema solo se il piano li supporta", async () => {

@@ -47,7 +47,7 @@ function costruisciSchemaBozza(haKnowledgeBaseAi: boolean, haPromemoria: boolean
     orari: {
       type: "array",
       description:
-        "Un elemento per OGNI giorno della settimana citato o implicito nel testo (non serve includere i giorni di cui il testo non parla affatto -- verranno considerati chiusi).",
+        "SOLO i giorni di cui il testo parla, e solo quelli che CAMBIANO rispetto alla configurazione attuale. Un giorno che non metti qui resta esattamente com'e' adesso: non viene chiuso e non viene toccato. Non riportare un giorno solo per confermarlo. Metti un giorno con chiuso=true unicamente se il titolare ha detto che quel giorno e' chiuso. Elenco vuoto se il testo non parla di orari di apertura.",
       items: SCHEMA_ORARIO,
     },
     operatori: {
@@ -250,8 +250,33 @@ Se una cosa esiste già ed è giusta ma il titolare non la nomina affatto, ripor
  * id veri. E' il pezzo che rende possibile correggere invece che duplicare.
  */
 function descriviStatoAttuale(stato: StatoSalone): string {
+  // Gli orari vanno mostrati SEMPRE, anche a un'attività senza operatori né
+  // servizi: il trigger di registrazione crea comunque le sette righe, e un
+  // modello che non li vede è costretto a riscrivere la settimana da zero.
+  // È metà della correzione del 18/09/2026 (l'altra metà è diffOrari): far
+  // vedere al modello cosa c'è gli toglie il bisogno di indovinarlo.
+  const orari = [
+    "ORARI DI APERTURA ATTUALI:",
+    JSON.stringify(
+      stato.orari.map((o) => ({
+        giorno_settimana: o.giornoSettimana,
+        chiuso: o.chiuso,
+        apertura: o.apertura,
+        chiusura: o.chiusura,
+        pausa_inizio: o.pausaInizio,
+        pausa_fine: o.pausaFine,
+      })),
+      null,
+      1
+    ),
+    "Ripeti nel campo `orari` solo i giorni che devono CAMBIARE rispetto a questi.",
+  ].join("\n");
+
   if (stato.operatori.length === 0 && stato.servizi.length === 0) {
-    return "CONFIGURAZIONE ATTUALE: nessun operatore e nessun servizio, l'attività è ancora da configurare.";
+    return [
+      "CONFIGURAZIONE ATTUALE: nessun operatore e nessun servizio, l'attività è ancora da configurare.",
+      orari,
+    ].join("\n\n");
   }
   const nomeDi = (id: string) =>
     stato.operatori.find((o) => o.id === id)?.nome ?? stato.servizi.find((s) => s.id === id)?.nome ?? id;
@@ -273,6 +298,8 @@ function descriviStatoAttuale(stato: StatoSalone): string {
       null,
       1
     ),
+    "",
+    orari,
   ].join("\n");
 }
 

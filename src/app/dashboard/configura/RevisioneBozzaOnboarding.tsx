@@ -9,6 +9,7 @@ import type {
   ModificaOperatore,
   ModificaServizio,
   StatoSalone,
+  ModificaOrario,
 } from "@/lib/onboarding-ai-diff";
 import { applicaBozzaOnboarding, type RisultatoApplicazioneBozza } from "./onboarding-ai-azioni";
 
@@ -65,7 +66,16 @@ interface VoceMatrice {
 interface BozzaRevisione {
   bozza: BozzaOnboarding;
   stato: StatoSalone;
-  applicaOrari: boolean;
+  /**
+   * Una spunta per ogni GIORNO che cambia davvero, allineata a `diff.orari`.
+   * Prima era una sola per tutta la settimana, e mostrava gli orari proposti
+   * senza quelli attuali: un lunedi' che passava da 08:00-18:00 a 09:00-19:00
+   * si leggeva come "lunedi' 09:00-19:00", cioe' come una conferma. Il
+   * titolare spuntava una modifica che non sapeva di star facendo.
+   */
+  orariInclusi: boolean[];
+  /** Il diff dei giorni, tenuto qui perche' la revisione ci lavora sopra. */
+  orari: ModificaOrario[];
   operatori: OperatoreRevisione[];
   servizi: ServizioRevisione[];
   /** chiaveOperatore + "::" + chiaveServizio -> spuntato */
@@ -117,7 +127,8 @@ function costruisciRevisione(
   return {
     bozza,
     stato,
-    applicaOrari: bozza.orari.some((o) => !o.chiuso),
+    orari: diff.orari,
+    orariInclusi: diff.orari.map(() => true),
     operatori,
     servizi,
     matrice: costruisciMatrice(diff, stato, operatori, servizi),
@@ -184,6 +195,17 @@ function trovaPerNomeOId<T extends { chiave: string; nome: string; modifica: { i
 }
 
 /**
+ * Un giorno in una riga sola, nel modo in cui lo direbbe il titolare.
+ * Serve a mostrare il "prima" accanto al "dopo": senza il prima, una
+ * modifica e' indistinguibile da una conferma.
+ */
+function descriviGiorno(o: ModificaOrario["prima"]): string {
+  if (o.chiuso) return "chiuso";
+  const base = `${o.apertura ?? "?"}-${o.chiusura ?? "?"}`;
+  return o.pausaInizio && o.pausaFine ? `${base} (pausa ${o.pausaInizio}-${o.pausaFine})` : base;
+}
+
+/**
  * Dalla revisione alle due cose che servono per applicare: la bozza (per
  * orari, informazioni, FAQ, cancellazione) e il diff ripulito, che contiene
  * SOLO le modifiche confermate. Cio' che non e' spuntato semplicemente non
@@ -212,9 +234,10 @@ function pianoDaApplicare(rev: BozzaRevisione): { bozza: BozzaOnboarding; diff: 
   return {
     bozza: {
       ...rev.bozza,
-      orari: rev.applicaOrari
-        ? rev.bozza.orari
-        : rev.bozza.orari.map((o) => ({ ...o, chiuso: true, apertura: null, chiusura: null, pausaInizio: null, pausaFine: null })),
+      // Solo i giorni spuntati, e presi dal DIFF invece che dalla bozza: il
+      // diff contiene gia' i soli giorni che cambiano qualcosa, quindi un
+      // giorno ripetuto uguale dal modello non arriva nemmeno a chi scrive.
+      orari: rev.orari.filter((_, i) => rev.orariInclusi[i]).map((m) => m.dopo),
       informazioniAttivita: rev.applicaInformazioni ? rev.bozza.informazioniAttivita : null,
       faq: rev.faq.filter((f) => f.incluso).map((f) => ({ domanda: f.domanda, risposta: f.risposta })),
       oreMinimeCancellazione: rev.applicaCancellazione ? rev.bozza.oreMinimeCancellazione : null,
@@ -229,6 +252,7 @@ function pianoDaApplicare(rev: BozzaRevisione): { bozza: BozzaOnboarding; diff: 
       operatori,
       servizi,
       associazioni: associazioniDallaMatrice(rev, operatoriInclusi, serviziInclusi),
+      orari: rev.orari.filter((_, i) => rev.orariInclusi[i]),
       idSconosciuti: [],
     },
   };
@@ -433,7 +457,7 @@ export function RevisioneBozzaOnboarding({
   const nienteDaFare =
     rev.operatori.length === 0 &&
     rev.servizi.length === 0 &&
-    !rev.applicaOrari &&
+    rev.orari.length === 0 &&
     rev.faq.length === 0 &&
     !rev.bozza.regoleAgenda &&
     rev.bozza.orariOperatore.length === 0 &&
@@ -457,25 +481,36 @@ export function RevisioneBozzaOnboarding({
         </p>
       )}
 
-      {rev.bozza.orari.some((o) => !o.chiuso) && (
+      {rev.orari.length > 0 && (
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              checked={rev.applicaOrari}
-              onChange={(e) => setStato({ fase: "revisione", revisione: { ...rev, applicaOrari: e.target.checked } })}
-            />
-            Orari di apertura
-          </label>
-          <ul className="mt-1 ml-6 text-sm text-zinc-600">
-            {rev.bozza.orari
-              .filter((o) => !o.chiuso)
-              .map((o) => (
-                <li key={o.giornoSettimana}>
-                  {NOMI_GIORNI[o.giornoSettimana]}: {o.apertura ?? "?"}–{o.chiusura ?? "?"}
-                  {o.pausaInizio && o.pausaFine && ` (pausa ${o.pausaInizio}–${o.pausaFine})`}
-                </li>
-              ))}
+          <h3 className="text-sm font-medium">Orari di apertura</h3>
+          <p className="mt-1 text-xs text-zinc-500">
+            Solo i giorni che cambiano. Gli altri restano come sono.
+          </p>
+          <ul className="mt-2 flex flex-col gap-1 text-sm">
+            {rev.orari.map((m, i) => (
+              <li key={m.giornoSettimana}>
+                <label className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={rev.orariInclusi[i]}
+                    onChange={(e) =>
+                      setStato({
+                        fase: "revisione",
+                        revisione: {
+                          ...rev,
+                          orariInclusi: rev.orariInclusi.map((v, j) => (j === i ? e.target.checked : v)),
+                        },
+                      })
+                    }
+                  />
+                  <span className="font-medium">{NOMI_GIORNI[m.giornoSettimana]}</span>
+                  <span className="text-zinc-500 line-through">{descriviGiorno(m.prima)}</span>
+                  <span aria-hidden>→</span>
+                  <span>{descriviGiorno(m.dopo)}</span>
+                </label>
+              </li>
+            ))}
           </ul>
         </div>
       )}

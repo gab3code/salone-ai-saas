@@ -81,14 +81,9 @@ const TENANT_ID = "tenant-1";
 
 function bozzaVuota(): BozzaOnboarding {
   return {
-    orari: Array.from({ length: 7 }, (_, giorno) => ({
-      giornoSettimana: giorno,
-      chiuso: true,
-      apertura: null,
-      chiusura: null,
-      pausaInizio: null,
-      pausaFine: null,
-    })),
+    // Vuota vuol dire "nessun giorno nominato", non "sette giorni chiusi":
+    // vedi normalizzaOrari in onboarding-ai.ts.
+    orari: [],
     operatori: [],
     servizi: [],
     associazioni: null,
@@ -105,7 +100,7 @@ function bozzaVuota(): BozzaOnboarding {
 }
 
 function diffVuoto(): DiffConfigurazione {
-  return { operatori: [], servizi: [], associazioni: [], idSconosciuti: [] };
+  return { operatori: [], servizi: [], associazioni: [], orari: [], idSconosciuti: [] };
 }
 
 /**
@@ -128,6 +123,21 @@ function query(risposta: unknown) {
     then: (risolvi: (v: unknown) => unknown) => Promise.resolve(esito).then(risolvi),
   });
   return q;
+}
+
+/**
+ * La settimana come sta nel database: 08:00-18:00 da lunedi' a sabato,
+ * domenica chiusa, e i secondi che PostgREST restituisce davvero.
+ */
+function settimanaNelDatabase() {
+  return Array.from({ length: 7 }, (_, giorno) => ({
+    giorno_settimana: giorno,
+    chiuso: giorno === 0,
+    apertura: giorno === 0 ? null : "08:00:00",
+    chiusura: giorno === 0 ? null : "18:00:00",
+    pausa_inizio: null,
+    pausa_fine: null,
+  }));
 }
 
 function supabaseFinto(
@@ -274,8 +284,10 @@ describe("generaBozzaOnboardingAction", () => {
 });
 
 describe("applicaBozzaOnboarding", () => {
-  it("non tocca gli orari se la bozza non ne specifica nessuno aperto", async () => {
-    vi.mocked(creaClientServer).mockResolvedValue(supabaseFinto({ piano: "free", telefono: null }));
+  it("non tocca gli orari se la bozza non nomina nessun giorno", async () => {
+    vi.mocked(creaClientServer).mockResolvedValue(
+      supabaseFinto({ piano: "free", telefono: null }, { orari_apertura: settimanaNelDatabase() })
+    );
 
     const risultato = await applicaBozzaOnboarding(bozzaVuota(), diffVuoto());
 
@@ -283,18 +295,62 @@ describe("applicaBozzaOnboarding", () => {
     expect(risultato.orariSalvati).toBe(false);
   });
 
-  it("salva gli orari solo quando almeno un giorno è aperto", async () => {
-    vi.mocked(creaClientServer).mockResolvedValue(supabaseFinto({ piano: "free" }));
+  it('IL BUG DEL SABATO: aprire un giorno non riscrive gli altri sei', async () => {
+    // Il test che mancava, ed e' il motivo per cui il bug e' arrivato fino a
+    // Gabriel. "Il sabato ora siamo aperti" toccava anche lunedi'-venerdi',
+    // riportandoli agli orari di default: il salone perdeva gli orari veri.
+    //
+    // `salvaOrari` fa un upsert di tutti e sette i giorni -- e' giusto che
+    // lo faccia, e' la stessa azione del form manuale -- quindi la difesa
+    // non puo' stare li': sta nel form che gli si costruisce, che parte
+    // dagli orari VERI e ci sovrascrive solo i giorni nominati.
+    vi.mocked(creaClientServer).mockResolvedValue(
+      supabaseFinto({ piano: "free" }, { orari_apertura: settimanaNelDatabase() })
+    );
     const bozza = bozzaVuota();
-    bozza.orari[1] = { giornoSettimana: 1, chiuso: false, apertura: "09:00", chiusura: "18:00", pausaInizio: null, pausaFine: null };
+    bozza.orari = [
+      { giornoSettimana: 6, chiuso: false, apertura: "09:00", chiusura: "13:00", pausaInizio: null, pausaFine: null },
+    ];
 
     const risultato = await applicaBozzaOnboarding(bozza, diffVuoto());
 
     expect(salvaOrari).toHaveBeenCalledTimes(1);
-    const formInviato = vi.mocked(salvaOrari).mock.calls[0][0];
-    expect(formInviato.get("apertura_1")).toBe("09:00");
-    expect(formInviato.get("chiuso_0")).toBe("on"); // domenica, rimasta chiusa di default
+    const form = vi.mocked(salvaOrari).mock.calls[0][0];
+
+    // Il sabato cambia, come chiesto.
+    expect(form.get("apertura_6")).toBe("09:00");
+    expect(form.get("chiusura_6")).toBe("13:00");
+
+    // Gli altri cinque giorni aperti restano ai LORO orari, non a 09:00-19:00.
+    // "08:00" e non "08:00:00": caricaStatoSalone taglia i secondi che
+    // PostgREST restituisce, se no un orario identico risulterebbe diverso
+    // dal confronto del diff.
+    for (const giorno of [1, 2, 3, 4, 5]) {
+      expect(form.get(`apertura_${giorno}`)).toBe("08:00");
+      expect(form.get(`chiusura_${giorno}`)).toBe("18:00");
+      expect(form.get(`chiuso_${giorno}`)).toBeNull();
+    }
+
+    // E la domenica resta chiusa perche' lo era, non perche' il modello ha
+    // taciuto.
+    expect(form.get("chiuso_0")).toBe("on");
     expect(risultato.orariSalvati).toBe(true);
+  });
+
+  it("un giorno detto CHIUSO si applica: quello e' un ordine", async () => {
+    vi.mocked(creaClientServer).mockResolvedValue(
+      supabaseFinto({ piano: "free" }, { orari_apertura: settimanaNelDatabase() })
+    );
+    const bozza = bozzaVuota();
+    bozza.orari = [
+      { giornoSettimana: 3, chiuso: true, apertura: null, chiusura: null, pausaInizio: null, pausaFine: null },
+    ];
+
+    await applicaBozzaOnboarding(bozza, diffVuoto());
+
+    const form = vi.mocked(salvaOrari).mock.calls[0][0];
+    expect(form.get("chiuso_3")).toBe("on");
+    expect(form.get("apertura_2")).toBe("08:00");
   });
 
   it("crea operatori e servizi nuovi e li collega fra loro", async () => {

@@ -41,10 +41,25 @@ export interface AssociazioneAttuale {
   servizioId: string;
 }
 
+/**
+ * Un giorno della settimana come sta nel database. Gli orari sono "HH:MM"
+ * oppure null.
+ */
+export interface OrarioAttuale {
+  giornoSettimana: number;
+  chiuso: boolean;
+  apertura: string | null;
+  chiusura: string | null;
+  pausaInizio: string | null;
+  pausaFine: string | null;
+}
+
 export interface StatoSalone {
   operatori: OperatoreAttuale[];
   servizi: ServizioAttuale[];
   associazioni: AssociazioneAttuale[];
+  /** Sempre sette righe, una per giorno: il trigger di registrazione le crea tutte. */
+  orari: OrarioAttuale[];
 }
 
 /** Come il modello descrive un operatore nello stato finale desiderato. */
@@ -67,16 +82,26 @@ export interface AssociazioneDesiderata {
   servizio: ServizioDesiderato;
 }
 
+/** Un giorno come il modello lo propone. Stessa forma di quello attuale. */
+export type OrarioDesiderato = OrarioAttuale;
+
 /**
- * `associazioni` e' l'unico campo dove "elenco vuoto" e "non ne ha parlato"
- * sono due cose diverse e opposte: il primo vuol dire "nessuno fa niente",
- * il secondo "lascia stare quello che c'e'". Per questo e' nullable e non si
+ * `associazioni` e' il campo dove "elenco vuoto" e "non ne ha parlato" sono
+ * due cose diverse e opposte: il primo vuol dire "nessuno fa niente", il
+ * secondo "lascia stare quello che c'e'". Per questo e' nullable e non si
  * accontenta di un array vuoto.
+ *
+ * `orari` funziona in un modo terzo, ed e' il campo che ci ha fatto piu'
+ * danni (vedi diffOrari qui sotto): e' un elenco dei SOLI GIORNI NOMINATI.
+ * Un giorno che non c'e' dentro non e' "chiuso", e' "non ne ha parlato", e
+ * resta esattamente com'era.
  */
 export interface StatoDesiderato {
   operatori: OperatoreDesiderato[];
   servizi: ServizioDesiderato[];
   associazioni: AssociazioneDesiderata[] | null;
+  /** Solo i giorni che il modello ha davvero nominato: da zero a sette. */
+  orari: OrarioDesiderato[];
 }
 
 export type TipoModifica = "crea" | "aggiorna" | "rimuovi";
@@ -106,10 +131,18 @@ export interface ModificaAssociazione {
   nomeServizio: string;
 }
 
+/** Un giorno che cambia davvero. I giorni identici non entrano nel diff. */
+export interface ModificaOrario {
+  giornoSettimana: number;
+  prima: OrarioAttuale;
+  dopo: OrarioDesiderato;
+}
+
 export interface DiffConfigurazione {
   operatori: ModificaOperatore[];
   servizi: ModificaServizio[];
   associazioni: ModificaAssociazione[];
+  orari: ModificaOrario[];
   /** Righe dello stato desiderato che citavano un id inesistente: trattate come nuove. */
   idSconosciuti: string[];
 }
@@ -202,8 +235,55 @@ export function calcolaDiff(attuale: StatoSalone, desiderato: StatoDesiderato): 
     operatori,
     servizi,
     associazioni: diffAssociazioni(attuale, desiderato, operatoriPerId, serviziPerId),
+    orari: diffOrari(attuale.orari, desiderato.orari),
     idSconosciuti,
   };
+}
+
+/**
+ * I giorni che cambiano davvero, uno per uno.
+ *
+ * QUESTA FUNZIONE ESISTE PER UN BUG VERO (18/09/2026, trovato da Gabriel):
+ * "il sabato ora siamo aperti" apriva il sabato e nello stesso momento
+ * riscriveva gli altri sei giorni, riportandoli agli orari di default. Il
+ * salone perdeva gli orari veri senza che nessuno l'avesse chiesto.
+ *
+ * La causa non era il modello: era che gli orari erano l'UNICO campo che non
+ * passava di qui. Operatori, servizi e associazioni si confrontavano gia'
+ * con quello che c'era; gli orari venivano riscritti in blocco, tutti e
+ * sette, presi dalla bozza.
+ *
+ * Il rimedio e' la regola che vale gia' per tutto il resto: si confronta, e
+ * quello che non cambia non entra nel diff. Un giorno assente dallo stato
+ * desiderato significa "non ne ha parlato" e non viene nemmeno guardato.
+ *
+ * Gli orari di un giorno CHIUSO non si confrontano: nel database sono null
+ * per definizione, e un modello che propone "chiuso, 09:00-19:00" non sta
+ * proponendo un cambio di orario.
+ */
+export function diffOrari(attuali: OrarioAttuale[], desiderati: OrarioDesiderato[]): ModificaOrario[] {
+  const perGiorno = new Map(attuali.map((o) => [o.giornoSettimana, o]));
+  const modifiche: ModificaOrario[] = [];
+
+  for (const desid of desiderati) {
+    const prima = perGiorno.get(desid.giornoSettimana);
+    if (!prima) continue;
+    if (orariUguali(prima, desid)) continue;
+    modifiche.push({ giornoSettimana: desid.giornoSettimana, prima, dopo: desid });
+  }
+
+  return modifiche.sort((a, b) => a.giornoSettimana - b.giornoSettimana);
+}
+
+function orariUguali(a: OrarioAttuale, b: OrarioDesiderato): boolean {
+  if (a.chiuso !== b.chiuso) return false;
+  if (a.chiuso) return true;
+  return (
+    testoUguale(a.apertura, b.apertura) &&
+    testoUguale(a.chiusura, b.chiusura) &&
+    testoUguale(a.pausaInizio, b.pausaInizio) &&
+    testoUguale(a.pausaFine, b.pausaFine)
+  );
 }
 
 function diffAssociazioni(
@@ -258,5 +338,10 @@ function diffAssociazioni(
 
 /** true se il diff non propone assolutamente niente. */
 export function diffVuoto(diff: DiffConfigurazione): boolean {
-  return diff.operatori.length === 0 && diff.servizi.length === 0 && diff.associazioni.length === 0;
+  return (
+    diff.operatori.length === 0 &&
+    diff.servizi.length === 0 &&
+    diff.associazioni.length === 0 &&
+    diff.orari.length === 0
+  );
 }

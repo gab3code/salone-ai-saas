@@ -103,7 +103,8 @@ export interface ChiusuraBozza {
 }
 
 export interface BozzaOnboarding {
-  orari: OrarioBozza[]; // sempre esattamente 7 elementi, uno per giorno
+  /** Solo i giorni nominati dal titolare, da 0 a 7. Un giorno assente = "non ne ha parlato". */
+  orari: OrarioBozza[];
   operatori: OperatoreBozza[];
   servizi: ServizioBozza[];
   /**
@@ -174,9 +175,22 @@ function prezzoEuroONull(v: unknown): number | null {
 }
 
 /**
- * Sempre 7 righe (una per giorno 0-6): un giorno assente nell'input grezzo
- * -- il modello a volte ne omette qualcuno invece di scriverlo chiuso --
- * diventa "chiuso" di default, mai un giorno con orari inventati.
+ * SOLO I GIORNI CHE IL MODELLO HA NOMINATO, da zero a sette, in ordine.
+ *
+ * Fino al 18/09/2026 questa funzione restituiva sempre sette righe, e i
+ * giorni che il modello non aveva nominato li riempiva con "chiuso". Sembrava
+ * la scelta prudente -- meglio chiuso che un orario inventato -- ed era
+ * invece la piu' pericolosa, perche' distruggeva l'unica informazione che
+ * conta: la differenza fra "il titolare ha detto che quel giorno e' chiuso" e
+ * "il titolare non ne ha parlato". Dopo questa funzione nessun codice a valle
+ * poteva piu' distinguerle, e chi applicava la bozza scriveva "chiuso" su
+ * giorni di cui nessuno aveva parlato.
+ *
+ * Il bug come l'ha visto Gabriel: "il sabato ora siamo aperti" apriva il
+ * sabato e riportava gli altri sei giorni agli orari di default.
+ *
+ * Adesso un giorno assente resta assente, e diffOrari (onboarding-ai-diff.ts)
+ * non lo guarda nemmeno. Il silenzio non e' un ordine, qui come altrove.
  */
 function normalizzaOrari(grezzi: unknown): OrarioBozza[] {
   const perGiorno = new Map<number, OrarioBozza>();
@@ -196,14 +210,7 @@ function normalizzaOrari(grezzi: unknown): OrarioBozza[] {
       });
     }
   }
-  return Array.from({ length: 7 }, (_, giorno) => perGiorno.get(giorno) ?? {
-    giornoSettimana: giorno,
-    chiuso: true,
-    apertura: null,
-    chiusura: null,
-    pausaInizio: null,
-    pausaFine: null,
-  });
+  return Array.from(perGiorno.values()).sort((a, b) => a.giornoSettimana - b.giornoSettimana);
 }
 
 function normalizzaOperatori(grezzi: unknown): OperatoreBozza[] {
@@ -461,6 +468,7 @@ export function bozzaAStatoDesiderato(bozza: BozzaOnboarding): StatoDesiderato {
             const servizio = serviziPerNome.get(a.servizio.trim().toLowerCase());
             return operatore && servizio ? [{ operatore, servizio }] : [];
           }),
+    orari: bozza.orari,
   };
 }
 
@@ -469,7 +477,7 @@ export function bozzaVuota(bozza: BozzaOnboarding): boolean {
   return (
     bozza.operatori.length === 0 &&
     bozza.servizi.length === 0 &&
-    bozza.orari.every((o) => o.chiuso) &&
+    bozza.orari.length === 0 &&
     !bozza.informazioniAttivita &&
     bozza.faq.length === 0 &&
     bozza.oreMinimeCancellazione === null &&

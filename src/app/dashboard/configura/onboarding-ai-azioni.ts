@@ -48,7 +48,7 @@ async function caricaStatoSalone(
   supabase: Awaited<ReturnType<typeof creaClientServer>>,
   tenantId: string
 ): Promise<StatoSalone> {
-  const [operatoriRes, serviziRes, associazioniRes] = await Promise.all([
+  const [operatoriRes, serviziRes, associazioniRes, orariRes] = await Promise.all([
     supabase.from("operatori").select("id, nome, descrizione, attivo").eq("tenant_id", tenantId).order("nome"),
     supabase
       .from("servizi")
@@ -56,7 +56,18 @@ async function caricaStatoSalone(
       .eq("tenant_id", tenantId)
       .order("nome"),
     supabase.from("operatori_servizi").select("operatore_id, servizio_id"),
+    supabase
+      .from("orari_apertura")
+      .select("giorno_settimana, chiuso, apertura, chiusura, pausa_inizio, pausa_fine")
+      .eq("tenant_id", tenantId)
+      .order("giorno_settimana"),
   ]);
+
+  // "08:00:00" nel database, "08:00" ovunque nel prodotto: il confronto del
+  // diff e il testo della revisione lavorano sulla seconda forma, e i secondi
+  // farebbero risultare diverso un orario identico.
+  const soloOreMinuti = (v: unknown): string | null =>
+    typeof v === "string" && v.length >= 5 ? v.slice(0, 5) : null;
 
   return {
     operatori: (operatoriRes.data ?? []).map((o) => ({
@@ -77,6 +88,14 @@ async function caricaStatoSalone(
     associazioni: (associazioniRes.data ?? []).map((a) => ({
       operatoreId: a.operatore_id as string,
       servizioId: a.servizio_id as string,
+    })),
+    orari: (orariRes.data ?? []).map((o) => ({
+      giornoSettimana: o.giorno_settimana as number,
+      chiuso: o.chiuso as boolean,
+      apertura: soloOreMinuti(o.apertura),
+      chiusura: soloOreMinuti(o.chiusura),
+      pausaInizio: soloOreMinuti(o.pausa_inizio),
+      pausaFine: soloOreMinuti(o.pausa_fine),
     })),
   };
 }
@@ -238,15 +257,30 @@ export async function applicaBozzaOnboarding(
     .single();
   const haKnowledgeBaseAi = pianoHaKnowledgeBaseAi(tenant?.piano ?? "");
 
-  // Orari: solo se la bozza dice davvero qualcosa (almeno un giorno
-  // aperto). Una bozza "tutto chiuso" significa quasi sempre "il testo non
-  // parlava affatto di orari" (vedi normalizzaOrari in onboarding-ai.ts),
-  // non "chiudi ogni giorno": applicarla alla lettera su un tenant che ha
-  // già orari configurati li cancellerebbe senza che il titolare l'abbia
-  // mai chiesto.
-  if (bozza.orari.some((o) => !o.chiuso)) {
+  // Gli orari che ci sono ADESSO, riletti qui e non passati dal client: fra
+  // la revisione e la conferma possono essere cambiati in un'altra scheda, e
+  // di questi si fida chi scrive, non chi ha guardato.
+  const stato = await caricaStatoSalone(supabase, tenantId);
+
+  // ORARI: si parte da quelli che ci sono e si sovrascrivono SOLO i giorni
+  // che la bozza nomina.
+  //
+  // Prima questo blocco costruiva la settimana dalla sola bozza. Siccome
+  // `salvaOrari` fa un upsert di tutti e sette i giorni (stessa azione del
+  // form manuale, ed e' giusto che sia una sola), qualunque cosa dicesse la
+  // bozza vinceva su tutta la settimana: chiedere "il sabato siamo aperti"
+  // riportava gli altri sei giorni agli orari di default. Segnalato da
+  // Gabriel il 18/09/2026.
+  //
+  // La riga che conta e' `partenza`: i giorni che il titolare non ha
+  // nominato entrano nel form con i valori che hanno gia', quindi l'upsert
+  // li riscrive identici a se stessi.
+  if (bozza.orari.length > 0) {
+    const partenza = new Map(stato.orari.map((o) => [o.giornoSettimana, o]));
+    for (const o of bozza.orari) partenza.set(o.giornoSettimana, o);
+
     const formOrari = new FormData();
-    for (const o of bozza.orari) {
+    for (const o of partenza.values()) {
       if (o.chiuso) {
         formOrari.set(`chiuso_${o.giornoSettimana}`, "on");
         continue;
