@@ -11,7 +11,7 @@ scritto, il resto e' verifica.
 git push
 ```
 
-Otto commit. Poi aspetta che Vercel finisca il deploy (~1 minuto): il passo 2
+Dieci commit. Poi aspetta che Vercel finisca il deploy (~1 minuto): il passo 2
 dipende da quello.
 
 ---
@@ -61,7 +61,7 @@ Cosa deve dire:
 | controllo | atteso |
 |---|---|
 | tipi, lint, build | verdi |
-| test unitari | **1016** |
+| test unitari | **1037** |
 | permessi del database | **nessuna divergenza** (se lanci PRIMA del passo 2 ne segnala due: `collegamenti_calendario_esterni` ed `eventi_calendario_esterni`. E' la prova che lo script funziona) |
 | scenari e2e deterministici | 53 verdi |
 | scenario 30 | 7 verdi |
@@ -110,3 +110,30 @@ dall'ambiente di lavoro non si fa. Va provato a mano, cinque minuti:
 
 Se al punto 4 non compare niente: e' fail-open di proposito, quindi non trovi
 un errore in faccia. Il motivo sta nei log Vercel, cerca `[calendari]`.
+
+---
+
+## 7. L'import della rubrica (nuovo, e conviene provarlo)
+
+`/dashboard/clienti` -> **Importa rubrica**. Tre prove da tre minuti:
+
+1. Incolla questo e premi "Vediamo cosa entra":
+
+   ```
+   Nome;Telefono;Email
+   Maria Rossi;333 123 4567;maria@esempio.it
+   Luca Bianchi;3339876543;
+   nota a caso senza numero
+   ```
+
+   Devono uscire 2 clienti nuovi e 1 riga "che non ho capito" mostrata per
+   esteso. Importa.
+
+2. **Rifai lo stesso identico incolla**, ma scrivendo il primo numero come
+   `+39 333 1234567`. Deve dirti che sono **gia' in rubrica**, non proporti
+   di crearli di nuovo. E' il controllo che conta: se te li ripropone come
+   nuovi, il confronto dei numeri non funziona e su trecento righe avresti la
+   rubrica doppia.
+
+3. Prova a entrare su `/dashboard/clienti/importa` con un account **staff**:
+   deve rimandarti alla rubrica. L'import e' owner-only come l'export.

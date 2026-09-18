@@ -2177,19 +2177,32 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       Fresha, che lo dà gratis. È pura amministrazione e va avviata prima di qualunque altra cosa
       in questa lista.
 
-- [ ] **Import della rubrica clienti, assistito dall'AI -- la funzione più importante che manca.**
-      Il motivo per cui un salone NON cambia gestionale non è il prezzo: è che ha trecento clienti
-      su un quaderno, in un Excel fatto male o dentro la cronologia di WhatsApp, e spostarli a mano
-      è una serata di lavoro che nessuno farà mai. Un'AI che prende quel disastro -- un incolla
-      sporco, un CSV con le colonne sbagliate, **la foto di una pagina dell'agenda** -- e ne ricava
-      clienti strutturati da rivedere e confermare prima di salvare, è letteralmente ciò che rende
-      possibile il passaggio da un altro strumento.
-      L'export CSV esiste già (`src/lib/csv.ts`); l'import è segnato come mancante da sempre e non
-      è mai stato fatto. Stesso schema dell'onboarding AI già costruito: l'AI propone una bozza, il
-      titolare la corregge e conferma, nessuna scrittura senza revisione umana.
-      Attenzione al confine legale: quei contatti sono dati di terzi che il salone possiede come
-      titolare del trattamento -- Salone AI li importa per suo conto, e l'accordo art. 28 copre
-      già questo caso.
+- [ ] **Import della rubrica clienti -- META' FATTA il 18/09/2026, e la meta' che c'e' e' quella
+      che serve tutti i giorni.**
+
+      **Fatto**: incolla o CSV -> lettura senza modello -> confronto con la rubrica attuale ->
+      revisione -> scrittura. Legge i tre casi che coprono quasi tutto: un incolla da Excel
+      (tabulazioni), un export di un altro gestionale (CSV con intestazione, italiano o
+      inglese), una lista scritta a mano ("nome, numero"). Niente AI e niente rete:
+      `src/lib/importa-clienti.ts`, 19 test.
+      Owner-only (`puoImportareClienti`), pagina `/dashboard/clienti/importa`, raggiungibile dal
+      pulsante accanto a "Esporta CSV".
+      Il pezzo che rendeva tutto inutile e che e' risolto: il confronto dei numeri ora passa da
+      una forma canonica, se no "333 123 4567" e "+393331234567" sarebbero due clienti diversi e
+      la rubrica si sdoppiava.
+
+      **Non fatto, e va detto chiaro:**
+      - **la foto di una pagina d'agenda.** E' il caso che il PIANO citava per primo ed e'
+        quello che colpisce di piu' in una demo. Serve il modello con la vista, e serve
+        decidere quanto ci si fida di una trascrizione di numeri di telefono scritti a mano --
+        un numero letto male e' un cliente che non risponde piu';
+      - **l'incolla sporco** (righe irregolari, colonne mischiate, tutto in un campo solo):
+        oggi quelle righe finiscono fra le "non capite" e si vedono, ma nessuno le recupera. E'
+        il posto naturale per il modello, con lo stesso schema dell'onboarding: propone, il
+        titolare conferma;
+      - **l'aggiornamento di chi c'e' gia'**: per ora i clienti esistenti non si toccano mai.
+        Va bene come default, ma un "aggiorna il nome dove manca" sarebbe utile e va fatto con
+        la revisione riga per riga, non in blocco.
 
 - [ ] **Note vocali che diventano scheda cliente.** Un parrucchiere non digita: ha le mani
       occupate e le unghie di qualcun altro davanti. Detta trenta secondi a fine servizio e l'AI ne
