@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { risolviDatabaseDiProva } from "./database-di-prova";
 
 const PROD = {
@@ -66,5 +69,41 @@ describe("il database su cui girano i test", () => {
     expect(risolviDatabaseDiProva({ ...PROD, E2E_CONSENTI_PRODUZIONE: "si" }).ok).toBe(false);
     expect(risolviDatabaseDiProva({ ...PROD, E2E_CONSENTI_PRODUZIONE: "true" }).ok).toBe(false);
     expect(risolviDatabaseDiProva({ ...PROD, E2E_CONSENTI_PRODUZIONE: "0" }).ok).toBe(false);
+  });
+});
+
+/**
+ * La guardia che manca al resto: separare il database serve a poco se poi un
+ * singolo file di test si costruisce il client da solo leggendo
+ * `process.env.NEXT_PUBLIC_SUPABASE_URL`, cioe' da `.env.local`, cioe' da
+ * produzione.
+ *
+ * E' successo davvero (18/09/2026): gli scenari 23 e 26 creavano il tenant
+ * nel database di test e poi provavano a fare login in PRODUZIONE. Falliva
+ * con "Invalid login credentials" -- un messaggio che fa pensare alla
+ * password e non all'indirizzo, quindi il tipo di errore che si insegue per
+ * un'ora.
+ *
+ * Questo test non guarda un comportamento, guarda il TESTO dei file: e'
+ * l'unico modo di accorgersene prima, perche' il difetto sta in cosa un test
+ * decide di leggere, non in cosa fa.
+ */
+describe("nessuno scenario si costruisce il client da solo", () => {
+  it("nessun .spec.ts legge le variabili Supabase da process.env", () => {
+    // Non `__dirname`: sotto vitest questi file girano come ESM, dove non
+    // esiste sempre.
+    const cartella = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const colpevoli = readdirSync(cartella)
+      .filter((nome) => nome.endsWith(".spec.ts"))
+      .filter((nome) =>
+        /process\.env\.(NEXT_PUBLIC_SUPABASE|SUPABASE_SERVICE_ROLE_KEY)/.test(
+          readFileSync(join(cartella, nome), "utf8")
+        )
+      );
+
+    expect(
+      colpevoli,
+      "questi scenari puntano al database di .env.local invece che a quello dei test: usa creaClientAdminTest / creaClientAnonimoTest da helpers/supabase-admin.ts"
+    ).toEqual([]);
   });
 });

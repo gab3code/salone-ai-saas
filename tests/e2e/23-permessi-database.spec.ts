@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
+import { creaClientAnonimoTest } from "./helpers/supabase-admin";
 import { creaTenantDiProva, type TenantDiProva } from "./helpers/tenant-di-prova";
 import { creaMembroDiProva, type MembroDiProva } from "./helpers/membri-di-prova";
 
@@ -39,13 +40,9 @@ test.describe("Scenario 23 -- i permessi valgono anche contro il database nudo",
 
   /** Un client con la stessa identità che avrebbe il browser di quell'utente. */
   async function clientComeUtente(email: string, password: string): Promise<SupabaseClient> {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !anon) throw new Error("NEXT_PUBLIC_SUPABASE_URL/ANON_KEY mancanti in .env.local");
-
-    const client = createClient(url, anon, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    // Il database e' quello dei test, non quello di .env.local: vedi la nota
+    // in helpers/supabase-admin.ts.
+    const client = creaClientAnonimoTest();
     const { error } = await client.auth.signInWithPassword({ email, password });
     if (error) throw new Error(`Login diretto fallito: ${error.message}`);
     return client;

@@ -23,6 +23,12 @@ export default defineConfig({
     // fuori dal runner di Playwright (`npx playwright test`) non funziona --
     // senza questa esclusione il pattern di default di vitest
     // ("**/*.{test,spec}.ts") proverebbe comunque a raccoglierli e fallirebbe.
-    exclude: ["**/node_modules/**", "tests/e2e/**"],
+    //
+    // Si escludono i soli `.spec.ts`, non tutta la cartella: `tests/e2e/**`
+    // portava via anche `helpers/database-di-prova.test.ts`, che e' un test
+    // vitest a tutti gli effetti -- scritto il 18/09/2026, mai eseguito una
+    // volta, scoperto il giorno dopo. Un test che non gira e' peggio di un
+    // test che non esiste: da' la stessa tranquillita' senza fare niente.
+    exclude: ["**/node_modules/**", "tests/e2e/**/*.spec.ts"],
   },
 });

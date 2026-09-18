@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
+import { creaClientAnonimoTest } from "./helpers/supabase-admin";
 import { creaTenantDiProva, type TenantDiProva } from "./helpers/tenant-di-prova";
 import { creaAppuntamentoConfermato } from "./helpers/appuntamento-di-prova";
 import { accediComeTitolare } from "./helpers/login";
@@ -204,12 +204,9 @@ test.describe("Scenario 26 -- Analytics e prova dell'assistente", () => {
     // action, queste due chiamate lo aggirerebbero entrambe.
     tenant = await creaTenantDiProva({ nome: "Salone E2E S26 limite", piano: "starter" });
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !anon) throw new Error("NEXT_PUBLIC_SUPABASE_URL/ANON_KEY mancanti in .env.local");
-    const comeTitolare = createClient(url, anon, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    // Il database e' quello dei test, non quello di .env.local: vedi la nota
+    // in helpers/supabase-admin.ts.
+    const comeTitolare = creaClientAnonimoTest();
     const { error: erroreLogin } = await comeTitolare.auth.signInWithPassword({
       email: tenant.email,
       password: tenant.password,

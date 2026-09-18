@@ -23,3 +23,25 @@ export function creaClientAdminTest(): SupabaseClient {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
+
+/**
+ * Client con la chiave ANONIMA -- la stessa identita' che avrebbe il browser
+ * di un visitatore qualsiasi. Serve agli scenari che parlano direttamente con
+ * PostgREST invece che col prodotto (23 e 26).
+ *
+ * Passa dallo stesso `risolviDatabaseDiProva` dell'admin, e non e' un
+ * dettaglio: fino al 18/09/2026 questi due scenari leggevano
+ * `NEXT_PUBLIC_SUPABASE_URL` da `process.env` a mano, cioe' da `.env.local`,
+ * cioe' da PRODUZIONE -- mentre i helper creavano il tenant di prova nel
+ * database di test. Il login falliva con "Invalid login credentials", che
+ * sembra un problema di permessi e invece era un problema di indirizzo: si
+ * stava bussando alla porta sbagliata.
+ */
+export function creaClientAnonimoTest(): SupabaseClient {
+  const esito = risolviDatabaseDiProva(process.env);
+  if (!esito.ok) throw new Error(`\n\n${esito.errore}\n`);
+
+  return createClient(esito.database.url, esito.database.chiaveAnonima, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}

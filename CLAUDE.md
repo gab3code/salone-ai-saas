@@ -875,6 +875,28 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27octies. Un test non si costruisce il client Supabase da solo (18/09/2026)
+
+Con il database di test separato, `.env.local` punta a PRODUZIONE e `.env.test`
+al database dei test. Un file di test che fa
+
+  createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
+sta quindi parlando con la produzione, mentre i helper creano il tenant di
+prova nel database di test. L'errore che ne esce e' `Invalid login
+credentials`: sembra la password, e' l'indirizzo.
+
+Il client si prende sempre da `tests/e2e/helpers/supabase-admin.ts`
+(`creaClientAdminTest` per la service_role, `creaClientAnonimoTest` per la
+chiave pubblica): passano entrambi da `risolviDatabaseDiProva`, che e' l'unico
+posto che decide quale database. `database-di-prova.test.ts` ha una guardia che
+legge il testo dei `.spec.ts` e fallisce se qualcuno torna a leggere quelle
+variabili a mano.
+
+Sempre da qui: l'esclusione di vitest e' `tests/e2e/**/*.spec.ts`, non
+`tests/e2e/**`. La seconda portava via anche i test vitest che stanno dentro
+`tests/e2e/helpers/` -- scritti e mai eseguiti nemmeno una volta.
+
 ## 27septies. La tabella `clienti` si tocca solo da `clienti.server.ts` (18/09/2026)
 
 Dalla migrazione 0051 il ruolo `authenticated` su `clienti` non ha piu' nessun
