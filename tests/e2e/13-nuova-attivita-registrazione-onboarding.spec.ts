@@ -66,13 +66,50 @@ test.describe("Scenario 13 -- nuova attività si registra e completa l'onboardin
 
       const { data: profilo } = await admin
         .from("profiles")
-        .select("ruolo")
+        .select("id, ruolo")
         .eq("tenant_id", tenantRiga!.id)
         .maybeSingle();
       expect(profilo?.ruolo).toBe("owner");
 
+      // Le DUE righe che il 18/09/2026 sono sparite per ore senza che nessuno
+      // se ne accorgesse, e il motivo per cui adesso sono asserite qui.
+      //
+      // La migrazione 0061 riscrisse `gestisci_nuovo_utente` partendo da una
+      // versione vecchia di dieci migrazioni: `membri_tenant` (aggiunta dalla
+      // 0027) e la regola promemoria predefinita (0017) smisero di essere
+      // create. Tipi, lint, test unitari e build restarono verdi -- non
+      // possono vedere dentro una funzione Postgres -- e questo scenario
+      // passava lo stesso, perche' controllava solo tenant, orari e profilo.
+      // Il danno si scopri' di rimbalzo, da altri quattro scenari diventati
+      // rossi insieme.
+      //
+      // Una funzione Postgres non ha una storia leggibile: l'ultima versione
+      // cancella le precedenti. L'unico modo di accorgersi che ne manca un
+      // pezzo e' chiedere qui, una per una, tutte le cose che deve fare.
+      const { data: membro } = await admin
+        .from("membri_tenant")
+        .select("ruolo")
+        .eq("tenant_id", tenantRiga!.id)
+        .eq("user_id", profilo!.id)
+        .maybeSingle();
+      expect(
+        membro?.ruolo,
+        "il trigger deve creare anche la riga in membri_tenant (migrazione 0027): senza, il titolare non e' membro del proprio salone e il multi-sede non lo vede"
+      ).toBe("owner");
+
+      const { data: regole } = await admin
+        .from("regole_promemoria")
+        .select("ore_preavviso")
+        .eq("tenant_id", tenantRiga!.id);
+      expect(
+        regole?.map((r) => r.ore_preavviso),
+        "il trigger deve creare la regola promemoria predefinita a 24 ore (migrazione 0017)"
+      ).toEqual([24]);
+
       // Pulizia: stesso ordine di tenant-di-prova.ts (figli prima dei genitori).
       await admin.from("orari_apertura").delete().eq("tenant_id", tenantRiga!.id);
+      await admin.from("regole_promemoria").delete().eq("tenant_id", tenantRiga!.id);
+      await admin.from("membri_tenant").delete().eq("tenant_id", tenantRiga!.id);
       await admin.from("profiles").delete().eq("tenant_id", tenantRiga!.id);
       await admin.from("tenants").delete().eq("id", tenantRiga!.id);
     } finally {

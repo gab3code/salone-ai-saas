@@ -1,0 +1,41 @@
+-- 0066: nessuno puo' chiamare a mano la funzione del trigger di registrazione.
+--
+-- Trovata il 18/09/2026 sera con un metodo che non avevamo mai usato: il
+-- database linter di Supabase (`get_advisors`, categoria security). Vale la
+-- pena dirlo, perche' il punto non e' la singola riga qui sotto -- e' che un
+-- controllo diverso ha visto una cosa che nessuno dei nostri controlli
+-- guardava.
+--
+-- La situazione era asimmetrica, e l'asimmetria e' il vero indizio:
+--
+--   gestisci_email_confermata()  -> EXECUTE revocato dalla 0050
+--   gestisci_nuovo_utente()      -> EXECUTE concesso a chiunque, da sempre
+--
+-- Sono due funzioni gemelle, tutte e due `security definer`, tutte e due
+-- trigger su `auth.users`, tutte e due creano tenant e profili. La 0050 ha
+-- protetto la seconda e dimenticato la prima.
+--
+-- Quanto e' grave davvero: poco. Postgres rifiuta di eseguire una funzione
+-- che ritorna `trigger` se non e' un trigger a chiamarla, quindi una POST su
+-- /rest/v1/rpc/gestisci_nuovo_utente non combina niente. Ma "non combina
+-- niente perche' un altro strato lo impedisce" e' esattamente il tipo di
+-- ragionamento che questo progetto non accetta altrove: un permesso che non
+-- serve a nessuno si toglie, cosi' il giorno in cui cambia qualcos'altro non
+-- diventa il primo anello di una catena.
+--
+-- Un trigger continua a funzionare senza EXECUTE: lo dimostra la gemella,
+-- revocata dal 17/09 e usata a ogni conferma email da allora.
+--
+-- Le altre segnalazioni del linter sono state guardate una per una e sono
+-- VOLUTE, scritto qui perche' chi lo rilancera' non le ricontrolli da capo:
+--  * `auth_tenant_id()`, `auth_ruolo()`, `e_owner()` eseguibili da
+--    authenticated: servono DENTRO le policy RLS, che girano con i permessi
+--    di chi interroga. Revocarle spegnerebbe l'isolamento invece di
+--    rafforzarlo.
+--  * `contatori_globali`, `interventi_admin`, `limiti_ip`,
+--    `whatsapp_credenziali` con RLS accesa e nessuna policy: e' il modo
+--    giusto di dire "solo service_role". RLS accesa senza policy nega tutto,
+--    e i permessi di tabella sono gia' revocati.
+--  * `rls_auto_enable()` e' di Supabase, non nostra: non si tocca.
+
+revoke execute on function public.gestisci_nuovo_utente() from public, anon, authenticated;
