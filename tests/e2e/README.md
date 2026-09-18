@@ -186,3 +186,28 @@ sono solo un dato di partenza e si creano con l'helper, che è più veloce e pi�
 su `clienti`, quindi due chiamate con lo stesso telefono producevano DUE clienti con una visita
 a testa -- che per una metrica su "quanti clienti tornano" è esattamente il dato opposto, e
 sbagliava in silenzio invece di dare errore. Da oggi accetta `clienteIdEsistente`.
+
+---
+
+## Scenario 30 -- configurazione completa (18/09/2026)
+
+Sette test che partono tutti dal form vero della dashboard e finiscono tutti sulla stessa cosa:
+**gli orari che il salone propone**. Coprono ferie e chiusure, il passo dell'agenda, lo stacco
+fra appuntamenti, gli orari del singolo operatore, la disattivazione, il rifiuto di cancellare
+un operatore che ha appuntamenti, e i collegamenti operatore-servizio.
+
+Perche' proprio questi, tutti insieme: erano **mezze funzionalita'**, tutte della stessa forma.
+Un pezzo c'era -- una colonna (`attivo`), un parametro (`bufferMinuti`), una tabella
+(`chiusure`) -- e il pezzo che lo rendeva vero no. `attivo` era letta dal motore dal primo
+giorno e non la scriveva nessuno; `bufferMinuti` aveva perfino un test verde e nessuna
+schermata lo passava; `chiusure` era letta dal motore e non la scriveva nessuna pagina.
+
+**La regola che ne esce**: un test unitario su una funzione non vede un difetto che sta nel
+PONTE fra due livelli. Quando un dato attraversa piu' livelli -- database, motore, schermata --
+il test che conta e' quello sul livello piu' esterno che l'utente tocca davvero. Un test verde
+sulla funzione dimostra che la funzione e' scritta bene, non che il prodotto la usi.
+
+Non coperta qui la generazione della bozza dell'onboarding AI: attraverserebbe un confine a
+consumo (il modello), esattamente il caso che la nota sullo Scenario 26 sopra dice di evitare.
+La sua logica sta in `src/lib/onboarding-ai-diff.test.ts` (16 test) e
+`src/app/dashboard/configura/onboarding-ai-azioni.test.ts`, che non chiamano niente.

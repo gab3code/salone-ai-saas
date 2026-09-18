@@ -16,6 +16,8 @@ import {
   eliminaChiusura,
 } from "./azioni";
 import { raggruppaInPeriodi, type RigaChiusura } from "@/lib/periodi-chiusura";
+import { BottoneAzione } from "./BottoneAzione";
+import { impostaAttivoOperatore, impostaAttivoServizio } from "./azioni";
 import { formattaDataItaliana } from "@/lib/data-italiana";
 import { PannelloOnboardingAI } from "./PannelloOnboardingAI";
 import { OnboardingWizard } from "./OnboardingWizard";
@@ -87,10 +89,10 @@ export default async function PaginaConfigura() {
       .eq("tenant_id", tenantId)
       .gte("data", new Date().toISOString().slice(0, 10))
       .order("data"),
-    supabase.from("operatori").select("id, nome, descrizione").eq("tenant_id", tenantId).order("nome"),
+    supabase.from("operatori").select("id, nome, descrizione, attivo").eq("tenant_id", tenantId).order("nome"),
     supabase
       .from("servizi")
-      .select("id, nome, durata_minuti, prezzo_centesimi")
+      .select("id, nome, durata_minuti, prezzo_centesimi, attivo")
       .eq("tenant_id", tenantId)
       .order("nome"),
     supabase.from("operatori_servizi").select("operatore_id, servizio_id"),
@@ -553,16 +555,27 @@ export default async function PaginaConfigura() {
                 <span className="text-xs text-zinc-500">
                   {segueIlSalone ? "Orari del salone" : "Orari propri"}
                 </span>
-                <form
-                  action={async () => {
+                {!o.attivo && (
+                  <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-xs text-zinc-700">
+                    non attivo, non riceve prenotazioni
+                  </span>
+                )}
+                <BottoneAzione
+                  etichetta={o.attivo ? "Disattiva" : "Riattiva"}
+                  className="text-xs text-zinc-600 underline disabled:opacity-50"
+                  azione={async () => {
                     "use server";
-                    await eliminaOperatore(o.id);
+                    return impostaAttivoOperatore(o.id, !o.attivo);
                   }}
-                >
-                  <button type="submit" className="text-xs text-red-600 underline">
-                    Elimina
-                  </button>
-                </form>
+                />
+                <BottoneAzione
+                  etichetta="Elimina"
+                  className="text-xs text-red-600 underline disabled:opacity-50"
+                  azione={async () => {
+                    "use server";
+                    return eliminaOperatore(o.id);
+                  }}
+                />
               </div>
 
               {/* Orari propri dell'operatore (migrazione 0057): chi fa solo le
@@ -697,16 +710,22 @@ export default async function PaginaConfigura() {
               <span className="min-w-56">
                 {s.nome} · {s.durata_minuti} min · {(s.prezzo_centesimi / 100).toFixed(2)}€
               </span>
-              <form
-                action={async () => {
+              <BottoneAzione
+                etichetta={s.attivo ? "Disattiva" : "Riattiva"}
+                className="text-xs text-zinc-600 underline disabled:opacity-50"
+                azione={async () => {
                   "use server";
-                  await eliminaServizio(s.id);
+                  return impostaAttivoServizio(s.id, !s.attivo);
                 }}
-              >
-                <button type="submit" className="text-xs text-red-600 underline">
-                  Elimina
-                </button>
-              </form>
+              />
+              <BottoneAzione
+                etichetta="Elimina"
+                className="text-xs text-red-600 underline disabled:opacity-50"
+                azione={async () => {
+                  "use server";
+                  return eliminaServizio(s.id);
+                }}
+              />
             </li>
           ))}
           {servizi.length === 0 && (
@@ -799,6 +818,12 @@ export default async function PaginaConfigura() {
                           >
                             <button
                               type="submit"
+                              // Senza nome accessibile questi bottoni sono
+                              // tutti uguali per chi non vede la tabella (e
+                              // per un test): "associato" da solo non dice
+                              // chi con cosa.
+                              aria-label={`${o.nome} esegue ${s.nome}`}
+                              aria-pressed={associato}
                               className={
                                 associato
                                   ? "rounded bg-black px-2 py-1 text-xs text-white"

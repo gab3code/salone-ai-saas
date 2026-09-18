@@ -35,6 +35,30 @@ Non esistono fasi oltre la 7.
 
 ---
 
+## 18/09, sera -- le mezze funzionalita' e l'onboarding che sa correggere
+
+**Ferie e chiusure adesso esistono.** La tabella era letta dal motore dalla
+migrazione 0002 e non la scriveva nessuna schermata: un salone non poteva
+dire "chiudiamo dal 10 al 20 agosto" da nessuna parte del prodotto. Stessa
+famiglia di `bufferMinuti` (parametro con un test verde che nessuna schermata
+passava) e della colonna `attivo` (letta dal motore dal primo giorno, mai
+scritta). Tutte e tre chiuse.
+
+**L'onboarding AI sa correggere, non solo aggiungere.** Il modello riceve la
+configurazione attuale con gli id e restituisce lo stato finale; il confronto
+lo fa codice puro. Copre ora anche regole d'agenda, orari del singolo
+operatore, contatti, promemoria, caparra e ferie. Le rimozioni proposte
+partono sempre non spuntate.
+
+**L'AI usata dalla dashboard consuma la quota** (migrazione 0059). Prima
+l'onboarding AI era l'unica strada del prodotto che chiamava Anthropic senza
+contatore, senza tetto e senza gate di piano.
+
+**Scenario Playwright 30**, sette test dalla schermata fino agli orari
+proposti. Va lanciato in locale: `npx playwright test tests/e2e/30-configurazione-completa.spec.ts`.
+
+---
+
 ## 18/09, pomeriggio -- l'agenda smette di essere uguale per tutti
 
 Tre cose, nate da una domanda di Gabriel ("i saloni riescono a riempirsi

@@ -875,6 +875,45 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27novodecies. Le mezze funzionalita' (18/09/2026)
+
+Tre cose trovate nello stesso giorno, tutte della stessa forma: un pezzo
+c'era, il pezzo che lo rendeva vero no.
+
+- `chiusure`: tabella dalla 0002, letta dal motore, scritta da nessuna
+  schermata. Le ferie non erano inseribili dal prodotto.
+- `bufferMinuti`: parametro nel motore, documentato, con un test verde. Non
+  lo passava nessuna delle quattro schermate che cercano slot: valeva zero
+  per tutti, in produzione, da sempre.
+- `attivo` su operatori e servizi: colonna dalla 0001, letta dal motore, mai
+  scritta. Il "disattiva" esisteva a database e non esisteva nel prodotto.
+
+Sono tutte peggio di una funzionalita' mancante, perche' si presentano come
+fatte: il codice le nomina, i commenti le spiegano, un test le copre. La
+domanda che le smaschera non e' "c'e' il codice?" ma **"un utente puo'
+arrivarci da una schermata?"**.
+
+Da qui la regola di verifica che vale per tutto il progetto: quando un dato
+attraversa piu' livelli, il test che conta e' quello sul livello piu' esterno
+che l'utente tocca davvero. Lo scenario Playwright 30 esiste per questo.
+
+## 27octodecies. Un rifiuto che nessuno vede (18/09/2026)
+
+Aggiunta la guardia che impedisce di cancellare un operatore con
+appuntamenti, il bottone Elimina ha smesso di fare qualunque cosa: il valore
+di ritorno della server action finiva nel vuoto, perche' i form della pagina
+lo scartavano. L'utente cliccava e non succedeva niente.
+
+Togliere la cosa pericolosa e mettere al suo posto una schermata che non
+risponde e' un peggioramento, non un miglioramento: prima almeno il prodotto
+era coerente. Da qui `BottoneAzione.tsx`, che mostra quello che l'azione
+risponde -- e il messaggio non dice solo di no, dice cosa fare invece.
+
+Nota per il futuro: in questa dashboard TUTTE le altre azioni scartano il
+proprio valore di ritorno allo stesso modo. Non e' un problema finche'
+falliscono solo per errori tecnici, lo diventa il giorno in cui una di loro
+comincia a rifiutare per una ragione di prodotto.
+
 ## 27septdecies. L'AI propone uno stato finale, il diff lo calcoliamo noi (18/09/2026)
 
 L'onboarding AI sapeva solo aggiungere. Gabriel ha detto "siamo in due" a un
