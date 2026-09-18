@@ -188,6 +188,47 @@ describe("il client di default", () => {
   });
 });
 
+describe("fail-open sul client", () => {
+  it("SE IL CLIENT ADMIN NON SI PUO' COSTRUIRE, le prenotazioni continuano a funzionare", async () => {
+    // La rete che serve a non trasformare "niente impegni esterni" in
+    // "niente orari liberi". Prima del 18/09/2026 questa funzione riceveva
+    // il client e non poteva fallire nel costruirlo; adesso se lo costruisce
+    // da sola, e un ambiente senza SUPABASE_SERVICE_ROLE_KEY farebbe
+    // esplodere il calcolo della disponibilita' -- cioe' spegnerebbe le
+    // prenotazioni per un problema di configurazione.
+    vi.mocked(creaClientAdmin).mockImplementation(() => {
+      throw new Error("SUPABASE_SERVICE_ROLE_KEY mancante");
+    });
+
+    const impegni = await collegamenti.caricaImpegniEsterni(
+      TENANT,
+      ["op-1"],
+      new Date("2026-09-20T08:00:00Z"),
+      new Date("2026-09-20T18:00:00Z"),
+      "Europe/Rome"
+    );
+
+    expect(impegni).toEqual([]);
+  });
+
+  it("un tenant mancante invece LANCIA, anche qui", async () => {
+    // L'asimmetria e' voluta: un client assente fa perdere gli impegni
+    // esterni, un tenant assente farebbe calcolare la disponibilita' sul
+    // salone sbagliato.
+    const { client } = creaClientRegistrante([{ data: [] }]);
+    await expect(
+      collegamenti.caricaImpegniEsterni(
+        "",
+        ["op-1"],
+        new Date("2026-09-20T08:00:00Z"),
+        new Date("2026-09-20T18:00:00Z"),
+        "Europe/Rome",
+        client as never
+      )
+    ).rejects.toThrow(/tenantId mancante/);
+  });
+});
+
 describe("copertura", () => {
   it("ogni funzione esportata ha il suo test sul filtro tenant", () => {
     const esportate = Object.entries(collegamenti)

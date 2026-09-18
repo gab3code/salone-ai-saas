@@ -178,14 +178,41 @@ export async function caricaImpegniEsterni(
   client?: SupabaseClient
 ): Promise<AppuntamentoEsistente[]> {
   if (operatoreIds.length === 0) return [];
-  const supabase = db(client);
+
+  // Il tenant si esige SEMPRE e rumorosamente, anche prima del client: una
+  // finestra di disponibilita' calcolata sul salone sbagliato e' peggio di
+  // un errore.
+  esigiTenant(tenantId);
+
+  // Il client invece e' FAIL-OPEN, ed e' una differenza voluta.
+  //
+  // Prima del 18/09/2026 questa funzione riceveva il client dall'esterno e
+  // non poteva fallire nel costruirlo. Adesso se lo costruisce da sola
+  // (migrazione 0065), e `creaClientAdmin()` lancia quando manca
+  // SUPABASE_SERVICE_ROLE_KEY. Senza questa rete, un ambiente configurato a
+  // meta' non farebbe "perdere gli impegni esterni": farebbe fallire il
+  // calcolo degli orari liberi, cioe' spegnerebbe le prenotazioni.
+  //
+  // Stessa regola gia' scritta piu' sotto per il singolo collegamento che
+  // non risponde: un calendario esterno che non si raggiunge fa perdere il
+  // blocco di quell'impegno, mai la disponibilita' di tutti.
+  let supabase: SupabaseClient;
+  try {
+    supabase = db(client);
+  } catch (errore) {
+    console.error(
+      "[calendari] client non disponibile: procedo senza impegni esterni.",
+      errore instanceof Error ? errore.message : errore
+    );
+    return [];
+  }
 
   const { data, error } = await supabase
     .from("collegamenti_calendario_esterni")
     .select(
       "id, operatore_id, provider, caldav_url, caldav_username, caldav_password, google_access_token, google_refresh_token, google_token_scadenza, google_calendar_id"
     )
-    .eq("tenant_id", esigiTenant(tenantId))
+    .eq("tenant_id", tenantId)
     .in("operatore_id", operatoreIds);
   if (error || !data || data.length === 0) return [];
 
