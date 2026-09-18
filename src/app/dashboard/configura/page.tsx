@@ -149,6 +149,9 @@ export default async function PaginaConfigura() {
   if (soloLettura) {
     return (
       <main className="mx-auto flex max-w-3xl flex-col gap-8 p-6">
+        <Link href="/dashboard" className="text-sm underline">
+          ← Dashboard
+        </Link>
         <header className="flex flex-col gap-1">
           <h1 className="text-xl font-semibold">Configurazione dell&apos;attività</h1>
           <p className="text-sm text-zinc-500">
@@ -246,9 +249,6 @@ export default async function PaginaConfigura() {
           </ul>
         </section>
 
-        <Link href="/dashboard" className="text-sm underline">
-          Torna alla dashboard
-        </Link>
       </main>
     );
   }

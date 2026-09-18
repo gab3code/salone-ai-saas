@@ -32,6 +32,9 @@ export default async function PaginaAdmin() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+      <Link href="/dashboard" className="text-sm underline">
+        ← Dashboard
+      </Link>
       <header className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Piattaforma</h1>
         <p className="text-sm text-zinc-500">Tutte le attività registrate su Salone AI.</p>
@@ -91,9 +94,6 @@ export default async function PaginaAdmin() {
         )}
       </section>
 
-      <Link href="/dashboard" className="text-sm underline">
-        Torna alla dashboard
-      </Link>
     </main>
   );
 }

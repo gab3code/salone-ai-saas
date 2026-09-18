@@ -32,6 +32,9 @@ export default async function PaginaTeam() {
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
+      <Link href="/dashboard" className="text-sm underline">
+        ← Dashboard
+      </Link>
       <header className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Team</h1>
         <p className="text-sm text-zinc-500">
@@ -46,9 +49,6 @@ export default async function PaginaTeam() {
         haTeam={haTeam}
       />
 
-      <Link href="/dashboard" className="text-sm underline">
-        Torna alla dashboard
-      </Link>
     </main>
   );
 }
