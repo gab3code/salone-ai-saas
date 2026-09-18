@@ -1020,6 +1020,23 @@ Sempre da qui: l'esclusione di vitest e' `tests/e2e/**/*.spec.ts`, non
 `tests/e2e/**`. La seconda portava via anche i test vitest che stanno dentro
 `tests/e2e/helpers/` -- scritti e mai eseguiti nemmeno una volta.
 
+## 27octies. La griglia degli slot si ancora all'apertura (18/09/2026)
+
+Gabriel ha messo un evento 13:40-15:40 e gli slot liberi dopo sono usciti
+15:40, 15:55, 16:10. Non era un bug di fuso ne' di import: `calcolaSlotDisponibili`
+faceva ripartire il passo di 15 minuti dall'inizio di OGNI finestra libera, quindi
+qualunque impegno che finisce fuori griglia sfasava tutto il resto della giornata.
+
+Ora il passo e' ancorato all'apertura del giorno (`apertura[0].inizioMin`) e ogni
+finestra libera salta al primo punto di griglia utile. Il prezzo e' esplicito e
+accettato: si perdono al massimo `passoMinuti - 1` minuti di poltrona dopo un
+impegno fuori griglia, in cambio di orari che un cliente sa leggere. Se un giorno
+serve l'altra scelta (riempire al minuto, orari brutti), e' un parametro in piu',
+non una riscrittura.
+
+Regola generale dietro: quando un calcolo produce una LISTA che un umano dovra'
+leggere, l'allineamento non e' un dettaglio estetico -- e' parte della correttezza.
+
 ## 27septies. La tabella `clienti` si tocca solo da `clienti.server.ts` (18/09/2026)
 
 Dalla migrazione 0051 il ruolo `authenticated` su `clienti` non ha piu' nessun

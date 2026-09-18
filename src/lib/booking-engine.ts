@@ -251,6 +251,7 @@ export function calcolaSlotDisponibili(params: ParametriDisponibilita): SlotDisp
   } = params;
 
   if (durataMinuti <= 0) return [];
+  if (passoMinuti <= 0) return [];
 
   const giornoSettimana = data.getUTCDay();
   const orarioGiorno = orari.find((o) => o.giornoSettimana === giornoSettimana);
@@ -267,8 +268,18 @@ export function calcolaSlotDisponibili(params: ParametriDisponibilita): SlotDisp
   const slot: SlotDisponibile[] = [];
 
   for (const operatore of operatoriDaControllare) {
-    let liberi = intervalliApertura(orarioGiorno);
-    if (liberi.length === 0) continue;
+    const apertura = intervalliApertura(orarioGiorno);
+    if (apertura.length === 0) continue;
+
+    // La griglia degli orari proposti e' ancorata all'APERTURA del giorno, non
+    // all'inizio di ogni finestra libera. Senza ancoraggio, un appuntamento che
+    // finisce a un minuto fuori griglia (es. 15:40) sfasava tutti gli slot
+    // successivi -- 15:40, 15:55, 16:10... invece di 15:45, 16:00, 16:15.
+    // Difetto reale segnalato il 18/09/2026: si perdono al massimo
+    // `passoMinuti - 1` minuti di poltrona, in cambio di orari leggibili.
+    const ancoraMin = apertura[0].inizioMin;
+
+    let liberi = apertura;
 
     liberi = sottraiIntervalli(liberi, intervalliChiusura(chiusure, operatore.id, dataStr));
     liberi = sottraiIntervalli(
@@ -277,8 +288,12 @@ export function calcolaSlotDisponibili(params: ParametriDisponibilita): SlotDisp
     );
 
     for (const intervallo of liberi) {
+      // Primo punto della griglia >= inizio della finestra libera.
+      const primoInizioMin =
+        ancoraMin + Math.ceil((intervallo.inizioMin - ancoraMin) / passoMinuti) * passoMinuti;
+
       for (
-        let inizioMin = intervallo.inizioMin;
+        let inizioMin = primoInizioMin;
         inizioMin + durataMinuti <= intervallo.fineMin;
         inizioMin += passoMinuti
       ) {

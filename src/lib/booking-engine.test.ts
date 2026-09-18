@@ -202,6 +202,93 @@ describe("calcolaSlotDisponibili", () => {
   });
 });
 
+describe("griglia degli orari proposti", () => {
+  // Difetto reale segnalato da Gabriel il 18/09/2026: con un evento esterno
+  // 13:40-15:40 importato da Google Calendar, gli slot successivi diventavano
+  // 15:40, 15:55, 16:10... perché la griglia ripartiva dalla fine dell'impegno
+  // invece che dall'apertura. Ora si perde al massimo un passo di poltrona,
+  // ma gli orari proposti restano leggibili.
+  const evento1340: AppuntamentoEsistente[] = [
+    {
+      operatoreId: "anna",
+      inizio: orario(13, 40, MARTEDI),
+      fine: orario(15, 40, MARTEDI),
+      stato: "confermato",
+    },
+  ];
+
+  function slotMartedi(extra: Partial<Parameters<typeof calcolaSlotDisponibili>[0]> = {}) {
+    return calcolaSlotDisponibili({
+      data: MARTEDI, // 09:00-18:00, senza pausa pranzo
+      durataMinuti: 30,
+      servizioId: "taglio",
+      operatoreId: "anna",
+      operatori: [anna],
+      orari: orariStandard,
+      chiusure: [],
+      appuntamentiEsistenti: evento1340,
+      ...extra,
+    });
+  }
+
+  it("dopo un impegno che finisce fuori griglia riparte dalla griglia, non dalla sua fine", () => {
+    const slot = slotMartedi();
+    expect(slot.some((s) => s.inizio.getTime() === orario(15, 40, MARTEDI).getTime())).toBe(false);
+    const primoDopo = slot.find((s) => s.inizio.getTime() >= orario(15, 40, MARTEDI).getTime());
+    expect(primoDopo?.inizio.getTime()).toBe(orario(15, 45, MARTEDI).getTime());
+  });
+
+  it("ogni slot proposto cade su un multiplo del passo contato dall'apertura", () => {
+    for (const s of slotMartedi()) {
+      const minutiDallApertura = s.inizio.getUTCHours() * 60 + s.inizio.getUTCMinutes() - 9 * 60;
+      expect(minutiDallApertura % 15).toBe(0);
+    }
+  });
+
+  it("l'ancoraggio segue il passo scelto, non i 15 minuti di default", () => {
+    // Con passo 30 il primo punto di griglia dopo le 15:40 è le 16:00.
+    const slot = slotMartedi({ passoMinuti: 30 });
+    const primoDopo = slot.find((s) => s.inizio.getTime() >= orario(15, 40, MARTEDI).getTime());
+    expect(primoDopo?.inizio.getTime()).toBe(orario(16, 0, MARTEDI).getTime());
+  });
+
+  it("un impegno che finisce sulla griglia non fa perdere lo slot attaccato", () => {
+    const slot = slotMartedi({
+      appuntamentiEsistenti: [
+        {
+          operatoreId: "anna",
+          inizio: orario(10, 0, MARTEDI),
+          fine: orario(11, 0, MARTEDI),
+          stato: "confermato",
+        },
+      ],
+    });
+    expect(slot.some((s) => s.inizio.getTime() === orario(11, 0, MARTEDI).getTime())).toBe(true);
+  });
+
+  it("resta ancorata all'apertura anche dopo la pausa pranzo", () => {
+    // Lunedì: pausa 13:00-14:00, più un impegno 14:00-14:50 fuori griglia.
+    const slot = calcolaSlotDisponibili({
+      data: LUNEDI,
+      durataMinuti: 30,
+      servizioId: "taglio",
+      operatoreId: "anna",
+      operatori: [anna],
+      orari: orariStandard,
+      chiusure: [],
+      appuntamentiEsistenti: [
+        { operatoreId: "anna", inizio: orario(14), fine: orario(14, 50), stato: "confermato" },
+      ],
+    });
+    const primoPomeriggio = slot.find((s) => s.inizio.getTime() >= orario(14, 50).getTime());
+    expect(primoPomeriggio?.inizio.getTime()).toBe(orario(15, 0).getTime());
+  });
+
+  it("un passo non valido non manda in loop: nessuno slot", () => {
+    expect(slotMartedi({ passoMinuti: 0 })).toEqual([]);
+  });
+});
+
 describe("giornoChiuso", () => {
   // Bug UX segnalato da Gabriel il 14/09/2026: distinguere "il salone non
   // apre proprio questo giorno" da "il salone è aperto ma è pieno", i due
