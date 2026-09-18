@@ -68,6 +68,15 @@ function creaClientRegistrante(risposte: { data?: unknown; error?: { message: st
       ultima().payload = valori;
       return catena;
     },
+    // Un upsert e' un insert che sa cosa fare in caso di conflitto: per il
+    // confine del tenant vale la stessa regola, la riga deve portarselo
+    // dentro. L'import lo usa per non far fallire trecento clienti a causa
+    // di uno solo gia' presente.
+    upsert: (valori: unknown) => {
+      ultima().operazione = "insert";
+      ultima().payload = valori;
+      return catena;
+    },
     update: (valori: unknown) => {
       ultima().operazione = "update";
       ultima().payload = valori;

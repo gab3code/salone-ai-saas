@@ -153,7 +153,27 @@ export async function creaClientiInBlocco(
     creato_da_ai: false,
   }));
 
-  const { data, error } = await db(client).from("clienti").insert(righe).select("id");
+  // `upsert` con `ignoreDuplicates`, non `insert`, e il motivo e' il vincolo
+  // UNIQUE (tenant_id, telefono) sulla tabella.
+  //
+  // Una insert di trecento righe e' UNA istruzione: se una sola riga finisce
+  // in conflitto, fallisce tutta e non entra nessuno. Per l'import e' il
+  // peggior modo di fallire possibile -- il titolare ha appena aspettato, e
+  // si ritrova un errore di database e zero clienti.
+  //
+  // Il conflitto non dovrebbe capitare, perche' i doppioni li toglie gia'
+  // `calcolaDiffImport` confrontando la forma canonica dei numeri. Ma quel
+  // confronto avviene PRIMA della conferma: fra l'analisi e la scrittura
+  // qualcuno puo' aver creato lo stesso cliente da un'altra parte (una
+  // prenotazione dell'assistente, un collega sulla sua scheda). Saltare quella
+  // riga e importare le altre 299 e' l'unico comportamento sensato.
+  //
+  // `creati` resta onesto: con ignoreDuplicates la select torna solo le righe
+  // davvero inserite, quindi il numero mostrato e' quello vero.
+  const { data, error } = await db(client)
+    .from("clienti")
+    .upsert(righe, { onConflict: "tenant_id,telefono", ignoreDuplicates: true })
+    .select("id");
   if (error) return { creati: 0, errore: `Errore importando i clienti: ${error.message}` };
   return { creati: (data ?? []).length, errore: null };
 }
