@@ -2205,6 +2205,28 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       riquadro era nascosto a ragione (l'assistente vero ce l'ha gia'). Ma anche su un account
       nuovo non lo avrebbe visto, per la condizione 3.
 
+- [ ] **Il link della caparra non si apre: la sessione Stripe e' valida, la pagina ospitata no**
+      (19/09/2026). Gabriel ha prenotato dall'assistente, ha ricevuto il link della caparra e
+      aprendolo ha visto *"Something went wrong -- You might be having a network connection
+      problem, the link might be expired, or the payment provider cannot be reached"*.
+      **Verificato punto per punto che non e' colpa nostra:**
+      - l'id della sessione nel nostro database coincide carattere per carattere con quello
+        nell'URL: nessun troncamento, nessuna mutilazione del frammento `#fid...`;
+      - la sessione ESISTE nella sandbox Stripe (ispezionata dal Workbench): `ui_mode:
+        "hosted_page"`, `url` presente, `success_url` giusto, `metadata` con tenant_id e
+        tipo caparra, importo 800 centesimi -- cioe' il 20% di 40 euro, esatto;
+      - la riga in `richieste_caparra` e' scritta correttamente, stato `in_attesa`;
+      - la sessione aveva pochi minuti, quindi non era scaduta (durano 24 ore);
+      - il 15/09 una sessione identica e' andata a buon fine, quindi l'integrazione funzionava.
+      **Cosa resta da escludere, ed e' fuori dal codice**: l'account Stripe e' una **Sandbox**
+      ("Sandbox di Via gambarelli 31") con la configurazione incompleta -- il pannello mostra
+      ancora "Aggiungi un conto bancario per ricevere payout". La pagina di pagamento ospitata
+      da Stripe puo' rifiutarsi di comparire per un account il cui profilo non e' completo.
+      **Il controllo decisivo, che costa un minuto**: creare un Payment Link dal pannello
+      Stripe di quella sandbox e aprirlo. Se fallisce anche quello, il problema e' l'account,
+      non Salone AI, e non c'e' niente da correggere nel codice. Se invece quello funziona,
+      allora e' qualcosa nella sessione che creiamo noi e si riapre qui.
+
 - [ ] **Leggere `usage` dalle risposte Anthropic, e sapere quanto costa davvero una
       conversazione** (19/09/2026). Oggi il progetto non ha UNA riga che sappia quanto e'
       costata una conversazione vera: ogni risposta dell'API porta `usage` (input, output,
