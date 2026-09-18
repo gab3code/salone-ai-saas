@@ -72,14 +72,19 @@ Sono due righe di `revoke`, il resto e' commento. Esegui.
 Controprova, nello stesso SQL Editor:
 
 ```sql
-select grantee, privilege_type
+select count(*)
 from information_schema.role_table_grants
-where table_schema = 'public' and table_name = 'clienti'
-order by grantee, privilege_type;
+where table_schema = 'public' and table_name = 'clienti';
 ```
 
-Atteso: compare **solo** `service_role` (e eventualmente `postgres`). Se vedi
-ancora `authenticated` o `anon`, la migrazione non e' passata.
+Atteso: **20**. Prima della migrazione sono 25.
+
+Nota (sbagliata nella prima versione di questo file, il 18/09/2026): non ci si
+aspetta che `authenticated` e `anon` spariscano del tutto dall'elenco. La
+migrazione revoca `select/insert/update/delete`, ma `REFERENCES`, `TRIGGER` e
+`TRUNCATE` restano -- non danno modo di leggere ne' di scrivere righe, e
+toglierli non c'entra con questa falla. Per questo si conta, invece di
+guardare se un nome compare.
 
 ---
 
