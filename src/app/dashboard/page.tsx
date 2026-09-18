@@ -9,6 +9,7 @@ import { caricaMetriche } from "@/lib/metriche.server";
 import { contaMessaggiClienteQuestoMese } from "@/lib/ai/limiti.server";
 import { limiteUsiAiMensile, pianoHaAccessoAIChatWeb } from "@/lib/ai/limiti";
 import { contaUsiAiInterniQuestoMese } from "@/lib/ai/usi-interni.server";
+import { giorniRimanentiProva, provaAttiva } from "@/lib/prova-gratuita";
 import { urlBaseSito } from "@/lib/email/notifiche.server";
 import { generaQrCodeDataUrl } from "@/lib/qrcode.server";
 import { esci } from "./azioni";
@@ -64,7 +65,7 @@ export default async function PaginaDashboard({
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("nome, slug, piano, stato_abbonamento, created_at")
+    .select("nome, slug, piano, stato_abbonamento, created_at, prova_growth_fino_al")
     .single();
 
   const [sedi, invitiRicevuti] = await Promise.all([
@@ -86,6 +87,13 @@ export default async function PaginaDashboard({
   // chat: anche un salone Free consuma il modello quando genera una bozza di
   // configurazione, e quel consumo deve vedersi. Prima non compariva da
   // nessuna parte (richiesta di Gabriel).
+  // La prova gratuita di Growth: durante la prova `piano` vale davvero
+  // 'growth', quindi senza questa riga in dashboard non si vedrebbe nessuna
+  // differenza fra chi paga e chi sta provando -- e il giorno della
+  // scadenza sarebbe una sorpresa.
+  const giorniProva =
+    tenant && provaAttiva(tenant.prova_growth_fino_al) ? giorniRimanentiProva(tenant.prova_growth_fino_al) : 0;
+
   const mostraQuotaAi = !!tenant && vedeNumeri;
   const operatoriPerQuota =
     mostraQuotaAi && tenant.piano === "pro" && profilo?.tenant_id
@@ -200,7 +208,14 @@ export default async function PaginaDashboard({
             {vedeNumeri && (
               <>
                 <dt className="text-zinc-500">Piano</dt>
-                <dd>{tenant.piano}</dd>
+                <dd>
+                  {tenant.piano}
+                  {giorniProva > 0 && (
+                    <span className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-900">
+                      in prova, {giorniProva === 1 ? "ultimo giorno" : `${giorniProva} giorni rimasti`}
+                    </span>
+                  )}
+                </dd>
                 <dt className="text-zinc-500">Stato abbonamento</dt>
                 <dd>{tenant.stato_abbonamento}</dd>
                 {quotaAi && (

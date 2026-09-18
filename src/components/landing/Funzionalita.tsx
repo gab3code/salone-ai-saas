@@ -40,7 +40,7 @@ interface Voce {
    * L'etichetta non è un badge decorativo: è la differenza tra una lista di
    * funzioni e una promessa che il checkout poi smentisce.
    */
-  da?: "Growth" | "Pro";
+  da?: "Starter" | "Growth" | "Pro";
 }
 
 /**
@@ -141,7 +141,7 @@ const FUNZIONI: Voce[] = [
   { titolo: "Dashboard con insight azionabili", descrizione: "Non solo numeri: ti porta dritto all'elenco dei clienti da recuperare.", icona: LayoutDashboard, grande: true },
   { titolo: "Tono dell'AI personalizzabile", descrizione: "Guida il modo in cui l'assistente risponde ai tuoi clienti.", icona: SlidersHorizontal, da: "Pro" },
   { titolo: "Analytics", descrizione: "Andamento prenotazioni e clienti nel tempo, non solo i numeri di oggi.", icona: BarChart3, da: "Growth" },
-  { titolo: "Promemoria automatici", descrizione: "Reminder prima dell'appuntamento e follow-up ai clienti inattivi, senza pensarci.", icona: BellRing, grande: true, da: "Growth" },
+  { titolo: "Promemoria automatici", descrizione: "Reminder prima dell'appuntamento e follow-up ai clienti inattivi, senza pensarci.", icona: BellRing, grande: true, da: "Starter" },
 ];
 
 function Cella({ v }: { v: Voce }) {

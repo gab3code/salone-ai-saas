@@ -96,9 +96,11 @@ describe("appuntamentiDaAvvisarePerRegola", () => {
     expect(risultato).toEqual([]);
   });
 
-  it("esclude un tenant sul piano Free/Starter -- Promemoria automatici è una funzione Growth+", () => {
-    const risultato = appuntamentiDaAvvisarePerRegola([appuntamento({ tenantPiano: "starter" })], REGOLA_24H, ADESSO);
-    expect(risultato).toEqual([]);
+  it("esclude un tenant sul piano Free, include lo Starter (sceso il 18/09/2026)", () => {
+    expect(appuntamentiDaAvvisarePerRegola([appuntamento({ tenantPiano: "free" })], REGOLA_24H, ADESSO)).toEqual([]);
+    expect(
+      appuntamentiDaAvvisarePerRegola([appuntamento({ tenantPiano: "starter" })], REGOLA_24H, ADESSO).map((r) => r.id)
+    ).toEqual(["app-1"]);
   });
 
   it("include un cliente senza email ma con telefono su un piano con SMS (Pro)", () => {

@@ -3,6 +3,7 @@ import { creaClientAdmin } from "@/lib/supabase/admin";
 import { eseguiPromemoriaGiornalieri } from "@/lib/promemoria.server";
 import { pulisciContatoriDemoPerConnessione, pulisciLimitiIp } from "@/lib/limiti-ip.server";
 import { inviaAvvisiQuotaAi } from "@/lib/ai/avviso-quota.server";
+import { manutenzioneProveGratuite } from "@/lib/prova-gratuita.server";
 
 /**
  * Endpoint chiamato da Vercel Cron una volta al giorno (vedi vercel.json,
@@ -57,5 +58,15 @@ export async function GET(request: NextRequest) {
     console.error("[cron/promemoria] avvisi di quota AI falliti:", errore);
   }
 
-  return NextResponse.json({ ...esito, limitiIpCancellati, contatoriDemoCancellati, avvisiQuota });
+  // Le prove gratuite di Growth: spegnere quelle finite e avvisare chi sta
+  // per finirla. Come la pulizia e gli avvisi di quota, un errore qui non si
+  // porta dietro i promemoria, che sono la cosa importante del giro.
+  let prove = null;
+  try {
+    prove = await manutenzioneProveGratuite(admin, new Date());
+  } catch (errore) {
+    console.error("[cron/promemoria] manutenzione delle prove gratuite fallita:", errore);
+  }
+
+  return NextResponse.json({ ...esito, limitiIpCancellati, contatoriDemoCancellati, avvisiQuota, prove });
 }

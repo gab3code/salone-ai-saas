@@ -179,6 +179,13 @@ export async function POST(request: NextRequest) {
             .from("tenants")
             .update({
               stripe_subscription_id: subscription.id,
+              // La prova gratuita finisce qui: da adesso il piano lo decide
+              // l'abbonamento. Lasciarla accesa vorrebbe dire che il cron
+              // notturno, un giorno, proverebbe a declassare un cliente che
+              // paga (non lo farebbe -- guarda anche stripe_subscription_id
+              // -- ma una data che non significa piu' niente e' esattamente
+              // il genere di cosa che un domani inganna chi legge).
+              prova_growth_fino_al: null,
               ...(tenantEsistente?.piano_manuale
                 ? {}
                 : {

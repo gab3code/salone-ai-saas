@@ -58,10 +58,13 @@ describe("pianoHaListaAttesaAutomatica", () => {
     }
   });
 
-  it("free e starter non hanno accesso", () => {
-    for (const piano of ["free", "starter"]) {
-      expect(pianoHaListaAttesaAutomatica(piano)).toBe(false);
-    }
+  it("il free non ha accesso, lo starter si' (sceso il 18/09/2026)", () => {
+    // Starter vendeva solo la rimozione di due limiti del Free. Promemoria e
+    // contatto automatico sono scesi li' per dargli una promessa vera
+    // ("meno buchi in agenda") senza toccare l'assistente, che resta la
+    // ragione per passare a Growth.
+    expect(pianoHaListaAttesaAutomatica("free")).toBe(false);
+    expect(pianoHaListaAttesaAutomatica("starter")).toBe(true);
   });
 
   it("un piano sconosciuto/malformato non ha accesso -- fail-closed, stesso principio di pianoHaAnalytics", () => {

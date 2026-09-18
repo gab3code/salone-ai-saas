@@ -130,6 +130,10 @@ const PIANI = [
       "Prenotazioni illimitate",
       "Operatori illimitati",
       "Accessi per il personale, con permessi",
+      // Scesi da Growth il 18/09/2026: Starter vendeva solo la rimozione di
+      // due limiti, adesso vende una promessa ("meno buchi in agenda").
+      "Promemoria automatici al cliente",
+      "Lista d'attesa che si contatta da sola",
     ],
     consigliato: false,
     notaPrezzo: notaOperatoreExtra("starter"),
@@ -139,7 +143,7 @@ const PIANI = [
     prezzo: euroLandingDaCentesimi(PREZZO_BASE_CENTESIMI.growth),
     periodo: "/mese",
     descrizione: "Con l'assistente AI.",
-    voci: ["Tutto di Starter", "Assistente AI via chat web", "Analytics", "Promemoria automatici"],
+    voci: ["Tutto di Starter", "Assistente AI via chat web", "Analytics"],
     consigliato: true,
     notaPrezzo: notaOperatoreExtra("growth"),
     // 10 giorni di prova prima del primo addebito (decisione con Gabriel

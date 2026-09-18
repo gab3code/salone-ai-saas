@@ -100,7 +100,15 @@ export function pianoHaAnalytics(piano: string): boolean {
  * (coincidenza dei requisiti attuali, non un vincolo: i due Set restano
  * indipendenti apposta, un domani potrebbero divergere).
  */
-export const PIANI_CON_PROMEMORIA = new Set(["growth", "pro", "enterprise"]);
+//
+// Scesi a STARTER il 18/09/2026. Starter vendeva soltanto la rimozione di
+// due limiti del Free (un operatore, 60 prenotazioni al mese): un
+// parrucchiere che lavora da solo e fa 50 prenotazioni pagava 19,90 per
+// esattamente lo stesso prodotto che aveva gratis. Promemoria e contatto
+// automatico della lista d'attesa sono operativi, si capiscono in una riga
+// ("meno buchi in agenda") e NON toccano l'assistente: Growth si tiene
+// intatto il suo titolo, che e' l'AI che risponde ai clienti.
+export const PIANI_CON_PROMEMORIA = new Set(["starter", "growth", "pro", "enterprise"]);
 
 export function pianoHaPromemoria(piano: string): boolean {
   return PIANI_CON_PROMEMORIA.has(piano);
@@ -119,7 +127,9 @@ export function pianoHaPromemoria(piano: string): boolean {
  * già `PIANI_CON_ANALYTICS`/`PIANI_CON_PROMEMORIA`: un domani potrebbero
  * divergere.
  */
-export const PIANI_CON_LISTA_ATTESA_AUTOMATICA = new Set(["growth", "pro", "enterprise"]);
+// Scesa a Starter insieme ai promemoria (18/09/2026): sono la stessa
+// promessa vista da due lati, "non perdere appuntamenti".
+export const PIANI_CON_LISTA_ATTESA_AUTOMATICA = new Set(["starter", "growth", "pro", "enterprise"]);
 
 export function pianoHaListaAttesaAutomatica(piano: string): boolean {
   return PIANI_CON_LISTA_ATTESA_AUTOMATICA.has(piano);
