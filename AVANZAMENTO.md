@@ -4,7 +4,7 @@ Fotografia al **18/09/2026, sera**. Conta le caselle di `PIANO.md` e dice,
 fase per fase, cosa manca davvero. Non sostituisce il PIANO: lo riassume per
 poterci ragionare sopra senza rileggere duemila righe.
 
-Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 44 voci
+Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 43 voci
 aperte, una ventina sono impostazioni da cliccare su Stripe o sono bloccate
 dalla partita IVA, e non dipendono da una riga di codice.
 
@@ -33,7 +33,7 @@ perdere tempo nello stesso modo di uno che dice "fatto" quando non e' fatto.
 | 4 | Pagina pubblica, foto, PWA | 9 / 9 | 0 | **chiusa** |
 | 5 | Billing self-service e admin | 12 / 12 | 0 | **chiusa** (17/09) |
 | 6 | Automazioni e sicurezza | 14 / 16 | 2 | **chiusa su tutto cio' che era residuo** |
-| 6bis | Calendari esterni | 6 / 7 | 1 | **chiusa tranne l'export** |
+| 6bis | Calendari esterni | 7 / 7 | 0 | **chiusa** (18/09) |
 | 6ter | Quello che serve per vendere | 21 / 53 | 32 | il grosso del lavoro |
 | 7 | Estetica e responsive | 2 / 10 | 8 | non iniziata |
 
@@ -60,9 +60,12 @@ bloccante per le caparre): e' una decisione di prodotto, non un lavoro rimasto i
 di gestione mandato al cliente dipende dagli SMS, cioe' dalla P.IVA. Fase 6 e' chiusa su tutto
 cio' che era davvero da chiudere.
 
-**Fase 6bis: resta solo la direzione export**, che non e' un residuo ma una funzionalita' vera
-(scope di scrittura su Google, ri-autorizzazione di chi ha gia' collegato, anelli di
-sincronizzazione da evitare).
+**Fase 6bis: CHIUSA.** La direzione export e' stata fatta la sera del 18/09: gli appuntamenti
+del salone si scrivono nel calendario Google personale dell'operatore, spenti per tutti finche'
+non li accende chi quel calendario lo possiede. Due delle tre difficolta' previste non
+esistevano (lo scope era gia' di scrittura, quindi nessuna ri-autorizzazione); la terza,
+l'anello di sincronizzazione, era quella vera ed e' risolta marcando i nostri eventi e
+saltandoli in lettura.
 
 **Un metodo nuovo.** Per la prima volta e' stato lanciato il database linter di Supabase: ha
 trovato che `gestisci_nuovo_utente()` era chiamabile via RPC mentre la sua gemella era protetta
@@ -73,7 +76,7 @@ guardava -- ed e' il motivo per cui vale la pena averlo fatto. Corretto dalla 00
 per una. Stamattina passava pur essendo il trigger mutilato, perche' ne controllava solo tre su
 cinque.
 
-44 voci aperte.
+43 voci aperte.
 
 ---
 

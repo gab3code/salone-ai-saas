@@ -2121,11 +2121,33 @@ calendario personale, E bloccare uno slot se l'operatore ha già un impegno pers
       nelle impostazioni. **Non ancora verificato dal vivo con account reali** (solo `npx
       vitest run` + `npm run build` puliti finora) -- da fare appena Gabriel ha un momento per
       provare un collegamento vero su entrambi i provider.
-- [ ] Direzione export (mostrare gli appuntamenti del salone nel calendario personale
-      dell'operatore): tabella `eventi_calendario_esterni` già pronta per questo, ma la
-      scrittura vera e propria (creare/aggiornare/cancellare l'evento sul calendario esterno
-      quando cambia un appuntamento interno) non è ancora stata scritta -- prossimo pezzo di
-      questa fase, indipendente da Google/Apple (funziona sull'uno o sull'altro).
+- [x] **Direzione export -- FATTA il 18/09/2026.** Gli appuntamenti del salone si scrivono nel
+      calendario Google personale dell'operatore. **Spenta per tutti** (migrazione 0067,
+      `esporta_appuntamenti` default false): si accende una persona alla volta dalle
+      impostazioni, perche' scrivere dentro il calendario di qualcuno non si annulla con un
+      rollback.
+
+      Costava meno di quanto stimato, e il motivo va ricordato prima di stimare la prossima:
+      lo scope OAuth richiesto era gia' `calendar.events`, che e' lettura E scrittura. Niente
+      nuovo consenso, nessuno scope sensibile in piu', nessuna verifica Google da rifare.
+
+      **Il problema vero non era scrivere, era l'anello**: l'appuntamento scritto su Google
+      tornava indietro alla lettura successiva come impegno esterno, occupando due volte lo
+      stesso slot e restando li' anche dopo la cancellazione. I nostri eventi sono marcati con
+      una proprieta' privata e saltati in lettura (`evento-google.ts`).
+
+      Fail-open come il resto: parte dopo che l'appuntamento e' gia' scritto, e se Google non
+      risponde si va avanti. Il calendario personale puo' restare indietro; la verita' e'
+      sempre la nostra agenda. `appuntamenti.evento_esterno_id` tiene l'id dell'evento, cosi'
+      spostamento e cancellazione aggiornano quello invece di lasciare fantasmi.
+
+      **Resta da provare dal vivo**: il giro vero contro Google richiede un account collegato e
+      l'OAuth, che dall'ambiente di lavoro non si fa. Si accende l'interruttore su un calendario
+      di prova, si crea un appuntamento, si controlla che compaia, si sposta, si cancella.
+
+      **Il ramo CalDAV non ha la scrittura** e l'interruttore compare solo su Google: la UI di
+      collegamento Apple e' tolta dall'11/09/2026 (Apple sembra bloccare il CalDAV dagli IP dei
+      data center), quindi non ha utenti da servire.
 - [x] **Nota sicurezza -- CHIUSA il 18/09/2026.** Era in due pezzi e sono caduti a un giorno
       di distanza: la cifratura a riposo il 17/09 (`src/lib/cifratura.ts`, AES-256-GCM, applicata
       su entrambi i percorsi di scrittura) e la lettura il 18/09 con la migrazione 0065, che
