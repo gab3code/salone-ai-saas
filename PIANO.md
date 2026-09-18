@@ -2306,13 +2306,15 @@ cliente che paga la cifra sbagliata o una fattura che non parte.
 
 **Webhook**
 - [ ] Creare l'endpoint live verso `/api/stripe/webhook`.
-- [ ] Iscriverlo agli stessi eventi della sandbox. **ATTENZIONE, numero sbagliato in questo
-      documento fino al 18/09/2026**: qui sotto ne erano elencati 7, ma
-      `src/app/api/stripe/webhook/route.ts` ne gestisce **9** -- mancano all'elenco
-      `customer.tax_id.created` e `customer.tax_id.updated`. Se in live si iscrivono solo i 7
-      di questa lista, le partite IVA inserite dal cliente nel Customer Portal non arrivano mai
-      e i dati di fatturazione divergono in silenzio. Elenco vero, da leggere dal codice e non
-      da qui: `checkout.session.completed`,
+- [ ] Iscriverlo agli stessi **9 eventi** della sandbox. **Numero sbagliato in QUESTO
+      DOCUMENTO fino al 18/09/2026** (ne elencava 7): l'endpoint vero e il codice sono sempre
+      stati a posto. Verificato via API Stripe il 18/09/2026 sera -- l'endpoint di sandbox
+      `https://salone-ai-saas.vercel.app/api/stripe/webhook` ha tutti e nove gli eventi,
+      compresi `customer.tax_id.created` e `customer.tax_id.updated`, e
+      `src/app/api/stripe/webhook/route.ts` li gestisce tutti e nove. Quando si ricrea
+      l'endpoint in live vanno replicati tutti e nove: iscrivendone 7, le partite IVA inserite
+      dal cliente nel Customer Portal non arriverebbero mai e i dati di fatturazione
+      divergerebbero in silenzio. Elenco: `checkout.session.completed`,
       `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
       `checkout.session.expired`, `customer.subscription.created/updated/deleted`.
 - [ ] Aggiungere `customer.subscription.trial_will_end` quando esisterà l'email di fine prova, e
