@@ -90,6 +90,32 @@ export function limiteMensileMessaggi(piano: string, numeroOperatori: number = 1
   return base;
 }
 
+/**
+ * Quante volte al mese un salone SENZA quota AI (Free, Starter) puo' far
+ * lavorare il modello dalla propria dashboard.
+ *
+ * Non e' zero di proposito: chi si registra parte su Free, e l'onboarding
+ * assistito e' il primo momento in cui il prodotto dimostra di valere
+ * qualcosa. Chiuderlo dietro un piano a pagamento vorrebbe dire far pagare
+ * prima di aver fatto vedere niente. Quindici bozze al mese sono tante per
+ * configurare un salone e poche per fare danni.
+ */
+export const USI_AI_INTERNI_SENZA_QUOTA = 15;
+
+/**
+ * Il tetto mensile che vale per TUTTO quello che il salone fa fare al
+ * modello: i messaggi dei suoi clienti e gli usi dalla dashboard (bozze di
+ * onboarding, prove dell'assistente), sommati.
+ *
+ * Un solo numero perche' il costo e' uno solo. Prima gli usi dalla dashboard
+ * non comparivano da nessuna parte: l'onboarding AI non aveva contatore ne'
+ * tetto ne' gate di piano (18/09/2026).
+ */
+export function limiteUsiAiMensile(piano: string, numeroOperatori: number = 1): number {
+  const quota = limiteMensileMessaggi(piano, numeroOperatori);
+  return quota > 0 ? quota : USI_AI_INTERNI_SENZA_QUOTA;
+}
+
 // Anti-burst: un vero cliente non manda due messaggi a meno di 2 secondi di
 // distanza scrivendo a mano su una tastiera -- una cadenza più fitta è quasi
 // certamente uno script, non una persona.

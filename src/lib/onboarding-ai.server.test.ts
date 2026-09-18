@@ -36,7 +36,7 @@ describe("generaBozzaOnboarding", () => {
       })
     );
 
-    const risultato = await generaBozzaOnboarding("Faccio manicure, sono Maria e lavoro da sola.", false, SALONE_VUOTO, {
+    const risultato = await generaBozzaOnboarding("Faccio manicure, sono Maria e lavoro da sola.", false, SALONE_VUOTO, {}, {
       messages: { create },
     } as ClienteAnthropic);
 
@@ -50,7 +50,7 @@ describe("generaBozzaOnboarding", () => {
   it("forza il tool_choice su restituisci_bozza e passa il piano corretto nello schema", async () => {
     const create = vi.fn().mockResolvedValue(usoStrumentoBozza({ operatori: [{ nome: "Maria" }] }));
 
-    await generaBozzaOnboarding("Test", false, SALONE_VUOTO, { messages: { create } } as ClienteAnthropic);
+    await generaBozzaOnboarding("Test", false, SALONE_VUOTO, {}, { messages: { create } } as ClienteAnthropic);
 
     expect(create).toHaveBeenCalledTimes(1);
     const params = create.mock.calls[0][0];
@@ -64,7 +64,7 @@ describe("generaBozzaOnboarding", () => {
   it("include i campi di knowledge base nello schema solo se il piano li supporta", async () => {
     const create = vi.fn().mockResolvedValue(usoStrumentoBozza({ operatori: [{ nome: "Maria" }] }));
 
-    await generaBozzaOnboarding("Test", true, SALONE_VUOTO, { messages: { create } } as ClienteAnthropic);
+    await generaBozzaOnboarding("Test", true, SALONE_VUOTO, {}, { messages: { create } } as ClienteAnthropic);
 
     const params = create.mock.calls[0][0];
     expect(params.tools[0].input_schema.properties.informazioni_attivita).toBeDefined();
@@ -74,7 +74,7 @@ describe("generaBozzaOnboarding", () => {
   it("restituisce un errore gestito se la chiamata ad Anthropic lancia un'eccezione", async () => {
     const create = vi.fn().mockRejectedValue(new Error("rete non disponibile"));
 
-    const risultato = await generaBozzaOnboarding("Test", false, SALONE_VUOTO, { messages: { create } } as ClienteAnthropic);
+    const risultato = await generaBozzaOnboarding("Test", false, SALONE_VUOTO, {}, { messages: { create } } as ClienteAnthropic);
 
     expect(risultato.ok).toBe(false);
     if (!risultato.ok) expect(risultato.errore).toMatch(/problema tecnico/i);
@@ -83,7 +83,7 @@ describe("generaBozzaOnboarding", () => {
   it("restituisce un errore gestito se il modello non restituisce un blocco tool_use", async () => {
     const create = vi.fn().mockResolvedValue(soloTesto("Non ho capito, puoi ripetere?"));
 
-    const risultato = await generaBozzaOnboarding("Test", false, SALONE_VUOTO, { messages: { create } } as ClienteAnthropic);
+    const risultato = await generaBozzaOnboarding("Test", false, SALONE_VUOTO, {}, { messages: { create } } as ClienteAnthropic);
 
     expect(risultato.ok).toBe(false);
     if (!risultato.ok) expect(risultato.errore).toMatch(/non ha restituito una bozza valida/i);
@@ -92,7 +92,7 @@ describe("generaBozzaOnboarding", () => {
   it("restituisce un errore gestito se la bozza estratta è completamente vuota", async () => {
     const create = vi.fn().mockResolvedValue(usoStrumentoBozza({}));
 
-    const risultato = await generaBozzaOnboarding("Frase a caso senza informazioni utili.", false, SALONE_VUOTO, {
+    const risultato = await generaBozzaOnboarding("Frase a caso senza informazioni utili.", false, SALONE_VUOTO, {}, {
       messages: { create },
     } as ClienteAnthropic);
 
@@ -103,7 +103,7 @@ describe("generaBozzaOnboarding", () => {
   it("rifiuta una descrizione vuota senza nemmeno chiamare il modello", async () => {
     const create = vi.fn();
 
-    const risultato = await generaBozzaOnboarding("   ", false, SALONE_VUOTO, { messages: { create } } as ClienteAnthropic);
+    const risultato = await generaBozzaOnboarding("   ", false, SALONE_VUOTO, {}, { messages: { create } } as ClienteAnthropic);
 
     expect(risultato.ok).toBe(false);
     if (!risultato.ok) expect(risultato.errore).toMatch(/scrivi prima una descrizione/i);
@@ -114,7 +114,7 @@ describe("generaBozzaOnboarding", () => {
     const create = vi.fn().mockResolvedValue(usoStrumentoBozza({ operatori: [{ nome: "Maria" }] }));
     const descrizioneLunghissima = "a".repeat(10000);
 
-    await generaBozzaOnboarding(descrizioneLunghissima, false, SALONE_VUOTO, { messages: { create } } as ClienteAnthropic);
+    await generaBozzaOnboarding(descrizioneLunghissima, false, SALONE_VUOTO, {}, { messages: { create } } as ClienteAnthropic);
 
     const params = create.mock.calls[0][0];
     const testoInviato = params.messages[0].content as string;

@@ -61,6 +61,47 @@ export interface FaqBozza {
   risposta: string;
 }
 
+/** Come il salone riempie l'agenda (migrazione 0056). */
+export interface RegoleAgendaBozza {
+  passoMinuti: number | null;
+  bufferMinuti: number | null;
+  modalitaRiempimento: "griglia" | "attaccato" | null;
+}
+
+/** Gli orari settimanali di UNA persona (migrazione 0057). */
+export interface OrariOperatoreBozza {
+  /** Nome, risolto contro gli operatori della bozza stessa al momento di applicare. */
+  operatore: string;
+  orari: OrarioBozza[];
+}
+
+export interface ContattiBozza {
+  telefono: string | null;
+  telefonoWhatsapp: string | null;
+}
+
+export interface PromemoriaBozza {
+  /** Quante ore prima avvisare il cliente. Piu' valori = piu' promemoria. */
+  orePreavviso: number[];
+}
+
+export interface CaparraBozza {
+  attiva: boolean;
+  tipo: "percentuale" | "fisso" | null;
+  valore: number | null; // percentuale, oppure euro se tipo = fisso
+}
+
+export interface ChiusuraBozza {
+  dataInizio: string; // "YYYY-MM-DD"
+  dataFine: string | null; // null = un giorno solo
+  /** Nome dell'operatore, oppure null per tutto il salone. */
+  operatore: string | null;
+  giornoIntero: boolean;
+  oraInizio: string | null;
+  oraFine: string | null;
+  motivo: string | null;
+}
+
 export interface BozzaOnboarding {
   orari: OrarioBozza[]; // sempre esattamente 7 elementi, uno per giorno
   operatori: OperatoreBozza[];
@@ -75,6 +116,12 @@ export interface BozzaOnboarding {
   informazioniAttivita: InformazioniAttivitaBozza | null;
   faq: FaqBozza[];
   oreMinimeCancellazione: number | null;
+  regoleAgenda: RegoleAgendaBozza | null;
+  orariOperatore: OrariOperatoreBozza[];
+  contatti: ContattiBozza | null;
+  promemoria: PromemoriaBozza | null;
+  caparra: CaparraBozza | null;
+  chiusure: ChiusuraBozza[];
 }
 
 const FORMATO_ORARIO = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -91,6 +138,7 @@ const MAX_ORE_CANCELLAZIONE = 720;
 const MAX_OPERATORI_BOZZA = 20;
 const MAX_SERVIZI_BOZZA = 40;
 const MAX_FAQ_BOZZA = 15; // una bozza generosa in FAQ ha comunque senso solo fino a un certo punto
+const MAX_CHIUSURE_BOZZA = 20;
 
 function orarioValido(v: unknown): string | null {
   return typeof v === "string" && FORMATO_ORARIO.test(v) ? v : null;
@@ -246,7 +294,11 @@ function normalizzaOreCancellazione(grezzo: unknown): number | null {
  * un'eccezione -- una bozza parziale ma utilizzabile è sempre meglio di
  * nessuna bozza.
  */
-export function validaBozzaGrezza(grezza: unknown, haKnowledgeBaseAi: boolean): BozzaOnboarding {
+export function validaBozzaGrezza(
+  grezza: unknown,
+  haKnowledgeBaseAi: boolean,
+  haPromemoria = false
+): BozzaOnboarding {
   const r = typeof grezza === "object" && grezza !== null ? (grezza as Record<string, unknown>) : {};
   return {
     orari: normalizzaOrari(r.orari),
@@ -260,7 +312,125 @@ export function validaBozzaGrezza(grezza: unknown, haKnowledgeBaseAi: boolean): 
     informazioniAttivita: haKnowledgeBaseAi ? normalizzaInformazioniAttivita(r.informazioni_attivita) : null,
     faq: haKnowledgeBaseAi ? normalizzaFaq(r.faq) : [],
     oreMinimeCancellazione: normalizzaOreCancellazione(r.ore_minime_cancellazione),
+    regoleAgenda: normalizzaRegoleAgenda(r.regole_agenda),
+    orariOperatore: normalizzaOrariOperatore(r.orari_operatore),
+    contatti: normalizzaContatti(r.contatti),
+    // I promemoria automatici esistono solo dai piani con quella
+    // funzionalita': proporli a chi non li ha vuol dire mostrare un
+    // suggerimento che poi fallisce al salvataggio.
+    promemoria: haPromemoria ? normalizzaPromemoria(r.promemoria) : null,
+    caparra: normalizzaCaparra(r.caparra),
+    chiusure: normalizzaChiusure(r.chiusure),
   };
+}
+
+/**
+ * Le regole d'agenda hanno limiti veri (i `check` della 0056): un valore
+ * fuori scala non viene "corretto" a un default plausibile, viene scartato,
+ * cosi' la revisione mostra il campo vuoto invece di un numero inventato.
+ */
+function normalizzaRegoleAgenda(grezzo: unknown): RegoleAgendaBozza | null {
+  if (typeof grezzo !== "object" || grezzo === null) return null;
+  const r = grezzo as Record<string, unknown>;
+
+  const passo =
+    typeof r.passo_minuti === "number" && Number.isInteger(r.passo_minuti) && r.passo_minuti >= 5 && r.passo_minuti <= 240
+      ? r.passo_minuti
+      : null;
+  const buffer =
+    typeof r.buffer_minuti === "number" && Number.isInteger(r.buffer_minuti) && r.buffer_minuti >= 0 && r.buffer_minuti <= 240
+      ? r.buffer_minuti
+      : null;
+  const modalita =
+    r.modalita_riempimento === "griglia" || r.modalita_riempimento === "attaccato"
+      ? r.modalita_riempimento
+      : null;
+
+  if (passo === null && buffer === null && modalita === null) return null;
+  return { passoMinuti: passo, bufferMinuti: buffer, modalitaRiempimento: modalita };
+}
+
+function normalizzaOrariOperatore(grezzi: unknown): OrariOperatoreBozza[] {
+  if (!Array.isArray(grezzi)) return [];
+  const risultato: OrariOperatoreBozza[] = [];
+  for (const r of grezzi) {
+    if (typeof r !== "object" || r === null) continue;
+    const operatore = testoONull((r as Record<string, unknown>).operatore, 100);
+    if (!operatore) continue;
+    const orari = normalizzaOrari((r as Record<string, unknown>).orari);
+    // Sette giorni tutti chiusi vorrebbe dire "questa persona non lavora
+    // mai": quasi sempre e' invece il modello che non aveva niente da dire.
+    if (orari.every((o) => o.chiuso)) continue;
+    risultato.push({ operatore, orari });
+    if (risultato.length >= MAX_OPERATORI_BOZZA) break;
+  }
+  return risultato;
+}
+
+function normalizzaContatti(grezzo: unknown): ContattiBozza | null {
+  if (typeof grezzo !== "object" || grezzo === null) return null;
+  const r = grezzo as Record<string, unknown>;
+  const telefono = testoONull(r.telefono, 40);
+  const telefonoWhatsapp = testoONull(r.telefono_whatsapp, 40);
+  if (!telefono && !telefonoWhatsapp) return null;
+  return { telefono, telefonoWhatsapp };
+}
+
+function normalizzaPromemoria(grezzo: unknown): PromemoriaBozza | null {
+  if (typeof grezzo !== "object" || grezzo === null) return null;
+  const ore = (grezzo as Record<string, unknown>).ore_preavviso;
+  if (!Array.isArray(ore)) return null;
+  const valide = [
+    ...new Set(
+      ore.filter(
+        (o): o is number => typeof o === "number" && Number.isInteger(o) && o >= 1 && o <= MAX_ORE_CANCELLAZIONE
+      )
+    ),
+  ].sort((a, b) => b - a);
+  return valide.length > 0 ? { orePreavviso: valide } : null;
+}
+
+function normalizzaCaparra(grezzo: unknown): CaparraBozza | null {
+  if (typeof grezzo !== "object" || grezzo === null) return null;
+  const r = grezzo as Record<string, unknown>;
+  if (r.attiva !== true) return null;
+
+  const tipo = r.tipo === "percentuale" || r.tipo === "fisso" ? r.tipo : null;
+  const valore = numeroPositivoONull(r.valore);
+  // Una caparra senza tipo o senza valore non e' applicabile: meglio non
+  // proporla affatto che proporre "attiva" e poi fallire al salvataggio.
+  if (!tipo || valore === null) return null;
+  if (tipo === "percentuale" && valore > 100) return null;
+
+  return { attiva: true, tipo, valore };
+}
+
+function normalizzaChiusure(grezzi: unknown): ChiusuraBozza[] {
+  if (!Array.isArray(grezzi)) return [];
+  const risultato: ChiusuraBozza[] = [];
+  for (const r of grezzi) {
+    if (typeof r !== "object" || r === null) continue;
+    const riga = r as Record<string, unknown>;
+    const dataInizio = testoONull(riga.data_inizio, 10);
+    // Una data che non si capisce e' la cosa piu' pericolosa che il modello
+    // possa produrre qui: chiuderebbe il salone in un giorno a caso. Si
+    // scarta e basta -- il formato lo verifica `dataValida` al momento di
+    // applicare, ma senza data non c'e' nemmeno niente da mostrare.
+    if (!dataInizio || !/^\d{4}-\d{2}-\d{2}$/.test(dataInizio)) continue;
+    const dataFine = testoONull(riga.data_fine, 10);
+    const giornoIntero = riga.giorno_intero !== false;
+    risultato.push({
+      dataInizio,
+      dataFine: dataFine && /^\d{4}-\d{2}-\d{2}$/.test(dataFine) ? dataFine : null,
+      operatore: testoONull(riga.operatore, 100),
+      giornoIntero,
+      oraInizio: giornoIntero ? null : orarioValido(riga.ora_inizio),
+      oraFine: giornoIntero ? null : orarioValido(riga.ora_fine),
+      motivo: testoONull(riga.motivo, 200),
+    });
+    if (risultato.length >= MAX_CHIUSURE_BOZZA) break;
+  }
+  return risultato;
 }
 
 /**
@@ -302,6 +472,12 @@ export function bozzaVuota(bozza: BozzaOnboarding): boolean {
     bozza.orari.every((o) => o.chiuso) &&
     !bozza.informazioniAttivita &&
     bozza.faq.length === 0 &&
-    bozza.oreMinimeCancellazione === null
+    bozza.oreMinimeCancellazione === null &&
+    !bozza.regoleAgenda &&
+    bozza.orariOperatore.length === 0 &&
+    !bozza.contatti &&
+    !bozza.promemoria &&
+    !bozza.caparra &&
+    bozza.chiusure.length === 0
   );
 }

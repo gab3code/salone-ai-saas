@@ -20,6 +20,13 @@ import { calcolaDiff, type DiffConfigurazione, type StatoSalone } from "@/lib/on
 import { bozzaAStatoDesiderato } from "@/lib/onboarding-ai";
 import { aggiornaInformazioniAttivita, aggiungiFaq } from "../impostazioni/informazioni-attivita/azioni";
 import { aggiornaFinestraCancellazione } from "../impostazioni/cancellazione/azioni";
+import { aggiornaContatti } from "../impostazioni/contatti/azioni";
+import { aggiungiRegolaPromemoria } from "../impostazioni/promemoria/azioni";
+import { aggiornaCaparra } from "../impostazioni/caparra/azioni";
+import { aggiungiChiusura, salvaOrariOperatore, salvaRegoleAgenda } from "./azioni";
+import { pianoHaPromemoria } from "@/lib/piani";
+import { limiteUsiAiMensile } from "@/lib/ai/limiti";
+import { consumaUsoAiInterno } from "@/lib/ai/usi-interni.server";
 
 /**
  * Fase 3 di PIANO.md: le due azioni server che collegano il modulo puro
@@ -90,7 +97,39 @@ export async function generaBozzaOnboardingAction(descrizione: string): Promise<
   ]);
   const haKnowledgeBaseAi = pianoHaKnowledgeBaseAi(tenant?.piano ?? "");
 
-  const esito = await generaBozzaOnboarding(descrizione, haKnowledgeBaseAi, stato);
+  // La quota si consuma PRIMA di chiamare il modello. Fino al 18/09/2026
+  // questa era l'unica strada del prodotto che chiamava Anthropic senza
+  // contatore, senza tetto e senza gate: un tenant Free poteva chiamarla a
+  // ripetizione -- anche come POST diretta della server action, senza mai
+  // aprire la pagina -- e la bolletta era nostra.
+  //
+  // Il tetto e' la stessa quota mensile del salone, che per Free e Starter
+  // (quota chat zero) vale un numero piccolo e fisso: chi si registra parte
+  // su Free, e l'onboarding assistito e' il primo momento in cui il prodotto
+  // dimostra di valere qualcosa. Chiuderlo dietro un piano a pagamento
+  // vorrebbe dire far pagare prima di aver fatto vedere niente.
+  const { count: numeroOperatori } = await supabase
+    .from("operatori")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId);
+  const consumo = await consumaUsoAiInterno(
+    tenantId,
+    "onboarding",
+    limiteUsiAiMensile(tenant?.piano ?? "", numeroOperatori ?? 1)
+  );
+  if (!consumo.ok) {
+    return {
+      ok: false,
+      errore:
+        consumo.motivo === "tetto_raggiunto"
+          ? "Hai finito le bozze disponibili questo mese. Riparte il primo del mese prossimo, oppure passa a un piano con più margine."
+          : "Non riesco a verificare quante bozze puoi ancora generare. Riprova fra poco.",
+    };
+  }
+
+  const esito = await generaBozzaOnboarding(descrizione, haKnowledgeBaseAi, stato, {
+    haPromemoria: pianoHaPromemoria(tenant?.piano ?? ""),
+  });
   if (!esito.ok) return esito;
 
   // Il diff lo calcola codice puro, non il modello: vedi il docblock di
@@ -108,6 +147,12 @@ export interface RisultatoApplicazioneBozza {
   serviziRimossi: number;
   associazioniCreate: number;
   associazioniRimosse: number;
+  regoleAgendaSalvate: boolean;
+  orariOperatoreSalvati: number;
+  contattiSalvati: boolean;
+  promemoriaCreati: number;
+  caparraSalvata: boolean;
+  chiusureCreate: number;
   informazioniSalvate: boolean;
   faqCreate: number;
   finestraCancellazioneSalvata: boolean;
@@ -138,6 +183,12 @@ export async function applicaBozzaOnboarding(
     serviziRimossi: 0,
     associazioniCreate: 0,
     associazioniRimosse: 0,
+    regoleAgendaSalvate: false,
+    orariOperatoreSalvati: 0,
+    contattiSalvati: false,
+    promemoriaCreati: 0,
+    caparraSalvata: false,
+    chiusureCreate: 0,
     informazioniSalvate: false,
     faqCreate: 0,
     finestraCancellazioneSalvata: false,
@@ -160,7 +211,9 @@ export async function applicaBozzaOnboarding(
   // non cancellarli quando la bozza non li menziona (vedi commenti sotto).
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("piano, telefono, descrizione, indirizzo, parcheggio, metodi_pagamento")
+    .select(
+      "piano, telefono, telefono_whatsapp, descrizione, indirizzo, parcheggio, metodi_pagamento, passo_slot_minuti, buffer_minuti, riempimento_agenda"
+    )
     .eq("id", tenantId)
     .single();
   const haKnowledgeBaseAi = pianoHaKnowledgeBaseAi(tenant?.piano ?? "");
@@ -350,6 +403,119 @@ export async function applicaBozzaOnboarding(
     const esito = await aggiornaFinestraCancellazione(fd);
     if (esito && "errore" in esito) risultato.errori.push(`Finestra di cancellazione: ${esito.errore}`);
     else risultato.finestraCancellazioneSalvata = true;
+  }
+
+  // --- Regole dell'agenda (0056) ---------------------------------------
+  // salvaRegoleAgenda fa un UPDATE dei tre campi insieme: quello che la
+  // bozza non dice va ripassato com'e' adesso, altrimenti applicare "il
+  // buffer e' 10 minuti" azzererebbe un passo gia' scelto dal titolare.
+  if (bozza.regoleAgenda) {
+    const fd = new FormData();
+    fd.set("passo_slot_minuti", String(bozza.regoleAgenda.passoMinuti ?? tenant?.passo_slot_minuti ?? 15));
+    fd.set("buffer_minuti", String(bozza.regoleAgenda.bufferMinuti ?? tenant?.buffer_minuti ?? 0));
+    fd.set(
+      "riempimento_agenda",
+      bozza.regoleAgenda.modalitaRiempimento ?? tenant?.riempimento_agenda ?? "griglia"
+    );
+    const esito = await salvaRegoleAgenda(fd);
+    if (esito && "errore" in esito) risultato.errori.push(`Regole dell'agenda: ${esito.errore}`);
+    else risultato.regoleAgendaSalvate = true;
+  }
+
+  // --- Orari del singolo operatore (0057) ------------------------------
+  // Il nome si risolve contro le righe toccate in questo giro; se non si
+  // trova, si cerca fra quelle gia' esistenti sul tenant.
+  if (bozza.orariOperatore.length > 0) {
+    const { data: operatoriEsistenti } = await supabase
+      .from("operatori")
+      .select("id, nome")
+      .eq("tenant_id", tenantId);
+    const perNome = new Map<string, string>();
+    for (const o of operatoriEsistenti ?? []) perNome.set(String(o.nome).trim().toLowerCase(), o.id as string);
+    for (const [nome, id] of nomeOperatoreAId) perNome.set(nome.trim().toLowerCase(), id);
+
+    for (const riga of bozza.orariOperatore) {
+      const operatoreId = perNome.get(riga.operatore.trim().toLowerCase());
+      if (!operatoreId) {
+        risultato.errori.push(`Orari di "${riga.operatore}": persona non trovata fra gli operatori.`);
+        continue;
+      }
+      const fd = new FormData();
+      for (const o of riga.orari) {
+        if (o.chiuso) {
+          fd.set(`op_chiuso_${o.giornoSettimana}`, "on");
+          continue;
+        }
+        if (o.apertura) fd.set(`op_apertura_${o.giornoSettimana}`, o.apertura);
+        if (o.chiusura) fd.set(`op_chiusura_${o.giornoSettimana}`, o.chiusura);
+        if (o.pausaInizio) fd.set(`op_pausa_inizio_${o.giornoSettimana}`, o.pausaInizio);
+        if (o.pausaFine) fd.set(`op_pausa_fine_${o.giornoSettimana}`, o.pausaFine);
+      }
+      const esito = await salvaOrariOperatore(operatoreId, fd);
+      if (esito && "errore" in esito) risultato.errori.push(`Orari di "${riga.operatore}": ${esito.errore}`);
+      else risultato.orariOperatoreSalvati++;
+    }
+  }
+
+  // --- Contatti --------------------------------------------------------
+  // Anche qui l'azione scrive i due campi insieme: si riparte dai valori
+  // attuali per non cancellare un numero gia' salvato.
+  if (bozza.contatti) {
+    const fd = new FormData();
+    fd.set("telefono", bozza.contatti.telefono ?? tenant?.telefono ?? "");
+    fd.set("telefono_whatsapp", bozza.contatti.telefonoWhatsapp ?? tenant?.telefono_whatsapp ?? "");
+    const esito = await aggiornaContatti(fd);
+    if (esito && "errore" in esito) risultato.errori.push(`Contatti: ${esito.errore}`);
+    else risultato.contattiSalvati = true;
+  }
+
+  // --- Promemoria automatici -------------------------------------------
+  // Azione additiva (una riga per preavviso), con il suo gate di piano
+  // ricontrollato qui come per la knowledge base.
+  if (bozza.promemoria && pianoHaPromemoria(tenant?.piano ?? "")) {
+    for (const ore of bozza.promemoria.orePreavviso) {
+      const fd = new FormData();
+      fd.set("ore_preavviso", String(ore));
+      const esito = await aggiungiRegolaPromemoria(fd);
+      if (esito && "errore" in esito) risultato.errori.push(`Promemoria ${ore}h: ${esito.errore}`);
+      else risultato.promemoriaCreati++;
+    }
+  }
+
+  // --- Caparra ---------------------------------------------------------
+  if (bozza.caparra && bozza.caparra.tipo && bozza.caparra.valore !== null) {
+    const fd = new FormData();
+    fd.set("attiva", "on");
+    fd.set("tipo", bozza.caparra.tipo);
+    fd.set("valore", String(bozza.caparra.valore));
+    const esito = await aggiornaCaparra(fd);
+    if (esito && "errore" in esito) risultato.errori.push(`Caparra: ${esito.errore}`);
+    else risultato.caparraSalvata = true;
+  }
+
+  // --- Ferie e chiusure -------------------------------------------------
+  for (const chiusura of bozza.chiusure) {
+    const fd = new FormData();
+    fd.set("data_inizio", chiusura.dataInizio);
+    if (chiusura.dataFine) fd.set("data_fine", chiusura.dataFine);
+    fd.set("motivo", chiusura.motivo ?? "");
+    fd.set("giorno_intero", chiusura.giornoIntero ? "si" : "no");
+    if (!chiusura.giornoIntero) {
+      fd.set("ora_inizio", chiusura.oraInizio ?? "");
+      fd.set("ora_fine", chiusura.oraFine ?? "");
+    }
+    if (chiusura.operatore) {
+      const { data: operatore } = await supabase
+        .from("operatori")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .ilike("nome", chiusura.operatore)
+        .maybeSingle();
+      if (operatore) fd.set("operatore_id", operatore.id as string);
+    }
+    const esito = await aggiungiChiusura(fd);
+    if (esito && "errore" in esito) risultato.errori.push(`Chiusura del ${chiusura.dataInizio}: ${esito.errore}`);
+    else risultato.chiusureCreate++;
   }
 
   return risultato;

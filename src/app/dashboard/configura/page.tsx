@@ -12,7 +12,11 @@ import {
   salvaOrari,
   salvaOrariOperatore,
   salvaRegoleAgenda,
+  aggiungiChiusura,
+  eliminaChiusura,
 } from "./azioni";
+import { raggruppaInPeriodi, type RigaChiusura } from "@/lib/periodi-chiusura";
+import { formattaDataItaliana } from "@/lib/data-italiana";
 import { PannelloOnboardingAI } from "./PannelloOnboardingAI";
 import { OnboardingWizard } from "./OnboardingWizard";
 
@@ -58,8 +62,16 @@ export default async function PaginaConfigura() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [orariRes, regoleRes, orariOperatoreRes, operatoriRes, serviziRes, opServiziRes, profiloRes] =
-    await Promise.all([
+  const [
+    orariRes,
+    regoleRes,
+    orariOperatoreRes,
+    chiusureRes,
+    operatoriRes,
+    serviziRes,
+    opServiziRes,
+    profiloRes,
+  ] = await Promise.all([
     supabase.from("orari_apertura").select("*").eq("tenant_id", tenantId),
     supabase
       .from("tenants")
@@ -67,6 +79,14 @@ export default async function PaginaConfigura() {
       .eq("id", tenantId)
       .maybeSingle(),
     supabase.from("orari_operatore").select("*").eq("tenant_id", tenantId),
+    // Ferie e chiusure: solo da oggi in poi. Quelle passate non servono piu' a
+    // nessuno e allungherebbero l'elenco all'infinito.
+    supabase
+      .from("chiusure")
+      .select("id, operatore_id, data, giorno_intero, ora_inizio, ora_fine, motivo")
+      .eq("tenant_id", tenantId)
+      .gte("data", new Date().toISOString().slice(0, 10))
+      .order("data"),
     supabase.from("operatori").select("id, nome, descrizione").eq("tenant_id", tenantId).order("nome"),
     supabase
       .from("servizi")
@@ -93,6 +113,18 @@ export default async function PaginaConfigura() {
   const passoSlot = regoleRes.data?.passo_slot_minuti ?? 15;
   const bufferMinuti = regoleRes.data?.buffer_minuti ?? 0;
   const riempimento = regoleRes.data?.riempimento_agenda ?? "griglia";
+
+  const periodiChiusura = raggruppaInPeriodi(
+    ((chiusureRes.data ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: r.id as string,
+      operatoreId: (r.operatore_id as string | null) ?? null,
+      data: r.data as string,
+      giornoIntero: r.giorno_intero as boolean,
+      oraInizio: (r.ora_inizio as string | null)?.slice(0, 5) ?? null,
+      oraFine: (r.ora_fine as string | null)?.slice(0, 5) ?? null,
+      motivo: (r.motivo as string | null) ?? null,
+    })) satisfies RigaChiusura[]
+  );
 
   const orariPerOperatore = new Map<string, Map<number, OrarioRiga>>();
   for (const riga of (orariOperatoreRes.data ?? []) as (OrarioRiga & { operatore_id: string })[]) {
@@ -132,6 +164,25 @@ export default async function PaginaConfigura() {
                 </li>
               );
             })}
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-base font-medium">Ferie e chiusure</h2>
+          <ul className="mt-3 flex flex-col gap-1 text-sm">
+            {periodiChiusura.map((periodo) => (
+              <li key={periodo.ids[0]}>
+                {periodo.operatoreId
+                  ? operatori.find((o) => o.id === periodo.operatoreId)?.nome ?? "Un operatore"
+                  : "Tutto il salone"}
+                :{" "}
+                {periodo.inizio === periodo.fine
+                  ? formattaDataItaliana(periodo.inizio)
+                  : `dal ${formattaDataItaliana(periodo.inizio)} al ${formattaDataItaliana(periodo.fine)}`}
+                {!periodo.giornoIntero && ` (${periodo.oraInizio} - ${periodo.oraFine})`}
+              </li>
+            ))}
+            {periodiChiusura.length === 0 && <li className="text-zinc-500">Nessuna chiusura in programma.</li>}
           </ul>
         </section>
 
@@ -378,6 +429,109 @@ export default async function PaginaConfigura() {
             className="mt-1 w-fit rounded bg-black px-4 py-2 text-sm font-medium text-white"
           >
             Salva regole
+          </button>
+        </form>
+      </section>
+
+      {/* --- Ferie e chiusure (la tabella esisteva dalla 0002, la schermata no) --- */}
+      <section>
+        <h2 className="text-base font-medium">Ferie e chiusure</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Giorni in cui non si prenota. Valgono per tutto il salone o per una persona sola.
+        </p>
+
+        <ul className="mt-3 flex flex-col gap-2 text-sm">
+          {periodiChiusura.map((periodo) => {
+            const chi = periodo.operatoreId
+              ? operatori.find((o) => o.id === periodo.operatoreId)?.nome ?? "Un operatore"
+              : "Tutto il salone";
+            const quando =
+              periodo.inizio === periodo.fine
+                ? formattaDataItaliana(periodo.inizio)
+                : `dal ${formattaDataItaliana(periodo.inizio)} al ${formattaDataItaliana(periodo.fine)}`;
+            const fascia = periodo.giornoIntero
+              ? "tutto il giorno"
+              : `${periodo.oraInizio} - ${periodo.oraFine}`;
+            return (
+              <li key={periodo.ids[0]} className="flex flex-wrap items-center gap-3">
+                <span>
+                  <strong>{chi}</strong>, {quando} ({fascia})
+                  {periodo.motivo && <span className="ml-2 text-zinc-500">{periodo.motivo}</span>}
+                </span>
+                <form
+                  action={async () => {
+                    "use server";
+                    await eliminaChiusura(periodo.ids);
+                  }}
+                >
+                  <button type="submit" className="text-xs text-red-600 underline">
+                    Togli
+                  </button>
+                </form>
+              </li>
+            );
+          })}
+          {periodiChiusura.length === 0 && (
+            <li className="text-zinc-500">Nessuna chiusura in programma.</li>
+          )}
+        </ul>
+
+        <form
+          action={async (formData: FormData) => {
+            "use server";
+            await aggiungiChiusura(formData);
+          }}
+          className="mt-4 flex flex-wrap items-end gap-3 text-sm"
+        >
+          <div className="flex flex-col gap-1">
+            <label htmlFor="chiusura_inizio" className="text-xs text-zinc-500">
+              Dal
+            </label>
+            <input
+              id="chiusura_inizio"
+              name="data_inizio"
+              type="date"
+              required
+              className="rounded border border-zinc-300 px-2 py-1"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="chiusura_fine" className="text-xs text-zinc-500">
+              Al (vuoto se è un giorno solo)
+            </label>
+            <input
+              id="chiusura_fine"
+              name="data_fine"
+              type="date"
+              className="rounded border border-zinc-300 px-2 py-1"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="chiusura_chi" className="text-xs text-zinc-500">
+              Chi
+            </label>
+            <select id="chiusura_chi" name="operatore_id" className="rounded border border-zinc-300 px-2 py-1">
+              <option value="tutti">Tutto il salone</option>
+              {operatori.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="chiusura_motivo" className="text-xs text-zinc-500">
+              Motivo (opzionale)
+            </label>
+            <input
+              id="chiusura_motivo"
+              name="motivo"
+              placeholder="Ferie, corso, festività"
+              className="rounded border border-zinc-300 px-2 py-1"
+            />
+          </div>
+          <button type="submit" className="rounded bg-black px-4 py-2 text-sm font-medium text-white">
+            Aggiungi chiusura
           </button>
         </form>
       </section>

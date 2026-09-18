@@ -10,6 +10,7 @@ import {
   valutaEliminazioneOperatore,
   valutaEliminazioneServizio,
 } from "@/lib/configura-sicurezza";
+import { giorniDelPeriodo, leggiFascia } from "@/lib/periodi-chiusura";
 
 const GIORNI = [0, 1, 2, 3, 4, 5, 6] as const;
 
@@ -490,4 +491,98 @@ export async function impostaAssociazioneOperatoreServizio(
 
   revalidatePath("/dashboard/configura");
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------
+// Ferie e chiusure straordinarie
+// ---------------------------------------------------------------------
+// La tabella `chiusure` esiste dalla 0002 ed e' sempre stata letta dal motore
+// di disponibilita'. Non la scriveva nessuna schermata: fino al 18/09/2026 un
+// salone non poteva dire "chiudiamo dal 10 al 20 agosto" da nessuna parte del
+// prodotto. Il motore era pronto, il prodotto no.
+
+/**
+ * Un periodo diventa una riga per giorno, perche' e' cosi' che il motore lo
+ * sa leggere. Il raggruppamento inverso (undici righe -> "10-20 agosto") lo
+ * fa la schermata, con `raggruppaInPeriodi`.
+ */
+export async function aggiungiChiusura(formData: FormData) {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
+
+  const inizio = String(formData.get("data_inizio") || "").trim();
+  const fine = String(formData.get("data_fine") || "").trim();
+  const motivo = String(formData.get("motivo") || "").trim().slice(0, 200) || null;
+  const giornoIntero = formData.get("giorno_intero") !== "no";
+  const operatoreIdGrezzo = String(formData.get("operatore_id") || "").trim();
+
+  const periodo = giorniDelPeriodo(inizio, fine);
+  if (!periodo.ok) return { errore: periodo.errore };
+
+  const fascia = leggiFascia(
+    giornoIntero,
+    String(formData.get("ora_inizio") || "").trim(),
+    String(formData.get("ora_fine") || "").trim()
+  );
+  if (!fascia.ok) return { errore: fascia.errore };
+
+  // "tutto il salone" e' l'assenza di operatore, non un valore speciale.
+  let operatoreId: string | null = null;
+  if (operatoreIdGrezzo && operatoreIdGrezzo !== "tutti") {
+    const { data: operatore } = await supabase
+      .from("operatori")
+      .select("id")
+      .eq("id", operatoreIdGrezzo)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (!operatore) return { errore: "Operatore non trovato." };
+    operatoreId = operatoreIdGrezzo;
+  }
+
+  const righe = periodo.giorni.map((data) => ({
+    tenant_id: tenantId,
+    operatore_id: operatoreId,
+    data,
+    giorno_intero: fascia.fascia.giornoIntero,
+    ora_inizio: fascia.fascia.oraInizio,
+    ora_fine: fascia.fascia.oraFine,
+    motivo,
+  }));
+
+  const { error } = await supabase.from("chiusure").insert(righe);
+  if (error) return { errore: `Errore salvando la chiusura: ${error.message}` };
+
+  // Gli slot liberi cambiano ovunque, non solo qui.
+  revalidatePath("/dashboard/configura");
+  revalidatePath("/dashboard/calendario");
+  return { ok: true as const, giorni: periodo.giorni.length };
+}
+
+/**
+ * Toglie una chiusura. Riceve TUTTI gli id del periodo, perche' un periodo
+ * e' un gruppo di righe: cancellarne una sola lascerebbe un buco in mezzo
+ * alle ferie, che e' esattamente il genere di errore che poi nessuno nota.
+ *
+ * Cancellare una chiusura non distrugge niente di storico: riapre soltanto
+ * degli orari. Per questo, a differenza di operatori e servizi, qui non c'e'
+ * nessuna guardia da superare.
+ */
+export async function eliminaChiusura(ids: string[]) {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  if (ids.length === 0) return { ok: true as const };
+
+  const { error } = await supabase
+    .from("chiusure")
+    .delete()
+    .in("id", ids)
+    .eq("tenant_id", accesso.tenantId);
+  if (error) return { errore: `Errore togliendo la chiusura: ${error.message}` };
+
+  revalidatePath("/dashboard/configura");
+  revalidatePath("/dashboard/calendario");
+  return { ok: true as const };
 }

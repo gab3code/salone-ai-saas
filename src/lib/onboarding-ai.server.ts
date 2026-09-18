@@ -42,7 +42,7 @@ const SCHEMA_ORARIO = {
   required: ["giorno_settimana", "chiuso"],
 };
 
-function costruisciSchemaBozza(haKnowledgeBaseAi: boolean) {
+function costruisciSchemaBozza(haKnowledgeBaseAi: boolean, haPromemoria: boolean) {
   const properties: Record<string, unknown> = {
     orari: {
       type: "array",
@@ -103,6 +103,79 @@ function costruisciSchemaBozza(haKnowledgeBaseAi: boolean) {
         required: ["operatore", "servizio"],
       },
     },
+    regole_agenda: {
+      type: ["object", "null"],
+      description:
+        "Come il salone riempie l'agenda, SOLO se il testo ne parla (es. 'gli appuntamenti li do ogni mezz'ora', 'fra un cliente e l'altro mi servono 10 minuti per pulire').",
+      properties: {
+        passo_minuti: {
+          type: ["integer", "null"],
+          description: "Ogni quanti minuti proporre un orario libero (5-240). Solo se il testo lo dice.",
+        },
+        buffer_minuti: {
+          type: ["integer", "null"],
+          description: "Minuti di stacco dopo ogni appuntamento, per pulire o riordinare (0-240). Solo se il testo lo dice.",
+        },
+        modalita_riempimento: {
+          type: ["string", "null"],
+          enum: ["griglia", "attaccato", null],
+          description:
+            "'griglia' se vuole orari ordinati (09:00, 09:15, 09:30), 'attaccato' se vuole riempire al massimo facendo iniziare il cliente dopo appena finisce il precedente. Null se il testo non ne parla.",
+        },
+      },
+    },
+    orari_operatore: {
+      type: "array",
+      description:
+        "Orari di UNA persona specifica, quando sono diversi da quelli del salone (es. 'Rita fa solo le mattine', 'il sabato Luca non c'è'). Non elencare qui chi segue gli orari del salone.",
+      items: {
+        type: "object",
+        properties: {
+          operatore: { type: "string", description: "Il nome, scritto esattamente come nell'elenco operatori." },
+          orari: { type: "array", items: SCHEMA_ORARIO },
+        },
+        required: ["operatore", "orari"],
+      },
+    },
+    contatti: {
+      type: ["object", "null"],
+      description: "Numeri di telefono dell'attività, solo se il testo li contiene.",
+      properties: {
+        telefono: { type: ["string", "null"], description: "Telefono dell'attività." },
+        telefono_whatsapp: { type: ["string", "null"], description: "Numero WhatsApp, se diverso o citato come tale." },
+      },
+    },
+    caparra: {
+      type: ["object", "null"],
+      description:
+        "Richiesta di acconto alla prenotazione, SOLO se il testo lo dice esplicitamente (es. 'chiedo 20 euro di caparra', 'faccio pagare il 30% in anticipo').",
+      properties: {
+        attiva: { type: "boolean" },
+        tipo: { type: ["string", "null"], enum: ["percentuale", "fisso", null] },
+        valore: { type: ["number", "null"], description: "La percentuale, oppure gli euro se tipo è 'fisso'." },
+      },
+    },
+    chiusure: {
+      type: "array",
+      description:
+        "Ferie e giorni di chiusura straordinaria citati nel testo (es. 'chiudiamo dal 10 al 20 agosto', 'il 15 siamo chiusi'). NON le chiusure settimanali fisse, che vanno negli orari. Le date vanno in formato YYYY-MM-DD: usa la data di oggi indicata nel messaggio per capire di quale anno si parla, e non inventare mai una data che il testo non permette di ricavare.",
+      items: {
+        type: "object",
+        properties: {
+          data_inizio: { type: "string", description: "YYYY-MM-DD" },
+          data_fine: { type: ["string", "null"], description: "YYYY-MM-DD, null se è un giorno solo." },
+          operatore: {
+            type: ["string", "null"],
+            description: "Nome della persona, se la chiusura riguarda solo lei. Null se chiude tutto il salone.",
+          },
+          giorno_intero: { type: "boolean" },
+          ora_inizio: { type: ["string", "null"], description: "HH:MM, solo se giorno_intero è false." },
+          ora_fine: { type: ["string", "null"] },
+          motivo: { type: ["string", "null"] },
+        },
+        required: ["data_inizio"],
+      },
+    },
     ore_minime_cancellazione: {
       type: ["integer", "null"],
       description: "SOLO se il testo specifica esplicitamente una politica di cancellazione in ore (es. 'si cancella fino a 24 ore prima'). Altrimenti null.",
@@ -112,6 +185,21 @@ function costruisciSchemaBozza(haKnowledgeBaseAi: boolean) {
   // ("il testo non parlava di chi fa cosa"), e obbligarlo costringerebbe il
   // modello a inventarsi un elenco vuoto, che significa il contrario.
   const required = ["orari", "operatori", "servizi"];
+
+  if (haPromemoria) {
+    properties.promemoria = {
+      type: ["object", "null"],
+      description:
+        "Promemoria automatici al cliente prima dell'appuntamento, solo se il testo ne parla (es. 'mando un promemoria il giorno prima').",
+      properties: {
+        ore_preavviso: {
+          type: "array",
+          items: { type: "integer" },
+          description: "Quante ore prima avvisare. 'il giorno prima' = 24. Più valori = più promemoria.",
+        },
+      },
+    };
+  }
 
   if (haKnowledgeBaseAi) {
     properties.informazioni_attivita = {
@@ -201,8 +289,15 @@ export async function generaBozzaOnboarding(
   descrizione: string,
   haKnowledgeBaseAi: boolean,
   statoAttuale: StatoSalone,
+  opzioni: { haPromemoria?: boolean; oggi?: Date } = {},
   clientAnthropic: ClienteAnthropic = ottieniClientPredefinito()
 ): Promise<RisultatoGenerazioneBozza> {
+  const haPromemoria = opzioni.haPromemoria ?? false;
+  // "Chiudiamo dal 10 al 20 agosto" non si puo' tradurre in date senza
+  // sapere che giorno e' oggi. Senza questa riga il modello tirerebbe a
+  // indovinare l'anno, ed e' esattamente il tipo di errore che chiude un
+  // salone in un giorno a caso.
+  const oggi = (opzioni.oggi ?? new Date()).toISOString().slice(0, 10);
   const testoPulito = descrizione.trim().slice(0, 4000); // stesso ordine di grandezza di MAX_CARATTERI_CAMPO_INFORMAZIONI, generoso per una descrizione libera
   if (!testoPulito) return { ok: false, errore: "Scrivi prima una descrizione della tua attività." };
 
@@ -216,14 +311,14 @@ export async function generaBozzaOnboarding(
         {
           name: "restituisci_bozza",
           description: "Restituisce la bozza di configurazione estratta dalla descrizione dell'attività.",
-          input_schema: costruisciSchemaBozza(haKnowledgeBaseAi),
+          input_schema: costruisciSchemaBozza(haKnowledgeBaseAi, haPromemoria),
         },
       ],
       tool_choice: { type: "tool", name: "restituisci_bozza" },
       messages: [
         {
           role: "user",
-          content: `${descriviStatoAttuale(statoAttuale)}\n\nDESCRIZIONE DEL TITOLARE:\n${testoPulito}`,
+          content: `Oggi è ${oggi}.\n\n${descriviStatoAttuale(statoAttuale)}\n\nDESCRIZIONE DEL TITOLARE:\n${testoPulito}`,
         },
       ],
     });
@@ -237,7 +332,7 @@ export async function generaBozzaOnboarding(
     return { ok: false, errore: "Il modello non ha restituito una bozza valida. Riprova, magari con una descrizione un po' più dettagliata." };
   }
 
-  const bozza = validaBozzaGrezza(bloccoTool.input, haKnowledgeBaseAi);
+  const bozza = validaBozzaGrezza(bloccoTool.input, haKnowledgeBaseAi, haPromemoria);
   if (bozzaVuota(bozza)) {
     return {
       ok: false,

@@ -2,11 +2,12 @@
 
 import { creaClientServer } from "@/lib/supabase/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
+import { limiteUsiAiMensile } from "@/lib/ai/limiti";
+import { consumaUsoAiInterno } from "@/lib/ai/usi-interni.server";
 import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
 import { puoConfigurareAttivita } from "@/lib/ruoli";
 import { rispondiConversazione } from "@/lib/ai/agente";
 import {
-  DEMO_AI_MAX_AL_MESE,
   STRUMENTI_DEMO,
   domandaDemoValida,
   pianoPuoProvareAssistente,
@@ -67,18 +68,32 @@ export async function provaAssistente(domanda: string): Promise<EsitoProva> {
     return { errore: "Scrivi la domanda di un cliente, da tre caratteri fino a trecento." };
   }
 
-  const admin = creaClientAdmin();
-  const { data: rimaste, error: erroreQuota } = await admin.rpc("consuma_demo_ai", {
-    p_tenant_id: tenantId,
-    p_limite: DEMO_AI_MAX_AL_MESE,
-  });
-  if (erroreQuota) return { errore: "Non riesco a verificare le prove rimaste. Riprova fra poco." };
-  if (typeof rimaste !== "number" || rimaste < 0) {
+  // Dal 18/09/2026 la prova consuma la STESSA quota mensile di tutto il
+  // resto (richiesta di Gabriel: il contatore deve salire anche quando il
+  // salone usa l'AI dalla dashboard). Prima aveva un tetto tutto suo,
+  // `tenants.demo_ai_usate`, che non compariva nel numero mostrato in
+  // dashboard: due contatori per lo stesso costo.
+  const { count: numeroOperatori } = await supabase
+    .from("operatori")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId);
+  const consumo = await consumaUsoAiInterno(
+    tenantId,
+    "prova_assistente",
+    limiteUsiAiMensile(tenant.piano, numeroOperatori ?? 1)
+  );
+  if (!consumo.ok) {
+    if (consumo.motivo === "errore") {
+      return { errore: "Non riesco a verificare le prove rimaste. Riprova fra poco." };
+    }
     return {
       rimaste: 0,
-      errore: `Hai usato tutte le ${DEMO_AI_MAX_AL_MESE} prove di questo mese. Riparte il primo del mese prossimo.`,
+      errore: "Hai usato tutte le prove di questo mese. Riparte il primo del mese prossimo.",
     };
   }
+
+  const rimaste = consumo.rimasti;
+  const admin = creaClientAdmin();
 
   try {
     const risultato = await rispondiConversazione([], domanda.trim(), {

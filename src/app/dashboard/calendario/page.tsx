@@ -46,7 +46,10 @@ import { cancellaAppuntamento, modificaAppuntamento, segnaNoShow } from "./azion
 import { PannelloNuovoAppuntamento } from "./pannello-nuovo-appuntamento";
 import { RiquadroProvaAssistente } from "./riquadro-prova-assistente";
 import { puoConfigurareAttivita } from "@/lib/ruoli";
-import { pianoPuoProvareAssistente, statoDemo } from "@/lib/ai/demo-assistente";
+import { pianoPuoProvareAssistente } from "@/lib/ai/demo-assistente";
+import { limiteUsiAiMensile } from "@/lib/ai/limiti";
+import { contaMessaggiClienteQuestoMese } from "@/lib/ai/limiti.server";
+import { contaUsiAiInterniQuestoMese } from "@/lib/ai/usi-interni.server";
 
 function oggiYMD(): string {
   return new Date().toISOString().slice(0, 10);
@@ -171,7 +174,7 @@ export default async function PaginaCalendario({
       .lt("inizio", fineGiornoReale.toISOString())
       .neq("stato", "cancellato")
       .order("inizio"),
-    supabase.from("tenants").select("piano, demo_ai_mese, demo_ai_usate").eq("id", tenantId).single(),
+    supabase.from("tenants").select("piano").eq("id", tenantId).single(),
   ]);
 
   // Il riquadro "guarda cosa avrebbe risposto l'assistente" (Fase 5): si
@@ -182,11 +185,20 @@ export default async function PaginaCalendario({
   // disegnare.
   const mostraProvaAssistente =
     pianoPuoProvareAssistente(tenantRes.data?.piano ?? "") && puoConfigurareAttivita(sessione.ruolo);
-  const proveRimaste = statoDemo(
-    tenantRes.data?.demo_ai_mese ?? null,
-    tenantRes.data?.demo_ai_usate ?? 0,
-    new Date()
-  ).rimaste;
+  // Dal 18/09/2026 le prove consumano la stessa quota mensile di tutto il
+  // resto (vedi migrazione 0059): il numero mostrato qui deve venire da li',
+  // altrimenti direbbe "10 rimaste" per sempre mentre la quota vera scende.
+  const proveRimaste = mostraProvaAssistente
+    ? await (async () => {
+        const [daiClienti, dallaDashboard, { count: numeroOperatori }] = await Promise.all([
+          contaMessaggiClienteQuestoMese(supabase, tenantId),
+          contaUsiAiInterniQuestoMese(supabase, tenantId),
+          supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+        ]);
+        const limite = limiteUsiAiMensile(tenantRes.data?.piano ?? "", numeroOperatori ?? 1);
+        return Math.max(0, limite - daiClienti - dallaDashboard);
+      })()
+    : 0;
 
   const nomiClienti = await nomiClientiPerId(
     tenantId,

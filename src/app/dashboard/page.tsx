@@ -7,8 +7,8 @@ import { puoConfigurareAttivita, puoGestireMembri, puoVedereAnalytics } from "@/
 import { elencaInvitiRicevuti, elencaSediUtente } from "@/lib/membri.server";
 import { caricaMetriche } from "@/lib/metriche.server";
 import { contaMessaggiClienteQuestoMese } from "@/lib/ai/limiti.server";
-import { limiteMensileMessaggi } from "@/lib/ai/limiti";
-import { pianoHaAccessoAIChatWeb } from "@/lib/ai/limiti";
+import { limiteUsiAiMensile, pianoHaAccessoAIChatWeb } from "@/lib/ai/limiti";
+import { contaUsiAiInterniQuestoMese } from "@/lib/ai/usi-interni.server";
 import { urlBaseSito } from "@/lib/email/notifiche.server";
 import { generaQrCodeDataUrl } from "@/lib/qrcode.server";
 import { esci } from "./azioni";
@@ -82,7 +82,11 @@ export default async function PaginaDashboard({
   // qualcuno. Mostrarlo costa una query e toglie di mezzo tutta quella
   // categoria di sorprese -- ed e' anche il miglior argomento per passare a
   // Pro, perche' chi si avvicina al tetto lo vede da solo.
-  const mostraQuotaAi = !!tenant && vedeNumeri && pianoHaAccessoAIChatWeb(tenant.piano);
+  // Dal 18/09/2026 il riquadro vale per TUTTI i piani, non solo per chi ha la
+  // chat: anche un salone Free consuma il modello quando genera una bozza di
+  // configurazione, e quel consumo deve vedersi. Prima non compariva da
+  // nessuna parte (richiesta di Gabriel).
+  const mostraQuotaAi = !!tenant && vedeNumeri;
   const operatoriPerQuota =
     mostraQuotaAi && tenant.piano === "pro" && profilo?.tenant_id
       ? ((await supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", profilo.tenant_id))
@@ -90,10 +94,20 @@ export default async function PaginaDashboard({
       : 1;
   const quotaAi =
     mostraQuotaAi && profilo?.tenant_id
-      ? {
-          usati: await contaMessaggiClienteQuestoMese(supabase, profilo.tenant_id),
-          limite: limiteMensileMessaggi(tenant.piano, operatoriPerQuota),
-        }
+      ? await (async () => {
+          // Un costo solo, un numero solo: i messaggi dei clienti PIU' le
+          // volte in cui il salone ha usato l'AI dalla propria dashboard.
+          const [daiClienti, dallaDashboard] = await Promise.all([
+            contaMessaggiClienteQuestoMese(supabase, profilo.tenant_id),
+            contaUsiAiInterniQuestoMese(supabase, profilo.tenant_id),
+          ]);
+          return {
+            usati: daiClienti + dallaDashboard,
+            dallaDashboard,
+            limite: limiteUsiAiMensile(tenant.piano, operatoriPerQuota),
+            haChat: pianoHaAccessoAIChatWeb(tenant.piano),
+          };
+        })()
       : null;
 
   // Link pubblico da condividere (Google Business, bio Instagram, QR in
@@ -191,12 +205,19 @@ export default async function PaginaDashboard({
                 <dd>{tenant.stato_abbonamento}</dd>
                 {quotaAi && (
                   <>
-                    <dt className="text-zinc-500">Messaggi dell&apos;assistente</dt>
+                    <dt className="text-zinc-500">
+                      {quotaAi.haChat ? "Messaggi dell'assistente" : "Uso dell'AI"}
+                    </dt>
                     <dd>
                       <span className="tabular-nums">
                         {quotaAi.usati} di {quotaAi.limite}
                       </span>
                       <span className="text-zinc-500"> questo mese</span>
+                      {quotaAi.dallaDashboard > 0 && (
+                        <span className="block text-xs text-zinc-500">
+                          di cui {quotaAi.dallaDashboard} dalla dashboard (bozze e prove)
+                        </span>
+                      )}
                       {quotaAi.usati >= quotaAi.limite * 0.8 && (
                         <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">
                           {quotaAi.usati >= quotaAi.limite

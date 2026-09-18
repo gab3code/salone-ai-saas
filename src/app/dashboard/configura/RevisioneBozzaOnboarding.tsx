@@ -73,6 +73,12 @@ interface BozzaRevisione {
   applicaInformazioni: boolean;
   faq: FaqRevisione[];
   applicaCancellazione: boolean;
+  applicaRegoleAgenda: boolean;
+  orariOperatoreInclusi: boolean[];
+  applicaContatti: boolean;
+  applicaPromemoria: boolean;
+  applicaCaparra: boolean;
+  chiusureIncluse: boolean[];
 }
 
 const SEP = "::";
@@ -118,6 +124,12 @@ function costruisciRevisione(
     applicaInformazioni: bozza.informazioniAttivita !== null,
     faq: bozza.faq.map((f) => ({ ...f, incluso: true })),
     applicaCancellazione: bozza.oreMinimeCancellazione !== null,
+    applicaRegoleAgenda: bozza.regoleAgenda !== null,
+    orariOperatoreInclusi: bozza.orariOperatore.map(() => true),
+    applicaContatti: bozza.contatti !== null,
+    applicaPromemoria: bozza.promemoria !== null,
+    applicaCaparra: bozza.caparra !== null,
+    chiusureIncluse: bozza.chiusure.map(() => true),
   };
 }
 
@@ -206,6 +218,12 @@ function pianoDaApplicare(rev: BozzaRevisione): { bozza: BozzaOnboarding; diff: 
       informazioniAttivita: rev.applicaInformazioni ? rev.bozza.informazioniAttivita : null,
       faq: rev.faq.filter((f) => f.incluso).map((f) => ({ domanda: f.domanda, risposta: f.risposta })),
       oreMinimeCancellazione: rev.applicaCancellazione ? rev.bozza.oreMinimeCancellazione : null,
+      regoleAgenda: rev.applicaRegoleAgenda ? rev.bozza.regoleAgenda : null,
+      orariOperatore: rev.bozza.orariOperatore.filter((_, i) => rev.orariOperatoreInclusi[i]),
+      contatti: rev.applicaContatti ? rev.bozza.contatti : null,
+      promemoria: rev.applicaPromemoria ? rev.bozza.promemoria : null,
+      caparra: rev.applicaCaparra ? rev.bozza.caparra : null,
+      chiusure: rev.bozza.chiusure.filter((_, i) => rev.chiusureIncluse[i]),
     },
     diff: {
       operatori,
@@ -273,6 +291,29 @@ const COLORE: Record<string, string> = {
   aggiorna: "bg-amber-100 text-amber-800",
   rimuovi: "bg-red-100 text-red-800",
 };
+
+/** Una voce "tutto o niente": una spunta e una frase che dice cosa succede. */
+function Voce({
+  checked,
+  onChange,
+  titolo,
+  dettaglio,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  titolo: string;
+  dettaglio?: string;
+}) {
+  return (
+    <label className="flex items-start gap-2 text-sm font-medium">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-1" />
+      <span>
+        {titolo}
+        {dettaglio && <span className="block text-xs font-normal text-zinc-500">{dettaglio}</span>}
+      </span>
+    </label>
+  );
+}
 
 function Etichetta({ tipo }: { tipo: string }) {
   return (
@@ -354,6 +395,12 @@ export function RevisioneBozzaOnboarding({
       r.informazioniSalvate && "informazioni attività",
       r.faqCreate > 0 && `${r.faqCreate} FAQ`,
       r.finestraCancellazioneSalvata && "finestra di cancellazione",
+      r.regoleAgendaSalvate && "regole dell'agenda",
+      r.orariOperatoreSalvati > 0 && `orari di ${r.orariOperatoreSalvati} persone`,
+      r.contattiSalvati && "contatti",
+      r.promemoriaCreati > 0 && `${r.promemoriaCreati} promemoria`,
+      r.caparraSalvata && "caparra",
+      r.chiusureCreate > 0 && `${r.chiusureCreate} chiusure`,
     ].filter(Boolean) as string[];
 
     return (
@@ -384,7 +431,18 @@ export function RevisioneBozzaOnboarding({
     .map((s) => ({ chiave: s.chiave, id: s.modifica.id, nome: s.nome, nuovo: s.modifica.tipo === "crea" }));
 
   const nienteDaFare =
-    rev.operatori.length === 0 && rev.servizi.length === 0 && !rev.applicaOrari && rev.faq.length === 0;
+    rev.operatori.length === 0 &&
+    rev.servizi.length === 0 &&
+    !rev.applicaOrari &&
+    rev.faq.length === 0 &&
+    !rev.bozza.regoleAgenda &&
+    rev.bozza.orariOperatore.length === 0 &&
+    !rev.bozza.contatti &&
+    !rev.bozza.promemoria &&
+    !rev.bozza.caparra &&
+    rev.bozza.chiusure.length === 0 &&
+    !rev.bozza.informazioniAttivita &&
+    rev.bozza.oreMinimeCancellazione === null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -567,6 +625,125 @@ export function RevisioneBozzaOnboarding({
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {rev.bozza.regoleAgenda && (
+        <Voce
+          checked={rev.applicaRegoleAgenda}
+          onChange={(v) => setStato({ fase: "revisione", revisione: { ...rev, applicaRegoleAgenda: v } })}
+          titolo="Regole dell'agenda"
+          dettaglio={[
+            rev.bozza.regoleAgenda.passoMinuti !== null && `un orario ogni ${rev.bozza.regoleAgenda.passoMinuti} minuti`,
+            rev.bozza.regoleAgenda.bufferMinuti !== null && `${rev.bozza.regoleAgenda.bufferMinuti} minuti di stacco fra un cliente e l'altro`,
+            rev.bozza.regoleAgenda.modalitaRiempimento === "attaccato" && "agenda piena, orari anche non tondi",
+            rev.bozza.regoleAgenda.modalitaRiempimento === "griglia" && "orari sempre ordinati",
+          ]
+            .filter(Boolean)
+            .join(", ")}
+        />
+      )}
+
+      {rev.bozza.orariOperatore.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium">Orari di chi non segue quelli del salone</h3>
+          <ul className="mt-1 flex flex-col gap-2">
+            {rev.bozza.orariOperatore.map((riga, i) => (
+              <li key={i}>
+                <Voce
+                  checked={rev.orariOperatoreInclusi[i] ?? false}
+                  onChange={(v) =>
+                    setStato({
+                      fase: "revisione",
+                      revisione: {
+                        ...rev,
+                        orariOperatoreInclusi: rev.orariOperatoreInclusi.map((x, j) => (j === i ? v : x)),
+                      },
+                    })
+                  }
+                  titolo={riga.operatore}
+                  dettaglio={riga.orari
+                    .filter((o) => !o.chiuso)
+                    .map((o) => `${NOMI_GIORNI[o.giornoSettimana]} ${o.apertura}-${o.chiusura}`)
+                    .join(", ")}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {rev.bozza.contatti && (
+        <Voce
+          checked={rev.applicaContatti}
+          onChange={(v) => setStato({ fase: "revisione", revisione: { ...rev, applicaContatti: v } })}
+          titolo="Contatti"
+          dettaglio={[
+            rev.bozza.contatti.telefono && `telefono ${rev.bozza.contatti.telefono}`,
+            rev.bozza.contatti.telefonoWhatsapp && `WhatsApp ${rev.bozza.contatti.telefonoWhatsapp}`,
+          ]
+            .filter(Boolean)
+            .join(", ")}
+        />
+      )}
+
+      {rev.bozza.promemoria && (
+        <Voce
+          checked={rev.applicaPromemoria}
+          onChange={(v) => setStato({ fase: "revisione", revisione: { ...rev, applicaPromemoria: v } })}
+          titolo="Promemoria automatici"
+          dettaglio={rev.bozza.promemoria.orePreavviso
+            .map((ore) => (ore === 24 ? "il giorno prima" : `${ore} ore prima`))
+            .join(", ")}
+        />
+      )}
+
+      {rev.bozza.caparra && (
+        <Voce
+          checked={rev.applicaCaparra}
+          onChange={(v) => setStato({ fase: "revisione", revisione: { ...rev, applicaCaparra: v } })}
+          titolo="Caparra alla prenotazione"
+          dettaglio={
+            rev.bozza.caparra.tipo === "percentuale"
+              ? `${rev.bozza.caparra.valore}% del prezzo`
+              : `${rev.bozza.caparra.valore}€ fissi`
+          }
+        />
+      )}
+
+      {rev.bozza.chiusure.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium">Ferie e chiusure</h3>
+          <p className="mt-1 text-xs text-zinc-500">
+            Controlla le date: sono la cosa che un&apos;AI sbaglia più facilmente.
+          </p>
+          <ul className="mt-1 flex flex-col gap-2">
+            {rev.bozza.chiusure.map((c, i) => (
+              <li key={i}>
+                <Voce
+                  checked={rev.chiusureIncluse[i] ?? false}
+                  onChange={(v) =>
+                    setStato({
+                      fase: "revisione",
+                      revisione: { ...rev, chiusureIncluse: rev.chiusureIncluse.map((x, j) => (j === i ? v : x)) },
+                    })
+                  }
+                  titolo={
+                    c.dataFine && c.dataFine !== c.dataInizio
+                      ? `Dal ${c.dataInizio} al ${c.dataFine}`
+                      : c.dataInizio
+                  }
+                  dettaglio={[
+                    c.operatore ? `solo ${c.operatore}` : "tutto il salone",
+                    c.giornoIntero ? "tutto il giorno" : `${c.oraInizio}-${c.oraFine}`,
+                    c.motivo,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
