@@ -95,7 +95,15 @@ test.describe("Scenario 12 -- prenotazione manuale da dashboard", () => {
     //    operatori vorrebbe dire che l'ordine delle cause e' sbagliato.
     const domenica = prossimoGiornoAperto([1, 2, 3, 4, 5, 6]);
     await page.goto(`/dashboard/calendario?data=${domenica.ymd}&servizio_id=${tenant.servizi[0].id}`);
-    await expect(page.getByText("Il salone è chiuso in questo giorno")).toBeVisible({ timeout: 10_000 });
+    // Due messaggi distinti, uno per posto: la lista degli appuntamenti e il
+    // pannello. Asserirli separatamente invece di prendere il primo che
+    // capita -- se uno dei due tornasse generico, il test deve accorgersene.
+    await expect(page.getByText(/Il salone è chiuso in questo giorno\. Cambia gli orari/)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      page.getByText(/Il salone è chiuso in questo giorno: scegli un altro giorno/)
+    ).toBeVisible();
 
     // 3. La data si legge in italiano, non come "2026-09-21".
     await expect(page.getByText(formattaGiornoEsteso(domenica.ymd)).first()).toBeVisible();
