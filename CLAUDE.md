@@ -875,6 +875,41 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27quinvicies. I deploy vecchi non muoiono, e parlano con lo stesso database (18/09/2026)
+
+Applicata la 0065 alla produzione, Gabriel ha detto "la pagina calendari non si apre". Sembrava
+la conferma del rischio che avevamo previsto -- revoca applicata prima che il codice giusto
+fosse online -- e invece era un'altra cosa.
+
+L'errore su Sentry portava l'URL:
+
+```
+https://salone-ai-saas-4tgfxr4bb-gab3codes-projects.vercel.app/dashboard/impostazioni/calendari
+```
+
+Non `salone-ai-saas.vercel.app`. `4tgfxr4bb` e' il deploy del commit `104795f1`, delle 02:45 di
+quella stessa notte -- **quindici ore prima** del refactor `5bcb62e7`. In quel build la pagina
+faceva `elencaCollegamentiTenant(supabase, tenantId)` passando il client DELL'UTENTE. Con la
+SELECT revocata quella query non poteva che fallire.
+
+Sulla produzione vera la pagina funziona: verificata con uno screenshot, si apre e mostra
+"Calendari collegati" e il form di Google.
+
+**La cosa da ricordare.** Ogni deploy di Vercel resta raggiungibile per sempre al suo URL, e
+parla con lo STESSO database di produzione. Una migrazione che dipende dal codice (una revoca di
+permessi, un vincolo nuovo, una colonna rinominata) non rompe solo "prima del deploy": rompe
+**tutti i deploy precedenti, per sempre**, e chiunque abbia una vecchia scheda aperta li vede
+rotti. Non e' un difetto da riparare -- e' il prezzo corretto della revoca, e i vecchi build
+DEVONO fallire, perche' facevano la cosa che abbiamo appena vietato.
+
+**Le due conseguenze pratiche.**
+1. Quando qualcosa "non si apre", la prima domanda e' *quale URL*, non *quale bug*. Sentry
+   l'aveva scritto nel tag `url` e nel breadcrumb: dieci secondi di lettura contro un'ora di
+   ipotesi sul codice.
+2. Gli errori che arrivano su Sentry da URL di deploy vecchi dopo una migrazione di questo tipo
+   sono attesi. Vanno archiviati, non inseguiti -- ma vanno riconosciuti come tali, non
+   archiviati alla cieca.
+
 ## 27quatervicies. Un pattern di ricerca si copia dal codice, non si scrive a memoria (18/09/2026)
 
 Per sapere quante credenziali erano rimaste in chiaro in produzione ho contato cosi':
