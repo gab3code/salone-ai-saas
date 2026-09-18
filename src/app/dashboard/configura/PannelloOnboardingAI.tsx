@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import type { BozzaOnboarding } from "@/lib/onboarding-ai";
+import type { DiffConfigurazione, StatoSalone } from "@/lib/onboarding-ai-diff";
 import { generaBozzaOnboardingAction } from "./onboarding-ai-azioni";
 import { RevisioneBozzaOnboarding } from "./RevisioneBozzaOnboarding";
 
 type Stato =
   | { fase: "descrizione" }
   | { fase: "generando" }
-  | { fase: "revisione"; bozza: BozzaOnboarding }
+  | { fase: "revisione"; bozza: BozzaOnboarding; diff: DiffConfigurazione; stato: StatoSalone }
   | { fase: "errore"; messaggio: string };
 
 /**
@@ -38,7 +39,7 @@ export function PannelloOnboardingAI({ evidenzia }: { evidenzia: boolean }) {
       setStato({ fase: "errore", messaggio: esito.errore });
       return;
     }
-    setStato({ fase: "revisione", bozza: esito.bozza });
+    setStato({ fase: "revisione", bozza: esito.bozza, diff: esito.diff, stato: esito.stato });
   }
 
   if (!aperto) {
@@ -96,6 +97,8 @@ export function PannelloOnboardingAI({ evidenzia }: { evidenzia: boolean }) {
         <div className="mt-4">
           <RevisioneBozzaOnboarding
             bozzaIniziale={stato.bozza}
+          diffIniziale={stato.diff}
+          statoIniziale={stato.stato}
             onRicomincia={() => {
               setDescrizione("");
               setStato({ fase: "descrizione" });

@@ -875,6 +875,54 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27septdecies. L'AI propone uno stato finale, il diff lo calcoliamo noi (18/09/2026)
+
+L'onboarding AI sapeva solo aggiungere. Gabriel ha detto "siamo in due" a un
+salone che aveva gia' due operatori e se ne e' ritrovati quattro. Non era un
+difetto del modello: la bozza non conteneva nessun riferimento a cio' che
+esisteva, quindi non c'era proprio modo di riconoscere una riga gia' li'.
+
+La soluzione NON e' stata chiedere al modello di emettere operazioni ("crea
+questo, cancella quello"). Il modello vede la configurazione attuale con gli
+id e restituisce lo STATO FINALE; il confronto fra prima e dopo lo fa
+`src/lib/onboarding-ai-diff.ts`, che e' puro, deterministico e coperto da
+test. Un modello che sbaglia produce al massimo uno stato finale strano, che
+si vede in revisione. Non produce mai una DELETE che nessuno aveva chiesto.
+
+Tre regole che valgono oltre questo file:
+
+1. **Il silenzio non e' un ordine.** Una riga esistente che il modello non
+   nomina diventa una PROPOSTA di rimozione, che in revisione parte non
+   spuntata. Vale anche per i campi: durata e prezzo non ripetuti a voce non
+   si azzerano, restano quelli.
+2. **"Vuoto" e "non ne ha parlato" sono cose diverse** dove possono esserlo.
+   Per le associazioni, elenco vuoto = "nessuno fa piu' niente", campo assente
+   = "lascia stare quello che c'e'". Un solo tipo per tutti e due avrebbe
+   cancellato collegamenti veri.
+3. **Il modello non tocca il database.** Ogni scrittura passa dalle azioni
+   granulari che esistevano gia', con i loro limiti di piano e le loro
+   guardie. Questo livello decide l'ORDINE (creazioni, poi collegamenti, poi
+   rimozioni), non le regole.
+
+## 27sexdecies. Un test verde su una funzione non e' un test sul prodotto (18/09/2026)
+
+Trovato mentre si collegavano le regole d'agenda, ma il punto e' generale.
+
+`bufferMinuti` esisteva nel motore dalla Fase 1, era documentato, aveva un
+test verde -- e nessuna delle quattro schermate che cercano slot lo passava.
+In produzione valeva zero per tutti. Il test dimostrava che la funzione sa
+usare il buffer, non che il prodotto lo usi.
+
+Stessa famiglia, stesso giorno: le associazioni operatore-servizio venivano
+calcolate e passate correttamente, ma la schermata di revisione non le
+mostrava affatto -- e se il titolare correggeva un nome, sparivano in
+silenzio, perche' il collegamento era per nome. Nessun test era rosso.
+
+Regola: quando un dato attraversa piu' livelli, il test che conta e' quello
+sul livello piu' esterno che l'utente tocca davvero. E se un dato esiste ma
+non si vede da nessuna parte nell'interfaccia, non e' "quasi fatto": e'
+qualcosa su cui nessuno potra' mai accorgersi di un errore.
+
 ## 27quindecies. Le regole d'agenda sono del salone, non del codice (18/09/2026)
 
 Migrazioni 0056 e 0057. Tre parametri che erano costanti nel codice (passo,

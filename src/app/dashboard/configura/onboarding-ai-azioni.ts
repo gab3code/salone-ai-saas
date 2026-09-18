@@ -4,9 +4,20 @@ import { creaClientServer } from "@/lib/supabase/server";
 import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
 import { puoConfigurareAttivita } from "@/lib/ruoli";
 import { pianoHaKnowledgeBaseAi } from "@/lib/piani";
-import { generaBozzaOnboarding, type RisultatoGenerazioneBozza } from "@/lib/onboarding-ai.server";
+import { generaBozzaOnboarding } from "@/lib/onboarding-ai.server";
 import type { BozzaOnboarding } from "@/lib/onboarding-ai";
-import { creaOperatore, creaServizio, impostaAssociazioneOperatoreServizio, salvaOrari } from "./azioni";
+import {
+  aggiornaOperatore,
+  aggiornaServizio,
+  creaOperatore,
+  creaServizio,
+  eliminaOperatore,
+  eliminaServizio,
+  impostaAssociazioneOperatoreServizio,
+  salvaOrari,
+} from "./azioni";
+import { calcolaDiff, type DiffConfigurazione, type StatoSalone } from "@/lib/onboarding-ai-diff";
+import { bozzaAStatoDesiderato } from "@/lib/onboarding-ai";
 import { aggiornaInformazioniAttivita, aggiungiFaq } from "../impostazioni/informazioni-attivita/azioni";
 import { aggiornaFinestraCancellazione } from "../impostazioni/cancellazione/azioni";
 
@@ -21,23 +32,82 @@ import { aggiornaFinestraCancellazione } from "../impostazioni/cancellazione/azi
  * UI cliente che dallo strumento AI).
  */
 
-export async function generaBozzaOnboardingAction(descrizione: string): Promise<RisultatoGenerazioneBozza> {
+/**
+ * La configurazione che c'e' gia', nella forma che il modello e il diff
+ * sanno leggere. E' la lettura che prima non esisteva: senza, la bozza non
+ * poteva riferirsi a niente e sapeva solo aggiungere.
+ */
+async function caricaStatoSalone(
+  supabase: Awaited<ReturnType<typeof creaClientServer>>,
+  tenantId: string
+): Promise<StatoSalone> {
+  const [operatoriRes, serviziRes, associazioniRes] = await Promise.all([
+    supabase.from("operatori").select("id, nome, descrizione, attivo").eq("tenant_id", tenantId).order("nome"),
+    supabase
+      .from("servizi")
+      .select("id, nome, durata_minuti, prezzo_centesimi, attivo")
+      .eq("tenant_id", tenantId)
+      .order("nome"),
+    supabase.from("operatori_servizi").select("operatore_id, servizio_id"),
+  ]);
+
+  return {
+    operatori: (operatoriRes.data ?? []).map((o) => ({
+      id: o.id as string,
+      nome: o.nome as string,
+      descrizione: (o.descrizione as string | null) ?? null,
+      attivo: o.attivo as boolean,
+    })),
+    servizi: (serviziRes.data ?? []).map((s) => ({
+      id: s.id as string,
+      nome: s.nome as string,
+      durataMinuti: s.durata_minuti as number,
+      // Il modello e il titolare ragionano in euro; i centesimi restano un
+      // dettaglio del database, come in tutto il resto del progetto.
+      prezzoEuro: (s.prezzo_centesimi as number) / 100,
+      attivo: s.attivo as boolean,
+    })),
+    associazioni: (associazioniRes.data ?? []).map((a) => ({
+      operatoreId: a.operatore_id as string,
+      servizioId: a.servizio_id as string,
+    })),
+  };
+}
+
+export type RisultatoBozzaConDiff =
+  | { ok: true; bozza: BozzaOnboarding; diff: DiffConfigurazione; stato: StatoSalone }
+  | { ok: false; errore: string };
+
+export async function generaBozzaOnboardingAction(descrizione: string): Promise<RisultatoBozzaConDiff> {
   const supabase = await creaClientServer();
   const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
   if (accessoNegato(accesso)) return { ok: false, errore: accesso.errore };
   const tenantId = accesso.tenantId;
 
-  const { data: tenant } = await supabase.from("tenants").select("piano").eq("id", tenantId).single();
+  const [{ data: tenant }, stato] = await Promise.all([
+    supabase.from("tenants").select("piano").eq("id", tenantId).single(),
+    caricaStatoSalone(supabase, tenantId),
+  ]);
   const haKnowledgeBaseAi = pianoHaKnowledgeBaseAi(tenant?.piano ?? "");
 
-  return generaBozzaOnboarding(descrizione, haKnowledgeBaseAi);
+  const esito = await generaBozzaOnboarding(descrizione, haKnowledgeBaseAi, stato);
+  if (!esito.ok) return esito;
+
+  // Il diff lo calcola codice puro, non il modello: vedi il docblock di
+  // onboarding-ai-diff.ts per il perche'.
+  return { ok: true, bozza: esito.bozza, diff: calcolaDiff(stato, bozzaAStatoDesiderato(esito.bozza)), stato };
 }
 
 export interface RisultatoApplicazioneBozza {
   orariSalvati: boolean;
   operatoriCreati: number;
+  operatoriAggiornati: number;
+  operatoriRimossi: number;
   serviziCreati: number;
+  serviziAggiornati: number;
+  serviziRimossi: number;
   associazioniCreate: number;
+  associazioniRimosse: number;
   informazioniSalvate: boolean;
   faqCreate: number;
   finestraCancellazioneSalvata: boolean;
@@ -54,12 +124,20 @@ export interface RisultatoApplicazioneBozza {
  * titolare vede subito cos'è andato a buon fine e cosa no, mai un
  * fallimento silenzioso.
  */
-export async function applicaBozzaOnboarding(bozza: BozzaOnboarding): Promise<RisultatoApplicazioneBozza> {
+export async function applicaBozzaOnboarding(
+  bozza: BozzaOnboarding,
+  diff: DiffConfigurazione
+): Promise<RisultatoApplicazioneBozza> {
   const risultato: RisultatoApplicazioneBozza = {
     orariSalvati: false,
     operatoriCreati: 0,
+    operatoriAggiornati: 0,
+    operatoriRimossi: 0,
     serviziCreati: 0,
+    serviziAggiornati: 0,
+    serviziRimossi: 0,
     associazioniCreate: 0,
+    associazioniRimosse: 0,
     informazioniSalvate: false,
     faqCreate: 0,
     finestraCancellazioneSalvata: false,
@@ -110,76 +188,123 @@ export async function applicaBozzaOnboarding(bozza: BozzaOnboarding): Promise<Ri
     else risultato.orariSalvati = true;
   }
 
-  // Operatori e servizi: creati uno alla volta con le azioni esistenti (che
-  // applicano già i limiti di piano), tenendo una mappa nome->id appena
-  // creato per risolvere le associazioni subito dopo -- una bozza può solo
-  // riferirsi a operatori/servizi che lei stessa propone, mai a righe già
-  // esistenti sul tenant (limite onesto della v1, non un tentativo di fare
-  // fuzzy-matching sui nomi già in database).
+  // Operatori e servizi: ogni modifica passa dalle azioni granulari gia' in
+  // produzione, che portano con se' i limiti di piano, le validazioni e --
+  // dal 18/09/2026 -- il rifiuto di cancellare qualcosa che e' stato usato
+  // davvero (vedi @/lib/configura-sicurezza). Qui non si scrive nessuna
+  // query: questo file decide l'ORDINE, non le regole.
+  //
+  // L'ordine conta: prima le creazioni e le modifiche, poi i collegamenti
+  // (che hanno bisogno degli id appena creati), e le rimozioni per ultime,
+  // cosi' un errore a meta' strada non lascia il salone senza operatori.
   const nomeOperatoreAId = new Map<string, string>();
-  for (const operatore of bozza.operatori) {
-    const fd = new FormData();
-    fd.set("nome", operatore.nome);
-    if (operatore.descrizione) fd.set("descrizione", operatore.descrizione);
-    const esito = await creaOperatore(fd);
-    if ("errore" in esito) {
-      risultato.errori.push(`Operatore "${operatore.nome}": ${esito.errore}`);
-      continue;
-    }
-    nomeOperatoreAId.set(operatore.nome, esito.id);
-    risultato.operatoriCreati++;
-  }
-
   const nomeServizioAId = new Map<string, string>();
-  for (const servizio of bozza.servizi) {
-    const fd = new FormData();
-    fd.set("nome", servizio.nome);
-    // Durata/prezzo mancanti (null): NON li stimiamo qui, li lasciamo
-    // assenti dal form così creaServizio applica la sua stessa validazione
-    // ("maggiore di zero") e restituisce un errore chiaro invece che una
-    // riga con un valore inventato -- coerente con la regola fondamentale
-    // di onboarding-ai.ts (mai inventare un numero che il titolare non ha
-    // scritto).
-    if (servizio.durataMinuti !== null) fd.set("durata_minuti", String(servizio.durataMinuti));
-    if (servizio.prezzoEuro !== null) fd.set("prezzo_euro", String(servizio.prezzoEuro));
-    const esito = await creaServizio(fd);
-    if ("errore" in esito) {
-      risultato.errori.push(`Servizio "${servizio.nome}": ${esito.errore}`);
-      continue;
-    }
-    nomeServizioAId.set(servizio.nome, esito.id);
-    risultato.serviziCreati++;
-  }
 
-  // Associazioni operatore/servizio: se la bozza non ne specifica nessuna
-  // (il testo non chiariva chi fa cosa), il default ragionevole è "ogni
-  // operatore appena creato fa ogni servizio appena creato" -- meglio uno
-  // slot disponibile di troppo che nessuno slot disponibile per nessun
-  // servizio (calcolaSlotDisponibili non propone comunque mai un operatore
-  // non qualificato una volta che il titolare corregge l'associazione a
-  // mano da /dashboard/configura).
-  const paia: Array<{ operatoreId: string; servizioId: string }> = [];
-  if (bozza.associazioni.length > 0) {
-    for (const assoc of bozza.associazioni) {
-      const operatoreId = nomeOperatoreAId.get(assoc.operatore);
-      const servizioId = nomeServizioAId.get(assoc.servizio);
-      if (!operatoreId || !servizioId) {
-        risultato.errori.push(
-          `Associazione "${assoc.operatore}" → "${assoc.servizio}" non applicata (nome non tra quelli appena creati).`
-        );
+  for (const modifica of diff.operatori) {
+    if (modifica.tipo === "crea" && modifica.dopo) {
+      const fd = new FormData();
+      fd.set("nome", modifica.dopo.nome);
+      if (modifica.dopo.descrizione) fd.set("descrizione", modifica.dopo.descrizione);
+      const esito = await creaOperatore(fd);
+      if ("errore" in esito) {
+        risultato.errori.push(`Operatore "${modifica.dopo.nome}": ${esito.errore}`);
         continue;
       }
-      paia.push({ operatoreId, servizioId });
-    }
-  } else if (nomeOperatoreAId.size > 0 && nomeServizioAId.size > 0) {
-    for (const operatoreId of nomeOperatoreAId.values()) {
-      for (const servizioId of nomeServizioAId.values()) paia.push({ operatoreId, servizioId });
+      nomeOperatoreAId.set(modifica.dopo.nome, esito.id);
+      risultato.operatoriCreati++;
+    } else if (modifica.tipo === "aggiorna" && modifica.id && modifica.dopo) {
+      const fd = new FormData();
+      fd.set("nome", modifica.dopo.nome);
+      if (modifica.dopo.descrizione) fd.set("descrizione", modifica.dopo.descrizione);
+      const esito = await aggiornaOperatore(modifica.id, fd);
+      if ("errore" in esito) risultato.errori.push(`Operatore "${modifica.dopo.nome}": ${esito.errore}`);
+      else {
+        nomeOperatoreAId.set(modifica.dopo.nome, modifica.id);
+        risultato.operatoriAggiornati++;
+      }
     }
   }
-  for (const { operatoreId, servizioId } of paia) {
-    const esito = await impostaAssociazioneOperatoreServizio(operatoreId, servizioId, true);
-    if (esito && "errore" in esito) risultato.errori.push(`Associazione: ${esito.errore}`);
-    else risultato.associazioniCreate++;
+
+  for (const modifica of diff.servizi) {
+    if (modifica.tipo === "crea" && modifica.dopo) {
+      const fd = new FormData();
+      fd.set("nome", modifica.dopo.nome);
+      // Durata/prezzo mancanti (null): NON li stimiamo qui, li lasciamo
+      // assenti dal form cosi' creaServizio applica la sua stessa
+      // validazione e restituisce un errore chiaro invece che una riga con
+      // un valore inventato -- regola fondamentale di onboarding-ai.ts.
+      if (modifica.dopo.durataMinuti !== null) fd.set("durata_minuti", String(modifica.dopo.durataMinuti));
+      if (modifica.dopo.prezzoEuro !== null) fd.set("prezzo_euro", String(modifica.dopo.prezzoEuro));
+      const esito = await creaServizio(fd);
+      if ("errore" in esito) {
+        risultato.errori.push(`Servizio "${modifica.dopo.nome}": ${esito.errore}`);
+        continue;
+      }
+      nomeServizioAId.set(modifica.dopo.nome, esito.id);
+      risultato.serviziCreati++;
+    } else if (modifica.tipo === "aggiorna" && modifica.id && modifica.dopo) {
+      const fd = new FormData();
+      fd.set("nome", modifica.dopo.nome);
+      if (modifica.dopo.durataMinuti !== null) fd.set("durata_minuti", String(modifica.dopo.durataMinuti));
+      if (modifica.dopo.prezzoEuro !== null) fd.set("prezzo_euro", String(modifica.dopo.prezzoEuro));
+      const esito = await aggiornaServizio(modifica.id, fd);
+      if ("errore" in esito) risultato.errori.push(`Servizio "${modifica.dopo.nome}": ${esito.errore}`);
+      else {
+        nomeServizioAId.set(modifica.dopo.nome, modifica.id);
+        risultato.serviziAggiornati++;
+      }
+    }
+  }
+
+  // Chi fa cosa. Le coppie che riguardano righe appena create arrivano qui
+  // senza id (non esistevano quando il diff e' stato calcolato): si
+  // risolvono adesso, per nome, contro le righe create in questo stesso
+  // giro -- nomi che vengono dalla bozza, non dal database.
+  for (const coppia of diff.associazioni) {
+    const operatoreId = coppia.operatoreId ?? nomeOperatoreAId.get(coppia.nomeOperatore);
+    const servizioId = coppia.servizioId ?? nomeServizioAId.get(coppia.nomeServizio);
+    if (!operatoreId || !servizioId) {
+      risultato.errori.push(
+        `"${coppia.nomeOperatore}" e "${coppia.nomeServizio}": collegamento non applicato, una delle due righe non e' stata creata.`
+      );
+      continue;
+    }
+    const esito = await impostaAssociazioneOperatoreServizio(operatoreId, servizioId, coppia.tipo === "crea");
+    if (esito && "errore" in esito) risultato.errori.push(`Chi fa cosa: ${esito.errore}`);
+    else if (coppia.tipo === "crea") risultato.associazioniCreate++;
+    else risultato.associazioniRimosse++;
+  }
+
+  // Un operatore o un servizio appena creato senza nessun collegamento non
+  // sarebbe prenotabile da nessuno: il default e' "tutti fanno tutto",
+  // meglio uno slot di troppo che nessuno slot per nessuno. Vale solo per le
+  // righe nuove, e solo quando il diff non ha gia' detto qualcosa su di loro.
+  const coinvolte = new Set(diff.associazioni.map((a) => `${a.nomeOperatore}::${a.nomeServizio}`));
+  for (const [nomeOperatore, operatoreId] of nomeOperatoreAId) {
+    for (const [nomeServizio, servizioId] of nomeServizioAId) {
+      if (coinvolte.has(`${nomeOperatore}::${nomeServizio}`)) continue;
+      const esito = await impostaAssociazioneOperatoreServizio(operatoreId, servizioId, true);
+      if (esito && "errore" in esito) risultato.errori.push(`Chi fa cosa: ${esito.errore}`);
+      else risultato.associazioniCreate++;
+    }
+  }
+
+  // Rimozioni per ultime, e solo quelle che il titolare ha spuntato: il
+  // diff le propone, la revisione le conferma, e le azioni sottostanti
+  // possono comunque rifiutarsi (un operatore con appuntamenti non si
+  // cancella, si disattiva). Un rifiuto qui e' un messaggio da leggere, non
+  // un fallimento della bozza.
+  for (const modifica of diff.operatori) {
+    if (modifica.tipo !== "rimuovi" || !modifica.id) continue;
+    const esito = await eliminaOperatore(modifica.id);
+    if (esito && "errore" in esito) risultato.errori.push(`${modifica.prima?.nome ?? "Operatore"}: ${esito.errore}`);
+    else risultato.operatoriRimossi++;
+  }
+  for (const modifica of diff.servizi) {
+    if (modifica.tipo !== "rimuovi" || !modifica.id) continue;
+    const esito = await eliminaServizio(modifica.id);
+    if (esito && "errore" in esito) risultato.errori.push(`${modifica.prima?.nome ?? "Servizio"}: ${esito.errore}`);
+    else risultato.serviziRimossi++;
   }
 
   // Informazioni attività (knowledge base, solo Pro/Enterprise):

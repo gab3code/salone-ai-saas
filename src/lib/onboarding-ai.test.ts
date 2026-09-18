@@ -28,8 +28,8 @@ describe("validaBozzaGrezza", () => {
       pausaInizio: "13:00",
       pausaFine: "14:00",
     });
-    expect(bozza.operatori).toEqual([{ nome: "Maria", descrizione: "Colorista" }]);
-    expect(bozza.servizi).toEqual([{ nome: "Piega", durataMinuti: 30, prezzoEuro: 20 }]);
+    expect(bozza.operatori).toEqual([{ id: null, nome: "Maria", descrizione: "Colorista" }]);
+    expect(bozza.servizi).toEqual([{ id: null, nome: "Piega", durataMinuti: 30, prezzoEuro: 20 }]);
     expect(bozza.associazioni).toEqual([{ operatore: "Maria", servizio: "Piega" }]);
     expect(bozza.informazioniAttivita).toEqual({
       descrizione: "Salone in centro",
@@ -48,9 +48,25 @@ describe("validaBozzaGrezza", () => {
     expect(lunedi).toMatchObject({ chiuso: true, apertura: null, chiusura: null });
   });
 
+  it("l'id di una riga esistente viene conservato, un id non valido diventa null", () => {
+    const bozza = validaBozzaGrezza(
+      { operatori: [{ id: "op-1", nome: "Anna" }, { id: 42, nome: "Bruno" }, { nome: "Carla" }] },
+      false
+    );
+    expect(bozza.operatori.map((o) => o.id)).toEqual(["op-1", null, null]);
+  });
+
+  it("SILENZIO SULLE ASSOCIAZIONI != ELENCO VUOTO", () => {
+    // Le due cose vogliono dire l'opposto: "non ne ho parlato, lascia stare"
+    // contro "nessuno esegue piu' niente". E' l'unico campo della bozza dove
+    // la distinzione esiste, e perderla cancellerebbe collegamenti veri.
+    expect(validaBozzaGrezza({ operatori: [{ nome: "Anna" }] }, false).associazioni).toBeNull();
+    expect(validaBozzaGrezza({ associazioni: [] }, false).associazioni).toEqual([]);
+  });
+
   it("durata e prezzo mancanti restano null, mai stimati/inventati", () => {
     const bozza = validaBozzaGrezza({ servizi: [{ nome: "Manicure" }] }, false);
-    expect(bozza.servizi).toEqual([{ nome: "Manicure", durataMinuti: null, prezzoEuro: null }]);
+    expect(bozza.servizi).toEqual([{ id: null, nome: "Manicure", durataMinuti: null, prezzoEuro: null }]);
   });
 
   it("un prezzo di 0€ è legittimo e distinto da 'non specificato'", () => {

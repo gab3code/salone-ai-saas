@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { BozzaOnboarding } from "@/lib/onboarding-ai";
+import type { DiffConfigurazione, StatoSalone } from "@/lib/onboarding-ai-diff";
 import { generaBozzaOnboardingAction } from "./onboarding-ai-azioni";
 import { RevisioneBozzaOnboarding } from "./RevisioneBozzaOnboarding";
 
@@ -89,7 +90,7 @@ export function costruisciDescrizioneOnboarding(risposte: RisposteWizard, nomeTi
 type Fase =
   | { nome: "domande"; passo: 0 | 1 | 2 }
   | { nome: "generando" }
-  | { nome: "revisione"; bozza: BozzaOnboarding }
+  | { nome: "revisione"; bozza: BozzaOnboarding; diff: DiffConfigurazione; stato: StatoSalone }
   | { nome: "errore"; messaggio: string };
 
 function Chip({ attivo, onClick, children }: { attivo: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -151,13 +152,15 @@ export function OnboardingWizard({ nomeTitolare }: { nomeTitolare: string }) {
       setFase({ nome: "errore", messaggio: esito.errore });
       return;
     }
-    setFase({ nome: "revisione", bozza: esito.bozza });
+    setFase({ nome: "revisione", bozza: esito.bozza, diff: esito.diff, stato: esito.stato });
   }
 
   if (fase.nome === "revisione") {
     return (
       <RevisioneBozzaOnboarding
         bozzaIniziale={fase.bozza}
+        diffIniziale={fase.diff}
+        statoIniziale={fase.stato}
         onRicomincia={() => {
           setRisposte(RISPOSTE_INIZIALI);
           setFase({ nome: "domande", passo: 0 });

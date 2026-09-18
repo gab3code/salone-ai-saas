@@ -14,6 +14,8 @@
  * quella riga, esattamente come un campo vuoto in un form normale.
  */
 
+import type { StatoDesiderato } from "./onboarding-ai-diff";
+
 export interface OrarioBozza {
   giornoSettimana: number; // 0=domenica .. 6=sabato, come Date.getUTCDay()
   chiuso: boolean;
@@ -24,11 +26,19 @@ export interface OrarioBozza {
 }
 
 export interface OperatoreBozza {
+  /**
+   * id della riga gia' esistente sul tenant, oppure null se e' nuova.
+   * Aggiunto il 18/09/2026: senza, la bozza non poteva riferirsi a niente
+   * di esistente e dire "siamo in due" a un salone con due operatori ne
+   * creava altri due (vedi onboarding-ai-diff.ts).
+   */
+  id: string | null;
   nome: string;
   descrizione: string | null;
 }
 
 export interface ServizioBozza {
+  id: string | null; // come OperatoreBozza.id
   nome: string;
   durataMinuti: number | null; // null = non specificato dal testo, l'owner lo compila in revisione
   prezzoEuro: number | null;
@@ -55,7 +65,13 @@ export interface BozzaOnboarding {
   orari: OrarioBozza[]; // sempre esattamente 7 elementi, uno per giorno
   operatori: OperatoreBozza[];
   servizi: ServizioBozza[];
-  associazioni: AssociazioneBozza[];
+  /**
+   * null = il testo non parlava di chi fa cosa: NON si tocca niente di
+   * quello che c'e'. Un elenco vuoto e' un'altra cosa e vuol dire il
+   * contrario ("nessuno fa piu' niente"): e' l'unico campo della bozza dove
+   * il silenzio e il vuoto non coincidono.
+   */
+  associazioni: AssociazioneBozza[] | null;
   informazioniAttivita: InformazioniAttivitaBozza | null;
   faq: FaqBozza[];
   oreMinimeCancellazione: number | null;
@@ -84,6 +100,16 @@ function testoONull(v: unknown, maxLunghezza: number): string | null {
   if (typeof v !== "string") return null;
   const pulito = v.trim().slice(0, maxLunghezza);
   return pulito || null;
+}
+
+/**
+ * Un id e' utile solo se e' una stringa non vuota: qualunque altra cosa
+ * (numero, oggetto, stringa vuota) vuol dire "il modello non stava indicando
+ * una riga esistente", e diventa null cioe' "riga nuova". Non si prova a
+ * indovinare: un id inventato viene poi segnalato dal diff.
+ */
+function idONull(v: unknown): string | null {
+  return typeof v === "string" && v.trim() ? v.trim() : null;
 }
 
 function numeroPositivoONull(v: unknown): number | null {
@@ -139,7 +165,11 @@ function normalizzaOperatori(grezzi: unknown): OperatoreBozza[] {
     if (typeof r !== "object" || r === null) continue;
     const nome = testoONull((r as Record<string, unknown>).nome, 100);
     if (!nome) continue;
-    risultato.push({ nome, descrizione: testoONull((r as Record<string, unknown>).descrizione, MAX_CARATTERI_DESCRIZIONE_OPERATORE) });
+    risultato.push({
+      id: idONull((r as Record<string, unknown>).id),
+      nome,
+      descrizione: testoONull((r as Record<string, unknown>).descrizione, MAX_CARATTERI_DESCRIZIONE_OPERATORE),
+    });
     if (risultato.length >= MAX_OPERATORI_BOZZA) break;
   }
   return risultato;
@@ -154,6 +184,7 @@ function normalizzaServizi(grezzi: unknown): ServizioBozza[] {
     if (!nome) continue;
     const durataGrezza = (r as Record<string, unknown>).durata_minuti;
     risultato.push({
+      id: idONull((r as Record<string, unknown>).id),
       nome,
       durataMinuti: typeof durataGrezza === "number" ? numeroPositivoONull(Math.round(durataGrezza)) : null,
       prezzoEuro: prezzoEuroONull((r as Record<string, unknown>).prezzo_euro),
@@ -163,8 +194,9 @@ function normalizzaServizi(grezzi: unknown): ServizioBozza[] {
   return risultato;
 }
 
-function normalizzaAssociazioni(grezzi: unknown): AssociazioneBozza[] {
-  if (!Array.isArray(grezzi)) return [];
+function normalizzaAssociazioni(grezzi: unknown): AssociazioneBozza[] | null {
+  // Campo assente/null: il testo non ne parlava. Diverso da un array vuoto.
+  if (!Array.isArray(grezzi)) return null;
   const risultato: AssociazioneBozza[] = [];
   for (const r of grezzi) {
     if (typeof r !== "object" || r === null) continue;
@@ -228,6 +260,37 @@ export function validaBozzaGrezza(grezza: unknown, haKnowledgeBaseAi: boolean): 
     informazioniAttivita: haKnowledgeBaseAi ? normalizzaInformazioniAttivita(r.informazioni_attivita) : null,
     faq: haKnowledgeBaseAi ? normalizzaFaq(r.faq) : [],
     oreMinimeCancellazione: normalizzaOreCancellazione(r.ore_minime_cancellazione),
+  };
+}
+
+/**
+ * Dalla bozza (nomi, come li scrive il modello) allo stato desiderato che
+ * `calcolaDiff` sa confrontare (oggetti). Le associazioni arrivano per NOME
+ * e vengono risolte QUI, contro gli operatori e i servizi della bozza
+ * stessa: nomi che il modello ha appena scritto, quindi coerenti fra loro.
+ * Una coppia che cita un nome non presente nella bozza viene scartata --
+ * meglio un'associazione in meno che una riga collegata a caso.
+ */
+export function bozzaAStatoDesiderato(bozza: BozzaOnboarding): StatoDesiderato {
+  const perNome = <T extends { nome: string }>(righe: T[]) => {
+    const mappa = new Map<string, T>();
+    for (const riga of righe) mappa.set(riga.nome.trim().toLowerCase(), riga);
+    return mappa;
+  };
+  const operatoriPerNome = perNome(bozza.operatori);
+  const serviziPerNome = perNome(bozza.servizi);
+
+  return {
+    operatori: bozza.operatori,
+    servizi: bozza.servizi,
+    associazioni:
+      bozza.associazioni === null
+        ? null
+        : bozza.associazioni.flatMap((a) => {
+            const operatore = operatoriPerNome.get(a.operatore.trim().toLowerCase());
+            const servizio = serviziPerNome.get(a.servizio.trim().toLowerCase());
+            return operatore && servizio ? [{ operatore, servizio }] : [];
+          }),
   };
 }
 
