@@ -67,9 +67,27 @@ describe("limiti di piano per la chat AI", () => {
     expect(limiteMensileMessaggi("pro", 3)).toBe(base * 3);
   });
 
-  it("growth ed enterprise NON scalano per operatore (prezzo piatto)", () => {
-    expect(limiteMensileMessaggi("growth", 5)).toBe(limiteMensileMessaggi("growth", 1));
+  it("anche la quota di Growth scala per operatore, ma molto piu' piano di Pro", () => {
+    // Corretto il 18/09/2026: il commento diceva che Growth non scala
+    // "perche' il prezzo non scala per operatore", ma sono 15 euro al mese
+    // per ognuno. Un salone Growth con quattro poltrone pagava 84,90 e aveva
+    // lo stesso tetto di chi lavora da solo: passava a Pro solo quando
+    // l'assistente smetteva di rispondere, cioe' un upgrade venduto da un
+    // guasto.
+    const growthSolo = limiteMensileMessaggi("growth", 1);
+    expect(limiteMensileMessaggi("growth", 4)).toBeGreaterThan(growthSolo);
+    // Pro resta nettamente sopra a parita' di operatori: e' quello che
+    // rende il passaggio una scelta e non un ripiego.
+    expect(limiteMensileMessaggi("pro", 4)).toBeGreaterThan(limiteMensileMessaggi("growth", 4) * 2);
+  });
+
+  it("enterprise non scala: 50.000 e' un muro contro l'abuso, non un tetto commerciale", () => {
     expect(limiteMensileMessaggi("enterprise", 5)).toBe(limiteMensileMessaggi("enterprise", 1));
+  });
+
+  it("free e starter restano a zero per quanti operatori abbiano", () => {
+    expect(limiteMensileMessaggi("free", 10)).toBe(0);
+    expect(limiteMensileMessaggi("starter", 10)).toBe(0);
   });
 
   it("l'intervallo anti-burst è positivo e ragionevole (non zero, non minuti)", () => {

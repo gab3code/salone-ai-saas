@@ -1,7 +1,8 @@
 import "server-only";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { elencaClientiInattivi } from "@/lib/metriche";
-import { PIANI_CON_PROMEMORIA } from "@/lib/piani";
+import { PIANI_CON_PROMEMORIA, pianoHaFollowUpAi } from "@/lib/piani";
+import { scriviFollowUpPersonalizzato } from "@/lib/follow-up-ai.server";
 import {
   appuntamentiDaAvvisarePerRegola,
   clientiDaAvvisarePerInattivita,
@@ -225,7 +226,11 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
       // vedi pianoHaSms -- qui si filtra solo per non caricare clienti
       // senza NESSUN recapito, che comunque non riceverebbero mai nulla).
       .or("email.not.is.null,telefono.not.is.null"),
-    admin.from("appuntamenti").select("cliente_id, inizio, stato").eq("tenant_id", tenant.id).not("cliente_id", "is", null),
+    admin
+      .from("appuntamenti")
+      .select("cliente_id, inizio, stato, servizi(nome)")
+      .eq("tenant_id", tenant.id)
+      .not("cliente_id", "is", null),
   ]);
 
   if (!clientiGrezzi || clientiGrezzi.length === 0) return 0;
@@ -262,6 +267,29 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
 
   const daAvvisare = clientiDaAvvisarePerInattivita([...perId.values()], inattivi, adesso, giorniInattivita);
   if (daAvvisare.length === 0) return 0;
+
+  // L'ultima cosa che ha fatto ogni cliente, per il richiamo scritto
+  // dall'assistente (Pro). Si ricava dalle righe gia' caricate qui sopra:
+  // nessuna query in piu', e su Growth non serve nemmeno.
+  const ultimaVisita = new Map<string, { quando: Date; servizio: string | null }>();
+  if (pianoHaFollowUpAi(tenant.piano)) {
+    for (const r of righeAppuntamenti ?? []) {
+      const clienteId = r.cliente_id as string | null;
+      if (!clienteId || r.stato === "cancellato") continue;
+      const quando = new Date(r.inizio as string);
+      const precedente = ultimaVisita.get(clienteId);
+      if (precedente && precedente.quando >= quando) continue;
+      const servizio = Array.isArray(r.servizi) ? r.servizi[0] : r.servizi;
+      ultimaVisita.set(clienteId, {
+        quando,
+        servizio: (servizio as { nome?: string } | null)?.nome ?? null,
+      });
+    }
+  }
+
+  const numeroOperatoriTenant = pianoHaFollowUpAi(tenant.piano)
+    ? ((await admin.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id)).count ?? 1)
+    : 1;
 
   const base = await urlBaseSito();
   const rigaPrenota = base
@@ -303,7 +331,26 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
     // canali: un cliente che riceve l'SMS e uno che riceve l'email devono
     // leggere la stessa cosa, e chi scrive il messaggio non deve doverlo
     // scrivere due volte.
-    const testo = comporreMessaggioFollowUp(tenant.follow_up_inattivi_messaggio, cliente.nome);
+    // Su Pro prova a farlo scrivere all'assistente; in qualunque caso di
+    // problema (quota finita, modello lento, testo rifiutato dai controlli)
+    // si torna al messaggio fisso. Il richiamo parte comunque: saltarlo per
+    // un guasto nostro farebbe perdere al salone un cliente vero.
+    let testo = comporreMessaggioFollowUp(tenant.follow_up_inattivi_messaggio, cliente.nome);
+    if (pianoHaFollowUpAi(tenant.piano)) {
+      const storia = ultimaVisita.get(cliente.id);
+      const scritto = storia
+        ? await scriviFollowUpPersonalizzato(tenant.id, tenant.piano, numeroOperatoriTenant, {
+            nomeCliente: cliente.nome,
+            nomeSalone: tenant.nome,
+            giorniDaUltimaVisita: Math.max(
+              1,
+              Math.round((adesso.getTime() - storia.quando.getTime()) / (24 * 60 * 60 * 1000))
+            ),
+            ultimoServizio: storia.servizio,
+          })
+        : null;
+      if (scritto) testo = scritto;
+    }
 
     let inviato: boolean;
     if (cliente.email) {

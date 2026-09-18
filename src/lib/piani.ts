@@ -213,6 +213,25 @@ export function pianoHaKnowledgeBaseAi(piano: string): boolean {
  * ANCHE accendere esplicitamente `tenants.compleanno_attivo` (default
  * spento): questo gate decide solo CHI PUÒ attivarlo, non se è già attivo.
  */
+/**
+ * Gate del richiamo scritto dall'assistente (18/09/2026).
+ *
+ * Su Growth il messaggio ai clienti che non tornano e' uno fisso, uguale per
+ * tutti. Su Pro lo scrive l'assistente leggendo la storia di quel cliente:
+ * da quanto manca, cosa prendeva. E' la differenza fra un promemoria e un
+ * invito, ed e' una delle poche cose che rendono Pro un lavoro diverso
+ * invece di una pila di funzioni in piu'.
+ *
+ * Growth non perde niente: continua ad avere il richiamo automatico, col
+ * suo messaggio. Spostare in su qualcosa che un cliente ha gia' sarebbe un
+ * declassamento, non una leva.
+ */
+export const PIANI_CON_FOLLOW_UP_AI = new Set(["pro", "enterprise"]);
+
+export function pianoHaFollowUpAi(piano: string): boolean {
+  return PIANI_CON_FOLLOW_UP_AI.has(piano);
+}
+
 export const PIANI_CON_PROMEMORIA_COMPLEANNO = new Set(["pro", "enterprise"]);
 
 export function pianoHaPromemoriaCompleanno(piano: string): boolean {

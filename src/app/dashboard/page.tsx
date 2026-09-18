@@ -96,7 +96,7 @@ export default async function PaginaDashboard({
 
   const mostraQuotaAi = !!tenant && vedeNumeri;
   const operatoriPerQuota =
-    mostraQuotaAi && tenant.piano === "pro" && profilo?.tenant_id
+    mostraQuotaAi && profilo?.tenant_id
       ? ((await supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", profilo.tenant_id))
           .count ?? 1)
       : 1;

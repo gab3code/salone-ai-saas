@@ -82,12 +82,35 @@ const QUOTA_MENSILE_MESSAGGI_PER_PIANO: Record<string, number> = {
 // non scala per operatore, quindi non avrebbe senso far scalare la quota
 // senza far scalare il prezzo che la copre -- Growth non ha comunque un
 // tetto sul numero di operatori, solo un prezzo piatto.
+/**
+ * Quanto cresce la quota per ogni operatore OLTRE IL PRIMO.
+ *
+ * Growth aggiunto il 18/09/2026, correggendo un ragionamento sbagliato. Il
+ * commento che c'era qui diceva che la quota di Growth non scala "perche' il
+ * suo prezzo non scala per operatore": ma scala eccome, sono 15 euro al mese
+ * per ogni operatore in piu' (vedi PREZZO_OPERATORE_EXTRA_CENTESIMI).
+ *
+ * L'effetto era questo: un salone Growth con quattro poltrone pagava 84,90
+ * al mese e aveva lo stesso tetto di chi lavora da solo. Passava a Pro solo
+ * quando l'assistente smetteva di rispondere ai suoi clienti a meta' mese --
+ * cioe' un upgrade venduto da un guasto, di cui il titolare da' la colpa a
+ * noi. Un tetto che si raggiunge per aver lavorato tanto non e' una leva
+ * commerciale, e' una brutta figura che si ripete.
+ *
+ * Pro resta molto sopra: ha una base piu' alta e cresce sei volte piu' in
+ * fretta, coerentemente con i 20 euro per operatore invece di 15.
+ */
+const QUOTA_PER_OPERATORE_EXTRA: Record<string, number> = {
+  growth: 500,
+  pro: 3000, // prima era una moltiplicazione: 3000 x operatori, stessi numeri
+  enterprise: 0, // 50.000 e' gia' un muro contro l'abuso, non un tetto commerciale
+};
+
 export function limiteMensileMessaggi(piano: string, numeroOperatori: number = 1): number {
   const base = QUOTA_MENSILE_MESSAGGI_PER_PIANO[piano] ?? 0;
-  if (piano === "pro" && Number.isFinite(base)) {
-    return base * Math.max(1, numeroOperatori);
-  }
-  return base;
+  if (base === 0 || !Number.isFinite(base)) return base;
+  const extra = QUOTA_PER_OPERATORE_EXTRA[piano] ?? 0;
+  return base + extra * Math.max(0, numeroOperatori - 1);
 }
 
 /**

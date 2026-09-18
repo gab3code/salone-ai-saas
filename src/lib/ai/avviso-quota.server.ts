@@ -48,11 +48,9 @@ export async function inviaAvvisiQuotaAi(
 
     esito.controllati += 1;
 
+    // La quota scala con gli operatori su Growth e su Pro (18/09/2026).
     const numeroOperatori =
-      tenant.piano === "pro"
-        ? ((await admin.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id))
-            .count ?? 1)
-        : 1;
+      (await admin.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id)).count ?? 1;
     const limite = limiteMensileMessaggi(tenant.piano, numeroOperatori);
     const usati = await contaMessaggiClienteQuestoMese(admin, tenant.id);
     if (usati < limite * SOGLIA_AVVISO_QUOTA_AI) continue;

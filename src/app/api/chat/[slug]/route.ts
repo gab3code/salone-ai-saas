@@ -133,13 +133,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
     const usatiQuestoMese = await contaMessaggiClienteQuestoMese(supabase, tenantId);
-    // Numero operatori solo per Pro (unico piano la cui quota scala con
-    // essi, vedi limiti.ts) -- niente query in più per Growth/Enterprise,
-    // dove il conteggio non cambierebbe comunque il risultato.
+    // Dal 18/09/2026 la quota scala con gli operatori anche su Growth (vedi
+    // limiti.ts), quindi il conteggio serve sempre: prima si faceva solo per
+    // Pro, e un salone Growth con quattro poltrone aveva lo stesso tetto di
+    // chi lavora da solo.
     const numeroOperatori =
-      tenant.piano === "pro"
-        ? ((await supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId)).count ?? 0)
-        : 1;
+      (await supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId)).count ?? 1;
     if (usatiQuestoMese >= limiteMensileMessaggi(tenant.piano, numeroOperatori)) {
       return NextResponse.json(
         { errore: "Questa attività ha raggiunto il limite mensile di messaggi AI. Contattala direttamente per prenotare." },
