@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { creaSupabaseFinto as creaSupabaseFintoBase, type ChiamataScrittura } from "@/test/supabase-finto";
 import {
   parsaOrarioLocale,
@@ -108,13 +108,39 @@ function rispostaOperatoreCompatibileConServizio() {
   return { data: { operatore_id: OPERATORE_ID }, error: null };
 }
 
+/**
+ * L'orologio e' fermo per tutto questo file, e non e' pigrizia.
+ *
+ * Dal 19/09/2026 `creaAppuntamentoTenant` rifiuta gli appuntamenti nel
+ * passato. Le date qui dentro sono fisse apposta -- 2026-07-15, 2026-09-05 --
+ * perche' un test che dice "alle 10:00" e poi asserisce "10:00" e' leggibile,
+ * mentre uno che calcola `domani` diventa illeggibile e si rompe a mezzanotte
+ * (difetto gia' visto su questo progetto il 18/09, l'helper delle date che
+ * dopo mezzanotte mentiva).
+ *
+ * Quindi invece di spostare in avanti venti date, si ferma il presente PRIMA
+ * di tutte: cosi' quelle date restano future per sempre e i test continuano a
+ * verificare quello che verificavano, piu' il fatto che il rifiuto del
+ * passato non spara a caso su un orario futuro.
+ *
+ * Il rifiuto vero e' verificato dai suoi test dedicati, che spostano
+ * l'orologio di proposito.
+ */
+const ADESSO_FINTO = new Date("2026-06-01T08:00:00.000Z");
+
 beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(ADESSO_FINTO);
   caricaImpegniEsterniFinto.mockReset();
   caricaImpegniEsterniFinto.mockResolvedValue([]);
   inviaEmailFinta.mockReset();
   inviaEmailFinta.mockResolvedValue(true);
   inviaSmsSeInclusoNelPianoFinto.mockReset();
   inviaSmsSeInclusoNelPianoFinto.mockResolvedValue(true);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("parsaOrarioLocale", () => {
@@ -656,6 +682,93 @@ describe("creaAppuntamentoTenant", () => {
     });
     expect(risultato.ok).toBe(false);
     if (!risultato.ok) expect(risultato.errore).toMatch(/già un appuntamento/);
+  });
+
+  /**
+   * Niente appuntamenti nel passato, da nessuna delle tre porte
+   * (19/09/2026, segnalato da Gabriel).
+   *
+   * Questi test spostano l'orologio DOPO l'orario dell'appuntamento, invece
+   * di spostare l'appuntamento indietro: cosi' l'unica cosa che cambia
+   * rispetto agli altri test del file e' il presente, che e' esattamente la
+   * variabile sotto esame.
+   */
+  describe("appuntamenti nel passato", () => {
+    function supabasePronto() {
+      return creaSupabaseFinto({
+        tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
+        servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+        operatori: { select: [rispostaOperatoreValido()] },
+        operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
+        appuntamenti: {
+          select: [{ data: [], error: null }],
+          insert: [{ data: { id: "nuovo-appuntamento" }, error: null }],
+        },
+      });
+    }
+
+    it("rifiuta un orario gia' passato dalla dashboard, e lo dice in modo utile", async () => {
+      vi.setSystemTime(new Date("2026-07-15T15:00:00.000Z")); // un'ora DOPO l'inizio reale
+      const supabase = supabasePronto();
+      const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
+        operatoreId: OPERATORE_ID,
+        servizioId: SERVIZIO_ID,
+        inizio: INIZIO_PSEUDO,
+        creatoDa: "manuale",
+      });
+      expect(risultato.ok).toBe(false);
+      if (!risultato.ok) expect(risultato.errore).toMatch(/già passato/);
+    });
+
+    it("rifiuta anche quando la richiesta arriva dall'AI", async () => {
+      vi.setSystemTime(new Date("2026-07-15T15:00:00.000Z"));
+      const risultato = await creaAppuntamentoTenant(supabasePronto(), TENANT_ID, {
+        operatoreId: OPERATORE_ID,
+        servizioId: SERVIZIO_ID,
+        inizio: INIZIO_PSEUDO,
+        creatoDa: "ai",
+      });
+      expect(risultato.ok).toBe(false);
+      if (!risultato.ok) expect(risultato.errore).toMatch(/già passato/);
+    });
+
+    it("NON crea il cliente quando rifiuta: il rifiuto viene prima di ogni effetto", async () => {
+      vi.setSystemTime(new Date("2026-07-15T15:00:00.000Z"));
+      const supabase = supabasePronto();
+      await creaAppuntamentoTenant(supabase, TENANT_ID, {
+        operatoreId: OPERATORE_ID,
+        servizioId: SERVIZIO_ID,
+        inizio: INIZIO_PSEUDO,
+        creatoDa: "ai",
+        clienteNome: "Mario",
+        clienteTelefono: "+393331112222",
+      });
+      const scrittureClienti = supabase.registro.insert.filter((c: ChiamataScrittura) => c.tabella === "clienti");
+      expect(scrittureClienti).toEqual([]);
+    });
+
+    it("lascia passare lo stesso orario quando e' ancora futuro", async () => {
+      vi.setSystemTime(new Date("2026-07-15T13:00:00.000Z")); // un'ora PRIMA
+      const risultato = await creaAppuntamentoTenant(supabasePronto(), TENANT_ID, {
+        operatoreId: OPERATORE_ID,
+        servizioId: SERVIZIO_ID,
+        inizio: INIZIO_PSEUDO,
+        creatoDa: "manuale",
+      });
+      expect(risultato.ok).toBe(true);
+    });
+
+    it("`registraNelPassato` esiste apposta per segnare cio' che e' gia' avvenuto", async () => {
+      vi.setSystemTime(new Date("2026-07-15T15:00:00.000Z"));
+      const risultato = await creaAppuntamentoTenant(supabasePronto(), TENANT_ID, {
+        operatoreId: OPERATORE_ID,
+        servizioId: SERVIZIO_ID,
+        inizio: INIZIO_PSEUDO,
+        creatoDa: "manuale",
+        registraNelPassato: true,
+      });
+      expect(risultato.ok).toBe(true);
+    });
   });
 
   it("scrive l'istante REALE corretto (convertito dal fuso del tenant), non l'orario pseudo-UTC grezzo", async () => {

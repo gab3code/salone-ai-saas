@@ -122,6 +122,8 @@ export const REGOLE_AGENDA_PREDEFINITE: RegoleAgenda = {
 };
 
 export interface ContestoBooking {
+  /** Il fuso del salone, per convertire "adesso" nella convenzione pseudo-UTC. */
+  fusoOrario: string;
   orari: OrarioGiorno[];
   chiusure: Chiusura[];
   operatori: Operatore[];
@@ -309,7 +311,7 @@ export async function caricaContestoBooking(
     fusoOrario
   );
 
-  return { orari, chiusure, operatori, regole, appuntamenti: [...appuntamenti, ...impegniEsterni] };
+  return { fusoOrario, orari, chiusure, operatori, regole, appuntamenti: [...appuntamenti, ...impegniEsterni] };
 }
 
 /**
@@ -393,6 +395,11 @@ async function trovaSlotEContestoTenant(
     bufferMinuti: params.bufferMinuti ?? contesto.regole.bufferMinuti,
     passoMinuti: params.passoMinuti ?? contesto.regole.passoMinuti,
     modalitaRiempimento: params.modalitaRiempimento ?? contesto.regole.modalitaRiempimento,
+    // Il presente, nella stessa convenzione pseudo-UTC di tutto il resto del
+    // motore. Da qui passano SIA il flusso pubblico SIA il tool dell'AI: e'
+    // il punto giusto per non proporre mai un orario gia' passato, perche'
+    // e' l'unico punto che entrambi attraversano.
+    adesso: realeAPseudoUtc(new Date(), contesto.fusoOrario),
   };
 
   const slot =
@@ -649,6 +656,20 @@ export interface CreaAppuntamentoParams {
   // di scrittura (punto 9 di CLAUDE.md).
   creatoDa: "manuale" | "ai" | "pubblico";
   note?: string;
+  /**
+   * Registra un appuntamento gia' avvenuto, saltando il rifiuto del passato.
+   *
+   * Esiste perche' il caso vero c'e': il titolare segna a fine giornata il
+   * cliente arrivato senza prenotazione, e quella riga serve -- allo storico,
+   * ai conti, al "questo cliente non torna da un po'". Ma e' una cosa che si
+   * CHIEDE, non che capita: di default nessuna porta puo' scrivere nel
+   * passato, e questo campo lo si passa solo da un'azione che dice
+   * esplicitamente "sto registrando una cosa gia' successa".
+   *
+   * Non e' raggiungibile dal flusso pubblico ne' dall'AI, e non deve
+   * diventarlo: un cliente che prenota ieri e' sempre un errore.
+   */
+  registraNelPassato?: boolean;
 }
 
 /**
@@ -848,6 +869,41 @@ export async function creaAppuntamentoTenant(
     };
   }
 
+  // Il fuso del salone, letto una volta sola: serve al rifiuto del passato
+  // qui sotto e alla conversione in istante reale appena prima di scrivere.
+  const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
+
+  // NESSUN APPUNTAMENTO NEL PASSATO, DA NESSUNA PORTA (19/09/2026).
+  //
+  // Il filtro dentro il motore smette di PROPORRE orari passati, ma proporre
+  // e scrivere sono due cose diverse: l'AI puo' ricevere una data dettata da
+  // un cliente, il flusso pubblico puo' avere una scheda aperta da un'ora, e
+  // la dashboard passa una data scritta a mano. Il controllo sta QUI perche'
+  // questa e' l'unica funzione che scrive appuntamenti e le tre porte la
+  // attraversano tutte (punto 9 di CLAUDE.md): messo nelle tre porte
+  // sarebbero tre controlli da tenere d'accordo, e prima o poi uno resta
+  // indietro.
+  //
+  // Sta anche PRIMA di `trovaOCreaCliente`, che e' la prima riga di questa
+  // funzione con un effetto collaterale: rifiutare dopo aver creato un
+  // cliente lascerebbe in rubrica una persona che non ha mai prenotato.
+  //
+  // `params.inizio` e' pseudo-UTC, quindi il confronto vuole un "adesso"
+  // nella stessa convenzione -- non `new Date()` grezzo, che con un salone
+  // a Roma sbaglierebbe di due ore in estate.
+  if (!params.registraNelPassato) {
+    const adesso = realeAPseudoUtc(new Date(), fusoOrario);
+    if (params.inizio.getTime() < adesso.getTime()) {
+      return {
+        ok: false,
+        errore:
+          params.creatoDa === "manuale"
+            ? "Quell'orario è già passato. Per segnare un appuntamento già avvenuto serve la funzione apposita."
+            : "Quell'orario è già passato. Scegline uno futuro.",
+      };
+    }
+  }
+
   let clienteId: string | null = null;
   if (params.clienteTelefono) {
     const risultato = await trovaOCreaCliente(
@@ -861,8 +917,6 @@ export async function creaAppuntamentoTenant(
     if ("errore" in risultato) return { ok: false, errore: risultato.errore };
     clienteId = risultato.id;
   }
-
-  const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
 
   // Una riga `appuntamenti` per servizio, in sequenza senza buchi
   // nell'ordine dato da chi chiama (l'ordine con cui il cliente li ha

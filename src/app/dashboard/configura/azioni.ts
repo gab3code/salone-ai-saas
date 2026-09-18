@@ -39,22 +39,64 @@ export async function salvaOrari(formData: FormData) {
   if (accessoNegato(accesso)) return { errore: accesso.errore };
   const tenantId = accesso.tenantId;
 
-  const righe = GIORNI.map((giorno) => {
+  // VALIDAZIONE (19/09/2026). Prima qui non c'era nulla, e si e' visto.
+  //
+  // Il caso vero: la bozza AI ha salvato il sabato come "aperto dalle 00:00
+  // alle 19:00", e il calendario ha cominciato a proporre appuntamenti alle
+  // 00:15 di notte. Nessun controllo ha protestato, perche' "00:00" e' un
+  // orario formalmente valido -- il difetto non era il formato, era che
+  // nessuno chiedeva se avesse senso.
+  //
+  // Le due regole qui sotto valgono per il salone come gia' valevano per il
+  // singolo operatore (vedi `salvaOrariOperatore` piu' sotto, che le aveva
+  // dal primo giorno). Che due funzioni sorelle avessero regole diverse era
+  // il vero difetto: una delle due era rimasta indietro e nessuno se n'era
+  // accorto perche' i controlli guardavano il formato, non la coerenza.
+  const righe: {
+    tenant_id: string;
+    giorno_settimana: number;
+    chiuso: boolean;
+    apertura: string | null;
+    chiusura: string | null;
+    pausa_inizio: string | null;
+    pausa_fine: string | null;
+  }[] = [];
+
+  for (const giorno of GIORNI) {
     const chiuso = formData.get(`chiuso_${giorno}`) === "on";
     const apertura = String(formData.get(`apertura_${giorno}`) || "");
     const chiusura = String(formData.get(`chiusura_${giorno}`) || "");
     const pausaInizio = String(formData.get(`pausa_inizio_${giorno}`) || "");
     const pausaFine = String(formData.get(`pausa_fine_${giorno}`) || "");
-    return {
+
+    if (!chiuso) {
+      // "Aperto" senza orari non e' uno stato: il motore lo tratta come
+      // chiuso (vedi `intervalliApertura`), quindi la schermata direbbe
+      // aperto e il prodotto si comporterebbe da chiuso. Una mezza
+      // funzionalita' e' peggio di una mancante, perche' sembra a posto.
+      if (!apertura || !chiusura) {
+        return {
+          errore: `${NOMI_GIORNI[giorno]}: se il giorno e' aperto servono sia l'orario di apertura sia quello di chiusura. Se invece siete chiusi, spunta "Chiuso".`,
+        };
+      }
+      if (chiusura <= apertura) {
+        return { errore: `${NOMI_GIORNI[giorno]}: la chiusura deve venire dopo l'apertura.` };
+      }
+      if (pausaInizio && pausaFine && pausaFine <= pausaInizio) {
+        return { errore: `${NOMI_GIORNI[giorno]}: la pausa deve finire dopo il suo inizio.` };
+      }
+    }
+
+    righe.push({
       tenant_id: tenantId,
       giorno_settimana: giorno,
       chiuso,
-      apertura: chiuso || !apertura ? null : apertura,
-      chiusura: chiuso || !chiusura ? null : chiusura,
+      apertura: chiuso ? null : apertura,
+      chiusura: chiuso ? null : chiusura,
       pausa_inizio: chiuso || !pausaInizio ? null : pausaInizio,
       pausa_fine: chiuso || !pausaFine ? null : pausaFine,
-    };
-  });
+    });
+  }
 
   const { error } = await supabase
     .from("orari_apertura")

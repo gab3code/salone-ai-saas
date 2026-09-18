@@ -22,6 +22,23 @@ export const NOMI_GIORNI_SETTIMANA = [
   "sabato",
 ] as const;
 
+/**
+ * L'ordine in cui un titolare italiano LEGGE la settimana: lunedi' -> domenica.
+ *
+ * Il database usa la codifica di Postgres e di JavaScript, 0 = domenica, ed e'
+ * giusto che resti cosi': e' quello che restituisce `getUTCDay()` e quello con
+ * cui `giorno_settimana` e' scritto in ogni riga di `orari_apertura`.
+ * Cambiarla vorrebbe dire una migrazione di dati per una questione di
+ * presentazione, cioe' il tipo di cambiamento che si paga per sempre.
+ *
+ * Quindi si cambia solo l'ORDINE IN CUI SI DISEGNA. I numeri restano quelli.
+ * Chi scrive una nuova schermata con gli orari cicla su questa costante e
+ * prende il nome con l'indice, invece di ciclare sull'array dei nomi -- che e'
+ * l'errore che faceva comparire domenica in cima alla tabella degli orari
+ * (segnalato da Gabriel il 19/09/2026).
+ */
+export const GIORNI_SETTIMANA_DA_LUNEDI = [1, 2, 3, 4, 5, 6, 0] as const;
+
 const NOMI_MESI = [
   "gennaio",
   "febbraio",

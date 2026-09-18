@@ -176,6 +176,17 @@ export async function generaBozzaOnboardingAction(descrizione: string): Promise<
   };
 }
 
+/** Solo per i messaggi d'errore qui sotto: l'indice e' la codifica del database. */
+const NOMI_GIORNI_APPLICA = [
+  "Domenica",
+  "Lunedi'",
+  "Martedi'",
+  "Mercoledi'",
+  "Giovedi'",
+  "Venerdi'",
+  "Sabato",
+];
+
 export interface RisultatoApplicazioneBozza {
   orariSalvati: boolean;
   operatoriCreati: number;
@@ -277,7 +288,44 @@ export async function applicaBozzaOnboarding(
   // li riscrive identici a se stessi.
   if (bozza.orari.length > 0) {
     const partenza = new Map(stato.orari.map((o) => [o.giornoSettimana, o]));
-    for (const o of bozza.orari) partenza.set(o.giornoSettimana, o);
+
+    // UN GIORNO "APERTO" SENZA ORARI NON SI INVENTA (19/09/2026).
+    //
+    // Il caso vero, trovato sul database di produzione: "il sabato siamo
+    // aperti" e' finito salvato come "sabato aperto dalle 00:00 alle 19:00",
+    // e il calendario ha iniziato a proporre appuntamenti in piena notte.
+    //
+    // Due difese, in ordine:
+    // 1. se il giorno aveva gia' i suoi orari, si ereditano -- "siamo aperti"
+    //    su un giorno che era 09:00-19:00 vuol dire quello, non "da
+    //    mezzanotte";
+    // 2. se non ce ne sono da ereditare (il caso tipico: quel giorno era
+    //    chiuso, quindi le colonne sono NULL), NON si tira a indovinare. Il
+    //    giorno non viene toccato e lo si dice al titolare, che ci mette due
+    //    secondi a scrivere gli orari e sa quali sono. Meglio una richiesta
+    //    in piu' che un salone aperto alle tre di notte.
+    for (const o of bozza.orari) {
+      if (o.chiuso) {
+        partenza.set(o.giornoSettimana, o);
+        continue;
+      }
+      const precedente = partenza.get(o.giornoSettimana);
+      const apertura = o.apertura ?? (precedente && !precedente.chiuso ? precedente.apertura : null);
+      const chiusura = o.chiusura ?? (precedente && !precedente.chiuso ? precedente.chiusura : null);
+      if (!apertura || !chiusura) {
+        risultato.errori.push(
+          `${NOMI_GIORNI_APPLICA[o.giornoSettimana]}: ho capito che siete aperti ma non con quali orari, quindi non l'ho toccato. Scrivili tu qui sotto.`
+        );
+        continue;
+      }
+      partenza.set(o.giornoSettimana, {
+        ...o,
+        apertura,
+        chiusura,
+        pausaInizio: o.pausaInizio ?? (precedente && !precedente.chiuso ? precedente.pausaInizio : null),
+        pausaFine: o.pausaFine ?? (precedente && !precedente.chiuso ? precedente.pausaFine : null),
+      });
+    }
 
     const formOrari = new FormData();
     for (const o of partenza.values()) {

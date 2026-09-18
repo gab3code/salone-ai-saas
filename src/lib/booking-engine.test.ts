@@ -519,3 +519,108 @@ describe("diagnosticaOperatori", () => {
     expect(diagnosticaOperatori([SOLO_TAGLIO], [])).toBeNull();
   });
 });
+
+/**
+ * Il presente come parametro (19/09/2026).
+ *
+ * Nato da una segnalazione di Gabriel: "il sistema permette di prendere
+ * appuntamento o di inserire appuntamenti in giorni e ore passate". Il motore
+ * non guardava l'orologio in nessun punto, quindi i giorni scorsi restavano
+ * prenotabili per intero e le 09:00 di stamattina restavano libere alle 16:00.
+ */
+describe("calcolaSlotDisponibili -- niente orari gia' passati", () => {
+  it("non propone gli orari precedenti ad `adesso` nello stesso giorno", () => {
+    const slot = calcolaSlotDisponibili({
+      data: LUNEDI,
+      durataMinuti: 30,
+      servizioId: "taglio",
+      operatoreId: "anna",
+      operatori: [anna],
+      orari: orariStandard,
+      chiusure: [],
+      appuntamentiEsistenti: [],
+      adesso: orario(11, 20),
+    });
+
+    expect(slot.length).toBeGreaterThan(0);
+    for (const s of slot) expect(s.inizio.getTime()).toBeGreaterThan(orario(11, 20).getTime());
+    // Il primo orario utile e' il primo punto di griglia DOPO le 11:20.
+    expect(slot[0].inizio.toISOString()).toBe(orario(11, 30).toISOString());
+  });
+
+  it("lo slot che inizia esattamente adesso non si prenota", () => {
+    const slot = calcolaSlotDisponibili({
+      data: LUNEDI,
+      durataMinuti: 30,
+      servizioId: "taglio",
+      operatoreId: "anna",
+      operatori: [anna],
+      orari: orariStandard,
+      chiusure: [],
+      appuntamentiEsistenti: [],
+      adesso: orario(11, 30),
+    });
+
+    expect(slot.some((s) => s.inizio.getTime() === orario(11, 30).getTime())).toBe(false);
+    expect(slot[0].inizio.toISOString()).toBe(orario(11, 45).toISOString());
+  });
+
+  it("un giorno interamente passato non ha nessuno slot", () => {
+    const slot = calcolaSlotDisponibili({
+      data: LUNEDI,
+      durataMinuti: 30,
+      servizioId: "taglio",
+      operatoreId: "anna",
+      operatori: [anna],
+      orari: orariStandard,
+      chiusure: [],
+      appuntamentiEsistenti: [],
+      adesso: orario(9, 0, MARTEDI),
+    });
+
+    expect(slot).toEqual([]);
+  });
+
+  it("un giorno futuro resta intero: `adesso` non erode il giorno dopo", () => {
+    const conAdesso = calcolaSlotDisponibili({
+      data: MARTEDI,
+      durataMinuti: 30,
+      servizioId: "taglio",
+      operatoreId: "anna",
+      operatori: [anna],
+      orari: orariStandard,
+      chiusure: [],
+      appuntamentiEsistenti: [],
+      adesso: orario(16, 0),
+    });
+    const senzaAdesso = calcolaSlotDisponibili({
+      data: MARTEDI,
+      durataMinuti: 30,
+      servizioId: "taglio",
+      operatoreId: "anna",
+      operatori: [anna],
+      orari: orariStandard,
+      chiusure: [],
+      appuntamentiEsistenti: [],
+    });
+
+    expect(conAdesso.map((s) => s.inizio.toISOString())).toEqual(
+      senzaAdesso.map((s) => s.inizio.toISOString())
+    );
+  });
+
+  it("senza `adesso` il motore si comporta esattamente come prima", () => {
+    const slot = calcolaSlotDisponibili({
+      data: LUNEDI,
+      durataMinuti: 30,
+      servizioId: "taglio",
+      operatoreId: "anna",
+      operatori: [anna],
+      orari: orariStandard,
+      chiusure: [],
+      appuntamentiEsistenti: [],
+    });
+
+    expect(slot[0].inizio.toISOString()).toBe(orario(9, 0).toISOString());
+  });
+});

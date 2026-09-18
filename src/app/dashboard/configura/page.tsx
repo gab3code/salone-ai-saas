@@ -20,7 +20,7 @@ import { BottoneAzione } from "./BottoneAzione";
 import { tettoBozzaOnboarding } from "@/lib/ai/limiti";
 import { contaBozzeOnboarding } from "@/lib/ai/usi-interni.server";
 import { impostaAttivoOperatore, impostaAttivoServizio } from "./azioni";
-import { formattaDataItaliana } from "@/lib/data-italiana";
+import { formattaDataItaliana, GIORNI_SETTIMANA_DA_LUNEDI } from "@/lib/data-italiana";
 import { PannelloOnboardingAI } from "./PannelloOnboardingAI";
 import { SceltaOnboarding } from "./SceltaOnboarding";
 
@@ -162,7 +162,8 @@ export default async function PaginaConfigura() {
         <section>
           <h2 className="text-base font-medium">Orari di apertura</h2>
           <ul className="mt-3 flex flex-col gap-1 text-sm">
-            {NOMI_GIORNI.map((nome, giorno) => {
+            {GIORNI_SETTIMANA_DA_LUNEDI.map((giorno) => {
+              const nome = NOMI_GIORNI[giorno];
               const riga = orariPerGiorno.get(giorno);
               const chiuso = riga?.chiuso ?? true;
               const pausa =
@@ -216,7 +217,8 @@ export default async function PaginaConfigura() {
                       un cliente un orario in cui la collega non c'e'. */}
                   {suoiOrari && suoiOrari.size > 0 && (
                     <ul className="ml-4 mt-1 flex flex-col gap-0.5 text-xs text-zinc-500">
-                      {NOMI_GIORNI.map((nomeGiorno, giorno) => {
+                      {GIORNI_SETTIMANA_DA_LUNEDI.map((giorno) => {
+                        const nomeGiorno = NOMI_GIORNI[giorno];
                         const riga = suoiOrari.get(giorno);
                         if (!riga) return null;
                         return (
@@ -272,7 +274,7 @@ export default async function PaginaConfigura() {
   // che resta nello spirito "niente stato client da sincronizzare a mano" del
   // resto della pagina: una `key` sul form che cambia quando cambiano i dati,
   // così React rimonta l'intero form (e quindi i default) invece di riusarlo.
-  const chiaveOrari = NOMI_GIORNI.map((_, giorno) => {
+  const chiaveOrari = GIORNI_SETTIMANA_DA_LUNEDI.map((giorno) => {
     const r = orariPerGiorno.get(giorno);
     return `${giorno}:${r?.chiuso ?? ""}:${r?.apertura ?? ""}:${r?.chiusura ?? ""}:${r?.pausa_inizio ?? ""}:${r?.pausa_fine ?? ""}`;
   }).join("|");
@@ -302,7 +304,8 @@ export default async function PaginaConfigura() {
             <span className="font-medium text-zinc-500">Chiusura</span>
             <span className="font-medium text-zinc-500">Pausa da</span>
             <span className="font-medium text-zinc-500">Pausa a</span>
-            {NOMI_GIORNI.map((nome, giorno) => {
+            {GIORNI_SETTIMANA_DA_LUNEDI.map((giorno) => {
+              const nome = NOMI_GIORNI[giorno];
               const riga = orariPerGiorno.get(giorno);
               return (
                 <div key={giorno} className="contents">
@@ -619,7 +622,8 @@ export default async function PaginaConfigura() {
                     <span className="font-medium text-zinc-500">Fine</span>
                     <span className="font-medium text-zinc-500">Pausa da</span>
                     <span className="font-medium text-zinc-500">Pausa a</span>
-                    {NOMI_GIORNI.map((nomeGiorno, giorno) => {
+                    {GIORNI_SETTIMANA_DA_LUNEDI.map((giorno) => {
+                        const nomeGiorno = NOMI_GIORNI[giorno];
                       const suo = suoiOrari?.get(giorno);
                       const delSalone = orariPerGiorno.get(giorno);
                       return (

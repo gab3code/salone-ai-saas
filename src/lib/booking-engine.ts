@@ -82,6 +82,22 @@ export interface ParametriDisponibilita {
    * Sono due modi legittimi di lavorare e la scelta e' del salone, non nostra.
    */
   modalitaRiempimento?: ModalitaRiempimento;
+  /**
+   * L'istante "adesso", in spazio pseudo-UTC come `data` e come gli
+   * appuntamenti: nessuno slot che inizia prima di questo momento viene
+   * proposto.
+   *
+   * Perche' e' un PARAMETRO e non una `new Date()` qui dentro (19/09/2026):
+   * questo modulo e' puro apposta -- stesso input, stesso output, sempre --
+   * ed e' l'unico motivo per cui i suoi test possono asserire orari precisi
+   * senza diventare fragili a mezzanotte. Chiamare l'orologio qui lo
+   * romperebbe. Chi chiama sa qual e' il fuso del salone e passa l'istante
+   * gia' convertito (`realeAPseudoUtc(new Date())`).
+   *
+   * Omesso = nessun filtro, cioe' il comportamento di prima. Serve ai test
+   * che ragionano su date fisse nel passato, e va omesso SOLO li'.
+   */
+  adesso?: Date;
 }
 
 export type ModalitaRiempimento = "griglia" | "attaccato";
@@ -290,6 +306,7 @@ export function calcolaSlotDisponibili(params: ParametriDisponibilita): SlotDisp
     bufferMinuti = 0,
     passoMinuti = 15,
     modalitaRiempimento = "griglia",
+    adesso,
   } = params;
 
   if (durataMinuti <= 0) return [];
@@ -353,9 +370,17 @@ export function calcolaSlotDisponibili(params: ParametriDisponibilita): SlotDisp
         inizioMin + durataMinuti <= intervallo.fineMin;
         inizioMin += passoMinuti
       ) {
+        const inizio = combinaDataEMinuti(data, inizioMin);
+        // Un orario gia' passato non e' un orario libero. Senza questa riga
+        // il motore proponeva allegramente le 09:00 di stamattina alle
+        // quattro del pomeriggio, e i giorni scorsi per intero (segnalato da
+        // Gabriel il 19/09/2026). Il confronto e' `<=`: lo slot che inizia
+        // esattamente adesso non si prenota, perche' fra il calcolo e il
+        // click passa comunque del tempo.
+        if (adesso && inizio.getTime() <= adesso.getTime()) continue;
         slot.push({
           operatoreId: operatore.id,
-          inizio: combinaDataEMinuti(data, inizioMin),
+          inizio,
           fine: combinaDataEMinuti(data, inizioMin + durataMinuti),
         });
       }
