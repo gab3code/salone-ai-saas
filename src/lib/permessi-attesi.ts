@@ -101,8 +101,23 @@ export function leggiIstruzioni(sql: string): Istruzione[] {
   const senzaCommenti = sql.replace(/--[^\n]*/g, " ");
   const istruzioni: Istruzione[] = [];
 
+  // `[^;]` e non `[\s\S]`: il punto e virgola chiude un'istruzione, e senza
+  // quel confine la ricerca puo' SCAVALCARLO.
+  //
+  // E' successo davvero, ed e' stato il primo confronto vero a scoprirlo
+  // (18/09/2026): `grant usage on schema public to anon, authenticated;` non
+  // combacia con nessun bersaglio valido, quindi la ricerca allungava la
+  // parte dei privilegi fino a trovare l'`on` dell'istruzione SUCCESSIVA --
+  // `grant select, ... on public.tenants to authenticated;` -- e produceva
+  // un'unica corrispondenza che conteneva la parola "schema". Il filtro la
+  // scartava come se fosse un permesso sullo schema, e il grant su `tenants`
+  // spariva dal calcolo: il confronto denunciava un permesso di troppo in
+  // produzione che invece era dichiarato da sempre nella 0005.
+  //
+  // Un controllo che grida al lupo e' peggio di nessun controllo: si smette
+  // di credergli proprio il giorno in cui ha ragione.
   const re =
-    /\b(grant|revoke)\s+([\s\S]*?)\s+on\s+(all\s+tables\s+in\s+schema\s+public|(?:table\s+)?(?:public\.)?"?[a-z0-9_]+"?)\s+(?:to|from)\s+([^;]+);/gi;
+    /\b(grant|revoke)\s+([^;]*?)\s+on\s+(all\s+tables\s+in\s+schema\s+public|(?:table\s+)?(?:public\.)?"?[a-z0-9_]+"?)\s+(?:to|from)\s+([^;]+);/gi;
 
   let m: RegExpExecArray | null;
   while ((m = re.exec(senzaCommenti)) !== null) {

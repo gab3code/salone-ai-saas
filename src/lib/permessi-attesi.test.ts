@@ -46,6 +46,22 @@ describe("leggere le istruzioni dalle migrazioni", () => {
     expect(leggiIstruzioni("grant usage, select on all sequences in schema public to service_role;")).toEqual([]);
   });
 
+  it("un'istruzione non riconosciuta non si mangia quella dopo", () => {
+    // Il difetto trovato dal primo confronto vero (18/09/2026): la riga
+    // `grant usage on schema public` non ha un bersaglio valido, e senza il
+    // confine del punto e virgola la ricerca proseguiva fino all'`on` della
+    // riga successiva, inghiottendo il grant su `tenants`. Risultato: il
+    // confronto denunciava un permesso di troppo in produzione che invece
+    // era dichiarato dalla 0005 da sempre.
+    const istruzioni = leggiIstruzioni(
+      "grant usage on schema public to anon, authenticated;\n" +
+        "grant select, insert, update, delete on public.tenants to authenticated;"
+    );
+    expect(istruzioni).toHaveLength(1);
+    expect(istruzioni[0].bersaglio).toEqual({ tipo: "tabella", nome: "tenants" });
+    expect(istruzioni[0].privilegi).toEqual(["SELECT", "INSERT", "UPDATE", "DELETE"]);
+  });
+
   it("ignora quello che sta dentro un commento", () => {
     expect(leggiIstruzioni("-- grant select on public.clienti to anon;\n")).toEqual([]);
   });
@@ -193,6 +209,14 @@ describe("contro le migrazioni vere del progetto", () => {
     expect(permessi?.tabella.has("SELECT")).toBe(true);
     expect(permessi?.tabella.has("UPDATE")).toBe(false);
     expect(permessi?.colonne.get("UPDATE")).toBeUndefined();
+  });
+
+  it("`authenticated` legge `tenants`: e' la dashboard di ogni salone", () => {
+    // La controprova del difetto sopra, contro le migrazioni vere: se il
+    // grant della 0005 tornasse a sparire dal calcolo, il confronto
+    // ricomincerebbe a denunciare un permesso di troppo che non esiste.
+    const stato = permessiAttesi(migrazioni, RUOLI);
+    expect(stato.get(chiave("tenants", "authenticated"))?.tabella.has("SELECT")).toBe(true);
   });
 
   it("il titolare puo' ancora cambiare il nome del proprio salone (0030)", () => {
