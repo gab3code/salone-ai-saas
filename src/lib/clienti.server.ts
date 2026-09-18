@@ -124,6 +124,40 @@ export async function aggiornaCliente(
   return { errore: error?.message ?? null };
 }
 
+/**
+ * Inserisce piu' clienti in una volta (import della rubrica, Fase 6ter).
+ *
+ * Una insert sola invece di trecento: il percorso e' quello di chi sta
+ * guardando una barra di avanzamento, e trecento andate e ritorni sarebbero
+ * un minuto di attesa invece di un secondo.
+ *
+ * `creato_da_ai` resta false anche quando le righe sono passate dal modello:
+ * quel campo dice "questo cliente e' nato da una conversazione con
+ * l'assistente", e un import fatto dal titolare non lo e'. Usarlo per due
+ * significati diversi renderebbe inutili le metriche che ci stanno sopra.
+ */
+export async function creaClientiInBlocco(
+  tenantId: string,
+  clienti: { nome: string | null; telefono: string; email: string | null; note: string | null }[],
+  client?: SupabaseClient
+): Promise<{ creati: number; errore: string | null }> {
+  esigiTenant(tenantId);
+  if (clienti.length === 0) return { creati: 0, errore: null };
+
+  const righe = clienti.map((c) => ({
+    tenant_id: tenantId,
+    nome: c.nome,
+    telefono: c.telefono,
+    email: c.email,
+    note: c.note,
+    creato_da_ai: false,
+  }));
+
+  const { data, error } = await db(client).from("clienti").insert(righe).select("id");
+  if (error) return { creati: 0, errore: `Errore importando i clienti: ${error.message}` };
+  return { creati: (data ?? []).length, errore: null };
+}
+
 export async function cancellaCliente(
   tenantId: string,
   clienteId: string,

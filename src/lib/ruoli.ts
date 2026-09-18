@@ -76,6 +76,19 @@ export function puoEsportareClienti(ruolo: RuoloAttivita): boolean {
   return ruolo === "owner";
 }
 
+/**
+ * Importare una rubrica intera (Fase 6ter, 18/09/2026).
+ *
+ * Owner-only, come l'export e per il motivo simmetrico: uno staff crea un
+ * cliente alla volta mentre lavora, ma far entrare trecento schede in un
+ * colpo -- magari prese da un'altra attivita' -- e' una decisione del
+ * titolare. E' anche lui il titolare del trattamento di quei dati: chi
+ * importa una rubrica si sta assumendo la responsabilita' di averne diritto.
+ */
+export function puoImportareClienti(ruolo: RuoloAttivita): boolean {
+  return ruolo === "owner";
+}
+
 /** Agenda, spostamenti, cancellazioni, schede cliente, lista d'attesa. */
 export function puoGestireAgenda(ruolo: RuoloAttivita): boolean {
   return ruolo === "owner" || ruolo === "staff";

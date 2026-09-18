@@ -4,6 +4,7 @@ import {
   normalizzaRuolo,
   puoConfigurareAttivita,
   puoEsportareClienti,
+  puoImportareClienti,
   puoGestireAgenda,
   puoGestireFatturazione,
   puoGestireMembri,
@@ -67,6 +68,10 @@ describe("permessi (scelta di Gabriel del 16/09/2026)", () => {
     // file sono due cose diverse.
     expect(puoEsportareClienti("owner")).toBe(true);
     expect(puoEsportareClienti("staff")).toBe(false);
+    // L'import e' almeno altrettanto delicato dell'export: far entrare
+    // trecento schede in un colpo e' una decisione del titolare.
+    expect(puoImportareClienti("owner")).toBe(true);
+    expect(puoImportareClienti("staff")).toBe(false);
   });
 
   it("lo staff LAVORA sull'agenda, inclusa quella degli altri operatori", () => {

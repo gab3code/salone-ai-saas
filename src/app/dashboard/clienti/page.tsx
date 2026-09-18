@@ -139,6 +139,16 @@ export default async function PaginaClienti({
         >
           Esporta CSV
         </a>
+        {/* Una pagina che non si raggiunge da nessuna parte non e' una
+            funzionalita': l'import vive qui accanto all'export, dove uno lo
+            cerca. Il permesso e' ricontrollato dalla pagina e dalle azioni --
+            questo link e' comodita', non sicurezza. */}
+        <Link
+          href="/dashboard/clienti/importa"
+          className="shrink-0 rounded border border-zinc-300 px-3 py-1.5 text-sm"
+        >
+          Importa rubrica
+        </Link>
       </div>
 
       {errore && <p className="mt-4 text-sm text-red-600">Errore caricando i clienti: {errore}</p>}

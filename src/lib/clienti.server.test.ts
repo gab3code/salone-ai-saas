@@ -142,13 +142,35 @@ const INVOCAZIONI: Invocazione[] = [
       clienti.trovaOCreaCliente(t, { nome: "Anna", telefono: "3331112222", creatoDaAi: false, email: "a@b.it" }, c),
     risposte: [{ data: { id: "cliente-1", email: null } }, { error: null }],
   },
+  {
+    // L'import inserisce PIU' righe in una volta: il confine del tenant deve
+    // esserci su OGNUNA, non "da qualche parte nel payload".
+    nome: "creaClientiInBlocco",
+    esegui: (t, c) =>
+      clienti.creaClientiInBlocco(
+        t,
+        [
+          { nome: "Anna", telefono: "3331112222", email: null, note: null },
+          { nome: "Bruno", telefono: "3333334444", email: null, note: null },
+        ],
+        c
+      ),
+    risposte: [{ data: [{ id: "cliente-1" }, { id: "cliente-2" }] }],
+  },
 ];
 
 /** Una query sulla rubrica e' legittima solo se dice a quale salone appartiene. */
 function haIlConfineDelTenant(q: Query): boolean {
   if (q.filtri.some((f) => f.colonna === "tenant_id" && f.valore === TENANT)) return true;
-  // Un insert non filtra: il confine lo scrive nella riga.
-  return q.operazione === "insert" && (q.payload as { tenant_id?: unknown } | undefined)?.tenant_id === TENANT;
+  if (q.operazione !== "insert") return false;
+  // Un insert non filtra: il confine lo scrive nella riga. Con piu' righe
+  // deve esserci su TUTTE -- una sola riga senza tenant_id finirebbe nel
+  // vuoto o, peggio, in un altro salone.
+  const payload = q.payload as { tenant_id?: unknown } | { tenant_id?: unknown }[] | undefined;
+  if (Array.isArray(payload)) {
+    return payload.length > 0 && payload.every((r) => r?.tenant_id === TENANT);
+  }
+  return payload?.tenant_id === TENANT;
 }
 
 describe("clienti.server: il filtro sul tenant", () => {
