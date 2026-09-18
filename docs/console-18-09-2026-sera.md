@@ -11,7 +11,7 @@ scritto, il resto e' verifica.
 git push
 ```
 
-Dieci commit. Poi aspetta che Vercel finisca il deploy (~1 minuto): il passo 2
+Tredici commit. Poi aspetta che Vercel finisca il deploy (~1 minuto): il passo 2
 dipende da quello.
 
 ---
