@@ -60,6 +60,8 @@ export interface CollegamentoCalendario {
   ultimoErrore: string | null;
   caldavUrl: string | null;
   caldavUsername: string | null;
+  /** true se gli appuntamenti del salone vengono scritti in questo calendario. */
+  esportaAppuntamenti: boolean;
 }
 
 export async function elencaCollegamentiTenant(
@@ -68,7 +70,7 @@ export async function elencaCollegamentiTenant(
 ): Promise<CollegamentoCalendario[]> {
   const { data, error } = await db(client)
     .from("collegamenti_calendario_esterni")
-    .select("id, operatore_id, provider, stato, ultimo_errore, caldav_url, caldav_username")
+    .select("id, operatore_id, provider, stato, ultimo_errore, caldav_url, caldav_username, esporta_appuntamenti")
     .eq("tenant_id", esigiTenant(tenantId));
   if (error) throw new Error(`Errore leggendo i collegamenti calendario: ${error.message}`);
   return (data ?? []).map((r) => ({
@@ -79,6 +81,7 @@ export async function elencaCollegamentiTenant(
     ultimoErrore: r.ultimo_errore,
     caldavUrl: r.caldav_url,
     caldavUsername: r.caldav_username,
+    esportaAppuntamenti: r.esporta_appuntamenti === true,
   }));
 }
 
@@ -128,6 +131,25 @@ export async function collegaCaldav(
     { onConflict: "operatore_id,provider" }
   );
   if (error) return { ok: false, errore: `Errore salvando il collegamento: ${error.message}` };
+  return { ok: true };
+}
+
+/**
+ * Accende o spegne l'export per UN collegamento. Il filtro sul tenant non e'
+ * decorativo: da qui arriva un id scelto dal browser.
+ */
+export async function impostaEsportazione(
+  tenantId: string,
+  collegamentoId: string,
+  attiva: boolean,
+  client?: SupabaseClient
+): Promise<{ ok: true } | { ok: false; errore: string }> {
+  const { error } = await db(client)
+    .from("collegamenti_calendario_esterni")
+    .update({ esporta_appuntamenti: attiva })
+    .eq("id", collegamentoId)
+    .eq("tenant_id", esigiTenant(tenantId));
+  if (error) return { ok: false, errore: `Errore salvando l'impostazione: ${error.message}` };
   return { ok: true };
 }
 

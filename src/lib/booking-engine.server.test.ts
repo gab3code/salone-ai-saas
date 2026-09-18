@@ -40,6 +40,11 @@ vi.mock("@/lib/calendario-esterno/collegamenti.server", () => ({
   caricaImpegniEsterni: vi.fn(),
 }));
 import { caricaImpegniEsterni } from "@/lib/calendario-esterno/collegamenti.server";
+vi.mock("@/lib/calendario-esterno/esportazione.server", () => ({
+  esportaAppuntamento: vi.fn().mockResolvedValue(undefined),
+  rimuoviEsportazione: vi.fn().mockResolvedValue(undefined),
+}));
+import { esportaAppuntamento, rimuoviEsportazione } from "@/lib/calendario-esterno/esportazione.server";
 
 const caricaImpegniEsterniFinto = vi.mocked(caricaImpegniEsterni);
 
@@ -585,6 +590,31 @@ describe("creaAppuntamentoTenant", () => {
       creatoDa: "manuale",
     });
     expect(risultato.ok).toBe(true);
+  });
+
+  it("L'APPUNTAMENTO FINISCE ANCHE SUL CALENDARIO PERSONALE, se l'operatore ha acceso l'export", async () => {
+    // Il gancio dell'export (Fase 6bis, migrazione 0067). Sta qui e non fra i
+    // test dell'esportazione perche' e' la chiamata che puo' sparire in
+    // silenzio: se qualcuno la toglie rifattorizzando, tutto resta verde e il
+    // calendario personale smette di aggiornarsi senza che nessun errore lo
+    // dica. Se sia il caso di scrivere davvero lo decide esportaAppuntamento,
+    // guardando l'interruttore del collegamento.
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+      operatori: { select: [rispostaOperatoreValido()] },
+      operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
+      appuntamenti: { select: [{ data: [], error: null }], insert: [{ data: { id: "nuovo-appuntamento" }, error: null }] },
+    });
+    const risultato = await creaAppuntamentoTenant(supabase, TENANT_ID, {
+      operatoreId: OPERATORE_ID,
+      servizioId: SERVIZIO_ID,
+      inizio: INIZIO_PSEUDO,
+      creatoDa: "manuale",
+    });
+
+    expect(risultato.ok).toBe(true);
+    expect(esportaAppuntamento).toHaveBeenCalledWith(TENANT_ID, "nuovo-appuntamento", expect.any(String));
   });
 
   it("restituisce un errore esplicito se il servizio non esiste (o non è di questo tenant)", async () => {
@@ -1222,6 +1252,18 @@ describe("cancellaAppuntamentoTenant", () => {
     const risultato = await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
     expect(risultato).toEqual({ ok: true });
     expect(supabase.registro.update[0]).toMatchObject({ tabella: "appuntamenti", payload: { stato: "cancellato" } });
+  });
+
+  it("TOGLIE ANCHE L'EVENTO DAL CALENDARIO PERSONALE", async () => {
+    // Un appuntamento cancellato che resta su Google e' un fantasma: continua
+    // a dire "quest'ora e' presa" a chi guarda quel calendario, e non c'e'
+    // nessun modo di accorgersene dal prodotto. Vale lo stesso discorso del
+    // gancio in creazione: e' una chiamata che puo' sparire in silenzio.
+    const supabase = creaSupabaseFinto({
+      appuntamenti: { update: [{ data: [{ id: "appuntamento-1" }], error: null }] },
+    });
+    await cancellaAppuntamentoTenant(supabase, TENANT_ID, "appuntamento-1");
+    expect(rimuoviEsportazione).toHaveBeenCalledWith(TENANT_ID, "appuntamento-1");
   });
 
   it("propaga un errore del database come messaggio leggibile", async () => {

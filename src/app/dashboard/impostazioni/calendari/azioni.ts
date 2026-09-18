@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
 import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
 import { puoConfigurareAttivita } from "@/lib/ruoli";
-import { scollegaCalendario } from "@/lib/calendario-esterno/collegamenti.server";
+import { impostaEsportazione, scollegaCalendario } from "@/lib/calendario-esterno/collegamenti.server";
 
 /**
  * Collegamento calendari esterni (Fase 6bis, deciso con Gabriel il
@@ -36,6 +36,25 @@ export async function scollegaCalendarioAzione(collegamentoId: string) {
   const tenantId = accesso.tenantId;
 
   const risultato = await scollegaCalendario(tenantId, collegamentoId);
+  revalidatePath("/dashboard/impostazioni/calendari");
+  return risultato.ok ? { ok: true } : { errore: risultato.errore };
+}
+
+/**
+ * Accende o spegne la scrittura degli appuntamenti sul calendario personale
+ * (Fase 6bis, direzione export, migrazione 0067).
+ *
+ * Nasce spenta per tutti e si accende una persona alla volta, di proposito:
+ * scrivere dentro il calendario di qualcuno non e' un'azione che si annulla
+ * con un rollback, e nessuno deve trovarsi eventi nuovi in agenda perche'
+ * noi abbiamo fatto un deploy.
+ */
+export async function impostaEsportazioneAzione(collegamentoId: string, attiva: boolean) {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+
+  const risultato = await impostaEsportazione(accesso.tenantId, collegamentoId, attiva);
   revalidatePath("/dashboard/impostazioni/calendari");
   return risultato.ok ? { ok: true } : { errore: risultato.errore };
 }

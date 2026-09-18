@@ -112,6 +112,11 @@ const INVOCAZIONI = [
     risposte: [{ data: null }],
   },
   {
+    nome: "impostaEsportazione",
+    esegui: (c: never) => collegamenti.impostaEsportazione(TENANT, "coll-1", true, c),
+    risposte: [{ data: null }],
+  },
+  {
     nome: "scollegaCalendario",
     esegui: (c: never) => collegamenti.scollegaCalendario(TENANT, "coll-1", c),
     risposte: [{ data: null }],
@@ -165,6 +170,16 @@ describe("un tenant mancante non passa", () => {
   it("elencaCollegamentiTenant con tenant vuoto lancia invece di leggere tutto", async () => {
     const { client } = creaClientRegistrante([{ data: [] }]);
     await expect(collegamenti.elencaCollegamentiTenant("", client as never)).rejects.toThrow(/tenantId mancante/);
+  });
+
+  it("impostaEsportazione con tenant vuoto lancia: l'id arriva dal browser", async () => {
+    // Questa e' l'unica funzione del modulo che riceve un id scelto dal
+    // client. Senza il filtro sul tenant, un id indovinato accenderebbe
+    // l'export sul calendario di un altro salone.
+    const { client } = creaClientRegistrante([{ data: null }]);
+    await expect(collegamenti.impostaEsportazione("", "coll-1", true, client as never)).rejects.toThrow(
+      /tenantId mancante/
+    );
   });
 
   it("scollegaCalendario con tenant vuoto lancia invece di cancellare a caso", async () => {

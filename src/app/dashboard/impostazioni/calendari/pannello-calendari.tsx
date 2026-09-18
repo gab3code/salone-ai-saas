@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { scollegaCalendarioAzione } from "./azioni";
+import { impostaEsportazioneAzione, scollegaCalendarioAzione } from "./azioni";
 
 interface Operatore {
   id: string;
@@ -14,6 +14,7 @@ interface Collegamento {
   provider: "google" | "apple";
   stato: string;
   ultimoErrore: string | null;
+  esportaAppuntamenti: boolean;
 }
 
 /**
@@ -51,6 +52,12 @@ export function PannelloCalendari({
     if (risultato?.errore) setErrore(risultato.errore);
   }
 
+  async function cambiaEsportazione(id: string, attiva: boolean) {
+    setErrore(null);
+    const risultato = await impostaEsportazioneAzione(id, attiva);
+    if (risultato?.errore) setErrore(risultato.errore);
+  }
+
   return (
     <div className="flex flex-col gap-8">
       {/* --- Calendari già collegati --- */}
@@ -75,13 +82,26 @@ export function PannelloCalendari({
                     </span>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => scollega(c.id)}
-                  className="rounded border border-zinc-300 px-3 py-1 text-xs"
-                >
-                  Scollega
-                </button>
+                <div className="flex items-center gap-4">
+                  {/* Solo Google: il ramo CalDAV non ha ancora la scrittura. */}
+                  {c.provider === "google" && (
+                    <label className="flex items-center gap-2 text-xs text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={c.esportaAppuntamenti}
+                        onChange={(e) => cambiaEsportazione(c.id, e.target.checked)}
+                      />
+                      Scrivi qui gli appuntamenti del salone
+                    </label>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => scollega(c.id)}
+                    className="rounded border border-zinc-300 px-3 py-1 text-xs"
+                  >
+                    Scollega
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

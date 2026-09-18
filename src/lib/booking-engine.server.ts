@@ -16,6 +16,7 @@ import {
 } from "@/lib/booking-engine";
 import { limiteMensilePrenotazioni, pianoHaListaAttesaAutomatica } from "@/lib/piani";
 import { caricaImpegniEsterni } from "@/lib/calendario-esterno/collegamenti.server";
+import { esportaAppuntamento, rimuoviEsportazione } from "@/lib/calendario-esterno/esportazione.server";
 import {
   pseudoUtcAReale,
   realeAPseudoUtc,
@@ -946,6 +947,18 @@ export async function creaAppuntamentoTenant(
   // prenotazione già scritta con successo.
   await programmaRichiestaRecensione(tenantId, idRigheCreate[0], pseudoUtcAReale(fine, fusoOrario));
 
+  // L'appuntamento finisce anche sul calendario personale dell'operatore,
+  // se lui ha acceso l'export (spento per tutti finche' non lo accende:
+  // migrazione 0067). Una riga per ogni servizio della catena, perche' ogni
+  // riga e' un blocco di tempo a se' sull'agenda di chi lavora.
+  //
+  // Dopo la scrittura e dopo la recensione, e fail-open dentro la funzione
+  // stessa: qui la prenotazione e' gia' un fatto -- lo slot e' occupato, il
+  // cliente ha la conferma -- e Google che non risponde non puo' disfarla.
+  for (const id of idRigheCreate) {
+    await esportaAppuntamento(tenantId, id, fusoOrario);
+  }
+
   return { ok: true, appuntamentoId: idRigheCreate[0] };
 }
 
@@ -1033,6 +1046,11 @@ export async function modificaAppuntamentoTenant(
     }
     return { ok: false, errore: `Errore spostando l'appuntamento: ${error.message}` };
   }
+
+  // Sposta anche l'evento sul calendario personale, se c'e'. Un appuntamento
+  // spostato che resta all'ora vecchia su Google e' peggio di uno mai
+  // esportato: dice una cosa falsa a chi lo guarda.
+  await esportaAppuntamento(tenantId, appuntamentoId, fusoOrario);
 
   return { ok: true };
 }
@@ -1230,6 +1248,11 @@ export async function cancellaAppuntamentoTenant(
 
   if (error) return { ok: false, errore: `Errore cancellando l'appuntamento: ${error.message}` };
   if (!data || data.length === 0) return { ok: false, errore: "Appuntamento non trovato." };
+
+  // Via anche dal calendario personale: un appuntamento cancellato che resta
+  // su Google e' un fantasma che continua a dire "quest'ora e' presa", e chi
+  // guarda quel calendario non ha nessun modo di sapere che non e' vero.
+  await rimuoviEsportazione(tenantId, appuntamentoId);
 
   const listaAttesaAvvisata = await trovaEAvvisaListaAttesa(supabase, tenantId, data[0]);
   return listaAttesaAvvisata ? { ok: true, listaAttesaAvvisata } : { ok: true };
