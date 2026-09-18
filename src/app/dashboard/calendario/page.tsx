@@ -35,8 +35,10 @@ function tornaConErrore(
   parametri.set("errore", errore);
   redirect(`/dashboard/calendario?${parametri.toString()}`);
 }
-import { trovaSlotDisponibiliTenant } from "@/lib/booking-engine.server";
+import { trovaSlotEStatoGiornoTenant, giornoDiChiusuraTenant } from "@/lib/booking-engine.server";
 import { nomiClientiPerId } from "@/lib/clienti.server";
+import { SelettoreGiorno } from "./selettore-giorno";
+import type { MotivoOperatoriMancanti } from "@/lib/booking-engine";
 import { pseudoUtcAReale, realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { cancellaAppuntamento, modificaAppuntamento, segnaNoShow } from "./azioni";
@@ -198,18 +200,25 @@ export default async function PaginaCalendario({
     fine: realeAPseudoUtc(new Date(a.fine), fusoOrario).toISOString(),
   }));
 
-  let slots: { operatoreId: string; inizio: string }[] = [];
-  if (servizioIds.length > 0) {
-    const slotsCalcolati = await trovaSlotDisponibiliTenant(supabase, tenantId, {
-      data: new Date(`${dataYMD}T00:00:00Z`),
+  const giornoDaGuardare = new Date(`${dataYMD}T00:00:00Z`);
+
+  // Il giorno di chiusura si chiede SEMPRE, anche senza servizi scelti: una
+  // giornata vuota va spiegata comunque, altrimenti "nessun appuntamento"
+  // sembra un guasto invece di un giorno in cui il salone non apre.
+  const [giornoChiusoOggi, ricerca] = await Promise.all([
+    giornoDiChiusuraTenant(supabase, tenantId, giornoDaGuardare),
+    trovaSlotEStatoGiornoTenant(supabase, tenantId, {
+      data: giornoDaGuardare,
       servizioIds,
       operatoreId: operatoreId || undefined,
-    });
-    slots = slotsCalcolati.map((s) => ({
-      operatoreId: s.operatoreId,
-      inizio: s.inizio.toISOString(),
-    }));
-  }
+    }),
+  ]);
+
+  const slots: { operatoreId: string; inizio: string }[] = ricerca.slot.map((s) => ({
+    operatoreId: s.operatoreId,
+    inizio: s.inizio.toISOString(),
+  }));
+  const motivoOperatori: MotivoOperatoriMancanti | null = ricerca.motivoOperatori;
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-8">
@@ -247,26 +256,23 @@ export default async function PaginaCalendario({
         </p>
       )}
 
-      <div className="flex items-center gap-3 text-sm">
-        <a
-          href={`/dashboard/calendario?data=${giornoAdiacente(dataYMD, -1)}`}
-          className="rounded border border-zinc-300 px-2 py-1"
-        >
-          ← Giorno prima
-        </a>
-        <span className="font-medium">{dataYMD}</span>
-        <a
-          href={`/dashboard/calendario?data=${giornoAdiacente(dataYMD, 1)}`}
-          className="rounded border border-zinc-300 px-2 py-1"
-        >
-          Giorno dopo →
-        </a>
-      </div>
+      <SelettoreGiorno dataYMD={dataYMD} />
 
       <section>
         <h2 className="text-base font-medium">Appuntamenti del giorno</h2>
         {appuntamenti.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-500">Nessun appuntamento per questo giorno.</p>
+          <p className="mt-2 text-sm text-zinc-500">
+            {giornoChiusoOggi ? (
+              <>
+                Il salone è chiuso in questo giorno.{" "}
+                <a href="/dashboard/configura" className="underline">
+                  Cambia gli orari
+                </a>
+              </>
+            ) : (
+              "Nessun appuntamento per questo giorno."
+            )}
+          </p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2 text-sm">
             {appuntamenti.map((a) => {
@@ -418,6 +424,8 @@ export default async function PaginaCalendario({
           servizioIdsIniziali={servizioIds}
           operatoreIdIniziale={operatoreId}
           dataIniziale={dataYMD}
+          giornoChiuso={giornoChiusoOggi}
+          motivoOperatori={motivoOperatori}
           provaAssistente={
             /* La key su un elemento che sembra singolo non e' superflua
                (18/09/2026): questo JSX nasce in un Server Component, viene

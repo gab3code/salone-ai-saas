@@ -3,6 +3,8 @@
 import { useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { creaAppuntamento } from "./azioni";
+import { formattaGiornoEsteso } from "@/lib/data-italiana";
+import type { MotivoOperatoriMancanti } from "@/lib/booking-engine";
 
 interface Operatore {
   id: string;
@@ -45,6 +47,8 @@ export function PannelloNuovoAppuntamento({
   servizioIdsIniziali,
   operatoreIdIniziale,
   dataIniziale,
+  giornoChiuso,
+  motivoOperatori,
   provaAssistente,
 }: {
   operatori: Operatore[];
@@ -53,6 +57,10 @@ export function PannelloNuovoAppuntamento({
   servizioIdsIniziali: string[];
   operatoreIdIniziale: string;
   dataIniziale: string;
+  /** Il salone non apre in questo giorno: nessuna combinazione lo cambia. */
+  giornoChiuso: boolean;
+  /** Perche' nessun operatore puo' fare i servizi scelti, se e' il caso. */
+  motivoOperatori: MotivoOperatoriMancanti | null;
   /**
    * Il riquadro "guarda cosa avrebbe risposto l'assistente" (Fase 5), gia'
    * costruito dalla pagina con i dati del tenant e passato qui come nodo:
@@ -104,6 +112,68 @@ export function PannelloNuovoAppuntamento({
     }
     setSlotSelezionato(null);
     router.push(`/dashboard/calendario?${parametri.toString()}`);
+  }
+
+  /**
+   * Perche' non c'e' nessun orario libero -- detto per davvero.
+   *
+   * Prima qui c'era una frase sola: "nessuno slot libero per questa
+   * combinazione, prova un'altra data, un altro operatore o meno servizi
+   * insieme". Vera in ogni caso e utile in nessuno: il 18/09/2026 il motivo
+   * era un servizio senza operatore assegnato, e quei tre consigli mandavano
+   * a cercare tutti e tre dalla parte sbagliata.
+   *
+   * L'ordine conta: si dice la causa che viene PRIMA. Se il salone e' chiuso,
+   * di chi sa fare cosa non importa a nessuno.
+   */
+  function spiegazioneNessunoSlot(): ReactNode {
+    if (giornoChiuso) {
+      return (
+        <>
+          Il salone è chiuso in questo giorno: scegli un altro giorno qui sopra, oppure{" "}
+          <a href="/dashboard/configura" className="underline">
+            cambia gli orari di apertura
+          </a>
+          .
+        </>
+      );
+    }
+
+    if (motivoOperatori?.tipo === "servizi_senza_operatore") {
+      const nomi = motivoOperatori.servizioIds
+        .map((id) => servizi.find((s) => s.id === id)?.nome ?? id)
+        .join(", ");
+      // Due frasi diverse, non una con il soggetto scambiato: "nessun
+      // operatore NON puo' fare" sarebbe una doppia negazione.
+      const frase = operatoreIdIniziale
+        ? `${operatori.find((o) => o.id === operatoreIdIniziale)?.nome ?? "L'operatore scelto"} non può fare`
+        : "Nessun operatore può fare";
+      return (
+        <>
+          {frase}: <strong>{nomi}</strong>.{" "}
+          <a href="/dashboard/configura" className="underline">
+            Assegna un operatore al servizio
+          </a>
+          {operatoreIdIniziale ? ", oppure scegli “Qualsiasi”." : "."}
+        </>
+      );
+    }
+
+    if (motivoOperatori?.tipo === "nessuno_copre_tutta_la_catena") {
+      return (
+        <>
+          Nessun operatore può fare tutti i servizi scelti di seguito: i servizi consecutivi restano
+          sulla stessa persona. Togline uno, oppure prenotali separatamente.
+        </>
+      );
+    }
+
+    return (
+      <>
+        La giornata è già piena, o la durata scelta non entra negli orari di apertura. Prova un altro
+        giorno qui sopra, o meno servizi insieme.
+      </>
+    );
   }
 
   function alternaServizio(servizioId: string, selezionato: boolean) {
@@ -182,14 +252,13 @@ export function PannelloNuovoAppuntamento({
           </select>
         </div>
 
+        {/* Il giorno NON si sceglie qui: si sceglie una volta sola in cima
+            alla pagina. Due campi che scrivevano lo stesso parametro nell'URL
+            si muovevano a vicenda, e sembrava un difetto invece che un solo
+            valore visto due volte (18/09/2026). Qui si legge, e basta. */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-zinc-500">Data</label>
-          <input
-            type="date"
-            value={dataIniziale}
-            onChange={(e) => aggiornaParametro("data", e.target.value)}
-            className="rounded border border-zinc-300 px-2 py-1"
-          />
+          <span className="text-xs text-zinc-500">Giorno</span>
+          <p className="px-2 py-1 text-sm">{formattaGiornoEsteso(dataIniziale)}</p>
         </div>
       </div>
 
@@ -197,9 +266,7 @@ export function PannelloNuovoAppuntamento({
         <div>
           <p className="text-xs text-zinc-500">Orari liberi -- clicca per scegliere:</p>
           {slots.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-500">
-              Nessuno slot libero per questa combinazione. Prova un&apos;altra data, un altro operatore o meno servizi insieme.
-            </p>
+            <p className="mt-2 text-sm text-zinc-500">{spiegazioneNessunoSlot()}</p>
           ) : (
             <div className="mt-2 flex flex-wrap gap-2">
               {slots.map((slot) => {

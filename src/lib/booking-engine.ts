@@ -188,6 +188,50 @@ export function giornoChiuso(orari: OrarioGiorno[], data: Date): boolean {
 }
 
 /**
+ * Perche' per questa combinazione di servizi non esiste NESSUN operatore che
+ * possa farli -- quando e' cosi'.
+ *
+ * Nasce da un caso vero (18/09/2026): un servizio senza nessun operatore
+ * abbinato non produceva slot, e il pannello rispondeva "nessuno slot libero
+ * per questa combinazione, prova un'altra data o un altro operatore". Tutto
+ * vero e tutto inutile: la data non c'entrava, l'operatore nemmeno. Venti
+ * minuti persi a cercare dalla parte sbagliata.
+ *
+ * Tornare `null` significa "gli operatori non sono il problema": il giorno
+ * puo' essere chiuso, o pieno, o la durata puo' non entrarci -- lo decidono
+ * altri.
+ */
+export type MotivoOperatoriMancanti =
+  | { tipo: "servizi_senza_operatore"; servizioIds: string[] }
+  | { tipo: "nessuno_copre_tutta_la_catena" };
+
+export function diagnosticaOperatori(
+  operatori: Operatore[],
+  servizioIds: string[],
+  operatoreId?: string
+): MotivoOperatoriMancanti | null {
+  if (servizioIds.length === 0) return null;
+
+  // Se lo staff ha scelto un operatore preciso, la domanda e' su quello solo:
+  // dire "nessun operatore fa questo servizio" mentre un altro lo fa sarebbe
+  // una bugia comoda.
+  const candidati = operatori.filter((o) => o.attivo && (!operatoreId || o.id === operatoreId));
+
+  const senzaNessuno = servizioIds.filter(
+    (servizioId) => !candidati.some((o) => o.servizioIds.includes(servizioId))
+  );
+  if (senzaNessuno.length > 0) return { tipo: "servizi_senza_operatore", servizioIds: senzaNessuno };
+
+  // Ogni servizio ha qualcuno, ma i servizi consecutivi vogliono lo STESSO
+  // operatore per tutta la catena: puo' non esistere nessuno che li copra
+  // tutti, ed e' un motivo diverso che merita una frase diversa.
+  const copronoTutto = candidati.some((o) => servizioIds.every((id) => o.servizioIds.includes(id)));
+  if (!copronoTutto) return { tipo: "nessuno_copre_tutta_la_catena" };
+
+  return null;
+}
+
+/**
  * Calcola gli slot liberi per uno o più operatori compatibili con il servizio
  * richiesto, in un giorno specifico. Questa è la funzione che sia il calendario
  * manuale sia i tool dell'AI devono chiamare per sapere cosa proporre davvero.

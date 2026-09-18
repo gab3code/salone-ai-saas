@@ -3,7 +3,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   calcolaSlotDisponibili,
   calcolaSlotServiziConsecutivi,
+  diagnosticaOperatori,
   giornoChiuso,
+  type MotivoOperatoriMancanti,
   verificaConflitto,
   type AppuntamentoEsistente,
   type Chiusura,
@@ -248,6 +250,11 @@ export interface RisultatoRicercaSlot {
   // motore puro) -- indipendente dagli slot: un giorno può essere chiuso
   // (slot sempre vuoto) o aperto ma pieno (slot vuoto solo per quel motivo).
   giornoChiuso: boolean;
+  // Perche' nessun operatore puo' fare questi servizi, quando e' cosi'.
+  // `null` vuol dire "gli operatori non sono il problema" -- vedi
+  // `diagnosticaOperatori`. Serve a non rispondere "prova un'altra data"
+  // quando la data non c'entra niente.
+  motivoOperatori: MotivoOperatoriMancanti | null;
 }
 
 /**
@@ -263,7 +270,7 @@ async function trovaSlotEContestoTenant(
   tenantId: string,
   params: RicercaSlotParams
 ): Promise<RisultatoRicercaSlot> {
-  if (params.servizioIds.length === 0) return { slot: [], giornoChiuso: false };
+  if (params.servizioIds.length === 0) return { slot: [], giornoChiuso: false, motivoOperatori: null };
 
   const [contesto, servizi] = await Promise.all([
     caricaContestoBooking(supabase, tenantId, params.data, params.data),
@@ -272,8 +279,11 @@ async function trovaSlotEContestoTenant(
 
   const chiuso = giornoChiuso(contesto.orari, params.data);
 
+  const motivoOperatori = diagnosticaOperatori(contesto.operatori, params.servizioIds, params.operatoreId);
+
   if (servizi.length !== params.servizioIds.length) {
-    return { slot: [], giornoChiuso: chiuso }; // servizio inesistente/di un altro tenant
+    // servizio inesistente/di un altro tenant
+    return { slot: [], giornoChiuso: chiuso, motivoOperatori };
   }
 
   const paramsBase = {
@@ -292,7 +302,7 @@ async function trovaSlotEContestoTenant(
       ? calcolaSlotDisponibili({ ...paramsBase, durataMinuti: servizi[0].durataMinuti, servizioId: servizi[0].id })
       : calcolaSlotServiziConsecutivi(paramsBase, servizi);
 
-  return { slot, giornoChiuso: chiuso };
+  return { slot, giornoChiuso: chiuso, motivoOperatori };
 }
 
 /**
@@ -325,6 +335,41 @@ export async function trovaSlotEStatoGiornoTenant(
   params: RicercaSlotParams
 ): Promise<RisultatoRicercaSlot> {
   return trovaSlotEContestoTenant(supabase, tenantId, params);
+}
+
+/**
+ * Solo "il salone e' chiuso in questo giorno?", senza caricare tutto il
+ * contesto di booking.
+ *
+ * Serve al calendario della dashboard, che deve poterlo dire anche quando non
+ * e' stato scelto nessun servizio: una giornata vuota va spiegata comunque,
+ * altrimenti resta un "nessun appuntamento" che sembra un guasto.
+ */
+export async function giornoDiChiusuraTenant(
+  supabase: SupabaseClient,
+  tenantId: string,
+  data: Date
+): Promise<boolean> {
+  const { data: righe, error } = await supabase
+    .from("orari_apertura")
+    .select("giorno_settimana, chiuso, apertura, chiusura, pausa_inizio, pausa_fine")
+    .eq("tenant_id", tenantId)
+    .eq("giorno_settimana", data.getUTCDay());
+
+  // Fail-open: se la lettura non riesce non si dichiara "chiuso" un giorno che
+  // magari e' aperto -- si resta zitti e si mostra il messaggio generico.
+  if (error) return false;
+
+  const orari: OrarioGiorno[] = (righe ?? []).map((r) => ({
+    giornoSettimana: r.giorno_settimana,
+    chiuso: r.chiuso,
+    apertura: troncaOra(r.apertura),
+    chiusura: troncaOra(r.chiusura),
+    pausaInizio: troncaOra(r.pausa_inizio),
+    pausaFine: troncaOra(r.pausa_fine),
+  }));
+
+  return giornoChiuso(orari, data);
 }
 
 export interface VerificaConflittoParams {

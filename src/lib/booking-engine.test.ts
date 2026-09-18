@@ -8,6 +8,7 @@ import {
   type Chiusura,
   type OrarioGiorno,
   type Operatore,
+  diagnosticaOperatori,
 } from "./booking-engine";
 
 // Lunedì 2026-09-07 (giornoSettimana = 1), per non dipendere dalla data odierna.
@@ -290,5 +291,50 @@ describe("calcolaSlotServiziConsecutivi", () => {
       ]
     );
     expect(slot.every((s) => s.operatoreId === "anna")).toBe(true);
+  });
+});
+
+describe("diagnosticaOperatori", () => {
+  const CON_TUTTO = { id: "op-1", attivo: true, servizioIds: ["taglio", "piega"] };
+  const SOLO_TAGLIO = { id: "op-2", attivo: true, servizioIds: ["taglio"] };
+  const SOLO_PIEGA = { id: "op-3", attivo: true, servizioIds: ["piega"] };
+
+  it("non accusa nessuno quando un operatore copre tutto", () => {
+    expect(diagnosticaOperatori([CON_TUTTO], ["taglio", "piega"])).toBeNull();
+  });
+
+  it("nomina il servizio che nessuno sa fare", () => {
+    expect(diagnosticaOperatori([SOLO_TAGLIO], ["taglio", "massaggio"])).toEqual({
+      tipo: "servizi_senza_operatore",
+      servizioIds: ["massaggio"],
+    });
+  });
+
+  it("un operatore disattivato non conta come copertura", () => {
+    expect(diagnosticaOperatori([{ ...CON_TUTTO, attivo: false }], ["taglio"])).toEqual({
+      tipo: "servizi_senza_operatore",
+      servizioIds: ["taglio"],
+    });
+  });
+
+  it("con un operatore scelto guarda solo lui, senza mentire sugli altri", () => {
+    // op-2 il taglio lo fa, la piega no: chiedendo di lui la risposta e' la
+    // piega, non "nessuno fa la piega" (op-3 la fa).
+    expect(diagnosticaOperatori([SOLO_TAGLIO, SOLO_PIEGA], ["taglio", "piega"], "op-2")).toEqual({
+      tipo: "servizi_senza_operatore",
+      servizioIds: ["piega"],
+    });
+  });
+
+  it("distingue 'nessuno li fa tutti di seguito' da 'nessuno lo fa'", () => {
+    // Ogni servizio ha il suo operatore, ma i servizi consecutivi vogliono la
+    // stessa persona per tutta la catena: e' un motivo diverso.
+    expect(diagnosticaOperatori([SOLO_TAGLIO, SOLO_PIEGA], ["taglio", "piega"])).toEqual({
+      tipo: "nessuno_copre_tutta_la_catena",
+    });
+  });
+
+  it("senza servizi scelti non c'e' niente da diagnosticare", () => {
+    expect(diagnosticaOperatori([SOLO_TAGLIO], [])).toBeNull();
   });
 });
