@@ -20,7 +20,7 @@ codice.
 | 3 | CRM e dashboard | 9 / 9 | 0 | **chiusa** (17/09) |
 | 4 | Pagina pubblica, foto, PWA | 9 / 9 | 0 | **chiusa** |
 | 5 | Billing self-service e admin | 12 / 12 | 0 | **chiusa** (17/09) |
-| 6 | Automazioni e sicurezza | 6 / 15 | 9 | a meta' |
+| 6 | Automazioni e sicurezza | 7 / 15 | 8 | in corso |
 | 6bis | Calendari esterni | 5 / 7 | 2 | quasi chiusa |
 | 6ter | Quello che serve per vendere | 4 / 37 | 33 | il grosso del lavoro |
 | 7 | Estetica e responsive | 2 / 10 | 8 | non iniziata |
@@ -39,16 +39,18 @@ Non esistono fasi oltre la 7.
 
 ## Fase 6 -- Automazioni e sicurezza (9 aperte)
 
-Le cinque di sicurezza sono **dichiarate, non nascoste**: nessuna e'
-sfruttabile da un estraneo, tutte richiedono le credenziali di qualcuno gia'
-dentro l'attivita'.
+Delle cinque di sicurezza, **una e' stata chiusa il 18/09**: l'invito che si
+consumava prima della conferma dell'email (migrazione 0050, Scenario 29). Era
+l'unica sfruttabile da un estraneo -- bastava indovinare l'indirizzo invitato.
+
+Le quattro che restano richiedono tutte le credenziali di qualcuno gia' dentro
+l'attivita', e sono dichiarate nel PIANO, non nascoste.
 
 - Uno staff puo' scaricare la rubrica clienti via PostgREST. Per chiuderla
   davvero le letture dei clienti devono passare solo da server action.
 - Password CalDAV e refresh token Google leggibili da qualunque membro, e non
   revocati quando un membro viene rimosso. Va fatta insieme al cifraggio a
   riposo (Fase 6bis).
-- L'invito a un membro viene consumato prima che l'email sia confermata.
 - Ridare al cliente l'autonomia in chat in modo sicuro (link di gestione
   mandato al suo numero, mai mostrato in chat). Dipende dagli SMS, quindi
   dalla P.IVA.

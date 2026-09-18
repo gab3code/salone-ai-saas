@@ -1956,11 +1956,14 @@ produzione e ne fanno partire i webhook.
       stato rimosso (`rimuoviMembro` non revoca niente). Si lega alla voce già aperta in Fase
       6bis sul cifraggio a riposo: vanno fatte insieme, e prima del primo cliente vero con un
       calendario collegato.
-- [ ] **L'invito a un membro viene consumato dal trigger PRIMA che l'email sia confermata.** Se
-      la conferma email fosse disattivata sul progetto Supabase (impostazione fuori dal codice,
-      e `registrati/page.tsx` gestisce esplicitamente anche quel caso), chi indovina l'indirizzo
-      invitato -- tipicamente `info@...` -- entrerebbe nell'attività altrui. Da verificare
-      nell'impostazione e, comunque, da rendere indipendente da essa.
+- [x] **L'invito a un membro viene consumato dal trigger PRIMA che l'email sia confermata.**
+      CHIUSA il 18/09/2026 con la migrazione 0050. Non si verifica l'impostazione: la si rende
+      irrilevante. Il ramo "invitato" del trigger ora non fa niente finché l'email non è
+      confermata (niente profilo, niente appartenenza, niente invito consumato), e un secondo
+      trigger su `auth.users.email_confirmed_at` completa il collegamento quando la conferma
+      arriva davvero. Effetto collaterale utile: un invito rimasto in sospeso resta valido,
+      invece di risultare già usato da chi non ha mai confermato niente. Scenario 29, che
+      controlla il database e non lo schermo.
 - [ ] **Ridare al cliente l'autonomia in chat, in modo sicuro.** Uno strumento che, dato un
       numero, MANDA il link di gestione a quel numero senza rivelare niente in chat: se quel
       numero ha una prenotazione il link arriva solo al suo proprietario, e la chat risponde la
