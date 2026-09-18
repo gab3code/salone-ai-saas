@@ -6,6 +6,10 @@ import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
 import { puoConfigurareAttivita } from "@/lib/ruoli";
 import { limiteOperatori } from "@/lib/piani";
 import { sincronizzaQuantitaOperatoriStripe } from "@/lib/stripe/operatori.server";
+import {
+  valutaEliminazioneOperatore,
+  valutaEliminazioneServizio,
+} from "@/lib/configura-sicurezza";
 
 const GIORNI = [0, 1, 2, 3, 4, 5, 6] as const;
 
@@ -242,13 +246,77 @@ export async function creaOperatore(formData: FormData) {
   return { ok: true as const, id: operatoreCreato.id as string };
 }
 
+/**
+ * Modifica un operatore gia' esistente. Fino al 18/09/2026 non esisteva:
+ * per correggere un nome scritto male l'unica strada era cancellare e
+ * ricreare, che azzera l'operatore su tutti gli appuntamenti storici (vedi
+ * il docblock di @/lib/configura-sicurezza). Un refuso costava lo storico.
+ */
+export async function aggiornaOperatore(id: string, formData: FormData) {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+
+  const nome = String(formData.get("nome") || "").trim();
+  if (!nome) return { errore: "Il nome dell'operatore è obbligatorio." };
+  const descrizione = String(formData.get("descrizione") || "").trim().slice(0, 500) || null;
+
+  // `.eq("tenant_id")` oltre a RLS: la rete di sicurezza del database resta,
+  // ma un filtro esplicito rende l'intenzione leggibile qui.
+  const { error } = await supabase
+    .from("operatori")
+    .update({ nome, descrizione })
+    .eq("id", id)
+    .eq("tenant_id", accesso.tenantId);
+  if (error) return { errore: `Errore aggiornando l'operatore: ${error.message}` };
+
+  revalidatePath("/dashboard/configura");
+  return { ok: true as const };
+}
+
+/**
+ * Disattiva (o riattiva) un operatore. La colonna `attivo` esiste dalla
+ * 0001 ed e' sempre stata letta dal motore -- un operatore non attivo non
+ * riceve slot -- ma non la scriveva nessuno: la mezza funzionalita' piu'
+ * vecchia del progetto. E' la risposta giusta a "togli Marco": Marco
+ * sparisce da quello che si puo' prenotare, i suoi appuntamenti restano suoi.
+ */
+export async function impostaAttivoOperatore(id: string, attivo: boolean) {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+
+  const { error } = await supabase
+    .from("operatori")
+    .update({ attivo })
+    .eq("id", id)
+    .eq("tenant_id", accesso.tenantId);
+  if (error) return { errore: `Errore aggiornando l'operatore: ${error.message}` };
+
+  revalidatePath("/dashboard/configura");
+  revalidatePath("/dashboard/calendario");
+  return { ok: true as const };
+}
+
 export async function eliminaOperatore(id: string) {
   const supabase = await creaClientServer();
   const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
   if (accessoNegato(accesso)) return { errore: accesso.errore };
   const tenantId = accesso.tenantId;
 
-  const { error } = await supabase.from("operatori").delete().eq("id", id);
+  // Prima di cancellare: contare cosa si porterebbe dietro. Il vincolo nel
+  // database e' `on delete set null`, quindi la cancellazione NON fallisce
+  // mai da sola -- svuota in silenzio l'operatore su ogni appuntamento.
+  const { count: appuntamenti } = await supabase
+    .from("appuntamenti")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .eq("operatore_id", id);
+
+  const esito = valutaEliminazioneOperatore({ appuntamenti: appuntamenti ?? 0 });
+  if (!esito.consentita) return { errore: esito.motivo };
+
+  const { error } = await supabase.from("operatori").delete().eq("id", id).eq("tenant_id", tenantId);
   if (error) return { errore: `Errore eliminando l'operatore: ${error.message}` };
 
   await sincronizzaQuantitaOperatoriStripe(supabase, tenantId);
@@ -292,12 +360,88 @@ export async function creaServizio(formData: FormData) {
   return { ok: true as const, id: servizioCreato.id as string };
 }
 
+/** Modifica un servizio esistente: stesso motivo di `aggiornaOperatore`. */
+export async function aggiornaServizio(id: string, formData: FormData) {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+
+  const nome = String(formData.get("nome") || "").trim();
+  const durataMinuti = Number(formData.get("durata_minuti") || 0);
+  const prezzoEuro = Number(formData.get("prezzo_euro") || 0);
+
+  if (!nome) return { errore: "Il nome del servizio è obbligatorio." };
+  if (!Number.isFinite(durataMinuti) || durataMinuti <= 0) {
+    return { errore: "La durata deve essere un numero di minuti maggiore di zero." };
+  }
+  if (!Number.isFinite(prezzoEuro) || prezzoEuro < 0) {
+    return { errore: "Il prezzo non può essere negativo." };
+  }
+
+  const { error } = await supabase
+    .from("servizi")
+    .update({
+      nome,
+      durata_minuti: Math.round(durataMinuti),
+      prezzo_centesimi: Math.round(prezzoEuro * 100),
+    })
+    .eq("id", id)
+    .eq("tenant_id", accesso.tenantId);
+  if (error) return { errore: `Errore aggiornando il servizio: ${error.message}` };
+
+  revalidatePath("/dashboard/configura");
+  return { ok: true as const };
+}
+
+/** Disattiva (o riattiva) un servizio: non piu' prenotabile, storico intero. */
+export async function impostaAttivoServizio(id: string, attivo: boolean) {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+
+  const { error } = await supabase
+    .from("servizi")
+    .update({ attivo })
+    .eq("id", id)
+    .eq("tenant_id", accesso.tenantId);
+  if (error) return { errore: `Errore aggiornando il servizio: ${error.message}` };
+
+  revalidatePath("/dashboard/configura");
+  revalidatePath("/dashboard/calendario");
+  return { ok: true as const };
+}
+
 export async function eliminaServizio(id: string) {
   const supabase = await creaClientServer();
   const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
   if (accessoNegato(accesso)) return { errore: accesso.errore };
 
-  const { error } = await supabase.from("servizi").delete().eq("id", id);
+  // Per un servizio il danno e' doppio: `set null` sugli appuntamenti e
+  // `cascade` sulle richieste di caparra, cioe' righe che parlano di soldi.
+  const [{ count: appuntamenti }, { count: richiesteCaparra }] = await Promise.all([
+    supabase
+      .from("appuntamenti")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", accesso.tenantId)
+      .eq("servizio_id", id),
+    supabase
+      .from("richieste_caparra")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", accesso.tenantId)
+      .eq("servizio_id", id),
+  ]);
+
+  const esito = valutaEliminazioneServizio({
+    appuntamenti: appuntamenti ?? 0,
+    richiesteCaparra: richiesteCaparra ?? 0,
+  });
+  if (!esito.consentita) return { errore: esito.motivo };
+
+  const { error } = await supabase
+    .from("servizi")
+    .delete()
+    .eq("id", id)
+    .eq("tenant_id", accesso.tenantId);
   if (error) return { errore: `Errore eliminando il servizio: ${error.message}` };
   revalidatePath("/dashboard/configura");
   return { ok: true };
@@ -317,6 +461,18 @@ export async function impostaAssociazioneOperatoreServizio(
   const supabase = await creaClientServer();
   const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
   if (accessoNegato(accesso)) return { errore: accesso.errore };
+
+  // Entrambi devono essere di QUESTO salone. La policy della 0030 guardava
+  // solo l'operatore (corretta dalla 0058): con l'UUID di un servizio altrui
+  // si poteva scrivere un'associazione fra due saloni diversi. Il controllo
+  // sta in tutti e due i posti, come sempre in questo progetto.
+  if (associato) {
+    const [{ data: operatore }, { data: servizio }] = await Promise.all([
+      supabase.from("operatori").select("id").eq("id", operatoreId).eq("tenant_id", accesso.tenantId).maybeSingle(),
+      supabase.from("servizi").select("id").eq("id", servizioId).eq("tenant_id", accesso.tenantId).maybeSingle(),
+    ]);
+    if (!operatore || !servizio) return { errore: "Operatore o servizio non trovato." };
+  }
 
   if (associato) {
     const { error } = await supabase
