@@ -1841,7 +1841,13 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
 - [x] ~~Test completo su tutti gli scenari del punto 30~~ **FATTO 16/09/2026, Task #190**: vedi
       il dettaglio completo in Fase 1 e in DECISIONS.md "Task #190 chiuso" -- 18/18 scenari E2E
       verdi in un'unica run.
-- [ ] **Sentry (error tracking)** -- deciso il 16/09/2026 (Gabriel ha chiesto un parere su un
+- [x] **Sentry (error tracking) -- FATTO** (verificato nel codice il 18/09/2026 sera: la
+      casella era rimasta aperta). `src/instrumentation.ts` + `src/instrumentation-client.ts` +
+      `sentry.server.config.ts` / `sentry.edge.config.ts`, opzioni centralizzate in
+      `src/lib/sentry-opzioni.ts` (`sendDefaultPii: false`, environment e release da Vercel) e
+      soprattutto `src/lib/sentry-riservatezza.ts` con 12 test: cosa NON deve uscire da qui.
+      Testo originale della decisione:
+- [x] Sentry -- deciso il 16/09/2026 (Gabriel ha chiesto un parere su un
       post generico "stack per startup a $21/mese" visto sui social, vedi DECISIONS.md):
       unica aggiunta reale di quella lista, priorità vicina -- oggi un errore in produzione si
       scopre solo da un utente che si lamenta o controllando i log Vercel a mano, rischio
@@ -1955,17 +1961,28 @@ per il database di test separato**, già in Fase 6ter: i test locali scrivono ne
 produzione e ne fanno partire i webhook.
 
 **Non risolto, dichiarato invece che nascosto:**
-- [ ] **Uno staff può portarsi via la rubrica clienti via PostgREST.** Legge legittimamente i
-      clienti dentro il prodotto, quindi nessuna policy può distinguere "guardarli uno per uno"
-      da "scaricarli tutti": in SQL quella differenza non è esprimibile. Per chiuderla davvero le
-      letture dei clienti devono passare solo da server action con service_role. Lavoro separato,
-      non banale.
-- [ ] **Password CalDAV e refresh token Google leggibili da qualunque membro del tenant.** La
-      0030 chiude la scrittura (solo l'owner collega e scollega) ma non la lettura: sono in
-      chiaro in colonna, e uno staff può leggerle e usarle fuori dal prodotto, anche dopo essere
-      stato rimosso (`rimuoviMembro` non revoca niente). Si lega alla voce già aperta in Fase
-      6bis sul cifraggio a riposo: vanno fatte insieme, e prima del primo cliente vero con un
-      calendario collegato.
+- [x] **Uno staff può portarsi via la rubrica clienti via PostgREST -- CHIUSA** (migrazione
+      0051, la notte del 18/09/2026; la casella era rimasta aperta, verificato il 18/09 sera).
+      La soluzione è quella che la voce stessa indicava: `revoke select, insert, update, delete
+      on public.clienti from authenticated, anon` -- verificato sul database di produzione, oggi
+      `authenticated` su `clienti` ha solo REFERENCES/TRIGGER/TRUNCATE. Ogni lettura passa da
+      `src/lib/clienti.server.ts` (`server-only` + service_role + filtro `tenant_id` su ogni
+      query). Coperta da `clienti.server.test.ts` (che fallisce se qualcuno aggiunge una funzione
+      esportata senza test) e dallo scenario E2E 23, che prova select/insert/update/delete col
+      JWT vero di uno staff.
+- [ ] **Password CalDAV e refresh token Google: NON PIÙ IN CHIARO, ma ancora leggibili.**
+      Aggiornata il 18/09/2026 sera: la voce diceva "in chiaro in colonna" e non è più vero. La
+      cifratura a riposo esiste ed è applicata davvero (`src/lib/cifratura.ts`, AES-256-GCM, 17
+      test; usata in `collegamenti.server.ts` e nel callback Google). Quello che resta aperto,
+      verificato sul database di produzione:
+      - `collegamenti_calendario_esterni` concede ancora **SELECT ad `authenticated`** (a
+        differenza di `clienti` e `whatsapp_credenziali`, dove la select è stata revocata): uno
+        staff può ancora leggere quelle righe. Adesso però ne ricava testo cifrato, non
+        credenziali: il danno è passato da "chiunque nel tenant si porta via l'accesso al
+        calendario" a "serve anche la chiave di cifratura".
+      - le righe salvate PRIMA della cifratura restano in chiaro finché non gira
+        `npm run cifra-credenziali` (`scripts/cifra-credenziali.mjs`, che esiste).
+      - `rimuoviMembro` continua a non revocare niente quando uno staff viene tolto.
 - [x] **L'invito a un membro viene consumato dal trigger PRIMA che l'email sia confermata.**
       CHIUSA il 18/09/2026 con la migrazione 0050. Non si verifica l'impostazione: la si rende
       irrilevante. Il ramo "invitato" del trigger ora non fa niente finché l'email non è
@@ -2094,7 +2111,17 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       percepito, perché rispondere alle recensioni è una cosa che tutti sanno di dover fare e
       quasi nessuno fa. La bozza si modifica sempre prima di pubblicare, mai invio automatico.
 
-- [ ] **Recupero dei clienti fermi, con l'uomo nel mezzo.** Si lega al punto "retention e no-show
+- [ ] **Recupero dei clienti fermi, con l'uomo nel mezzo -- COSTRUITO DIVERSO DA COME ERA
+      SCRITTO QUI.** Da rileggere insieme, 18/09/2026. Questa voce chiedeva "l'AI scrive, il
+      titolare rilegge e manda". Quello che è stato costruito il 18/09 fa una cosa diversa:
+      `scriviFollowUpPersonalizzato` gira **dentro il cron notturno** e il messaggio parte da
+      solo, a nome del salone, senza che nessuno lo rilegga. Non è stato un incidente -- i
+      controlli deterministici che rifiutano sconti, prezzi e link sono stati scritti apposta
+      per reggere un invio non sorvegliato, e in caso di dubbio parte il testo fisso -- ma
+      resta una scelta diversa da quella scritta qui, e va confermata o cambiata da Gabriel,
+      non lasciata implicita. L'uomo nel mezzo oggi esiste solo nel percorso SENZA AI (la card
+      "clienti che non tornano" sulla dashboard, che porta alla rubrica filtrata). Testo
+      originale della voce: Si lega al punto "retention e no-show
       reale" ancora aperto in Fase 3. L'AI scrive il messaggio personalizzato sullo storico del
       cliente, **il titolare lo manda**. La persona nel mezzo non è una limitazione tecnica da
       togliere un domani: è esattamente ciò che risolve il problema di consenso GDPR già
@@ -2279,7 +2306,13 @@ cliente che paga la cifra sbagliata o una fattura che non parte.
 
 **Webhook**
 - [ ] Creare l'endpoint live verso `/api/stripe/webhook`.
-- [ ] Iscriverlo agli stessi **7 eventi** della sandbox: `checkout.session.completed`,
+- [ ] Iscriverlo agli stessi eventi della sandbox. **ATTENZIONE, numero sbagliato in questo
+      documento fino al 18/09/2026**: qui sotto ne erano elencati 7, ma
+      `src/app/api/stripe/webhook/route.ts` ne gestisce **9** -- mancano all'elenco
+      `customer.tax_id.created` e `customer.tax_id.updated`. Se in live si iscrivono solo i 7
+      di questa lista, le partite IVA inserite dal cliente nel Customer Portal non arrivano mai
+      e i dati di fatturazione divergono in silenzio. Elenco vero, da leggere dal codice e non
+      da qui: `checkout.session.completed`,
       `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
       `checkout.session.expired`, `customer.subscription.created/updated/deleted`.
 - [ ] Aggiungere `customer.subscription.trial_will_end` quando esisterà l'email di fine prova, e

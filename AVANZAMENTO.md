@@ -1,18 +1,24 @@
 # Avanzamento
 
-Fotografia al **18/09/2026, mattina** (aggiornata a fine nottata). Conta le
-caselle di `PIANO.md` e dice, fase per fase, cosa manca davvero. Non
-sostituisce il PIANO: lo riassume per poterci ragionare sopra senza rileggere
-duemila righe.
+Fotografia al **18/09/2026, sera**. Conta le caselle di `PIANO.md` e dice,
+fase per fase, cosa manca davvero. Non sostituisce il PIANO: lo riassume per
+poterci ragionare sopra senza rileggere duemila righe.
 
-Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 53 voci
-aperte, 20 sono bloccate dalla partita IVA e non dipendono da una riga di
-codice.
+Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 50 voci
+aperte, una ventina sono impostazioni da cliccare su Stripe o sono bloccate
+dalla partita IVA, e non dipendono da una riga di codice.
 
-Seconda regola, meno comoda: **il numero delle aperte puo' salire**. Stanotte
-e' salito di una, pur avendone chiuse tre, perche' due voci nuove sono nate
-dagli errori commessi mentre lavoravamo. Un elenco che scende sempre non e'
-un elenco onesto, e' un elenco che non guarda.
+Seconda regola, meno comoda: **il numero delle aperte puo' salire**. Un elenco
+che scende sempre non e' un elenco onesto, e' un elenco che non guarda.
+
+Terza regola, imparata il 18/09/2026 di sera: **una casella aperta non vuol
+dire che la cosa non sia fatta.** Quella sera, controllando ogni voce aperta
+contro il codice vero invece che fidandosi del documento, tre sono risultate
+gia' chiuse da giorni (Sentry, la rubrica clienti chiusa a PostgREST, la
+cifratura delle credenziali dei calendari) e una risultava aperta ma descritta
+male (la 0035, gia' applicata in produzione). Vale la pena rifare quel
+controllo ogni tanto: un documento che dice "manca" quando non manca fa
+perdere tempo nello stesso modo di uno che dice "fatto" quando non e' fatto.
 
 ---
 
@@ -26,12 +32,46 @@ un elenco onesto, e' un elenco che non guarda.
 | 3 | CRM e dashboard | 9 / 9 | 0 | **chiusa** (17/09) |
 | 4 | Pagina pubblica, foto, PWA | 9 / 9 | 0 | **chiusa** |
 | 5 | Billing self-service e admin | 12 / 12 | 0 | **chiusa** (17/09) |
-| 6 | Automazioni e sicurezza | 9 / 16 | 7 | in corso |
+| 6 | Automazioni e sicurezza | 10 / 16 | 6 | in corso |
 | 6bis | Calendari esterni | 5 / 7 | 2 | quasi chiusa |
-| 6ter | Quello che serve per vendere | 4 / 38 | 34 | il grosso del lavoro |
+| 6ter | Quello che serve per vendere | 21 / 53 | 32 | il grosso del lavoro |
 | 7 | Estetica e responsive | 2 / 10 | 8 | non iniziata |
 
 Non esistono fasi oltre la 7.
+
+---
+
+## 18/09, notte -- i piani, la prova gratuita, e due bug miei
+
+Il blocco qui sotto ("18/09, sera") era stato scritto alle 14 e si e' fermato
+li'. Quello che e' successo dopo:
+
+**I piani hanno smesso di somigliarsi.** Free e Starter possono assaggiare
+l'AI ma contata (3 bozze di configurazione a vita, 10 prove dell'assistente);
+la quota di Growth scala con gli operatori invece di essere un numero fisso;
+Pro ha finalmente due cose che Growth non ha, il **report mensile** che arriva
+da solo il primo del mese e il **richiamo scritto dall'AI** ai clienti fermi.
+Delle tre promesse scoperte di Pro ne resta scoperta una e mezza: WhatsApp
+(bloccato dalla P.IVA) e "supporto prioritario" (che non dipende da nessuno e
+si chiude decidendo).
+
+**La prova gratuita e' una sola.** 14 giorni di Growth alla registrazione,
+senza carta, con avviso tre giorni prima e declassamento automatico alla
+scadenza. I 10 giorni di trial Stripe sono stati tolti: sommati facevano 24
+giorni di prodotto completo prima del primo euro, ed erano due prove diverse
+con lo stesso nome.
+
+**`scripts/verifica.sh`**: tipi, lint, 991 test unitari, build, permessi del
+database, scenari Playwright. Un comando, e non si ferma al primo rosso.
+
+**Due bug miei, che questo documento esiste anche per ricordare.** La
+migrazione 0061 ha riportato indietro di dieci migrazioni il trigger di
+registrazione (avevo cercato solo la migrazione che aveva CREATO la funzione,
+non tutte quelle che l'avevano riscritta): per qualche ora, in produzione, chi
+si registrava non riceveva la riga in `membri_tenant` ne' la regola promemoria.
+Tipi, lint, 991 test e build erano verdi -- l'hanno trovato solo gli scenari
+Playwright. E gli orari erano l'unico campo dell'onboarding che non passava dal
+diff: "il sabato siamo aperti" riscriveva tutta la settimana.
 
 ---
 
@@ -79,7 +119,7 @@ l'agenda come preferiscono?") a cui la risposta onesta era no.
    valgono in intersezione con quelli del salone: scriverli piu' larghi non
    riapre il salone di nascosto.
 
-Nota di metodo: da oggi la suite completa (872 test) gira davvero prima di
+Nota di metodo: da oggi la suite completa (991 test) gira davvero prima di
 ogni consegna, in un ambiente Linux a parte. Prima si potevano lanciare solo i
 file singoli, e infatti tre test rotti da una modifica di questa sessione sono
 saltati fuori solo li'.
@@ -273,7 +313,7 @@ Cose fatte in queste due giornate che non hanno una casella propria:
   SELECT su nessuna tabella da sempre, e la pagina pubblica funziona --
   parla col server, non col database. Dimostrato dai 63 scenari verdi con le
   revoche applicate.
-- **Suite E2E a 63 scenari**, tutti verdi. 860 test unitari.
+- **Suite E2E a 63 scenari**, tutti verdi. 991 test unitari.
 
 ---
 

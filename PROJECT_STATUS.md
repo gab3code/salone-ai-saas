@@ -1,5 +1,17 @@
 # Stato del progetto
 
+> **AVVISO, 18/09/2026 sera.** Questo file e' un REGISTRO storico, in ordine
+> dal piu' recente al piu' vecchio, e si e' fermato al 16/09/2026: non
+> contiene niente del 17 e del 18, che sono stati due giorni pieni (database
+> di test separato, ruoli, multi-sede, fatturazione, regole d'agenda, orari
+> per persona, ferie, l'onboarding che sa correggere, i piani, la prova
+> gratuita). Il numero di test citato qui sotto, 654, oggi e' 991.
+>
+> **Per sapere dove sta il progetto leggi `AVANZAMENTO.md`** (la fotografia) e
+> `PIANO.md` (il dettaglio voce per voce). Questo file resta utile per capire
+> PERCHE' una cosa e' stata fatta in un certo modo nei primi giorni, non per
+> sapere cosa c'e' adesso.
+
 Ultimo aggiornamento: 16/09/2026, sessantaquattresimo giro -- **Fase 3, Raccolta recensioni
 post-appuntamento IMPLEMENTATA**: email 2 ore dopo la fine dell'appuntamento con un link monouso
 per lasciare 1-5 stelle + commento, mostrate sulla pagina pubblica del salone. Verifica-visita
