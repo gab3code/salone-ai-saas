@@ -1,0 +1,23 @@
+-- `anon` non legge i profili (18/09/2026).
+--
+-- Trovata dal primo confronto fra il database di TEST e le migrazioni, il
+-- giorno stesso in cui `npm run permessi` e' nato.
+--
+-- In produzione il ruolo `anon` su `profiles` non ha SELECT. Nel database di
+-- test ce l'ha. Nessun file lo concede e nessun file lo toglie: e' un
+-- default di Supabase che in produzione qualcuno ha revocato a mano tempo
+-- fa, e che nel progetto nuovo e' rimasto acceso.
+--
+-- E' la storia della 0030 che si ripete: un permesso tolto a mano in un solo
+-- posto non e' un permesso tolto, e' un permesso che tornera'. La differenza
+-- e' che stavolta non l'ha trovata una persona che guardava, l'ha trovata un
+-- comando -- ed e' esattamente il motivo per cui quel comando esiste.
+--
+-- Non era sfruttabile in nessuno dei due: la policy `solo_mio_profilo`
+-- filtra per `auth_tenant_id()`, e un visitatore non autenticato non ha
+-- nessun tenant, quindi non gli sarebbe tornata nessuna riga. Ma un permesso
+-- che non serve a niente e' un permesso che un domani qualcuno usera' per
+-- sbaglio: la difesa vera sono le policy, e i permessi devono dire la stessa
+-- cosa senza fare eccezioni da spiegare.
+
+revoke select on public.profiles from anon;
