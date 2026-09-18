@@ -4,7 +4,7 @@ Fotografia al **18/09/2026, sera**. Conta le caselle di `PIANO.md` e dice,
 fase per fase, cosa manca davvero. Non sostituisce il PIANO: lo riassume per
 poterci ragionare sopra senza rileggere duemila righe.
 
-Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 43 voci
+Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 44 voci
 aperte, una ventina sono impostazioni da cliccare su Stripe o sono bloccate
 dalla partita IVA, e non dipendono da una riga di codice.
 
@@ -32,12 +32,13 @@ perdere tempo nello stesso modo di uno che dice "fatto" quando non e' fatto.
 | 3 | CRM e dashboard | 9 / 9 | 0 | **chiusa** (17/09) |
 | 4 | Pagina pubblica, foto, PWA | 9 / 9 | 0 | **chiusa** |
 | 5 | Billing self-service e admin | 12 / 12 | 0 | **chiusa** (17/09) |
-| 6 | Automazioni e sicurezza | 14 / 16 | 2 | **chiusa su tutto cio' che era residuo** |
+| 6 | Automazioni e sicurezza | 14 / 15 | 1 | **chiusa**, resta solo cio' che dipende dalla P.IVA |
 | 6bis | Calendari esterni | 7 / 7 | 0 | **chiusa** (18/09) |
 | 6ter | Quello che serve per vendere | 21 / 53 | 32 | il grosso del lavoro |
 | 7 | Estetica e responsive | 2 / 10 | 8 | non iniziata |
+| 8 | Dopo la pubblicazione | 0 / 2 | 2 | **nuova** (18/09), roba che ha senso con clienti veri |
 
-Non esistono fasi oltre la 7.
+Non esistono fasi oltre la 8.
 
 ---
 
@@ -54,11 +55,10 @@ turno. Il ragionamento per esteso sta in PIANO.md, perche' la tentazione torna.
 apertamente che l'addebito continua. Chiusa anche PostHog, come decisione: si fa quando ci sara' traffico vero da capire, e la
 condizione e' scritta.
 
-**Restano due voci, e nessuna delle due e' un residuo da ripulire.** I pacchetti prepagati sono
-una funzionalita' intera che tocca i soldi (e quindi si incrocia con Stripe Connect, gia'
-bloccante per le caparre): e' una decisione di prodotto, non un lavoro rimasto indietro. Il link
-di gestione mandato al cliente dipende dagli SMS, cioe' dalla P.IVA. Fase 6 e' chiusa su tutto
-cio' che era davvero da chiudere.
+**Resta una voce sola, e dipende dalla P.IVA**: il link di gestione mandato al cliente, che
+passa dagli SMS. Pacchetti prepagati e tessera fedelta' sono usciti da qui il 18/09 e sono
+diventati la **Fase 8**: hanno senso quando ci sono clienti veri che pagano, e i pacchetti
+richiedono comunque Stripe Connect prima.
 
 **Fase 6bis: CHIUSA.** La direzione export e' stata fatta la sera del 18/09: gli appuntamenti
 del salone si scrivono nel calendario Google personale dell'operatore, spenti per tutti finche'
@@ -76,7 +76,7 @@ guardava -- ed e' il motivo per cui vale la pena averlo fatto. Corretto dalla 00
 per una. Stamattina passava pur essendo il trigger mutilato, perche' ne controllava solo tre su
 cinque.
 
-43 voci aperte.
+44 voci aperte (una in piu' del conto di prima: la voce su pacchetti e fedelta' e' stata divisa in due, perche' erano due cose diverse nella stessa casella).
 
 ---
 

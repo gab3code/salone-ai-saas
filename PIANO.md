@@ -1853,9 +1853,6 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       senza erogare servizi -- ma se un giorno si vorrà dire "questo login È questo operatore"
       (per esempio per aprire il calendario già filtrato sulla propria agenda) servirà un
       collegamento esplicito fra `membri_tenant.user_id` e `operatori.id`, che oggi non esiste.
-- [ ] **Pacchetti prepagati/tessera fedeltà digitale** (nuovo task, stesso giro): visto su
-      CutApp, comune nel settore beauty ("10 sedute prepagate", punti fedeltà). Non urgente, ma
-      differenziale vero per i saloni che già usano questo modello di vendita su carta.
 - **NON aggiunto come task, deliberatamente** (visto su Estetia/WeGest, "Cassa"/registro di
   pagamenti REALI incassati -- diverso dagli "incassi previsti" aggiunti in Fase 3, che sono
   solo una proiezione, zero pagamenti/fiscalità, vedi DECISIONS.md 13/09/2026): tocca
@@ -2652,6 +2649,50 @@ era no, e da lì è venuto fuori il resto.
 3. Email e SMS negli scenari non partono davvero (Mailjet non configurato nell'ambiente di
    test): che il codice le chiami è verificato, che arrivino no.
 4. Stripe è in test mode.
+
+## Fase 8 -- Dopo la pubblicazione (creata il 18/09/2026)
+
+Roba che ha senso solo quando ci sono clienti veri che pagano. Non e' un
+parcheggio per le cose noiose: e' il posto dove finisce quello che oggi
+costruiremmo al buio, senza sapere se serve e senza le fondamenta sotto.
+
+Regola d'ingresso in questa fase: **se per farla bene serve sapere come
+lavorano davvero i primi clienti, o serve Stripe Connect, sta qui.**
+
+- [ ] **Tessera fedeltà digitale.** La tessera di cartone con i timbri, quella vera: "alla
+      decima piega la undicesima e' gratis". Un contatore sulla scheda cliente piu' una regola
+      (ogni N appuntamenti di un certo tipo, scatta un premio). **Non si muovono soldi**, quindi
+      e' la meta' economica di questa coppia: niente Stripe, niente fisco, niente Connect.
+
+      **La condizione perche' non sia una mezza funzionalita'**: deve vivere dentro
+      l'assistente, non essere un numero sulla scheda che nessuno guarda. "Questa e' la tua
+      decima, te la offriamo noi", detto in chat mentre il cliente prenota, e' una cosa che
+      nessun concorrente puo' fare perche' nessuno ha l'assistente. Un contatore che il
+      titolare deve ricordarsi di controllare vale zero, e lo sappiamo gia' dal caso
+      `bufferMinuti`.
+
+- [ ] **Pacchetti prepagati (cicli di sedute).** Il cliente paga in anticipo N sedute, di solito
+      scontate, e ogni visita ne consuma una. Per chi vende cosi' e' uno strumento di cassa:
+      incassa oggi, lavora nei mesi dopo.
+
+      **Tre cose che non sono codice e che vanno risolte prima**, e sono il motivo per cui
+      questa voce sta qui e non in Fase 6:
+      1. **I soldi non sono nostri.** Sono del salone, esattamente come le caparre: serve
+         Stripe Connect, che e' gia' bloccante e ancora da fare. Costruire i pacchetti prima
+         vorrebbe dire far passare dal conto di Gabriel i soldi dei clienti di qualcun altro.
+      2. **Un pacchetto venduto e non consumato e' un debito, non un ricavo.** In Italia questo
+         decide quando si emette il documento fiscale -- alla vendita o al consumo -- ed e' una
+         domanda per il commercialista del salone. Se lo implementiamo nel modo sbagliato
+         mettiamo un cliente nei guai con numeri che gli abbiamo generato noi.
+      3. **Cosa succede alle sedute non usate**: scadenza, rimborso, credito. E' una decisione
+         commerciale che ogni attivita' prende diversamente, quindi va configurabile o diventa
+         una promessa che facciamo noi al posto loro.
+
+      **Nota che puo' cambiare la priorita' di questa voce** (18/09/2026): nel mondo della
+      massoterapia e dell'osteopatia il ciclo di sedute prepagate non e' un extra, e' il modello
+      di vendita NORMALE -- un fisioterapista non vende "una seduta", vende "un ciclo di dieci".
+      Se i primi clienti arrivano da li' invece che da parrucchieri ed estetiste, questa voce
+      sale parecchio. Resta comunque dopo Connect.
 
 ## Fase 7 -- Parità/superiorità estetica con Estetia, responsive completo (punti 25, 26, 27, 28)
 Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davvero "fatto" e non
