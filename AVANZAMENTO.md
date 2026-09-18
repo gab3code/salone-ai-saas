@@ -213,7 +213,16 @@ Cose fatte in queste due giornate che non hanno una casella propria:
   chiaro, cosi' al deploy i calendari gia' collegati non smettono di
   sincronizzare tutti insieme. Manca il passo umano: generare la chiave e
   lanciare `npm run cifra-credenziali -- --applica` una volta per database.
-- **Suite E2E a 62 scenari**, tutti verdi. 858 test unitari.
+- **Trenta permessi di lettura che esistevano solo in produzione** (0054 e
+  0055), trovati da `npm run permessi` il giorno dopo averlo scritto. Fra
+  questi `anon` e `authenticated` con SELECT su `whatsapp_credenziali`, la
+  tabella che la 0005 dichiara di voler lasciare senza NESSUN permesso.
+  Corregge anche una decisione sbagliata della 0049 ("le SELECT non si
+  toccano, la pagina pubblica ne ha bisogno"): in produzione `anon` non ha
+  SELECT su nessuna tabella da sempre, e la pagina pubblica funziona --
+  parla col server, non col database. Dimostrato dai 63 scenari verdi con le
+  revoche applicate.
+- **Suite E2E a 63 scenari**, tutti verdi. 860 test unitari.
 
 ---
 
