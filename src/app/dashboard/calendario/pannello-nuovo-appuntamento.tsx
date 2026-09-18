@@ -207,6 +207,15 @@ export function PannelloNuovoAppuntamento({
     } else {
       setSlotSelezionato(null);
       setAppenaCreato(true);
+      // L'appuntamento e' nato in un giorno che potrebbe non essere quello
+      // guardato: senza questo, si conferma e non si vede comparire niente.
+      if (dataIniziale !== (searchParams.get("data") ?? dataIniziale)) {
+        const parametri = new URLSearchParams(searchParams.toString());
+        parametri.set("data", dataIniziale);
+        router.push(`/dashboard/calendario?${parametri.toString()}`);
+      } else {
+        router.refresh();
+      }
     }
   }
 
@@ -252,13 +261,21 @@ export function PannelloNuovoAppuntamento({
           </select>
         </div>
 
-        {/* Il giorno NON si sceglie qui: si sceglie una volta sola in cima
-            alla pagina. Due campi che scrivevano lo stesso parametro nell'URL
-            si muovevano a vicenda, e sembrava un difetto invece che un solo
-            valore visto due volte (18/09/2026). Qui si legge, e basta. */}
+        {/* Il giorno del nuovo appuntamento e' SUO, non quello guardato in
+            cima: scrive `data_nuovo`, mentre le frecce in alto scrivono
+            `data`. Prima scrivevano lo stesso parametro e si muovevano a
+            vicenda -- toccare uno spostava l'altro, che e' il difetto
+            segnalato il 18/09/2026. Adesso si puo' tenere l'agenda di oggi
+            sotto gli occhi e fissare un appuntamento per lunedi'. */}
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Giorno</span>
-          <p className="px-2 py-1 text-sm">{formattaGiornoEsteso(dataIniziale)}</p>
+          <label className="text-xs text-zinc-500">Giorno del nuovo appuntamento</label>
+          <input
+            type="date"
+            value={dataIniziale}
+            onChange={(e) => aggiornaParametro("data_nuovo", e.target.value)}
+            className="rounded border border-zinc-300 px-2 py-1"
+          />
+          <p className="text-xs text-zinc-500">{formattaGiornoEsteso(dataIniziale)}</p>
         </div>
       </div>
 

@@ -80,7 +80,10 @@ export default async function PaginaCalendario({
   searchParams,
 }: {
   searchParams: Promise<{
+    /** Il giorno che si sta guardando (la lista degli appuntamenti). */
     data?: string;
+    /** Il giorno per cui si sta prenotando: indipendente da `data`. */
+    data_nuovo?: string;
     // Servizi consecutivi (punto 12): più valori con la stessa chiave nella
     // query string (?servizio_id=a&servizio_id=b) -> Next li dà già come
     // array, un solo valore resta una stringa semplice.
@@ -101,6 +104,13 @@ export default async function PaginaCalendario({
   const tenantId = sessione.tenantId;
 
   const dataYMD = sp.data && /^\d{4}-\d{2}-\d{2}$/.test(sp.data) ? sp.data : oggiYMD();
+  // Il giorno che si GUARDA e il giorno per cui si PRENOTA sono due cose
+  // diverse, e hanno due parametri diversi (18/09/2026, chiesto da Gabriel):
+  // si tiene l'agenda di oggi sotto gli occhi mentre si fissa un appuntamento
+  // per lunedi'. Finche' nessuno lo tocca, il secondo segue il primo -- che e'
+  // il caso normale, prenotare nel giorno che si sta guardando.
+  const dataNuovoYMD =
+    sp.data_nuovo && /^\d{4}-\d{2}-\d{2}$/.test(sp.data_nuovo) ? sp.data_nuovo : dataYMD;
   const servizioIds = sp.servizio_id ? (Array.isArray(sp.servizio_id) ? sp.servizio_id : [sp.servizio_id]) : [];
   const operatoreId = sp.operatore_id ?? "";
   const modificaId = sp.modifica ?? "";
@@ -201,18 +211,27 @@ export default async function PaginaCalendario({
   }));
 
   const giornoDaGuardare = new Date(`${dataYMD}T00:00:00Z`);
+  const giornoDaPrenotare = new Date(`${dataNuovoYMD}T00:00:00Z`);
 
   // Il giorno di chiusura si chiede SEMPRE, anche senza servizi scelti: una
   // giornata vuota va spiegata comunque, altrimenti "nessun appuntamento"
   // sembra un guasto invece di un giorno in cui il salone non apre.
-  const [giornoChiusoOggi, ricerca] = await Promise.all([
+  //
+  // Due giorni, quindi due risposte -- ma una sola domanda quando coincidono,
+  // che e' il caso normale.
+  const [giornoChiusoGuardato, ricerca] = await Promise.all([
     giornoDiChiusuraTenant(supabase, tenantId, giornoDaGuardare),
     trovaSlotEStatoGiornoTenant(supabase, tenantId, {
-      data: giornoDaGuardare,
+      data: giornoDaPrenotare,
       servizioIds,
       operatoreId: operatoreId || undefined,
     }),
   ]);
+
+  const giornoChiusoDaPrenotare =
+    dataNuovoYMD === dataYMD
+      ? giornoChiusoGuardato
+      : await giornoDiChiusuraTenant(supabase, tenantId, giornoDaPrenotare);
 
   const slots: { operatoreId: string; inizio: string }[] = ricerca.slot.map((s) => ({
     operatoreId: s.operatoreId,
@@ -262,7 +281,7 @@ export default async function PaginaCalendario({
         <h2 className="text-base font-medium">Appuntamenti del giorno</h2>
         {appuntamenti.length === 0 ? (
           <p className="mt-2 text-sm text-zinc-500">
-            {giornoChiusoOggi ? (
+            {giornoChiusoGuardato ? (
               <>
                 Il salone è chiuso in questo giorno.{" "}
                 <a href="/dashboard/configura" className="underline">
@@ -423,8 +442,8 @@ export default async function PaginaCalendario({
           slots={slots}
           servizioIdsIniziali={servizioIds}
           operatoreIdIniziale={operatoreId}
-          dataIniziale={dataYMD}
-          giornoChiuso={giornoChiusoOggi}
+          dataIniziale={dataNuovoYMD}
+          giornoChiuso={giornoChiusoDaPrenotare}
           motivoOperatori={motivoOperatori}
           provaAssistente={
             /* La key su un elemento che sembra singolo non e' superflua

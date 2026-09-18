@@ -107,5 +107,19 @@ test.describe("Scenario 12 -- prenotazione manuale da dashboard", () => {
 
     // 3. La data si legge in italiano, non come "2026-09-21".
     await expect(page.getByText(formattaGiornoEsteso(domenica.ymd)).first()).toBeVisible();
+
+    // 4. Il giorno guardato e il giorno per cui si prenota sono indipendenti:
+    //    si tiene l'agenda di oggi sotto gli occhi mentre si fissa un
+    //    appuntamento per un altro giorno. Prima erano lo stesso parametro e
+    //    si muovevano a vicenda.
+    await page.goto(
+      `/dashboard/calendario?data=${giorno.ymd}&data_nuovo=${domenica.ymd}&servizio_id=${tenant.servizi[0].id}`
+    );
+    // La lista guarda il giorno aperto: niente messaggio di chiusura li'.
+    await expect(page.getByText(/Il salone è chiuso in questo giorno\. Cambia gli orari/)).toHaveCount(0);
+    // Il pannello guarda la domenica: il messaggio di chiusura e' suo.
+    await expect(
+      page.getByText(/Il salone è chiuso in questo giorno: scegli un altro giorno/)
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
