@@ -4,7 +4,7 @@ Fotografia al **18/09/2026, sera**. Conta le caselle di `PIANO.md` e dice,
 fase per fase, cosa manca davvero. Non sostituisce il PIANO: lo riassume per
 poterci ragionare sopra senza rileggere duemila righe.
 
-Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 50 voci
+Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 45 voci
 aperte, una ventina sono impostazioni da cliccare su Stripe o sono bloccate
 dalla partita IVA, e non dipendono da una riga di codice.
 
@@ -28,16 +28,47 @@ perdere tempo nello stesso modo di uno che dice "fatto" quando non e' fatto.
 |---|---|---|---|---|
 | 0 | Fondamenta | 8 / 8 | 0 | **chiusa** |
 | 1 | Booking engine | 8 / 8 | 0 | **chiusa** (16/09) |
-| 2 | AI conversazionale | 7 / 9 | 2 | quasi chiusa |
+| 2 | AI conversazionale | 8 / 9 | 1 | **chiusa tranne WhatsApp** |
 | 3 | CRM e dashboard | 9 / 9 | 0 | **chiusa** (17/09) |
 | 4 | Pagina pubblica, foto, PWA | 9 / 9 | 0 | **chiusa** |
 | 5 | Billing self-service e admin | 12 / 12 | 0 | **chiusa** (17/09) |
-| 6 | Automazioni e sicurezza | 10 / 16 | 6 | in corso |
-| 6bis | Calendari esterni | 5 / 7 | 2 | quasi chiusa |
+| 6 | Automazioni e sicurezza | 13 / 16 | 3 | **quasi chiusa** |
+| 6bis | Calendari esterni | 6 / 7 | 1 | **chiusa tranne l'export** |
 | 6ter | Quello che serve per vendere | 21 / 53 | 32 | il grosso del lavoro |
 | 7 | Estetica e responsive | 2 / 10 | 8 | non iniziata |
 
 Non esistono fasi oltre la 7.
+
+---
+
+## 18/09, sera tardi -- Fase 2, 6 e 6bis quasi chiuse
+
+**Fase 2 resta aperta solo su WhatsApp.** Il contesto persistente della conversazione e' stato
+guardato e scartato, non rinviato: sul web le chat non diventano lunghe (tre ore di inattivita'
+e riparte pulita), e nella forma ovvia -- lo stato lo scrive il modello -- peggiorerebbe proprio
+le chat lunghe, perche' un valore sbagliato entrato una volta si ripropone come fatto a ogni
+turno. Il ragionamento per esteso sta in PIANO.md, perche' la tentazione torna.
+
+**Fase 6: da sei aperte a tre.** Chiuse: i collegamenti dei calendari leggibili solo dal server
+(0065), la revisione sicurezza verificata pezzo per pezzo, la sospensione che adesso dice
+apertamente che l'addebito continua. Restano una funzionalita' nuova (pacchetti prepagati), un
+rinvio deliberato con la sua condizione (PostHog: quando ci sara' traffico da capire) e una cosa
+che dipende dalla P.IVA (il link di gestione mandato al cliente via SMS).
+
+**Fase 6bis: resta solo la direzione export**, che non e' un residuo ma una funzionalita' vera
+(scope di scrittura su Google, ri-autorizzazione di chi ha gia' collegato, anelli di
+sincronizzazione da evitare).
+
+**Un metodo nuovo.** Per la prima volta e' stato lanciato il database linter di Supabase: ha
+trovato che `gestisci_nuovo_utente()` era chiamabile via RPC mentre la sua gemella era protetta
+dal 17/09. Poca gravita' vera, ma un controllo diverso ha visto una cosa che nessuno dei nostri
+guardava -- ed e' il motivo per cui vale la pena averlo fatto. Corretto dalla 0066.
+
+**Lo scenario 13 adesso chiede al trigger di registrazione tutte le cose che deve fare**, una
+per una. Stamattina passava pur essendo il trigger mutilato, perche' ne controllava solo tre su
+cinque.
+
+45 voci aperte.
 
 ---
 

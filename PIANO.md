@@ -2444,6 +2444,78 @@ cliente che paga la cifra sbagliata o una fattura che non parte.
       script che verifica che tutti e sei i prezzi esistano su Stripe e costino la cifra attesa,
       da lanciare come primo comando dopo aver messo le chiavi live.
 
+### 18/09/2026, sera -- chiusura di Fase 2 (tranne WhatsApp), Fase 6 e 6bis
+
+Lavoro fatto mentre Gabriel era fuori, con due regole: niente che costi soldi senza il suo ok
+(gli scenari 1-10 chiamano il modello e restano fuori), e niente decisioni di prodotto al posto
+suo. Chiuso quello che era residuo, preparato e documentato quello che e' scelta.
+
+**Cosa e' stato chiuso**
+
+- [x] I collegamenti dei calendari si leggono solo dal server (0065) -- vedi la voce in Fase 6.
+- [x] Sospendere non ferma l'addebito, e adesso il pannello admin lo dice.
+- [x] Revisione sicurezza: verificata pezzo per pezzo invece che spuntata.
+- [x] `gestisci_nuovo_utente()` non e' piu' chiamabile via RPC (0066).
+- [x] Deciso di NON fare il contesto persistente della conversazione, col ragionamento scritto.
+
+**Un metodo nuovo, e cosa ha trovato.** Per la prima volta abbiamo fatto girare il database
+linter di Supabase (`get_advisors`). Ha visto una cosa che nessuno dei nostri controlli
+guardava: `gestisci_nuovo_utente()` era eseguibile via `/rest/v1/rpc/` da chiunque, mentre la
+sua gemella `gestisci_email_confermata()` era protetta dalla 0050. Poca gravita' reale
+(Postgres rifiuta di eseguire una funzione `trigger` fuori da un trigger), ma l'asimmetria era
+il segnale. Corretta dalla 0066.
+
+**Quello che il linter ha segnalato e che NON abbiamo toccato**, con il motivo -- cosi' chi lo
+rilancia non ricontrolla da capo:
+
+- *18 chiavi esterne senza indice, 4 indici mai usati, 5 policy permissive doppie su
+  `membri_tenant`, una policy che rivaluta `auth.<fn>()` riga per riga.* Sono tutte questioni di
+  prestazioni su un database con zero traffico vero. Aggiungere 18 indici adesso rallenterebbe
+  le scritture per un beneficio che nessuno misura. **Condizione per riaprirle: quando ci sara'
+  un salone con un'agenda piena, e quindi numeri su cui decidere.** Il posto giusto e' una
+  passata sola, non una riga alla volta.
+- *Quattro tabelle con RLS accesa e nessuna policy* (`contatori_globali`, `interventi_admin`,
+  `limiti_ip`, `whatsapp_credenziali`): e' il modo giusto di dire "solo service_role", non un
+  difetto.
+- *`auth_tenant_id()`, `auth_ruolo()`, `e_owner()` eseguibili da authenticated*: servono dentro
+  le policy RLS. Revocarle spegnerebbe l'isolamento invece di rafforzarlo.
+- *`btree_gist` nello schema public*: spostarla e' rischio senza guadagno.
+- *Leaked password protection ancora spenta*: confermata spenta il 18/09 sera. E' un
+  interruttore nel pannello Supabase, gratis, e resta nella lista dei bloccanti (punto 6).
+
+**Come e' stata verificata la 0065, visto che Playwright non lo posso lanciare io.** Dal mio
+ambiente manca il binario del browser e non si scarica, quindi gli scenari restano a Gabriel. Al
+loro posto:
+
+1. tipi, lint, 999 test unitari, build di produzione -- verdi a ogni passo;
+2. un test nuovo sul modulo dei calendari che controlla ogni query una per una, piu' il
+   confronto fra funzioni esportate e coperte;
+3. `has_table_privilege` sul database di prova: false per `anon` e `authenticated` su entrambe
+   le tabelle, e true su `appuntamenti`, che deve restare leggibile;
+4. **il confronto completo migrazioni/database rifatto a mano**: il modulo puro
+   `permessi-attesi.ts` girato sulle 66 migrazioni, il database interrogato riga per riga, e le
+   62 coppie tabella/ruolo confrontate una per una. Nessuna divergenza sul database di prova. In
+   produzione le differenze sono ESATTAMENTE due, ed e' voluto: le due tabelle della 0065, che
+   in produzione va applicata dopo il deploy;
+5. **il trigger di registrazione provato dal vivo** sul database di prova: inserito un utente in
+   `auth.users` e contato cosa nasce -- tenant 1, profilo 1, membri_tenant 1, orari 7, regola
+   promemoria 1 -- poi ripulito tutto.
+
+Il punto 5 e' diventato permanente: lo scenario 13 adesso chiede al trigger TUTTE le cose che
+deve fare, una per una. Stamattina passava pur essendo il trigger mutilato, perche' chiedeva
+solo tenant, orari e profilo.
+
+**Da fare dopo il push e il deploy, in quest'ordine:**
+
+1. `npm run permessi` (dal terminale di Gabriel: dal mio ambiente il database non e'
+   raggiungibile) -- deve segnalare le due divergenze note, ed e' la conferma che lo script
+   funziona;
+2. applicare la **0065** alla produzione;
+3. `npm run cifra-credenziali` -- in produzione c'e' esattamente una riga con il
+   `google_refresh_token` ancora in chiaro;
+4. `./scripts/verifica.sh --e2e`, che adesso comprende lo scenario 13 rinforzato;
+5. quando Gabriel vuole: gli scenari 1-10, che costano e non ho lanciato.
+
 ### La giornata del 18/09/2026 -- personalizzazione dell'agenda, leve per i piani, e due bug miei
 
 Giornata nata da una domanda di Gabriel che sembrava piccola: *"è abbastanza personalizzabile? i
