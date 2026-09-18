@@ -4,6 +4,7 @@ import { eseguiPromemoriaGiornalieri } from "@/lib/promemoria.server";
 import { pulisciContatoriDemoPerConnessione, pulisciLimitiIp } from "@/lib/limiti-ip.server";
 import { inviaAvvisiQuotaAi } from "@/lib/ai/avviso-quota.server";
 import { manutenzioneProveGratuite } from "@/lib/prova-gratuita.server";
+import { inviaReportMensili } from "@/lib/report-mensile.server";
 
 /**
  * Endpoint chiamato da Vercel Cron una volta al giorno (vedi vercel.json,
@@ -68,5 +69,22 @@ export async function GET(request: NextRequest) {
     console.error("[cron/promemoria] manutenzione delle prove gratuite fallita:", errore);
   }
 
-  return NextResponse.json({ ...esito, limitiIpCancellati, contatoriDemoCancellati, avvisiQuota, prove });
+  // Il report mensile (Pro): gira tutte le notti ma fa qualcosa solo il
+  // primo del mese. Un secondo cron per una riga di `if` sarebbe una
+  // dipendenza in piu' -- e il piano Hobby di Vercel ne concede uno solo.
+  let report = null;
+  try {
+    report = await inviaReportMensili(admin, new Date());
+  } catch (errore) {
+    console.error("[cron/promemoria] report mensili falliti:", errore);
+  }
+
+  return NextResponse.json({
+    ...esito,
+    limitiIpCancellati,
+    contatoriDemoCancellati,
+    avvisiQuota,
+    prove,
+    report,
+  });
 }

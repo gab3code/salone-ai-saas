@@ -875,6 +875,34 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27vicies. I numeri li contiamo noi, le parole le scrive il modello (18/09/2026)
+
+Due funzioni nuove fanno scrivere all'AI qualcosa che parte da solo verso una
+persona vera, senza che nessuno lo rilegga: il richiamo ai clienti che non
+tornano (Pro) e il report mensile (Pro).
+
+E' una categoria diversa da tutto quello che l'AI faceva prima. Un errore
+dell'assistente in chat lo vede il cliente e si corregge nella frase dopo; un
+errore dentro un messaggio spedito a nome del salone diventa un impegno
+commerciale che il titolare scopre alla cassa.
+
+Le due regole che ne escono, e che vanno tenute per qualunque cosa simile:
+
+1. **Quello che il modello non deve poter fare si blocca con un controllo, non
+   con una richiesta nel prompt.** "Non inventare sconti" nel system prompt e'
+   un'istruzione; il controllo che rifiuta un testo contenente "sconto", una
+   cifra con l'euro o un link e' una garanzia. Il prompt lo si scrive
+   comunque, ma la garanzia sta nel codice, con i suoi test.
+2. **Nel report i numeri li calcola il codice e il modello non puo' scriverne
+   nemmeno uno** (il commento con dentro una cifra viene scartato). Cosi'
+   l'errore peggiore -- un titolare che decide qualcosa su un numero
+   ricordato male -- non dipende da quanto e' bravo il modello: non puo'
+   proprio succedere.
+
+Terza regola, sul degrado: quando il controllo boccia il testo, o la quota e'
+finita, il messaggio parte lo stesso nella versione fissa. Saltare il
+contatto per un problema nostro farebbe perdere al salone un cliente vero.
+
 ## 27novodecies. Le mezze funzionalita' (18/09/2026)
 
 Tre cose trovate nello stesso giorno, tutte della stessa forma: un pezzo
