@@ -6645,3 +6645,63 @@ ritiro.
 cui costo cresce insieme al valore percepito, cioe' il peggiore da usare come leva. Pro ha gia'
 argomenti che non costano per messaggio -- WhatsApp, tono personalizzato, report mensile,
 multi-sede su Enterprise -- e sono quelli su cui conviene appoggiare la salita di piano.
+
+---
+
+## 2026-09-19 — Il listino dei concorrenti, e il problema non e' il margine di Pro
+
+Ricerca fatta il 19/09/2026 sulle pagine ufficiali dei listini, non a memoria.
+
+| | prezzo | operatori extra | commissioni | AI inclusa |
+|---|---|---|---|---|
+| **Estetia** (IT, diretto) | Starter 29,90 · Growth 49,90 · **Pro 89,90** | **nessun sovrapprezzo pubblicato** | nessuna | si', chat + WhatsApp su Pro |
+| **Calendix** (IT) | Light 24 · **Pro 33** · Business 74 | **illimitati inclusi da Pro in su** | nessuna | **WhatsApp AI illimitato da Pro** |
+| **Fresha** | Independent ~19,95 · Team ~13,95/persona | lineare, per persona | 20% sul primo appuntamento da marketplace, min $6 | add-on a parte, $99,95/sede/mese |
+| **Treatwell** | 0 | **illimitati, gratis** | 25% primo appuntamento, 2% prepagamenti | nessuna |
+| **Booksy** | ~$29,99 + ~$20/operatore (listino USA, non pubblicato per l'Italia) | +$20 ciascuno | 30% sul primo appuntamento da "Boost" | non trovata |
+| **Maki App** (IT) | 47 +IVA | non dichiarato | nessuna | non trovata |
+| **Salone AI oggi** | Starter 19,90 · Growth 39,90 · Pro 89,90 | **+10 / +15 / +20** | nessuna | si', da Growth |
+
+**Dove siamo, in una riga per fascia:** Starter e' sotto tutti i canoni veri (Estetia parte da
+29,90). Growth a 39,90 sta fra Starter e Growth di Estetia. Pro a 89,90 e' **identico a Estetia
+Pro**, al centesimo.
+
+**LA COSA CHE CONTA, e non e' il margine.** Gabriel ha chiesto se il margine di Pro e' troppo
+basso. La risposta onesta e' che il margine non e' il problema piu' urgente: **il sovrapprezzo
+per operatore lo e'.**
+
+Un salone con quattro poltrone oggi paga:
+
+- Salone AI Growth: 39,90 + 3x15 = **84,90 €**
+- Estetia Growth: **49,90 €** (nessun sovrapprezzo pubblicato)
+- Calendix Pro: **33 €**, con operatori illimitati E WhatsApp AI illimitato
+
+Cioe' **due volte e mezzo Calendix, per il piano che vende la stessa cosa**. E il sovrapprezzo
+per operatore e' proprio la voce che i due concorrenti italiani diretti hanno tolto: Estetia non
+lo pubblica affatto, Calendix lo elimina esplicitamente dal piano Pro in su, Treatwell non lo ha
+mai avuto. Nel mercato italiano di oggi **il "+€ per postazione" e' la struttura che gli altri
+stanno abbandonando**, e noi la stiamo usando su tutti e tre i piani paganti.
+
+Il paradosso che ne esce: il salone a quattro poltrone e' contemporaneamente **il cliente che
+vale di piu'** (84,90 al mese) e **quello che perdiamo piu' facilmente**, perche' e' il punto in
+cui il confronto con Calendix passa da "costa un po' di piu'" a "costa il triplo". Un salone che
+lavora da solo paga 39,90 contro 24-33: differenza difendibile. A quattro poltrone non lo e'
+piu'.
+
+**Le tre strade, senza sceglierne una al posto di Gabriel:**
+
+1. **Tenere il +€ per operatore e difenderlo con l'AI.** Regge solo finche' l'AI e' davvero
+   migliore di quella di Calendix, che oggi la da' illimitata a 33 €. E' una scommessa su una
+   differenza di qualita' che non abbiamo ancora misurato contro di loro.
+2. **Togliere il sovrapprezzo da Pro** e farne l'argomento della salita di piano: "da Pro in su
+   quante persone vuoi". E' la mossa che risolve due problemi con una riga -- toglie il punto
+   debole del confronto E da' a Pro la leva commerciale che Gabriel cercava, senza che quella
+   leva sia "piu' messaggi AI" (l'unica il cui costo cresce insieme al valore).
+   Costo: un Pro con dieci poltrone passerebbe da 269,90 a 89,90. Va fatto sapendo quanto costa
+   davvero servirlo -- ed e' esattamente il numero che oggi non abbiamo.
+3. **Alzare la base e abbassare il per-operatore** (es. Growth 49,90 + 8): stesso incasso a
+   quattro poltrone, ma il prezzo mostrato nel confronto iniziale peggiora.
+
+**Non si sceglie oggi**: la 0068 inizia a misurare stamattina, e la strada 2 dipende da un
+numero che avremo fra due settimane. Le strade 1 e 3 non richiedono quel numero ma cambiano il
+posizionamento, e quella e' una decisione di Gabriel, non mia.
