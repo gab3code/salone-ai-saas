@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { creaTenantDiProva, type TenantDiProva } from "./helpers/tenant-di-prova";
 import { accediComeTitolare } from "./helpers/login";
 import { collegaUtenteATenant } from "./helpers/membri-di-prova";
+import { rigaOperatore } from "./helpers/configura";
 
 /**
  * Scenario 18 (Fase 5, migrazione 0027): multi-sede.
@@ -73,7 +74,11 @@ test.describe("Scenario 18 -- più attività, un solo accesso", () => {
     await page.goto("/dashboard/configura");
     await expect(page.getByText("Taglio Periferia").first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Taglio Centro")).toHaveCount(0);
-    await expect(page.getByText("Bruno Periferia").first()).toBeVisible();
+    // Non `getByText("Bruno Periferia").first()`: il nome sta anche
+    // nell'<option> del menu "Chi" della sezione ferie, che viene prima nel
+    // DOM ed e' per definizione nascosto. La riga dell'elenco operatori,
+    // invece, e' esattamente la cosa che questo scenario vuole vedere.
+    await expect(rigaOperatore(page, "Bruno Periferia")).toBeVisible();
     await expect(page.getByText("Anna Centro")).toHaveCount(0);
 
     // La sede attiva è persistita su profiles.tenant_id -- è quello che legge

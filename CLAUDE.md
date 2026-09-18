@@ -875,6 +875,41 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27duovicies. Come si cerca un elemento in un test Playwright (18/09/2026)
+
+Tre scenari rotti in un pomeriggio, tre cause diverse, una sola radice: il locator
+cercava l'elemento per POSIZIONE o per ASPETTO invece che per STRUTTURA. Quando la pagina
+cresce, la posizione cambia e l'aspetto cambia; la struttura no.
+
+I tre modi in cui e' successo, tutti da non ripetere:
+
+1. **`.first()` su un nome parziale.** `getByRole("button", { name: "Aggiungi" }).first()`
+   funzionava finche' il primo "Aggiungi" della pagina era quello degli operatori. E'
+   bastato aggiungere la sezione "Ferie e chiusure" (che sta prima) con il suo "Aggiungi
+   chiusura" -- `name` senza `exact` cerca una SOTTOSTRINGA -- e il test premeva un altro
+   pulsante senza dare errore. Si scopre venti righe dopo, su un'asserzione che sembra non
+   c'entrare niente.
+
+2. **`getByText(nome).first()` con un `<option>` di mezzo.** Il nome di un operatore
+   compare anche dentro il menu "Chi" della sezione ferie. Un `<option>` per Playwright e'
+   SEMPRE nascosto, e sta prima nel DOM: `.first()` lo prende e aspetta il timeout intero
+   che diventi visibile. Per dire "questo operatore si vede" c'e' `rigaOperatore()` in
+   `tests/e2e/helpers/configura.ts`. Al contrario, per dire "NON c'e'",
+   `getByText(nome)).toHaveCount(0)` va benissimo: contare anche l'`<option>` rende il
+   controllo piu' severo, non meno.
+
+3. **`name:` sul testo visibile di un pulsante che ha un `aria-label`.** Un `aria-label`
+   SOSTITUISCE il testo come nome accessibile, non lo affianca. Dal momento in cui i
+   pulsanti della tabella "Chi eroga quale servizio" hanno preso
+   `aria-label="<operatore> esegue <servizio>"`, `name: "+ associa"` non trova piu' niente.
+   La convenzione giusta e' quella dello scenario 30: si identifica la cella per
+   chi-con-cosa e si guarda `aria-pressed`, che dice lo stato senza dipendere da quale
+   simbolo c'e' dentro il pulsante.
+
+La regola pratica: se un locator si rompe aggiungendo una sezione altrove nella pagina,
+era sbagliato anche prima. E quando lo stesso gesto serve a piu' scenari (aggiungere un
+operatore, trovarne la riga), va in un helper: cosi' si sistema una volta sola.
+
 ## 27unvicies. Una funzione Postgres non ha una storia (18/09/2026)
 
 Costata cara, quindi scritta per esteso.

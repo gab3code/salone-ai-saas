@@ -28,11 +28,26 @@ import { expect, type Page } from "@playwright/test";
  * altrove nella pagina.
  */
 export async function aggiungiOperatore(page: Page, nome: string): Promise<void> {
-  const sezione = page.locator("section", { has: page.locator("#nome_operatore") });
   const form = page.locator("form", { has: page.locator("#nome_operatore") });
   await form.locator("#nome_operatore").fill(nome);
   await form.getByRole("button", { name: "Aggiungi", exact: true }).click();
-  await expect(sezione.locator("li").filter({ hasText: nome }).first()).toBeVisible({
-    timeout: 15_000,
-  });
+  await expect(rigaOperatore(page, nome)).toBeVisible({ timeout: 15_000 });
+}
+
+/**
+ * La riga di un operatore nell'elenco di /dashboard/configura.
+ *
+ * Da usare ovunque un test voglia dire "questo operatore si vede", al posto
+ * di `getByText(nome)`: il nome compare anche dentro l'<option> del menu
+ * "Chi" della sezione ferie, che Playwright considera sempre nascosto e che
+ * sta PRIMA nell'ordine del DOM. `getByText(nome).first()` trova quello e
+ * aspetta il timeout intero che diventi visibile.
+ *
+ * Per l'asserzione opposta -- "questo operatore NON c'e'" -- va benissimo
+ * `getByText(nome)).toHaveCount(0)`: li' contare anche l'<option> nascosto
+ * rende il controllo piu' severo, non meno.
+ */
+export function rigaOperatore(page: Page, nome: string) {
+  const sezione = page.locator("section", { has: page.locator("#nome_operatore") });
+  return sezione.locator("li").filter({ hasText: nome }).first();
 }
