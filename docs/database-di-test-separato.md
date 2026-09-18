@@ -42,7 +42,45 @@ occupato da **"Gabriel's Project"** del 19 agosto, in pausa. Due strade:
 
 Non lo tocco io: e' roba tua e non so cosa ci sia dentro.
 
-## Passo 2: le migrazioni sul progetto di prova
+## FATTO il 18/09/2026, e cosa e' venuto fuori
+
+Il progetto di prova (`obwrmginufuummxhtimr`) e' stato svuotato e ricostruito
+applicando tutte le migrazioni. Poi i due schemi sono stati confrontati:
+tabelle, colonne, tipi, policy, permessi di tabella e permessi di colonna.
+
+**Schema, policy: identici al primo colpo.** 28 tabelle, 55 policy, stesse
+impronte. I file di migrazione ricostruiscono la STRUTTURA di produzione senza
+buchi.
+
+**I permessi no, ed era grave.** Nel database ricostruito dai soli file, il
+ruolo `anon` -- la chiave pubblica, quella che sta nel browser di chiunque --
+aveva INSERT, UPDATE e DELETE su tutte e 28 le tabelle, comprese
+`whatsapp_credenziali` (i token dei saloni), `membri_tenant` (chi e' owner) e
+`interventi_admin` (il registro). In produzione non ne ha nessuno.
+
+Quelle revoche erano state fatte a mano in produzione e non stavano in nessun
+file. Ricostruendo il database da questo repo -- dopo un disastro, o per un
+ambiente nuovo -- sarebbe nato spalancato, e con le policy RLS come unica
+linea di difesa invece della seconda. La migrazione **0049** le mette nel
+repo, e sistema anche le default privileges, cioe' il motivo per cui il
+problema sarebbe tornato alla prossima tabella creata.
+
+Un dettaglio istruttivo: la prima versione della 0049 era sbagliata. Un
+REVOKE sulla TABELLA porta via anche i grant di COLONNA, quindi annullava la
+0030 e il titolare non poteva piu' cambiare nemmeno il nome del proprio
+salone. L'ha trovato il confronto degli schemi fatto subito dopo averla
+applicata. Senza quel confronto sarebbe finita in produzione.
+
+**Stato finale**: le quattro impronte (schema, policy, permessi di tabella,
+permessi di colonna) combaciano fra i due progetti.
+
+**Resta da fare in produzione**: applicare la 0049 anche li'. I permessi sono
+gia' corretti, ma le *default privileges* no: la prossima migrazione che
+aggiunge una tabella la farebbe rinascere scrivibile da `anon`.
+
+---
+
+## Passo 2 (storico): le migrazioni sul progetto di prova
 
 Qui c'e' una cosa che **nessuno ha mai verificato**: non sappiamo se i 48 file
 in `supabase/migrations/` ricostruiscono davvero lo schema di produzione. Quel
