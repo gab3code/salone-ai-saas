@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
  *
  * `sentryUrl`: con l'organizzazione nella regione europea il caricamento va a
  * de.sentry.io, non al predefinito americano. Si imposta con SENTRY_URL.
+ *
+ * Qui NON ci sono `disableLogger` ne' `automaticVercelMonitors`, e non e' una
+ * dimenticanza: entrambe sono opzioni del builder webpack, e questo progetto
+ * compila con Turbopack, dove non fanno niente. Le avevo messe al primo giro
+ * con un commento che spiegava cosa facevano -- il build le ha segnalate come
+ * deprecate e "not supported with Turbopack", cioe' il commento descriveva un
+ * effetto che non c'era. Meglio due righe in meno che due righe che mentono.
  */
 export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
@@ -24,10 +31,4 @@ export default withSentryConfig(nextConfig, {
 
   silent: !process.env.CI,
   widenClientFileUpload: true,
-  // Toglie dal bundle i messaggi di debug di Sentry: sono peso inutile nel
-  // browser di ogni visitatore.
-  disableLogger: true,
-  // Vercel propone dei "cron monitor" automatici: qui i job schedulati non
-  // passano da Vercel Cron, quindi sarebbero monitor vuoti.
-  automaticVercelMonitors: false,
 });

@@ -897,6 +897,12 @@ creazione dell'organizzazione e non piu' modificabile. Per il caricamento
 delle source map serve `SENTRY_URL=https://de.sentry.io`, altrimenti il
 plugin parla col dominio americano e non trova il progetto.
 
+Nota su Turbopack: questo progetto compila con Turbopack, quindi le opzioni di
+`withSentryConfig` che appartengono al builder webpack (`disableLogger`,
+`automaticVercelMonitors` e le altre sotto `webpack.`) non hanno alcun effetto.
+Non aggiungerle: il build le segnala come deprecate e restano righe che
+sembrano fare qualcosa senza farla.
+
 Sentry e' elencato fra i fornitori nell'informativa privacy: chi aggiunge un
 fornitore che tocca dati dei clienti aggiorna anche quella pagina, sempre.
 
