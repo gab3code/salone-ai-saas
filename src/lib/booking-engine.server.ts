@@ -301,7 +301,6 @@ export async function caricaContestoBooking(
   // e fuso passati qui sono tempo reale: la conversione a pseudo-UTC degli
   // eventi restituiti avviene dentro caricaImpegniEsterni stessa.
   const impegniEsterni = await caricaImpegniEsterni(
-    supabase,
     tenantId,
     operatori.map((o) => o.id),
     inizioFinestraReale,
@@ -522,7 +521,6 @@ export async function verificaConflittoTenant(
   // personale collegato dell'operatore blocca la scrittura tanto quanto un
   // appuntamento interno (Fase 6bis, punto 9 -- unica fonte di verità).
   const impegniEsterni = await caricaImpegniEsterni(
-    supabase,
     tenantId,
     [params.operatoreId],
     inizioFinestraReale,

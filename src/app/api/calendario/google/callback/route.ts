@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { creaClientServer } from "@/lib/supabase/server";
+import { creaClientAdmin } from "@/lib/supabase/admin";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { scambiaCodiceGoogle } from "@/lib/calendario-esterno/google.server";
 import { cifra } from "@/lib/cifratura";
@@ -73,7 +74,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { error } = await supabase.from("collegamenti_calendario_esterni").upsert(
+    // La scrittura passa dal client admin, non da quello dell'utente: dalla
+    // migrazione 0065 `authenticated` non ha piu' nessun permesso su questa
+    // tabella (ci sono dentro il refresh token di una persona). Qui e'
+    // sicuro perche' l'autorizzazione e' gia' stata stabilita sopra con la
+    // sessione vera dell'utente, nei tre passi descritti in testa al file:
+    // utente loggato ORA, nonce del cookie che combacia, e operatore che
+    // appartiene DAVVERO al suo tenant. `tenantId` e `operatoreId` qui
+    // sotto sono quei valori verificati, non quelli arrivati nella
+    // richiesta.
+    const { error } = await creaClientAdmin().from("collegamenti_calendario_esterni").upsert(
       {
         tenant_id: tenantId,
         operatore_id: operatoreId,

@@ -35,7 +35,7 @@ export async function scollegaCalendarioAzione(collegamentoId: string) {
   if (accessoNegato(accesso)) return { errore: accesso.errore };
   const tenantId = accesso.tenantId;
 
-  const risultato = await scollegaCalendario(supabase, tenantId, collegamentoId);
+  const risultato = await scollegaCalendario(tenantId, collegamentoId);
   revalidatePath("/dashboard/impostazioni/calendari");
   return risultato.ok ? { ok: true } : { errore: risultato.errore };
 }

@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { creaClientAdmin } from "@/lib/supabase/admin";
 import type { AppuntamentoEsistente } from "@/lib/booking-engine";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { estraiIntervalliOccupati } from "./ics";
@@ -12,7 +13,44 @@ import { cifra, decifra } from "@/lib/cifratura";
  * ruolo che booking-engine.server.ts ha per gli appuntamenti: query e
  * conversione, zero logica di disponibilità qui (quella resta nel motore
  * puro, punto 9).
+ *
+ * DA 18/09/2026 QUESTO MODULO E' L'UNICA PORTA sulla tabella
+ * `collegamenti_calendario_esterni`, e si costruisce il client da solo
+ * invece di riceverlo. E' la stessa mossa fatta sulla rubrica clienti con la
+ * migrazione 0051, per lo stesso motivo e con lo stesso prezzo.
+ *
+ * Il motivo: in quella tabella ci sono la password CalDAV e il refresh token
+ * Google di una persona. Sono cifrati a riposo (vedi cifratura.ts), ma
+ * finché `authenticated` aveva la SELECT, qualunque membro del salone poteva
+ * scaricarsi quelle righe con una chiamata diretta a PostgREST, senza
+ * passare dal prodotto. Cifrate o no, non sono righe che un collaboratore
+ * debba poter leggere. La migrazione 0065 revoca quei permessi.
+ *
+ * Il prezzo, da non dimenticare: con la service_role le policy RLS non
+ * proteggono più niente. Il filtro `tenant_id` su ogni query smette di
+ * essere una seconda difesa e diventa L'UNICA. Per questo c'è `esigiTenant`
+ * e per questo il test di questo modulo verifica ogni query una per una.
  */
+
+/** Il client admin, o quello finto quando lo passa un test. */
+function db(client?: SupabaseClient): SupabaseClient {
+  return client ?? creaClientAdmin();
+}
+
+/**
+ * Senza tenant non parte nessuna query: senza filtro tornerebbero i
+ * collegamenti di tutti i saloni, e con la service_role non c'e' nessuna
+ * policy dietro a fermarli. Meglio un errore rumoroso di un risultato
+ * sbagliato.
+ */
+function esigiTenant(tenantId: string): string {
+  if (typeof tenantId !== "string" || tenantId.trim() === "") {
+    throw new Error(
+      "collegamenti.server: tenantId mancante -- nessuna query sui calendari puo' partire senza."
+    );
+  }
+  return tenantId;
+}
 
 export interface CollegamentoCalendario {
   id: string;
@@ -25,13 +63,13 @@ export interface CollegamentoCalendario {
 }
 
 export async function elencaCollegamentiTenant(
-  supabase: SupabaseClient,
-  tenantId: string
+  tenantId: string,
+  client?: SupabaseClient
 ): Promise<CollegamentoCalendario[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db(client)
     .from("collegamenti_calendario_esterni")
     .select("id, operatore_id, provider, stato, ultimo_errore, caldav_url, caldav_username")
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", esigiTenant(tenantId));
   if (error) throw new Error(`Errore leggendo i collegamenti calendario: ${error.message}`);
   return (data ?? []).map((r) => ({
     id: r.id,
@@ -59,10 +97,11 @@ export interface CollegaCaldavParams {
  * vedi la nota di sicurezza nella migrazione 0008.
  */
 export async function collegaCaldav(
-  supabase: SupabaseClient,
   tenantId: string,
-  params: CollegaCaldavParams
+  params: CollegaCaldavParams,
+  client?: SupabaseClient
 ): Promise<{ ok: true } | { ok: false; errore: string }> {
+  esigiTenant(tenantId);
   const verifica = await verificaCredenzialiCaldav(params.serverUrl, params.username, params.password);
   if (!verifica.ok) {
     return { ok: false, errore: `Impossibile collegarsi con queste credenziali: ${verifica.errore}` };
@@ -72,7 +111,7 @@ export async function collegaCaldav(
   // non blocca la funzione principale di collegare quello di default.
   const calendarioDefault = verifica.valore.calendari[0];
 
-  const { error } = await supabase.from("collegamenti_calendario_esterni").upsert(
+  const { error } = await db(client).from("collegamenti_calendario_esterni").upsert(
     {
       tenant_id: tenantId,
       operatore_id: params.operatoreId,
@@ -93,15 +132,15 @@ export async function collegaCaldav(
 }
 
 export async function scollegaCalendario(
-  supabase: SupabaseClient,
   tenantId: string,
-  collegamentoId: string
+  collegamentoId: string,
+  client?: SupabaseClient
 ): Promise<{ ok: true } | { ok: false; errore: string }> {
-  const { error } = await supabase
+  const { error } = await db(client)
     .from("collegamenti_calendario_esterni")
     .delete()
     .eq("id", collegamentoId)
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", esigiTenant(tenantId));
   if (error) return { ok: false, errore: `Errore scollegando il calendario: ${error.message}` };
   return { ok: true };
 }
@@ -131,21 +170,22 @@ export async function scollegaCalendario(
  * convenzione degli appuntamenti interni (mai mischiare le due).
  */
 export async function caricaImpegniEsterni(
-  supabase: SupabaseClient,
   tenantId: string,
   operatoreIds: string[],
   da: Date,
   a: Date,
-  fusoOrario: string
+  fusoOrario: string,
+  client?: SupabaseClient
 ): Promise<AppuntamentoEsistente[]> {
   if (operatoreIds.length === 0) return [];
+  const supabase = db(client);
 
   const { data, error } = await supabase
     .from("collegamenti_calendario_esterni")
     .select(
       "id, operatore_id, provider, caldav_url, caldav_username, caldav_password, google_access_token, google_refresh_token, google_token_scadenza, google_calendar_id"
     )
-    .eq("tenant_id", tenantId)
+    .eq("tenant_id", esigiTenant(tenantId))
     .in("operatore_id", operatoreIds);
   if (error || !data || data.length === 0) return [];
 

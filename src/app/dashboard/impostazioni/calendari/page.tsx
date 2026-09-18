@@ -23,7 +23,7 @@ export default async function PaginaCalendariEsterni({
 
   const [operatoriRes, collegamenti, parametri] = await Promise.all([
     supabase.from("operatori").select("id, nome").eq("tenant_id", tenantId).order("nome"),
-    elencaCollegamentiTenant(supabase, tenantId),
+    elencaCollegamentiTenant(tenantId),
     searchParams,
   ]);
 
