@@ -141,10 +141,19 @@ test.describe("Scenario 13 -- nuova attività si registra e completa l'onboardin
       // nella riga elenco, quindi è univoca.
       await expect(page.getByText("Manicure · 45 min")).toBeVisible();
 
-      // Un solo operatore e un solo servizio -> una sola cella nella
-      // tabella "Chi eroga quale servizio", nessuna ambiguità.
-      await page.getByRole("button", { name: "+ associa" }).click();
-      await expect(page.getByRole("button", { name: "✓ associato" })).toBeVisible();
+      // Una sola cella nella tabella "Chi eroga quale servizio", ma non la si
+      // cerca per il testo visibile: il pulsante ha un `aria-label` ("Marta
+      // Rossi esegue Manicure"), e un `aria-label` SOSTITUISCE il testo come
+      // nome accessibile -- quindi `name: "+ associa"` non trova niente.
+      // Stessa convenzione dello scenario 30: si identifica la cella per chi
+      // con cosa, e si guarda `aria-pressed`, che dice lo stato senza
+      // dipendere da quale simbolo c'è dentro il pulsante.
+      const collegamento = page.getByRole("button", { name: "Marta Rossi esegue Manicure" });
+      await expect(collegamento).toHaveAttribute("aria-pressed", "false");
+      await collegamento.click();
+      await expect(
+        page.getByRole("button", { name: "Marta Rossi esegue Manicure" })
+      ).toHaveAttribute("aria-pressed", "true");
 
       const { data: orariRiga } = await tenant.supabase
         .from("orari_apertura")
