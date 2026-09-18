@@ -7,7 +7,7 @@ import { datiFatturazioneCompleti } from "@/lib/fatturazione";
 import { creaClientStripe } from "@/lib/stripe/server";
 import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
 import { puoGestireFatturazione, ERRORE_PERMESSO_NEGATO } from "@/lib/ruoli";
-import { pianoEPagante, priceIdPerPiano, priceIdOperatoreExtra, giorniDiProva } from "@/lib/stripe/piani";
+import { pianoEPagante, priceIdPerPiano, priceIdOperatoreExtra } from "@/lib/stripe/piani";
 
 /**
  * Crea una Checkout Session Stripe per il tenant dell'utente loggato.
@@ -145,7 +145,6 @@ export async function POST(request: NextRequest) {
   await rispecchiaSuStripe(stripeCustomerId, datiFattura);
 
   const origin = request.nextUrl.origin;
-  const trialDays = giorniDiProva(piano);
 
   // Su tutti e tre i piani a pagamento il prezzo base include 1 operatore,
   // ognuno oltre il primo costa una quota fissa in più: 10€ su Starter, 15€
@@ -214,9 +213,11 @@ export async function POST(request: NextRequest) {
     // quando la sessione viene creata, quindi non possono diventare
     // obbligatori in base a quello che l'utente spunta nella pagina, e non si
     // possono spostare dove servono.
+    // Niente `trial_period_days` dal 18/09/2026: la prova e' una sola, i 14
+    // giorni senza carta che partono alla registrazione. Chi arriva qui ha
+    // gia' deciso di pagare.
     subscription_data: {
       metadata: { tenant_id: tenant.id, piano },
-      ...(trialDays ? { trial_period_days: trialDays } : {}),
     },
     metadata: { tenant_id: tenant.id, piano },
   });

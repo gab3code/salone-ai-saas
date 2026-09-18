@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   pianoEPagante,
-  giorniDiProva,
   pianoPerPriceId,
   priceIdPerPiano,
   priceIdOperatoreExtra,
@@ -24,14 +23,6 @@ describe("pianoEPagante", () => {
     expect(pianoEPagante(null)).toBe(false);
     expect(pianoEPagante(undefined)).toBe(false);
     expect(pianoEPagante("qualcosa-di-strano")).toBe(false);
-  });
-});
-
-describe("giorniDiProva", () => {
-  it("solo Growth ha un trial -- non Starter (che l'AI non ce l'ha) e non più Pro (ristretto il 12/09/2026)", () => {
-    expect(giorniDiProva("starter")).toBeUndefined();
-    expect(giorniDiProva("growth")).toBe(10);
-    expect(giorniDiProva("pro")).toBeUndefined();
   });
 });
 

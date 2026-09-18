@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { motion } from "motion/react";
+import { GIORNI_PROVA_GROWTH } from "@/lib/prova-gratuita";
 import { Reveal, RevealItem, RevealStagger } from "./Reveal";
 
 /**
@@ -22,13 +23,14 @@ const DOMANDE = [
   },
   {
     domanda: "Posso provarlo gratis prima di pagare?",
-    // Corretta (quinto giro, segnalazione di Gabriel: "la faq della prova
-    // gratuita non è aggiornata") -- diceva ancora "Growth o Pro con 10
-    // giorni di prova", ma il trial era già stato ristretto al solo Growth
-    // nel secondo giro (vedi giorniDiProva in piani.ts e Prezzi.tsx) senza
-    // aggiornare questa risposta, rimasta indietro.
+    // Riscritta il 18/09/2026, quando il trial Stripe (10 giorni prima del
+    // primo addebito, con carta) è stato tolto e la prova è diventata una
+    // sola: quella che parte alla registrazione, senza carta. Questa
+    // risposta era già rimasta indietro una volta (segnalazione di Gabriel
+    // al quinto giro), quindi tenerla allineata conta: chi la legge sta
+    // decidendo se provare.
     risposta:
-      "Sì, in due modi: il piano Free resta gratuito senza scadenza (fino a 60 prenotazioni al mese), oppure scegli Growth con 10 giorni di prova prima del primo addebito — richiediamo una carta all'attivazione, ma non viene addebitata nulla finché la prova non finisce. Pro ed Enterprise partono da subito, senza periodo di prova. I piani a pagamento sono riservati a chi ha una partita IVA: prima del pagamento chiediamo i dati per la fattura elettronica.",
+      `Sì, e senza lasciare una carta: appena ti registri hai ${GIORNI_PROVA_GROWTH} giorni di Growth completo, assistente AI incluso. Quando finiscono resti sul piano Free, gratuito senza scadenza fino a 60 prenotazioni al mese, e passi a un piano a pagamento solo se ti serve. I piani a pagamento sono riservati a chi ha una partita IVA: prima del pagamento chiediamo i dati per la fattura elettronica.`,
   },
   {
     domanda: "Posso cancellare quando voglio?",

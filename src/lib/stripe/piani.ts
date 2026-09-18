@@ -108,18 +108,26 @@ export function tuttiPriceIdOperatoreExtra(): string[] {
   );
 }
 
-// Trial prima del primo addebito, SOLO su Growth (decisione con Gabriel
-// dell'11/09/2026, ristretta il 12/09/2026 -- prima copriva anche Pro):
-// far provare l'assistente vero prima di pagare, non un trial "a copertura"
-// su Starter che l'AI non ce l'ha comunque, e non sparso su più piani a
-// pagamento -- Growth è il piano d'ingresso con l'AI, quello con cui la
-// maggior parte dei saloni entra nel prodotto.
-// Vedi DECISIONS.md per il calcolo costi che rende sostenibile il trial: il
-// costo AI reale nel caso peggiore (~10gg di uso intenso) è pochi euro,
-// briciole rispetto al prezzo del piano.
-export function giorniDiProva(piano: PianoPagante): number | undefined {
-  return piano === "growth" ? 10 : undefined;
-}
+// Qui c'era `giorniDiProva`: i 10 giorni prima del primo addebito che
+// Stripe concedeva su Growth (decisione dell'11/09/2026). Tolti il
+// 18/09/2026, decisione di Gabriel.
+//
+// Il motivo non e' che costavano troppo, e' che erano diventati la SECONDA
+// prova. Dal 18/09/2026 chi si registra prova Growth per 14 giorni senza
+// lasciare nessuna carta (vedi src/lib/prova-gratuita.ts): sommati ai 10
+// giorni di Stripe facevano 24 giorni di prodotto completo prima del primo
+// euro. Una prova che dura quasi un mese non convince di piu', abitua a non
+// pagare -- e soprattutto le due prove si spiegavano male insieme, perche'
+// erano due cose diverse con lo stesso nome.
+//
+// La prova unica e' quella alla registrazione: piu' lunga, senza carta, e
+// non richiede di arrivare al checkout per iniziare.
+//
+// Se un giorno servisse di nuovo un trial lato Stripe, si rimette
+// `trial_period_days` dentro `subscription_data` in
+// src/app/api/stripe/checkout/route.ts. Non lasciamo qui una funzione che
+// risponde sempre "nessuna prova": una leva che non muove niente e' peggio
+// di una leva che non c'e'.
 
 // Ricostruisce il piano interno a partire dal Price ID Stripe di un
 // abbonamento. Usato dal webhook: la fonte di verità su "che piano ha

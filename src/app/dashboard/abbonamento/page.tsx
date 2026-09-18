@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
 import { puoGestireFatturazione } from "@/lib/ruoli";
-import { pianoEPagante, ETICHETTA_PIANO, PIANI_PAGANTI, giorniDiProva } from "@/lib/stripe/piani";
+import { pianoEPagante, ETICHETTA_PIANO, PIANI_PAGANTI } from "@/lib/stripe/piani";
 import {
   PREZZO_BASE_CENTESIMI,
   PREZZO_OPERATORE_EXTRA_CENTESIMI,
@@ -92,7 +92,6 @@ export default async function PaginaAbbonamento({
           <div className="grid max-w-3xl gap-3 sm:grid-cols-3">
             {PIANI_PAGANTI.map((piano) => {
               const eAttuale = piano === pianoAttuale;
-              const giorni = giorniDiProva(piano);
               return (
                 <div
                   key={piano}
@@ -112,9 +111,6 @@ export default async function PaginaAbbonamento({
                       {operatoriExtra === 1 ? "operatore in più" : "operatori in più"} da{" "}
                       {formatoEuroDaCentesimi(PREZZO_OPERATORE_EXTRA_CENTESIMI[piano] ?? 0)}
                     </p>
-                  )}
-                  {giorni !== undefined && (
-                    <p className="text-xs text-emerald-700">{giorni} giorni di prova</p>
                   )}
                   {eAttuale ? (
                     <span className="mt-auto text-xs text-zinc-500">È il tuo piano</span>
@@ -173,11 +169,6 @@ export default async function PaginaAbbonamento({
                 {formatoEuroDaCentesimi(PREZZO_BASE_CENTESIMI[scelto] ?? 0)} di piano, più{" "}
                 {operatoriExtra} {operatoriExtra === 1 ? "operatore" : "operatori"} oltre il primo
                 da {formatoEuroDaCentesimi(PREZZO_OPERATORE_EXTRA_CENTESIMI[scelto] ?? 0)} ciascuno.
-              </p>
-            )}
-            {giorniDiProva(scelto) !== undefined && (
-              <p className="text-sm text-emerald-700">
-                {giorniDiProva(scelto)} giorni di prova prima del primo addebito.
               </p>
             )}
             <Link

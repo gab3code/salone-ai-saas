@@ -6,6 +6,7 @@ import {
   limiteMensilePrenotazioni,
   limiteOperatori,
 } from "@/lib/piani";
+import { GIORNI_PROVA_GROWTH } from "@/lib/prova-gratuita";
 import { Reveal, RevealItem, RevealStagger } from "./Reveal";
 import { GlowBorder } from "./GlowBorder";
 import { LiquidMetal } from "./LiquidMetal";
@@ -32,10 +33,11 @@ import { LiquidMetal } from "./LiquidMetal";
  *    Gabriel: restano un obiettivo multi-canale futuro, ma promuoverli già
  *    oggi "è inutile" -- sostituito con una voce Enterprise vera, coerente
  *    col target "catene e gruppi" (multi-sede).
- * 2) la prova gratuita di 10 giorni resta SOLO su Growth, non più su Pro
- *    (richiesta di Gabriel: "metti la prova gratuita solo sul piano
- *    growth") -- coerente con `giorniDiProva` in src/lib/stripe/piani.ts,
- *    aggiornato allo stesso modo.
+ * 2) la prova gratuita resta SOLO su Growth, non più su Pro (richiesta di
+ *    Gabriel: "metti la prova gratuita solo sul piano growth"). Nota del
+ *    18/09/2026: la prova non è più quella di Stripe (10 giorni prima del
+ *    primo addebito, con carta), è quella che parte alla registrazione:
+ *    GIORNI_PROVA_GROWTH giorni senza carta, vedi src/lib/prova-gratuita.ts.
  *
  * Aggiornamento 14/09/2026 (Fase 5+SMS) -- il prezzo di Pro non è più fisso:
  * il prezzo base include 1 operatore, ognuno oltre il primo costa 20€/mese in
@@ -146,12 +148,12 @@ const PIANI = [
     voci: ["Tutto di Starter", "Assistente AI via chat web", "Analytics"],
     consigliato: true,
     notaPrezzo: notaOperatoreExtra("growth"),
-    // 10 giorni di prova prima del primo addebito (decisione con Gabriel
-    // dell'11/09/2026, vedi giorniDiProva in src/lib/stripe/piani.ts).
-    // Ristretto al solo Growth il 12/09/2026 (richiesta di Gabriel: "metti
-    // la prova gratuita solo sul piano growth") -- prima copriva anche Pro,
-    // ora è l'unico piano con trial: quello con cui la maggior parte dei
-    // saloni entra nel prodotto, non un incentivo sparso su più piani.
+    // Il badge della prova. Dal 18/09/2026 dice una cosa diversa e più
+    // forte: non più "10 giorni prima del primo addebito" (trial Stripe,
+    // tolto lo stesso giorno, serviva una carta e bisognava arrivare al
+    // checkout), ma i giorni di Growth completo che chiunque si registri ha
+    // subito, senza lasciare nessun dato di pagamento. Resta sulla card
+    // Growth perché è esattamente il piano che si prova.
     trial: true,
   },
   {
@@ -404,7 +406,9 @@ export function Prezzi() {
               </div>
               <p className={`mt-1 text-xs ${p.consigliato ? "text-white/50" : "text-white/40"}`}>{p.descrizione}</p>
               {"trial" in p && p.trial && (
-                <p className="mt-1 text-xs font-medium text-emerald-400">10 giorni di prova, poi si paga</p>
+                <p className="mt-1 text-xs font-medium text-emerald-400">
+                  {GIORNI_PROVA_GROWTH} giorni gratis, senza carta
+                </p>
               )}
               {"notaPrezzo" in p && p.notaPrezzo && (
                 <p className={`mt-1 text-xs ${p.consigliato ? "text-white/50" : "text-white/40"}`}>{p.notaPrezzo}</p>
@@ -426,9 +430,9 @@ export function Prezzi() {
                   il checkout Stripe è collegato (11/09/2026), "Crea il tuo
                   account" è comunque il label più onesto per i piani a
                   pagamento: descrive il primo passo reale (l'account nasce
-                  sempre prima, gratis), il secondo passo (pagamento
-                  Stripe, con 10gg di prova su Growth) viene spiegato subito
-                  dopo nella pagina di registrazione, non promesso qui.
+                  sempre prima, gratis), il secondo passo (il pagamento su
+                  Stripe) viene spiegato subito dopo nella pagina di
+                  registrazione, non promesso qui.
                   "Inizia gratis" resta quindi riservato alla card Free,
                   l'unica dove è letteralmente l'intera storia. */}
               {(() => {
