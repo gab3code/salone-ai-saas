@@ -2218,14 +2218,28 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       - la riga in `richieste_caparra` e' scritta correttamente, stato `in_attesa`;
       - la sessione aveva pochi minuti, quindi non era scaduta (durano 24 ore);
       - il 15/09 una sessione identica e' andata a buon fine, quindi l'integrazione funzionava.
-      **Cosa resta da escludere, ed e' fuori dal codice**: l'account Stripe e' una **Sandbox**
-      ("Sandbox di Via gambarelli 31") con la configurazione incompleta -- il pannello mostra
-      ancora "Aggiungi un conto bancario per ricevere payout". La pagina di pagamento ospitata
-      da Stripe puo' rifiutarsi di comparire per un account il cui profilo non e' completo.
-      **Il controllo decisivo, che costa un minuto**: creare un Payment Link dal pannello
-      Stripe di quella sandbox e aprirlo. Se fallisce anche quello, il problema e' l'account,
-      non Salone AI, e non c'e' niente da correggere nel codice. Se invece quello funziona,
-      allora e' qualcosa nella sessione che creiamo noi e si riapre qui.
+      **TROVATO, e non e' il codice.** Ispezionando l'oggetto `account` della sandbox dal
+      Workbench:
+
+          "tos_acceptance": { "date": null, "ip": null, "user_agent": null },
+          "type": "standard"
+
+      `tos_acceptance.date` a `null` significa che su quell'account **nessuno ha mai accettato
+      il contratto di servizio Stripe**. Un account non attivato puo' benissimo CREARE una
+      sessione di checkout via API -- ed e' esattamente quello che succede, la sessione esiste e
+      e' valida -- ma Stripe non serve la pagina di pagamento ospitata per un account che non ha
+      accettato i termini. Da qui l'errore generico, che parla di rete e di link scaduti proprio
+      perche' non vuole dire al visitatore che il problema e' dell'esercente.
+
+      **Cosa fare**: completare l'attivazione della sandbox dal pannello Stripe (la "Guida alla
+      configurazione" in alto a destra), oppure lavorare su un account di test gia' attivato.
+      Nel codice non c'e' niente da correggere.
+
+      **Nota, perche' e' l'ipotesi che e' venuta subito a Gabriel**: NON c'entra Stripe Connect.
+      Senza Connect la sessione e' comunque una sessione valida sul nostro account -- cambia
+      dove finiscono i soldi, non se la pagina si apre. Sono due problemi diversi che sembravano
+      uno: quello di Connect e' reale ed e' tracciato qui sotto come bloccante, ma risolverlo
+      non avrebbe fatto aprire questa pagina.
 
 - [ ] **Leggere `usage` dalle risposte Anthropic, e sapere quanto costa davvero una
       conversazione** (19/09/2026). Oggi il progetto non ha UNA riga che sappia quanto e'
