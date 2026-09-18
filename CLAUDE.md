@@ -875,6 +875,40 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27tervicies. Fatti controllare da strumenti che non sono i tuoi (18/09/2026)
+
+I nostri controlli sono bravi a trovare quello che abbiamo pensato di cercare. Il 18/09/2026,
+in una sera, tre cose sono uscite da metodi che non avevamo mai usato -- e nessuna sarebbe mai
+uscita dalla suite, per quanto la si allargasse.
+
+1. **Il database linter di Supabase** (`get_advisors`, categorie security e performance). Ha
+   visto che `gestisci_nuovo_utente()` era chiamabile via `/rest/v1/rpc/` mentre la sua gemella
+   `gestisci_email_confermata()` era protetta dalla 0050. Poca gravita' vera, ma **l'asimmetria
+   fra due cose gemelle e' quasi sempre un difetto**, ed e' il tipo di cosa che un test non
+   cerca perche' nessuno pensa a scrivere "e adesso verifica che le due funzioni siano
+   protette allo stesso modo". Va rilanciato dopo ogni giro di migrazioni.
+2. **Il confronto fra quello che i file dichiarano e quello che il database concede davvero**
+   (`npm run permessi`, e quando non si puo' lanciare, la stessa cosa a mano: modulo puro +
+   lettura del database + diff riga per riga). Non e' un test, e' un confronto fra due sorgenti
+   di verita' che di solito nessuno mette una accanto all'altra.
+3. **Rileggere il percorso caldo a mano, dopo aver cambiato una firma.** La 0065 ha spostato il
+   modulo dei calendari sul client admin; i test erano verdi. Ma `creaClientAdmin()` LANCIA se
+   manca una variabile d'ambiente, e quella funzione sta dentro il calcolo degli orari liberi,
+   che non la protegge: un ambiente configurato a meta' non avrebbe perso gli impegni esterni,
+   avrebbe spento le prenotazioni. Nessun test lo copriva perche' nei test la variabile c'e'
+   sempre.
+
+La regola: **dopo un cambiamento al database o a una firma sul percorso caldo, un controllo
+deve venire da fuori.** Il linter, il confronto coi permessi veri, una rilettura del percorso
+con in testa "cosa succede se questa riga fallisce". I test dicono che il codice fa quello che
+abbiamo chiesto; non dicono che gli abbiamo chiesto tutto.
+
+Corollario pratico, gia' costato caro due volte in un giorno: **quando una funzione nuova puo'
+fallire, decidi esplicitamente se fallisce rumorosa o silenziosa, e scrivi perche'.** Nei
+calendari le due scelte convivono a due righe di distanza ed e' voluto: un client che manca fa
+perdere gli impegni esterni (fail-open, le prenotazioni continuano), un tenant che manca lancia
+(fail-closed, perche' l'alternativa e' calcolare la disponibilita' del salone sbagliato).
+
 ## 27duovicies. Come si cerca un elemento in un test Playwright (18/09/2026)
 
 Tre scenari rotti in un pomeriggio, tre cause diverse, una sola radice: il locator
