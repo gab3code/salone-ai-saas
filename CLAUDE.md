@@ -875,6 +875,35 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27duodecies. I segreti che non sono nostri si cifrano (18/09/2026)
+
+Nella tabella `collegamenti_calendario_esterni` ci sono la password specifica
+per app di un calendario iCloud e il refresh token Google di un account
+personale. Non sono dati del salone: sono le chiavi di casa di una persona,
+lasciate in custodia. Dal 18/09 si scrivono cifrate (`src/lib/cifratura.ts`,
+AES-256-GCM, chiave in `SALONE_CHIAVE_CIFRATURA`).
+
+Tre cose da sapere prima di toccare quel codice:
+
+1. **`decifra` accetta anche il testo in chiaro, ed e' voluto.** Le righe
+   scritte prima esistono ancora: se pretendesse il formato nuovo, al deploy
+   tutti i calendari gia' collegati smetterebbero di sincronizzare insieme.
+   Cosi' invece continuano a funzionare e si cifrano alla prima riscrittura.
+   `npm run cifra-credenziali -- --applica` le converte tutte in una volta,
+   ed e' un passo da fare UNA VOLTA per database: finche' non e' stato
+   lanciato, il lavoro e' fatto a meta'.
+2. **Senza chiave non si scrive.** `cifra` lancia: meglio un collegamento che
+   non si salva e lo dice, che il segreto di qualcun altro finito in chiaro
+   senza che nessuno se ne accorga. La lettura delle righe vecchie invece
+   continua a funzionare anche senza chiave.
+3. **Cifrare non difende da chi ha la service_role key** -- quella legge anche
+   la chiave. Difende da tutti gli altri modi in cui una riga finisce dove non
+   dovrebbe: un collega che interroga PostgREST, un backup nel posto sbagliato,
+   una copia del database su un portatile.
+
+Resta aperto l'altro mezzo punto della stessa voce: revocare le credenziali
+quando chi le ha collegate esce dall'attivita'.
+
 ## 27undecies. `npm run permessi` prima di dire "fatto" (18/09/2026)
 
 Dopo OGNI migrazione che tocca grant, revoke o policy, su OGNI database a cui

@@ -5,7 +5,7 @@ caselle di `PIANO.md` e dice, fase per fase, cosa manca davvero. Non
 sostituisce il PIANO: lo riassume per poterci ragionare sopra senza rileggere
 duemila righe.
 
-Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 54 voci
+Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 53 voci
 aperte, 20 sono bloccate dalla partita IVA e non dipendono da una riga di
 codice.
 
@@ -26,7 +26,7 @@ un elenco onesto, e' un elenco che non guarda.
 | 3 | CRM e dashboard | 9 / 9 | 0 | **chiusa** (17/09) |
 | 4 | Pagina pubblica, foto, PWA | 9 / 9 | 0 | **chiusa** |
 | 5 | Billing self-service e admin | 12 / 12 | 0 | **chiusa** (17/09) |
-| 6 | Automazioni e sicurezza | 8 / 16 | 8 | in corso |
+| 6 | Automazioni e sicurezza | 9 / 16 | 7 | in corso |
 | 6bis | Calendari esterni | 5 / 7 | 2 | quasi chiusa |
 | 6ter | Quello che serve per vendere | 4 / 38 | 34 | il grosso del lavoro |
 | 7 | Estetica e responsive | 2 / 10 | 8 | non iniziata |
@@ -64,9 +64,13 @@ Delle cinque di sicurezza, **due sono state chiuse il 18/09**:
 Le tre che restano richiedono tutte le credenziali di qualcuno gia' dentro
 l'attivita', e sono dichiarate nel PIANO, non nascoste.
 
-- Password CalDAV e refresh token Google leggibili da qualunque membro, e non
-  revocati quando un membro viene rimosso. Va fatta insieme al cifraggio a
-  riposo (Fase 6bis).
+- Password CalDAV e refresh token Google. **Meta' fatta il 18/09**: adesso si
+  scrivono cifrate (AES-256-GCM, `src/lib/cifratura.ts`, 16 test), quindi un
+  collega che interroga PostgREST si porta via del testo illeggibile invece
+  della password del calendario di un'altra persona. Resta aperta l'altra
+  meta': revocarle quando chi le ha collegate esce dall'attivita'. Serve
+  ancora il passo umano -- generare la chiave e lanciare
+  `npm run cifra-credenziali -- --applica` una volta per database.
 - Ridare al cliente l'autonomia in chat in modo sicuro (link di gestione
   mandato al suo numero, mai mostrato in chat). Dipende dagli SMS, quindi
   dalla P.IVA.
@@ -82,15 +86,8 @@ Le altre, non di sicurezza:
 - PostHog (analytics di utilizzo). Molto piu' in la'.
 - La voce generica "revisione sicurezza" resta aperta perche' e' un processo,
   non un compito: l'ultima e' del 17/09 e ha prodotto la 0030.
-- **NUOVA (18/09): un comando che confronti i permessi VIVI del database con
-  quelli che le migrazioni dichiarano.** Stanotte lo stesso errore e'
-  successo due volte in direzioni opposte: la 0030 era una revoca che
-  esisteva solo in produzione e in nessun file; la 0051 era in un file e nel
-  database di test, ma in produzione no -- per ore, con il codice gia' online
-  e il prodotto che funzionava benissimo, perche' quel permesso non lo usa
-  piu' nessuno. Nessun test puo' accorgersene: i test girano sul database di
-  test, che era giusto. Serve un confronto esplicito, ed e' mezz'ora di
-  lavoro che toglie di mezzo un'intera classe di errori silenziosi.
+- ~~Un comando che confronti i permessi VIVI del database con quelli che le
+  migrazioni dichiarano~~ **-- FATTA il 18/09: `npm run permessi`.** Vedi in fondo.
 
 ## Fase 6bis -- Calendari esterni (2 aperte)
 
@@ -204,7 +201,19 @@ Cose fatte in queste due giornate che non hanno una casella propria:
   E l'esclusione di vitest era `tests/e2e/**`, che portava via anche un file
   di test scritto il giorno prima e mai eseguito nemmeno una volta. Entrambi
   hanno adesso una guardia che li fa fallire se tornano.
-- **Suite E2E a 62 scenari**, tutti verdi. 824 test unitari.
+- **`npm run permessi`**: confronta i permessi VERI del database con quelli
+  che le migrazioni dichiarano, e dice dove divergono. Nasce dai due incidenti
+  della notte, in direzioni opposte -- la 0030 (revoca solo in produzione,
+  in nessun file) e la 0051 (nel file e nel db di test, non in produzione,
+  per ore, con il prodotto che funzionava benissimo). Nessun test poteva
+  trovarli: i test girano sul database di test, che era giusto. Migrazione
+  0053 per la lettura, 18 test per il calcolo dai file.
+- **Credenziali dei calendari cifrate a riposo** (AES-256-GCM, 16 test). La
+  scelta che rende sicuro il passaggio: `decifra` accetta anche il testo in
+  chiaro, cosi' al deploy i calendari gia' collegati non smettono di
+  sincronizzare tutti insieme. Manca il passo umano: generare la chiave e
+  lanciare `npm run cifra-credenziali -- --applica` una volta per database.
+- **Suite E2E a 62 scenari**, tutti verdi. 858 test unitari.
 
 ---
 

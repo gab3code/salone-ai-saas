@@ -5,6 +5,7 @@ import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { estraiIntervalliOccupati } from "./ics";
 import { recuperaIcsGrezzo, verificaCredenzialiCaldav } from "./caldav.server";
 import { recuperaImpegniGoogle, rinnovaTokenGoogle } from "./google.server";
+import { cifra, decifra } from "@/lib/cifratura";
 
 /**
  * Livello DB per i collegamenti calendario esterni (Fase 6bis) -- stesso
@@ -80,7 +81,9 @@ export async function collegaCaldav(
       ultimo_errore: null,
       caldav_url: calendarioDefault.href,
       caldav_username: params.username,
-      caldav_password: params.password,
+      // Cifrata a riposo (vedi cifratura.ts): non e' una password nostra, e'
+      // quella del calendario personale di un'operatrice.
+      caldav_password: cifra(params.password),
       aggiornato_il: new Date().toISOString(),
     },
     { onConflict: "operatore_id,provider" }
@@ -176,16 +179,14 @@ async function impegniDaCaldav(
   a: Date,
   fusoOrario: string
 ): Promise<AppuntamentoEsistente[]> {
-  if (!collegamento.caldav_url || !collegamento.caldav_username || !collegamento.caldav_password) {
+  // Le righe salvate prima della cifratura tornano com'erano: vedi la nota in
+  // cifratura.ts, e' quello che evita di spegnere tutti i calendari gia'
+  // collegati nel momento del deploy.
+  const password = decifra(collegamento.caldav_password);
+  if (!collegamento.caldav_url || !collegamento.caldav_username || !password) {
     return [];
   }
-  const grezzo = await recuperaIcsGrezzo(
-    collegamento.caldav_url,
-    collegamento.caldav_username,
-    collegamento.caldav_password,
-    da,
-    a
-  );
+  const grezzo = await recuperaIcsGrezzo(collegamento.caldav_url, collegamento.caldav_username, password, da, a);
   if (!grezzo.ok) {
     // Best-effort: registra l'errore per la UI, ma non propagarlo -- fail-open, vedi commento della funzione sopra.
     await supabase
@@ -221,18 +222,18 @@ async function impegniDaGoogle(
 ): Promise<AppuntamentoEsistente[]> {
   if (!collegamento.google_refresh_token || !collegamento.google_calendar_id) return [];
 
-  let accessToken = collegamento.google_access_token;
+  let accessToken = decifra(collegamento.google_access_token);
   const scadenza = collegamento.google_token_scadenza ? new Date(collegamento.google_token_scadenza) : null;
   const scaduto = !accessToken || !scadenza || scadenza.getTime() - Date.now() < 60_000;
 
   try {
     if (scaduto) {
-      const rinnovato = await rinnovaTokenGoogle(collegamento.google_refresh_token);
+      const rinnovato = await rinnovaTokenGoogle(decifra(collegamento.google_refresh_token)!);
       accessToken = rinnovato.accessToken;
       await supabase
         .from("collegamenti_calendario_esterni")
         .update({
-          google_access_token: rinnovato.accessToken,
+          google_access_token: cifra(rinnovato.accessToken),
           google_token_scadenza: rinnovato.scadenza.toISOString(),
           stato: "connesso",
           ultimo_errore: null,

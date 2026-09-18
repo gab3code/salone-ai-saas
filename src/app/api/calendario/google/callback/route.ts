@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { scambiaCodiceGoogle } from "@/lib/calendario-esterno/google.server";
+import { cifra } from "@/lib/cifratura";
 
 const PAGINA_IMPOSTAZIONI = "/dashboard/impostazioni/calendari";
 
@@ -79,8 +80,10 @@ export async function GET(request: NextRequest) {
         provider: "google",
         stato: "connesso",
         ultimo_errore: null,
-        google_access_token: token.accessToken,
-        google_refresh_token: token.refreshToken,
+        // Cifrati a riposo (vedi cifratura.ts): il refresh token e' la chiave
+        // del calendario personale di una persona, non un dato del salone.
+        google_access_token: cifra(token.accessToken),
+        google_refresh_token: cifra(token.refreshToken),
         google_token_scadenza: token.scadenza.toISOString(),
         google_calendar_id: "primary",
         aggiornato_il: new Date().toISOString(),
