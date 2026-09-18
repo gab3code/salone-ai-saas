@@ -6553,3 +6553,95 @@ esprime male ma sta davvero prenotando non viene cacciato.
 Sulla demo quel contatore viaggia nello stato che il browser rimanda indietro, quindi si puo'
 falsificare. Non e' un buco: chi lo fa aggira solo il taglio del fuori tema, e resta il tetto di
 venti messaggi al mese, che sta nel database e non si tocca.
+
+---
+
+## 2026-09-19 — Tetti AI: rifatto il conto, e la risposta e' "prima misurare, poi decidere"
+
+**La domanda di Gabriel**: i tetti di Growth e Pro sono abbastanza alti? E: si possono togliere
+del tutto su Pro (o su Enterprise), per dare alla gente un motivo forte di salire di piano,
+senza rischiare una bolletta API fuori controllo?
+
+**Prezzi verificati oggi** su platform.claude.com (non a memoria), per Claude Haiku 4.5, che e'
+il modello in `src/lib/ai/agente.ts`:
+
+| voce | $/milione di token |
+|---|---|
+| input | 1,00 |
+| output | 5,00 |
+| scrittura cache (5 min) | 1,25 |
+| lettura cache | 0,10 |
+
+**Cosa viaggia a ogni chiamata.** System prompt ~11.000 caratteri (~3.100 token) piu' le
+definizioni dei 12 strumenti (~3.000 token): **~6.000 token di prefisso**, che il prompt caching
+fa pagare 0,10 invece di 1,00 -- ma solo in lettura, e la cache dura 5 minuti. Il prefisso NON
+e' condiviso fra saloni: contiene il nome dell'attivita' e la data, quindi ogni tenant ha la sua
+cache e paga la sua scrittura.
+
+**Costo per messaggio del cliente** (l'unita' in cui sono scritti i tetti):
+
+- lettura cache: 6.000 x 0,10/M = $0,0006 per chiamata al modello
+- input non in cache (storico + risultati degli strumenti, ~1.500 token medi): $0,0015
+- output (~200 token): $0,0010
+- **~$0,0031 per chiamata**, e un messaggio del cliente ne costa in media **due** (una per
+  chiamare lo strumento, una per rispondere): **~$0,0062**
+- piu' la scrittura della cache, ~$0,0075 ogni 5 minuti per salone, che su una conversazione da
+  sei messaggi si spalma a **~$0,0015 a messaggio**
+
+**Totale: ~$0,008 per messaggio del cliente.** Una prenotazione completa da sei messaggi costa
+quindi **~$0,046**.
+
+**Questo contraddice il numero scritto qui sopra il 02/09** ("prenotazione completa ~$0,02"),
+che risulta ottimistico di circa due volte e mezzo. La differenza non e' il prezzo del modello
+-- quello e' lo stesso -- sono due cose che allora non c'erano o non erano contate: il system
+prompt e' cresciuto molto (le REGOLE ASSOLUTE sono tredici piu' una), e i risultati degli
+strumenti (una lista di quaranta orari liberi) rientrano come input a ogni chiamata successiva.
+**Il conto vecchio non va cancellato: va lasciato qui accanto, perche' il punto non e' quale dei
+due numeri e' giusto, e' che sono entrambi stime.**
+
+**Cosa costano davvero i tetti di oggi, con $0,008 a messaggio:**
+
+| piano | prezzo/mese | tetto | costo API se il tetto viene esaurito | quota del prezzo |
+|---|---|---|---|---|
+| Growth, 1 operatore | 39,90 € | 2.500 | ~$20 | ~50% |
+| Growth, 4 operatori | 84,90 € | 4.000 | ~$32 | ~38% |
+| Pro, 1 operatore | 89,90 € | 3.000 | ~$24 | ~27% |
+| Pro, 4 operatori | 149,90 € | 12.000 | ~$96 | **~64%** |
+| Pro, 10 operatori | 269,90 € | 30.000 | ~$240 | **~89%** |
+| Enterprise | a preventivo | 50.000 | ~$400 | da valutare caso per caso |
+
+**La sorpresa, ed e' l'opposto di quello che avevo detto qualche ora fa.** Avevo proposto di
+alzare l'incremento di Growth da 500 a 1.500 per operatore, basandomi sul numero vecchio.
+Rifatto il conto, **il numero che merita attenzione non e' quello di Growth: e' il +3.000 per
+operatore di Pro**, che a quattro poltrone si mangia due terzi del prezzo e a dieci quasi tutto.
+Growth a 4.000 messaggi non e' generoso, ma non e' nemmeno il problema.
+
+**DECISIONE 1: non si tolgono i tetti, su nessun piano.** Non per prudenza generica: perche'
+e' gia' stato provato e corretto. Enterprise era `Infinity` fino al 17/09/2026, ed e' stato
+messo a 50.000 proprio perche' `/api/chat/[slug]` e' un endpoint **pubblico e non
+autenticato**: senza tetto superiore, chiunque conosca lo slug di un salone puo' far crescere la
+bolletta quanto vuole. Togliere i tetti oggi vuol dire riaprire un buco chiuso due giorni fa.
+
+Quello che si puo' fare, e che da' a Gabriel la leva commerciale che cerca senza il rischio, e'
+separare le due cose che "tetto" confonde: **un tetto TECNICO contro l'abuso**, alto abbastanza
+che nessun uso legittimo lo veda mai, e **un tetto COMMERCIALE**, che e' quello che si racconta
+nel listino. Su Pro ed Enterprise si puo' dire "nessun limite pratico" e tenere il muro, perche'
+un salone vero non lo raggiunge. Quello che non si puo' fare e' scrivere nel codice che non
+esiste.
+
+**DECISIONE 2: prima di toccare qualunque numero, si misura.** Ogni risposta dell'API Anthropic
+porta con se' `usage` (input, output, cache read, cache write) e oggi **non viene letto da
+nessuna parte**: non c'e' una riga nel progetto che sappia quanto e' costata una conversazione
+vera. Tutte le cifre qui sopra sono aritmetica su stime -- ragionata, ma pur sempre stime, come
+lo era quella del 02/09 che oggi risulta sbagliata di due volte e mezzo.
+
+Due settimane di dati veri valgono piu' di qualunque altro giro di questo calcolo, e costano
+molto meno del rifarlo: si legge `usage` dalla risposta, si scrive una riga per chiamata, e i
+tetti smettono di essere un'opinione. **Finche' quel dato non c'e', alzare o abbassare un tetto
+e' scommettere, non decidere** -- e questo vale anche per la mia proposta di stamattina, che
+ritiro.
+
+**Alternativa scartata: differenziare Pro con piu' volume AI.** E' l'unico differenziatore il
+cui costo cresce insieme al valore percepito, cioe' il peggiore da usare come leva. Pro ha gia'
+argomenti che non costano per messaggio -- WhatsApp, tono personalizzato, report mensile,
+multi-sede su Enterprise -- e sono quelli su cui conviene appoggiare la salita di piano.

@@ -875,6 +875,30 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27sexvicies. Un campo modificato e non salvato ha lo stesso aspetto di uno salvato (19/09/2026)
+
+Gabriel: *"se genero la bozza e la applico, non si salva finche' io non clicco salva regole, non
+va bene"*. Ho cercato il difetto nel codice dell'apply per mezz'ora. Non c'era: l'apply scrive
+davvero, e la prova era nel database -- il sabato a 00:00 ce l'aveva messo lui.
+
+Quello che era successo davvero: dopo l'apply aveva **corretto a mano** il campo del sabato e
+non aveva premuto "Salva orari". Il form mostrava 09:00 (quello che aveva scritto), il database
+aveva 00:00 (quello che aveva scritto l'AI), e il calendario obbediva al database. Tre stati
+diversi della stessa informazione, tutti visibili insieme, nessuno che dicesse quale era quello
+vero.
+
+**La lezione non e' "l'utente ha sbagliato".** Chi si e' confuso e' l'autore del prodotto, su una
+schermata che ha scritto lui. Se si confonde lui, un parrucchiere si confonde di sicuro -- e non
+avra' modo di accorgersene, perche' se ne accorgera' il cliente che chiama alle otto di sera.
+
+**La regola:** un form che contiene dati modificati e non ancora salvati deve DIRLO. Un campo
+`<input>` con dentro un valore diverso da quello in archivio e' indistinguibile da uno salvato,
+e questo vale per ogni schermata del progetto, non solo per gli orari.
+
+**E la lezione su come si indaga**: prima di cercare il difetto nel codice, chiedere la sequenza
+esatta. La domanda *"dopo aver cliccato applica, hai toccato a mano il campo del sabato?"*
+valeva mezz'ora di lettura del percorso di salvataggio, e sarebbe costata una riga all'inizio.
+
 ## 27quinvicies. I deploy vecchi non muoiono, e parlano con lo stesso database (18/09/2026)
 
 Applicata la 0065 alla produzione, Gabriel ha detto "la pagina calendari non si apre". Sembrava

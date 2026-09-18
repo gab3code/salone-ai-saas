@@ -2205,6 +2205,22 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       riquadro era nascosto a ragione (l'assistente vero ce l'ha gia'). Ma anche su un account
       nuovo non lo avrebbe visto, per la condizione 3.
 
+- [ ] **Leggere `usage` dalle risposte Anthropic, e sapere quanto costa davvero una
+      conversazione** (19/09/2026). Oggi il progetto non ha UNA riga che sappia quanto e'
+      costata una conversazione vera: ogni risposta dell'API porta `usage` (input, output,
+      cache read, cache write) e non viene letto da nessuna parte. Tutte le cifre su cui sono
+      appoggiati i tetti dei piani sono stime -- e quella del 02/09 si e' rivelata ottimistica
+      di circa due volte e mezzo quando l'ho rifatta il 19/09 (vedi DECISIONS.md). Finche' il
+      dato vero non c'e', alzare o abbassare un tetto e' scommettere. E' poca roba da
+      costruire: una tabella, una riga per chiamata, e due settimane di attesa.
+
+- [ ] **Un form con modifiche non salvate deve dirlo** (19/09/2026, nato dalla confusione di
+      Gabriel sugli orari del sabato -- vedi 27sexvicies in CLAUDE.md). Oggi un campo con dentro
+      un valore corretto a mano ma non ancora salvato e' identico a uno salvato: e' cosi' che
+      tre versioni diverse degli orari (quella scritta dall'AI, quella digitata, quella nel
+      database) sono state visibili insieme senza che niente dicesse quale valeva. Vale per
+      ogni schermata con un form, non solo per gli orari.
+
 - [ ] **P.IVA -- il collo di bottiglia vero, e non è sviluppo.** Blocca la verifica business Meta
       (quindi WhatsApp), le credenziali Skebby (quindi gli SMS), Stripe in modalità live, il
       `[NOME_TITOLARE]` nelle pagine legali e la possibilità di firmare l'accordo sul trattamento
