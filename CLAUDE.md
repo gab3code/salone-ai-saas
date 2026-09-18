@@ -875,6 +875,40 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27undecies. `npm run permessi` prima di dire "fatto" (18/09/2026)
+
+Dopo OGNI migrazione che tocca grant, revoke o policy, su OGNI database a cui
+e' stata applicata:
+
+    npm run permessi            # produzione (.env.local)
+    npm run permessi -- --test  # database di test (.env.test)
+
+Confronta i permessi VERI con quelli che i file delle migrazioni dichiarano,
+e dice dove divergono. Esce con codice 1 se trova qualcosa.
+
+Esiste perche' il 18/09 lo stesso errore e' successo due volte in direzioni
+opposte, e nessuna delle due era visibile:
+
+- **0030**: revoche fatte a mano in produzione e mai scritte in un file.
+  Ricostruendo il database dal repo sarebbe nato spalancato.
+- **0051**: revoca nel file e nel database di test, dimenticata in produzione
+  per ore, con il codice gia' online. Il prodotto funzionava benissimo --
+  quel permesso non lo usa piu' nessuno. Cambiava solo chi poteva scaricarsi
+  la rubrica clienti saltando l'applicazione.
+
+Nessun test poteva accorgersene: i test girano sul database di test, che era
+giusto. E il prodotto non da' nessun segno, ne' in un caso ne' nell'altro.
+
+Il calcolo dai file sta in `src/lib/permessi-attesi.ts` ed e' puro e testato.
+La lettura del database vivo passa dalla funzione `permessi_correnti()`
+(migrazione 0053), eseguibile solo da `service_role`.
+
+Due cose da non semplificare in quel file: una REVOKE sulla tabella porta via
+anche i grant di COLONNA (e' la trappola che nella prima 0049 annullava la
+0030), e `on all tables in schema public` contiene la parola "schema" ma NON
+e' un grant sullo schema -- scartarla farebbe sparire dal calcolo le revoche
+piu' importanti che abbiamo.
+
 ## 27decies. Sentry: cosa NON deve uscire da qui (18/09/2026)
 
 La diagnostica degli errori e' accesa (`@sentry/nextjs`), con tre scelte che
