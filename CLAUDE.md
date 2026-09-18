@@ -875,6 +875,35 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27decies. Sentry: cosa NON deve uscire da qui (18/09/2026)
+
+La diagnostica degli errori e' accesa (`@sentry/nextjs`), con tre scelte che
+NON vanno annullate da una procedura guidata o da un "aggiorniamo la
+configurazione":
+
+1. **Niente Session Replay.** E' quello che il wizard di Sentry accende da
+   solo, e registra lo schermo dell'utente: qui vuol dire la rubrica di un
+   salone. Se un giorno servisse, si decide con l'informativa privacy in mano.
+2. **`beforeSend` passa da `sentry-riservatezza.ts`**, che toglie email,
+   telefoni, termini di ricerca (sono nomi di clienti), cookie di sessione e
+   corpo dei form, e tiene percorso e id. Ha i suoi test: se qualcuno li
+   cancella perche' "danno fastidio", il filtro smette di funzionare in
+   silenzio, che e' il peggio che possa capitare a un filtro.
+3. **Tracce di prestazione a zero** (`SENTRY_TRACCE_CAMPIONE`): il piano
+   gratuito ha una quota e le tracce la bruciano molto prima degli errori.
+
+La regione dei dati e' **europea** (Francoforte, `de.sentry.io`), scelta alla
+creazione dell'organizzazione e non piu' modificabile. Per il caricamento
+delle source map serve `SENTRY_URL=https://de.sentry.io`, altrimenti il
+plugin parla col dominio americano e non trova il progetto.
+
+Sentry e' elencato fra i fornitori nell'informativa privacy: chi aggiunge un
+fornitore che tocca dati dei clienti aggiorna anche quella pagina, sempre.
+
+Verifica: pannello /admin, bottone "Prova la diagnostica errori". Esiste
+perche' la diagnostica rotta non da' nessun segno -- il silenzio e' anche il
+risultato che ci si aspetta quando funziona.
+
 ## 27novies. `Link` ovunque, tranne i quattro casi in cui rompe (18/09/2026)
 
 Nella dashboard i link interni usano `Link` di next/link: un `<a href>` fa

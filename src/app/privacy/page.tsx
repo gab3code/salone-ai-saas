@@ -145,6 +145,14 @@ export default function PaginaPrivacy() {
           richiesta di recensione qualche ora dopo l&apos;appuntamento).
         </li>
         <li>
+          <strong className="text-white">Sentry</strong> (diagnostica degli errori del prodotto): quando qualcosa
+          si rompe, riceve il punto del codice in cui è successo. Prima di partire, ogni segnalazione viene
+          ripulita da noi: via email, numeri di telefono, termini di ricerca, cookie di sessione e contenuto dei
+          moduli. Resta l&apos;indirizzo della pagina e il messaggio tecnico -- quanto basta per sistemare il
+          guasto, non per sapere chi c&apos;era dentro. I dati restano nell&apos;Unione Europea (Francoforte) e non
+          viene registrato niente di quello che vedi a schermo.
+        </li>
+        <li>
           <strong className="text-white">Google</strong> (solo se colleghi volontariamente il tuo Google Calendar).
         </li>
         <li>

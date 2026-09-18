@@ -8,6 +8,7 @@ import {
   cancellaAttivitaAction,
   riattivaAttivitaAction,
   riepilogoCancellazioneAction,
+  provaSentryAction,
   riportaPianoSuStripeAction,
   sospendiAttivitaAction,
 } from "./azioni";
@@ -491,6 +492,40 @@ function ElencoRighe({
   );
 }
 
+/**
+ * Il bottone che verifica la diagnostica.
+ *
+ * La diagnostica e' l'unico strumento che, rotto, non da' nessun segno: il
+ * silenzio e' anche il risultato che ci si aspetta quando tutto va bene. Una
+ * variabile persa in un deploy si scoprirebbe il giorno in cui serve.
+ */
+function ProvaDiagnostica() {
+  const [esito, setEsito] = useState<string | null>(null);
+  const [inCorso, setInCorso] = useState(false);
+
+  async function prova() {
+    setInCorso(true);
+    setEsito(null);
+    const risultato = await provaSentryAction();
+    setInCorso(false);
+    setEsito(risultato.errore ?? `Segnalazione inviata (${risultato.id ?? "senza id"}).`);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-sm">
+      <button
+        type="button"
+        onClick={prova}
+        disabled={inCorso}
+        className="rounded-lg border border-zinc-300 px-3 py-1.5 disabled:opacity-50"
+      >
+        {inCorso ? "Invio..." : "Prova la diagnostica errori"}
+      </button>
+      {esito && <span className="text-zinc-600">{esito}</span>}
+    </div>
+  );
+}
+
 export function PannelloAdmin({ righe }: { righe: RigaAdmin[] }) {
   const [filtro, setFiltro] = useState("");
   const [soloDaGuardare, setSoloDaGuardare] = useState(false);
@@ -527,6 +562,7 @@ export function PannelloAdmin({ righe }: { righe: RigaAdmin[] }) {
           />
           Solo quelle da guardare ({conSegnali})
         </label>
+        <ProvaDiagnostica />
       </div>
       {/* data-testid, non una classe: il registro degli interventi qui sotto è
           fatto anche lui di <li> che contengono il nome di un'attività, e un

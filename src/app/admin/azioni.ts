@@ -14,6 +14,7 @@ import {
   type AutoreIntervento,
 } from "@/lib/admin.server";
 import { azioneStripeValida } from "@/lib/stripe/cambio-piano.server";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Azioni del pannello di piattaforma. Il layout di /admin blocca già chi non
@@ -138,4 +139,38 @@ export async function cancellaAttivitaAction(tenantId: string, nomeDigitato: str
         ? `Attività cancellata, insieme a ${esito.accountCancellati} account che non facevano parte di nient'altro.`
         : "Attività cancellata.",
   };
+}
+
+/**
+ * Manda una segnalazione di prova a Sentry, e dice se e' partita.
+ *
+ * Non e' un gadget: la diagnostica degli errori e' l'unico strumento che, se
+ * smette di funzionare, non da' nessun segno -- il silenzio e' esattamente il
+ * risultato che ci si aspetta di vedere quando tutto va bene. Una chiave
+ * scaduta, una variabile persa in un deploy, una regione sbagliata: tutte
+ * cose che si scoprirebbero il giorno in cui serve, cioe' il giorno peggiore.
+ *
+ * Da qui si verifica in due secondi, e senza rompere niente apposta in
+ * produzione.
+ *
+ * Solo admin di piattaforma: chiunque potrebbe altrimenti riempire la quota
+ * mensile di segnalazioni finte.
+ */
+export async function provaSentryAction() {
+  const autore = await autoreSeAdmin();
+  if (!autore) return { errore: ERRORE_PERMESSO_NEGATO };
+
+  if (!process.env.NEXT_PUBLIC_SENTRY_DSN) {
+    return { errore: "NEXT_PUBLIC_SENTRY_DSN non configurata: Sentry non e' acceso in questo ambiente." };
+  }
+
+  const id = Sentry.captureMessage(
+    `Prova di diagnostica dal pannello admin (${process.env.VERCEL_ENV ?? "locale"})`,
+    "info"
+  );
+  // Senza questo la segnalazione resta in coda: la funzione serverless finisce
+  // e la coda muore con lei, quindi "partita" sarebbe una bugia.
+  await Sentry.flush(2000);
+
+  return { ok: true, id };
 }
