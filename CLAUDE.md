@@ -875,6 +875,46 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27unvicies. Una funzione Postgres non ha una storia (18/09/2026)
+
+Costata cara, quindi scritta per esteso.
+
+La migrazione 0061 doveva aggiungere due campi alla riga `tenants` creata alla
+registrazione. Per riscrivere `gestisci_nuovo_utente` ho cercato le migrazioni che la
+definivano con un grep sbagliato (`al_nuovo_utente|provisioning`), che ha trovato solo la
+0004 -- quella che l'aveva CREATA. Ho riscritto la funzione partendo da quel corpo.
+
+Ma quella funzione era stata riscritta cinque volte dopo la 0004: 0017 (regola promemoria
+predefinita), 0020, 0027 (la riga in `membri_tenant`), 0037, 0050 (l'invito che aspetta la
+conferma dell'email). `create or replace` non fonde niente: sostituisce. In un colpo solo
+il trigger di registrazione e' tornato indietro di dieci migrazioni, in silenzio.
+
+Cos'e' rimasto rotto, in produzione, per ore: chi si registrava non aveva la riga in
+`membri_tenant` (niente multi-sede, niente permessi di membro), non aveva la regola
+promemoria predefinita, e chi arrivava da un invito si prendeva un tenant tutto suo invece
+di entrare in quello che lo aveva invitato.
+
+**Nessuno dei controlli veloci poteva vederlo.** Tipi, lint, 979 test unitari e `next build`
+parlano del codice TypeScript. Cosa c'e' dentro il corpo di una funzione Postgres non lo
+sanno e non lo possono sapere. L'hanno trovato gli scenari Playwright: 18, 19, 20 e 29
+rossi tutti insieme, che e' esattamente la forma che ha un danno al trigger di
+registrazione.
+
+Le due regole che ne escono:
+
+1. Prima di un `create or replace function`, cercare TUTTE le migrazioni che definiscono
+   quel nome (`grep -l '<nome_funzione>' supabase/migrations/*.sql`), non solo quella che
+   l'ha creata, e ripartire dall'ULTIMA. Una funzione Postgres non ha una storia leggibile
+   nel database: l'ultima versione cancella le precedenti senza lasciare traccia, e nessuna
+   query puo' dirti cosa c'era prima.
+2. Se una funzione esiste in due copie che fanno la stessa cosa (qui
+   `gestisci_nuovo_utente` e `gestisci_email_confermata`, che creano entrambe un tenant), la
+   modifica va fatta a tutte e due nello stesso momento. La 0061 non aveva nemmeno guardato
+   la seconda.
+
+E la regola che vale anche fuori da qui: **un cambiamento al database si verifica solo con
+uno scenario end-to-end.** Non esiste un controllo piu' economico che lo veda.
+
 ## 27vicies. I numeri li contiamo noi, le parole le scrive il modello (18/09/2026)
 
 Due funzioni nuove fanno scrivere all'AI qualcosa che parte da solo verso una
