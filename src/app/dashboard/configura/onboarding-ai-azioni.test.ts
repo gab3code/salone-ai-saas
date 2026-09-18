@@ -11,7 +11,6 @@ import {
   creaOperatore,
   creaServizio,
   eliminaOperatore,
-  eliminaServizio,
   impostaAssociazioneOperatoreServizio,
   salvaOrari,
   salvaRegoleAgenda,
