@@ -4,7 +4,7 @@ Fotografia al **18/09/2026, sera**. Conta le caselle di `PIANO.md` e dice,
 fase per fase, cosa manca davvero. Non sostituisce il PIANO: lo riassume per
 poterci ragionare sopra senza rileggere duemila righe.
 
-Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 45 voci
+Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 44 voci
 aperte, una ventina sono impostazioni da cliccare su Stripe o sono bloccate
 dalla partita IVA, e non dipendono da una riga di codice.
 
@@ -32,7 +32,7 @@ perdere tempo nello stesso modo di uno che dice "fatto" quando non e' fatto.
 | 3 | CRM e dashboard | 9 / 9 | 0 | **chiusa** (17/09) |
 | 4 | Pagina pubblica, foto, PWA | 9 / 9 | 0 | **chiusa** |
 | 5 | Billing self-service e admin | 12 / 12 | 0 | **chiusa** (17/09) |
-| 6 | Automazioni e sicurezza | 13 / 16 | 3 | **quasi chiusa** |
+| 6 | Automazioni e sicurezza | 14 / 16 | 2 | **chiusa su tutto cio' che era residuo** |
 | 6bis | Calendari esterni | 6 / 7 | 1 | **chiusa tranne l'export** |
 | 6ter | Quello che serve per vendere | 21 / 53 | 32 | il grosso del lavoro |
 | 7 | Estetica e responsive | 2 / 10 | 8 | non iniziata |
@@ -51,9 +51,14 @@ turno. Il ragionamento per esteso sta in PIANO.md, perche' la tentazione torna.
 
 **Fase 6: da sei aperte a tre.** Chiuse: i collegamenti dei calendari leggibili solo dal server
 (0065), la revisione sicurezza verificata pezzo per pezzo, la sospensione che adesso dice
-apertamente che l'addebito continua. Restano una funzionalita' nuova (pacchetti prepagati), un
-rinvio deliberato con la sua condizione (PostHog: quando ci sara' traffico da capire) e una cosa
-che dipende dalla P.IVA (il link di gestione mandato al cliente via SMS).
+apertamente che l'addebito continua. Chiusa anche PostHog, come decisione: si fa quando ci sara' traffico vero da capire, e la
+condizione e' scritta.
+
+**Restano due voci, e nessuna delle due e' un residuo da ripulire.** I pacchetti prepagati sono
+una funzionalita' intera che tocca i soldi (e quindi si incrocia con Stripe Connect, gia'
+bloccante per le caparre): e' una decisione di prodotto, non un lavoro rimasto indietro. Il link
+di gestione mandato al cliente dipende dagli SMS, cioe' dalla P.IVA. Fase 6 e' chiusa su tutto
+cio' che era davvero da chiudere.
 
 **Fase 6bis: resta solo la direzione export**, che non e' un residuo ma una funzionalita' vera
 (scope di scrittura su Google, ri-autorizzazione di chi ha gia' collegato, anelli di
@@ -68,7 +73,7 @@ guardava -- ed e' il motivo per cui vale la pena averlo fatto. Corretto dalla 00
 per una. Stamattina passava pur essendo il trigger mutilato, perche' ne controllava solo tre su
 cinque.
 
-45 voci aperte.
+44 voci aperte.
 
 ---
 

@@ -1891,13 +1891,16 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       scopre solo da un utente che si lamenta o controllando i log Vercel a mano, rischio
       concreto con Stripe live in avvicinamento. Nessuno swap sul resto (Clerk/Resend
       restano fuori, Supabase Auth e Mailjet funzionano già, cambiarli sarebbe solo churn).
-- [ ] **PostHog (analytics di utilizzo) -- DELIBERATAMENTE RINVIATA** (riconfermato il
-      18/09/2026). Resta aperta perche' aperta e', ma non e' "da fare quando c'e' tempo": e' da
-      fare quando c'e' **traffico vero da capire**. Con zero clienti non ottimizza nessun
+- [x] **PostHog (analytics di utilizzo) -- DECISO DI NON FARLO ADESSO** (18/09/2026, stesso
+      trattamento dato al contesto persistente della conversazione: una cosa guardata e
+      scartata, non una dimenticata). Non e' "da fare quando c'e' tempo": e' da fare quando c'e'
+      **traffico vero da capire**. Con zero clienti non ottimizza nessun
       imbuto, e in cambio porta dentro uno script di terze parti, il banner cookie da rimettere
       a posto e le pagine privacy da aggiornare -- costo certo, beneficio nullo. La condizione
-      per riaprirla: quando esiste acquisizione da misurare, cioe' dopo i primi clienti paganti.
-      Testo originale:
+      per riaprirla, scritta qui cosi' non si ridiscute ogni volta: **quando esiste acquisizione
+      da misurare, cioe' dopo i primi clienti paganti.** Prima di allora il conto e' uno script
+      di terze parti, il banner cookie da rimettere a posto e le pagine privacy da aggiornare,
+      contro zero informazioni utili. Testo originale:
       utile quando ci sarà acquisizione vera da ottimizzare (funnel di prenotazione, traffico),
       prematuro con zero clienti paganti. Non uno swap delle metriche di prodotto già in
       dashboard (quelle restano come sono, è un'altra cosa).
