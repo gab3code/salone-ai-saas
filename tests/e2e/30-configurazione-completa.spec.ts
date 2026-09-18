@@ -105,6 +105,14 @@ test.describe("Scenario 30 -- configurazione completa del salone", () => {
     await page.locator("#chiusura_motivo").fill("Chiusura estiva E2E");
     await page.getByRole("button", { name: "Aggiungi chiusura" }).click();
 
+    // Prima si aspetta che la pagina lo mostri, POI si guarda il database.
+    // Senza questa riga il test leggeva le righe prima che la server action
+    // avesse finito di scriverle: falliva mostrando un elenco vuoto mentre
+    // la schermata, nello screenshot del fallimento, aveva gia' la chiusura
+    // giusta. Una corsa fra test e prodotto e' peggio di un test mancante:
+    // fallisce a caso e insegna a non fidarsi della suite.
+    await expect(page.getByText("Chiusura estiva E2E")).toBeVisible();
+
     const { data: righe } = await tenant.supabase
       .from("chiusure")
       .select("data")
@@ -196,8 +204,13 @@ test.describe("Scenario 30 -- configurazione completa del salone", () => {
     await page.goto("/dashboard/configura");
 
     // Rita lavora solo di mattina, nel giorno che il test guardera'.
-    await page.getByText("Orari di Rita").click();
-    const modulo = page.locator("form", { has: page.locator('input[name="segue_salone"]') }).first();
+    // `exact` perche' "Orari di Rita" e' contenuto anche in "Salva orari di
+    // Rita"; e il form si cerca DENTRO la riga di Rita, non con .first():
+    // gli operatori sono in ordine alfabetico, quindi il primo form della
+    // pagina e' quello di Bruno.
+    const rigaRita = page.locator("li", { hasText: "Orari di Rita" });
+    await rigaRita.getByText("Orari di Rita", { exact: true }).click();
+    const modulo = rigaRita.locator("form", { has: page.locator('input[name="segue_salone"]') });
     await modulo.locator('input[name="segue_salone"]').uncheck();
     for (let g = 0; g <= 6; g++) {
       if (g === giorno.giornoSettimana) {
@@ -244,7 +257,9 @@ test.describe("Scenario 30 -- configurazione completa del salone", () => {
 
     // Il rifiuto si VEDE. Prima il valore di ritorno dell'azione finiva nel
     // vuoto: l'utente cliccava e non succedeva niente.
-    await expect(page.getByRole("alert")).toContainText("Disattivalo");
+    // Cercato DENTRO la riga di Anna: Next mette in pagina un suo
+    // annunciatore di rotta con role="alert", sempre vuoto.
+    await expect(rigaAnna.getByRole("alert")).toContainText("Disattivalo");
 
     const { data: operatori } = await tenant.supabase
       .from("operatori")
