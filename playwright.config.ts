@@ -41,6 +41,12 @@ if (databaseDiProva.eProduzione) {
  */
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Solo i `.spec.ts` sono scenari Playwright. Senza questa riga il runner
+  // raccoglie anche i `.test.ts` che stanno in `helpers/` (sono test vitest)
+  // e muore prima di aprire una pagina: "Cannot use import.meta outside a
+  // module". E' lo stesso confine dichiarato in vitest.config.mts, dall'altro
+  // lato.
+  testMatch: "**/*.spec.ts",
   // Gli scenari con l'AI vera possono richiedere diversi secondi a risposta
   // (chiamata reale a Claude + eventuale seconda chiamata per il tool use) --
   // un timeout troppo stretto farebbe fallire scenari corretti solo perché
