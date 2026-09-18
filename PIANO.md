@@ -17,7 +17,7 @@ pensati da subito per parlare a qualunque professionista con agenda, non solo al
 estetico. Estetia resta il riferimento competitivo perché è lo stesso tipo di prodotto
 (booking + CRM + AI), anche se il loro mercato dichiarato è più stretto del nostro.
 
-## PRIMA DEI PAGAMENTI VERI -- lista unica, aggiornata la notte del 17/09/2026
+## PRIMA DEI PAGAMENTI VERI -- lista unica, aggiornata il 18/09/2026 (sera)
 
 Questa sezione esiste perché il controllo notturno ha trovato queste cose sparse in tre posti
 diversi del documento, e sparse non si guardano. Sono in ordine: dalla più bloccante alla più
@@ -25,16 +25,23 @@ diversi del documento, e sparse non si guardano. Sono in ordine: dalla più bloc
 
 ### Bloccanti veri
 
-1. **Le tre promesse scoperte del piano Pro (89,90 €/mese).** Sono tutte e tre sul piano più
-   caro, e sono tutte e tre ancora da costruire:
-   - *Assistente AI su WhatsApp* -- dipende dall'App Review di Meta, non da noi (Gruppo E
-     punto 2). Nel codice esiste solo l'onboarding Embedded Signup, dichiarato inutilizzabile
-     in testa al proprio file; non c'è nessun webhook di ricezione né funzione di invio.
-   - *Report e analytics avanzati* -- il gate `PIANI_CON_ANALYTICS` è identico per Growth e
-     Pro: oggi non c'è NIENTE che distingua i due (Gruppo E punto 11).
-   - *Supporto prioritario* -- non esiste nessun canale di supporto, né prioritario né
-     normale: l'unico recapito del sito è il mailto di Enterprise, uguale per tutti
-     (Gruppo E punto 10).
+1. **Le promesse scoperte del piano Pro (89,90 €/mese).** Erano tre. Il 18/09/2026 ne restano
+   una e mezza:
+   - *Assistente AI su WhatsApp* -- **APERTA, ed è quella che conta.** Dipende dall'App Review
+     di Meta, che dipende dalla P.IVA. Nel codice esiste solo l'onboarding Embedded Signup,
+     dichiarato inutilizzabile in testa al proprio file; non c'è nessun webhook di ricezione né
+     funzione di invio. È IL differenziale su cui è costruito il posizionamento: senza, Pro è
+     Growth più caro.
+   - *Report e analytics avanzati* -- **CHIUSA il 18/09/2026.** Il gate non è più identico:
+     `pianoHaFollowUpAi` distingue Pro da Growth e porta due cose che Growth non ha, il
+     **report mensile** che arriva da solo il primo del mese (`report-mensile.ts`, numeri
+     contati da noi e commento del modello senza cifre) e il **richiamo scritto dall'AI** ai
+     clienti fermi (`follow-up-ai.ts`). Non sono un'etichetta: sono due lavori che il titolare
+     non farebbe mai a mano.
+   - *Supporto prioritario* -- **ANCORA APERTA.** Non esiste nessun canale di supporto, né
+     prioritario né normale: l'unico recapito del sito è il mailto di Enterprise, uguale per
+     tutti. O esiste, o esce dalla scheda: è l'unica delle tre che si chiude senza dipendere da
+     nessuno.
 
    La decisione del 12/09/2026 ("il sito descrive il prodotto al lancio") copre il fatto che
    siano scritte sulla pagina prezzi. Non copre il giorno in cui qualcuno paga 89,90 € per
@@ -43,9 +50,10 @@ diversi del documento, e sparse non si guardano. Sono in ordine: dalla più bloc
 2. **Stripe Connect per le caparre** -- già tracciato a sé, resta bloccante: i soldi dei
    clienti finali non devono passare dal conto di Gabriel.
 
-3. **Migrazione 0035 da applicare a mano** (policy di DELETE su `clienti`). Vedi
-   `docs/risveglio-17-09-2026.md` passo 3. Finché non è applicata, la cancellazione di un
-   cliente è owner-only solo nell'applicazione.
+3. ~~**Migrazione 0035 da applicare a mano** (policy di DELETE su `clienti`).~~ **NON ERA
+   PIÙ APERTA**: verificato sul database di produzione il 18/09/2026, la policy
+   `cancellazione_owner` (DELETE) su `clienti` c'è. La cancellazione di un cliente è owner-only
+   anche a livello di database, non solo nell'applicazione. La voce era rimasta indietro.
 
 ### Da verificare su Stripe / Supabase (impostazioni, non codice)
 
@@ -82,7 +90,9 @@ diversi del documento, e sparse non si guardano. Sono in ordine: dalla più bloc
    esplicitamente ("ci scrivi e ce ne occupiamo entro 30 giorni") invece di promettere un
    pulsante che non c'è. Costruirlo resta la cosa giusta.
 
-10. **`charge.dispute.created`** e **email di fine prova**: entrambi in Fase 6ter.
+10. **`charge.dispute.created`**: ancora aperta, in Fase 6ter. L'**email di fine prova**
+    invece è stata costruita il 18/09/2026, e nel frattempo la prova stessa è cambiata: vedi il
+    blocco "La giornata del 18/09/2026" in fondo alla Fase 6ter.
 
 ---
 
@@ -2152,10 +2162,13 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       template e il link per disdire, subito dopo la prenotazione. Senza, la demo si ferma un
       passo prima del punto.
 
-- [ ] **Voci di Pro ancora senza codice: costruirle o toglierle.** "Supporto prioritario" e
-      "Report e analytics avanzati" sono su `Prezzi.tsx` dal 14/09/2026 e non hanno una riga sotto.
-      Prima del primo cliente pagante va chiuso in un senso o nell'altro -- è la stessa disciplina
-      che il 16/09/2026 ha fatto trovare il claim falso sul multi-sede in `PerChi.tsx`.
+- [ ] **Voci di Pro ancora senza codice: costruirle o toglierle.** Delle due,
+      "Report e analytics avanzati" è stata COSTRUITA il 18/09/2026 (report mensile + richiamo
+      AI, gate `pianoHaFollowUpAi`). Resta **"Supporto prioritario"**: su `Prezzi.tsx` dal
+      14/09/2026, zero righe di codice sotto, e nessun canale di supporto esistente a nessun
+      livello. Prima del primo cliente pagante va chiuso in un senso o nell'altro -- è la stessa
+      disciplina che il 16/09/2026 ha fatto trovare il claim falso sul multi-sede in
+      `PerChi.tsx`.
 
 - [ ] **Verificare il backup del database, prima del primo cliente vero.** Tutto il progetto vive
       su un'istanza Supabase e su un portatile. Finché i dati che si possono perdere sono di
@@ -2172,15 +2185,20 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       `docs/database-di-test-separato.md`. La ricostruzione ha anche scoperto che le revoche dei
       permessi esistevano solo in produzione e in nessun file: migrazione 0049.
 
-- [ ] **Email "la tua prova sta per scadere".** Il trial da 10 giorni su Growth è l'imbuto
-      principale, e oggi finisce senza che nessuno dica niente al salone: il primo segnale che
-      riceve è un addebito, oppure niente. Stripe manda `customer.subscription.trial_will_end`
-      tre giorni prima ed è il gancio naturale: un'email che dice quando scade, quanto costerà e
-      soprattutto **cosa ha fatto l'assistente in quei dieci giorni** -- quante prenotazioni ha
-      preso, quante fuori orario. Non un promemoria di pagamento: un riepilogo di ciò che
-      perderebbe smettendo. I numeri esistono già (`appuntamenti.creato_da = 'ai'`). Prima il
-      codice, poi si aggiunge l'evento all'endpoint webhook: oggi ne ascolta 7, che sono
-      esattamente quelli gestiti, e uno in più consegnato a vuoto è solo rumore.
+- [x] **Email "la tua prova sta per scadere". FATTA il 18/09/2026, e la prova sotto è
+      cambiata.** La voce era scritta attorno al trial Stripe da 10 giorni, che non esiste più:
+      adesso la prova è una sola, i 14 giorni di Growth che partono alla REGISTRAZIONE, senza
+      carta e senza passare dal checkout. Quindi niente `customer.subscription.trial_will_end`
+      e nessun evento nuovo da aggiungere all'endpoint webhook (resta a 7): l'avviso lo manda il
+      cron notturno, tre giorni prima della scadenza e una volta sola
+      (`tenants.avviso_prova_inviato`), e lo stesso cron declassa a Free chi scade davvero,
+      senza mai toccare chi ha un abbonamento Stripe. Logica pura e testata in
+      `src/lib/prova-gratuita.ts` (16 test), IO in `prova-gratuita.server.ts`.
+      **Quello che la voce chiedeva e che NON è stato fatto**: l'email dice quando scade e cosa
+      succede dopo, non ancora *cosa ha fatto l'assistente in quei giorni* (quante prenotazioni
+      ha preso, quante fuori orario). I numeri esistono già (`appuntamenti.creato_da = 'ai'`) ed
+      è quello che trasformerebbe un promemoria in un riepilogo di ciò che si perde smettendo.
+      Da fare quando ci sarà una prova vera da raccontare.
 - [ ] **Contestazioni (`charge.dispute.created`) prima di aprire il live.** Nessuno le gestisce
       oggi e con zero pagamenti reali non serve, ma una contestazione non vista è l'unica cosa che
       costa soldi in silenzio: Stripe trattiene l'importo più la commissione di gestione e, se
@@ -2320,6 +2338,105 @@ cliente che paga la cifra sbagliata o una fattura che non parte.
       più operatori pagherebbero solo la base, e lo scopriresti dai ricavi che non tornano. Uno
       script che verifica che tutti e sei i prezzi esistano su Stripe e costino la cifra attesa,
       da lanciare come primo comando dopo aver messo le chiavi live.
+
+### La giornata del 18/09/2026 -- personalizzazione dell'agenda, leve per i piani, e due bug miei
+
+Giornata nata da una domanda di Gabriel che sembrava piccola: *"è abbastanza personalizzabile? i
+saloni con orari diversi riescono a riempirsi l'agenda come preferiscono?"*. La risposta onesta
+era no, e da lì è venuto fuori il resto.
+
+**Cosa il prodotto non sapeva fare, e adesso sa fare**
+
+- [x] **Regole dell'agenda per salone** (migrazione 0056). Ogni salone decide ogni quanti minuti
+      proporre un orario, quanto stacco lasciare dopo un appuntamento, e soprattutto se riempire
+      l'agenda "a griglia" (09:00, 09:15, 09:30: orari leggibili, qualche minuto perso) o
+      "attaccato" (il cliente dopo inizia appena finisce il precedente: nessun minuto perso,
+      orari non tondi). Prima era una scelta unica, scritta nel codice, uguale per tutti.
+- [x] **La griglia si ancora all'apertura, non all'appuntamento precedente.** Era un difetto
+      vero: dopo un evento esterno che finiva alle 15:40, il salone proponeva 15:40, 15:55,
+      16:10. Adesso la griglia parte sempre dall'orario di apertura e resta ordinata per tutta la
+      giornata, qualunque cosa sia successa prima.
+- [x] **Orari per persona** (migrazione 0057). Chi fa solo le mattine, chi il sabato non c'è.
+      Intersecati con gli orari del salone: se il salone è chiuso, nessuno lavora, anche se ha
+      orari propri.
+- [x] **Ferie e chiusure straordinarie** (migrazione 0056). Non esisteva nessun modo di dire
+      "chiudiamo dal 10 al 20 agosto", né di fermare una persona sola per qualche giorno.
+      Valgono su tutto: calendario, pagina pubblica, assistente.
+- [x] **`bufferMinuti` collegato davvero.** La colonna esisteva, il motore la leggeva, e nessuna
+      schermata la scriveva mai: una mezza funzionalità, che è peggio di una funzionalità
+      mancante perché sembra fatta. Adesso arriva dalle regole del salone.
+
+**L'onboarding AI non sapeva correggere, solo aggiungere**
+
+- [x] **Il diff** (`onboarding-ai-diff.ts`). Il modello non emette più operazioni: gli si mostra
+      lo stato attuale con gli id e gli si chiede lo STATO FINALE; il confronto lo fa codice
+      puro e testato. Un modello che sbaglia produce al massimo uno stato strano, che si vede in
+      revisione: non può ordinare una cancellazione. E una riga che il modello non nomina non è
+      una cancellazione, è una proposta di rimozione che parte non spuntata. *Il silenzio non è
+      un ordine.*
+- [x] **Rimuovere e modificare, non solo aggiungere.** Prima "siamo in due" su un salone che
+      aveva già due operatori ne creava altri due.
+- [x] **Cancellazioni rifiutate quando farebbero danno** (`configura-sicurezza.ts`): un operatore
+      con appuntamenti veri non si cancella, si disattiva, e la schermata dice perché.
+- [x] **Tre strade dichiarate invece di una**: rispondi a qualche domanda / racconta la tua
+      attività / compila a mano. Prima il wizard era l'unica cosa visibile e chi aveva già in
+      testa la descrizione doveva comunque passare per le domande.
+
+**I piani avevano un buco al centro**
+
+- [x] **Free e Starter possono assaggiare l'AI, ma contata**: 3 bozze di configurazione a vita,
+      10 prove dell'assistente. Prima l'AI di setup era gratis e illimitata per tutti, e non
+      esisteva nessuna ragione per passare a Growth.
+- [x] **Il contatore sale anche quando è il salone a usare l'AI dalla dashboard**
+      (migrazione 0059). Prima l'uso interno era invisibile e gratuito per noi: un costo che non
+      compariva da nessuna parte.
+- [x] **La quota di Growth scala con gli operatori** invece di essere un numero fisso uguale per
+      un salone con una persona e per uno con sei.
+- [x] **Due leve vere per Pro**: il richiamo AI ai clienti fermi e il report mensile. Vedi il
+      punto 1 della lista bloccanti, che da oggi ha una promessa scoperta in meno.
+- [x] **14 giorni di Growth alla registrazione, senza carta** (migrazioni 0061 e 0064), con
+      avviso a tre giorni dalla fine e declassamento automatico alla scadenza. E i 10 giorni di
+      trial Stripe sono stati TOLTI: sommati facevano 24 giorni di prodotto completo prima del
+      primo euro, ed erano due prove diverse con lo stesso nome, impossibili da spiegare insieme.
+
+**Due bug miei, che vale la pena non dimenticare**
+
+- La migrazione **0061 ha riportato indietro di dieci migrazioni il trigger di registrazione**.
+  Avevo cercato solo la migrazione che aveva CREATO la funzione, non tutte quelle che l'avevano
+  riscritta: `create or replace` sostituisce, non fonde. Per qualche ora chi si registrava in
+  produzione non riceveva la riga in `membri_tenant` né la regola promemoria, e chi arrivava da
+  un invito si prendeva un tenant tutto suo invece di entrare in quello che lo aveva invitato.
+  Riparata dalla 0064. **Tipi, lint, 991 test unitari e build erano tutti verdi**: parlano del
+  codice TypeScript, non di cosa c'è dentro una funzione Postgres. L'hanno trovato gli scenari
+  Playwright. Regola scritta in CLAUDE.md 27unvicies.
+- **Gli orari erano l'unico campo che non passava dal diff.** "Il sabato ora siamo aperti"
+  apriva il sabato e riportava gli altri sei giorni agli orari di default. E nella versione
+  peggiore -- un modello che si comporta bene e restituisce il solo sabato -- gli altri sei
+  sarebbero stati scritti come CHIUSI, cioè il salone sparito dalle prenotazioni per una
+  settimana senza un errore da nessuna parte. Riparato: i giorni non nominati non vengono
+  nemmeno guardati, e la revisione mostra "Lunedì: 08:00-18:00 → 09:00-19:00" con una spunta per
+  ogni giorno che cambia.
+
+**Verifica**
+
+- [x] **`scripts/verifica.sh`**: tipi, lint, 991 test unitari, build di produzione, permessi del
+      database, scenari Playwright deterministici. Un comando solo, e non si ferma al primo
+      rosso. Con `--e2e` aggiunge i 53 scenari deterministici e i 7 dello scenario 30
+      (configurazione completa), nuovo di oggi.
+- [x] **Scenario 30**: ferie, passo dell'agenda, stacco, orari per persona, rifiuto di
+      cancellare un operatore con appuntamenti, collegamento operatore/servizio. Tutto
+      end-to-end, senza modello e senza costi.
+
+**Quello che il verde NON dice, ed è la cosa da ricordare aprendo domani**
+
+1. Gli scenari 1-10 (l'assistente che prenota, sposta, disdice) **non girano** in
+   `verifica.sh`: chiamano il modello e costano. Il motore degli slot è cambiato oggi sotto di
+   loro.
+2. Niente di quello che parte da solo è mai partito in produzione: declassamento a fine prova,
+   avviso di scadenza, richiamo AI, report mensile. **Il primo ottobre** è la data da guardare.
+3. Email e SMS negli scenari non partono davvero (Mailjet non configurato nell'ambiente di
+   test): che il codice le chiami è verificato, che arrivino no.
+4. Stripe è in test mode.
 
 ## Fase 7 -- Parità/superiorità estetica con Estetia, responsive completo (punti 25, 26, 27, 28)
 Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davvero "fatto" e non
