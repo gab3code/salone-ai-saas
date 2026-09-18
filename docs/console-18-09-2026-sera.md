@@ -23,6 +23,12 @@ La **0065** toglie ad `authenticated` i permessi su
 ancora quella tabella con il client dell'utente: applicarla adesso ti
 romperebbe la pagina calendari. Dopo il deploy nessuno la legge piu' da li'.
 
+**FATTA il 18/09/2026 sera** -- Gabriel l'ha lanciata dall'editor SQL dopo che
+il deploy di `88f5a14` era `READY`. Verificata subito dopo: `authenticated` e
+`anon` non hanno piu' SELECT/INSERT/UPDATE/DELETE su nessuna delle due tabelle,
+`service_role` le ha ancora tutte. Resta qui per memoria di cosa e' stato
+lanciato.
+
 Dall'editor SQL di Supabase, sul progetto di **produzione**
 (`weeaggiqovnmtovdjzxy`):
 
@@ -39,14 +45,30 @@ a produzione e al database di prova**: la 0066 non dipendeva dal codice, la
 
 ---
 
-## 3. La riga rimasta in chiaro
+## 3. La riga in chiaro che non esiste -- passo ANNULLATO
 
-In produzione c'e' **esattamente un** `google_refresh_token` non cifrato (l'ho
-contato). Dopo il deploy:
+**Non lanciare `npm run cifra-credenziali`: non serve.** Questo passo nasceva da
+un conteggio mio sbagliato, e vale la pena scrivere l'errore invece di
+cancellarlo.
 
-```
-npm run cifra-credenziali
-```
+Avevo contato le righe in chiaro con `google_refresh_token not like 'v1:%'`.
+Il prefisso pero' e' `v1.` con il PUNTO (vedi `PREFISSO` in `src/lib/cifratura.ts`,
+che unisce i quattro pezzi con `.`): il valore cifrato non somigliava al mio
+pattern, quindi risultava "in chiaro". Una riga cifrata contata come non cifrata.
+
+Il conteggio rifatto bene sulla produzione:
+
+- collegamenti calendario totali: **1** (Google, stato `connesso`);
+- `google_refresh_token` in chiaro: **0** -- il valore ha il prefisso `v1.` ed e'
+  composto da 4 pezzi separati dal punto, cioe' esattamente il formato che
+  produce `cifra()`;
+- `google_access_token` in chiaro: **0**, stessa forma;
+- `caldav_password` in chiaro: **0** (quella riga non e' CalDAV).
+
+La lezione, piccola ma ripetibile: **un controllo che cerca un prefisso va
+scritto copiando il prefisso dal codice, non a memoria.** Un carattere sbagliato
+non fa fallire la query -- la fa rispondere con sicurezza la cosa opposta al
+vero.
 
 ---
 

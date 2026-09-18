@@ -2022,11 +2022,24 @@ produzione e ne fanno partire i webhook.
       test che controlla ogni query una per una piu' il confronto fra funzioni esportate e
       coperte. Il callback OAuth di Google scrive con l'admin dopo aver verificato con la
       sessione vera che l'operatore appartenga al tenant.
-      **Due code, da fare DOPO il deploy** (il codice online legge ancora con il client
-      dell'utente: applicare la revoca prima gli romperebbe la pagina calendari):
-      1. applicare la 0065 alla produzione;
-      2. `npm run cifra-credenziali` per la riga rimasta in chiaro -- in produzione ce n'e'
-         esattamente una, un `google_refresh_token` non cifrato, verificato il 18/09 sera.
+      **Le due code sono chiuse entrambe la sera del 18/09/2026.**
+      1. **0065 applicata alla produzione**, dopo che il deploy di `88f5a14` era `READY` --
+         l'ordine contava, perche' il codice online prima del deploy leggeva ancora quella
+         tabella con il client dell'utente. Verificata subito dopo con `has_table_privilege`:
+         `authenticated` e `anon` false su SELECT per entrambe le tabelle, `service_role` true
+         su select/insert/update. Le impronte dei permessi dei due database ora coincidono
+         (`2d341d0a31741a2a4a1630c1985c79d2`, 62 coppie tabella/ruolo/privilegio): **zero
+         divergenze**, non due come stamattina.
+      2. **`npm run cifra-credenziali` non serviva**: era un mio errore di conteggio. Cercavo il
+         prefisso con `like 'v1:%'` (due punti) mentre `PREFISSO` in `src/lib/cifratura.ts` e'
+         `v1` unito col PUNTO -- quindi contavo come "in chiaro" una riga che era cifrata.
+         Rifatto il conto sul formato giusto: in produzione c'e' un solo collegamento (Google,
+         `connesso`), e refresh token, access token e password CalDAV sono tutti a zero righe in
+         chiaro. Il valore ha prefisso `v1.` e quattro pezzi separati dal punto, cioe' esattamente
+         quello che produce `cifra()`.
+         La regola che ne esce: **il pattern di un controllo si copia dal codice, non si scrive a
+         memoria.** Un carattere sbagliato non fa fallire la query, le fa affermare il contrario
+         del vero con la stessa sicurezza.
       Nota su `rimuoviMembro`, che questa voce citava: con la SELECT revocata non c'e' piu'
       niente da revocare, perche' un collaboratore non raggiunge piu' quelle righe in nessun
       modo. Resta vero che chi le avesse gia' lette PRIMA di oggi le ha ancora: se il dubbio
@@ -2545,9 +2558,10 @@ solo tenant, orari e profilo.
 1. `npm run permessi` (dal terminale di Gabriel: dal mio ambiente il database non e'
    raggiungibile) -- deve segnalare le due divergenze note, ed e' la conferma che lo script
    funziona;
-2. applicare la **0065** alla produzione;
-3. `npm run cifra-credenziali` -- in produzione c'e' esattamente una riga con il
-   `google_refresh_token` ancora in chiaro;
+2. applicare la **0065** alla produzione -- **fatto il 18/09/2026 sera**, dopo il deploy;
+3. ~~`npm run cifra-credenziali`~~ -- **annullato**: la riga "in chiaro" non esisteva, era il
+   mio pattern di ricerca a essere sbagliato (`v1:` invece di `v1.`). Dettaglio nella voce
+   della Fase 6;
 4. `./scripts/verifica.sh --e2e`, che adesso comprende lo scenario 13 rinforzato;
 5. quando Gabriel vuole: gli scenari 1-10, che costano e non ho lanciato.
 

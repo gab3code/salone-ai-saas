@@ -51,7 +51,9 @@ le chat lunghe, perche' un valore sbagliato entrato una volta si ripropone come 
 turno. Il ragionamento per esteso sta in PIANO.md, perche' la tentazione torna.
 
 **Fase 6: da sei aperte a tre.** Chiuse: i collegamenti dei calendari leggibili solo dal server
-(0065), la revisione sicurezza verificata pezzo per pezzo, la sospensione che adesso dice
+(0065 -- applicata alla produzione la sera del 18/09, dopo il deploy, e verificata: i due
+database hanno ora la stessa identica impronta dei permessi, zero divergenze), la revisione
+sicurezza verificata pezzo per pezzo, la sospensione che adesso dice
 apertamente che l'addebito continua. Chiusa anche PostHog, come decisione: si fa quando ci sara' traffico vero da capire, e la
 condizione e' scritta.
 
@@ -198,9 +200,10 @@ l'attivita', e sono dichiarate nel PIANO, non nascoste.
   scrivono cifrate (AES-256-GCM, `src/lib/cifratura.ts`, 16 test), quindi un
   collega che interroga PostgREST si porta via del testo illeggibile invece
   della password del calendario di un'altra persona. Resta aperta l'altra
-  meta': revocarle quando chi le ha collegate esce dall'attivita'. Serve
-  ancora il passo umano -- generare la chiave e lanciare
-  `npm run cifra-credenziali -- --applica` una volta per database.
+  meta': revocarle quando chi le ha collegate esce dall'attivita'. Il passo
+  umano NON serve piu': la sera del 18/09 ho ricontato le righe in chiaro col
+  prefisso giusto (`v1.`, non `v1:` come avevo scritto la prima volta) e in
+  produzione sono zero -- l'unico collegamento esistente e' gia' cifrato.
 - Ridare al cliente l'autonomia in chat in modo sicuro (link di gestione
   mandato al suo numero, mai mostrato in chat). Dipende dagli SMS, quindi
   dalla P.IVA.
@@ -341,8 +344,9 @@ Cose fatte in queste due giornate che non hanno una casella propria:
 - **Credenziali dei calendari cifrate a riposo** (AES-256-GCM, 16 test). La
   scelta che rende sicuro il passaggio: `decifra` accetta anche il testo in
   chiaro, cosi' al deploy i calendari gia' collegati non smettono di
-  sincronizzare tutti insieme. Manca il passo umano: generare la chiave e
-  lanciare `npm run cifra-credenziali -- --applica` una volta per database.
+  sincronizzare tutti insieme. Il passo umano non e' servito: le righe in
+  produzione erano gia' cifrate, e la riga "in chiaro" che avevo contato era un
+  errore mio di pattern (`v1:` invece di `v1.`).
 - **Trenta permessi di lettura che esistevano solo in produzione** (0054 e
   0055), trovati da `npm run permessi` il giorno dopo averlo scritto. Fra
   questi `anon` e `authenticated` con SELECT su `whatsapp_credenziali`, la

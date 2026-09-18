@@ -875,6 +875,37 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27quatervicies. Un pattern di ricerca si copia dal codice, non si scrive a memoria (18/09/2026)
+
+Per sapere quante credenziali erano rimaste in chiaro in produzione ho contato cosi':
+
+```sql
+where google_refresh_token not like 'v1:%'
+```
+
+Il prefisso pero' e' `v1.` -- `PREFISSO` in `src/lib/cifratura.ts` vale `"v1"` e i quattro pezzi
+vengono uniti con il PUNTO, non con i due punti. Risultato: una riga gia' cifrata contata come
+"in chiaro". Su quel numero ho scritto una voce di PIANO.md, un passo del runbook di Gabriel e
+una riga di AVANZAMENTO.md, tutti e tre sbagliati, e gli avrei fatto lanciare uno script che non
+serviva.
+
+**Perche' e' un errore di una categoria pericolosa.** Un pattern sbagliato non fa fallire la
+query. Non c'e' errore di sintassi, non c'e' colonna inesistente, non c'e' niente che si accorga
+di niente: la query risponde, risponde in fretta, e risponde una cosa falsa con la stessa faccia
+con cui avrebbe risposto quella vera. Un `count(*)` che torna `1` invece di `0` non ha modo di
+dirti che sta guardando la cosa sbagliata.
+
+**La regola.** Quando un controllo dipende da una costante che vive nel codice -- un prefisso,
+un separatore, un nome di stato, una chiave di metadata Stripe -- si va a leggere quella
+costante e si copia. Non si ricostruisce dal ricordo di come dovrebbe essere fatta. Il costo di
+aprire il file e' cinque secondi; il costo di sbagliarlo e' un numero falso che si propaga in
+tre documenti prima che qualcuno lo rimetta in dubbio.
+
+**Il controllo che l'ha preso.** Non un test: il fatto di aver ricontato una seconda volta
+chiedendo al database la FORMA del valore (prefisso e numero di pezzi) invece del suo esito
+("e' cifrato si/no"). Quando un conteggio decide un'azione, si guarda almeno una volta il dato
+grezzo, non solo l'aggregato -- l'aggregato non ha modo di contraddirti.
+
 ## 27tervicies. Fatti controllare da strumenti che non sono i tuoi (18/09/2026)
 
 I nostri controlli sono bravi a trovare quello che abbiamo pensato di cercare. Il 18/09/2026,
