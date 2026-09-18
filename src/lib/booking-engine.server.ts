@@ -9,13 +9,20 @@ import {
   verificaConflitto,
   type AppuntamentoEsistente,
   type Chiusura,
+  type ModalitaRiempimento,
   type Operatore,
   type OrarioGiorno,
   type SlotDisponibile,
 } from "@/lib/booking-engine";
 import { limiteMensilePrenotazioni, pianoHaListaAttesaAutomatica } from "@/lib/piani";
 import { caricaImpegniEsterni } from "@/lib/calendario-esterno/collegamenti.server";
-import { pseudoUtcAReale, realeAPseudoUtc, inizioGiornoUTC, fineGiornoUTC } from "@/lib/fuso-orario";
+import {
+  pseudoUtcAReale,
+  realeAPseudoUtc,
+  inizioGiornoUTC,
+  fineGiornoUTC,
+  FUSO_ORARIO_PREDEFINITO,
+} from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import {
   trovaOCreaCliente as trovaOCreaClienteInRubrica,
@@ -95,11 +102,69 @@ export function parsaOrarioLocale(valore: string): Date | null {
 
 
 
+/**
+ * Le regole con cui QUESTO salone riempie la propria agenda (migrazione 0056).
+ * Non sono un dettaglio tecnico: due saloni con gli stessi orari e gli stessi
+ * servizi possono volere due agende diverse.
+ */
+export interface RegoleAgenda {
+  passoMinuti: number;
+  bufferMinuti: number;
+  modalitaRiempimento: ModalitaRiempimento;
+}
+
+/** Il comportamento storico, quello che vale per chi non ha mai toccato niente. */
+export const REGOLE_AGENDA_PREDEFINITE: RegoleAgenda = {
+  passoMinuti: 15,
+  bufferMinuti: 0,
+  modalitaRiempimento: "griglia",
+};
+
 export interface ContestoBooking {
   orari: OrarioGiorno[];
   chiusure: Chiusura[];
   operatori: Operatore[];
   appuntamenti: AppuntamentoEsistente[];
+  regole: RegoleAgenda;
+}
+
+/**
+ * Fuso orario e regole d'agenda in UNA query sola: erano due letture della
+ * stessa riga di `tenants` a ogni ricerca di slot.
+ *
+ * Fail-open deliberato: se la riga manca o la lettura fallisce si usano i
+ * default. Le regole d'agenda sono una PREFERENZA -- perdere la preferenza
+ * vuol dire proporre orari col passo di prima, perdere l'intero calendario
+ * per una preferenza illeggibile sarebbe molto peggio.
+ */
+async function caricaImpostazioniTenant(
+  supabase: SupabaseClient,
+  tenantId: string
+): Promise<{ fusoOrario: string; regole: RegoleAgenda }> {
+  const { data } = await supabase
+    .from("tenants")
+    .select("fuso_orario, passo_slot_minuti, buffer_minuti, riempimento_agenda")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  const riga = (data ?? {}) as {
+    fuso_orario?: string | null;
+    passo_slot_minuti?: number | null;
+    buffer_minuti?: number | null;
+    riempimento_agenda?: string | null;
+  };
+
+  return {
+    fusoOrario: riga.fuso_orario || FUSO_ORARIO_PREDEFINITO,
+    regole: {
+      passoMinuti: riga.passo_slot_minuti ?? REGOLE_AGENDA_PREDEFINITE.passoMinuti,
+      bufferMinuti: riga.buffer_minuti ?? REGOLE_AGENDA_PREDEFINITE.bufferMinuti,
+      modalitaRiempimento:
+        riga.riempimento_agenda === "attaccato"
+          ? "attaccato"
+          : REGOLE_AGENDA_PREDEFINITE.modalitaRiempimento,
+    },
+  };
 }
 
 /**
@@ -119,7 +184,7 @@ export async function caricaContestoBooking(
   const daStr = inizioGiornoUTC(da).toISOString().slice(0, 10);
   const aStr = inizioGiornoUTC(a).toISOString().slice(0, 10);
 
-  const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
+  const { fusoOrario, regole } = await caricaImpostazioniTenant(supabase, tenantId);
   // I confini del giorno sono calcolati in pseudo-UTC (coerenti con `da`/`a`,
   // che arrivano già in quella convenzione da chi chiama), poi convertiti in
   // istanti reali: SOLO da qui in giù si parla con il database (colonna
@@ -127,7 +192,8 @@ export async function caricaContestoBooking(
   const inizioFinestraReale = pseudoUtcAReale(inizioGiornoUTC(da), fusoOrario);
   const fineFinestraReale = pseudoUtcAReale(fineGiornoUTC(a), fusoOrario);
 
-  const [orariRes, chiusureRes, operatoriRes, opServiziRes, appuntamentiRes] = await Promise.all([
+  const [orariRes, chiusureRes, operatoriRes, orariOperatoreRes, opServiziRes, appuntamentiRes] =
+    await Promise.all([
     supabase.from("orari_apertura").select("*").eq("tenant_id", tenantId),
     supabase
       .from("chiusure")
@@ -136,6 +202,9 @@ export async function caricaContestoBooking(
       .gte("data", daStr)
       .lte("data", aStr),
     supabase.from("operatori").select("id, attivo").eq("tenant_id", tenantId),
+    // Orari propri dello staff (migrazione 0057). Nessuna riga = tutti
+    // seguono gli orari del salone, che e' il caso di ogni salone esistente.
+    supabase.from("orari_operatore").select("*").eq("tenant_id", tenantId),
     // Nessun tenant_id diretto su operatori_servizi: RLS la isola comunque
     // tramite l'operatore collegato (vedi migrazione 0001).
     supabase.from("operatori_servizi").select("operatore_id, servizio_id"),
@@ -152,6 +221,7 @@ export async function caricaContestoBooking(
     orari: orariRes,
     chiusure: chiusureRes,
     operatori: operatoriRes,
+    orari_operatore: orariOperatoreRes,
     operatori_servizi: opServiziRes,
     appuntamenti: appuntamentiRes,
   })) {
@@ -184,10 +254,34 @@ export async function caricaContestoBooking(
     oraFine: troncaOra(r.ora_fine),
   }));
 
+  const orariPerOperatore = new Map<string, OrarioGiorno[]>();
+  for (const r of (orariOperatoreRes.data ?? []) as Record<string, never>[]) {
+    const riga = r as unknown as {
+      operatore_id: string;
+      giorno_settimana: number;
+      chiuso: boolean;
+      apertura: string | null;
+      chiusura: string | null;
+      pausa_inizio: string | null;
+      pausa_fine: string | null;
+    };
+    const lista = orariPerOperatore.get(riga.operatore_id) ?? [];
+    lista.push({
+      giornoSettimana: riga.giorno_settimana,
+      chiuso: riga.chiuso,
+      apertura: troncaOra(riga.apertura),
+      chiusura: troncaOra(riga.chiusura),
+      pausaInizio: troncaOra(riga.pausa_inizio),
+      pausaFine: troncaOra(riga.pausa_fine),
+    });
+    orariPerOperatore.set(riga.operatore_id, lista);
+  }
+
   const operatori: Operatore[] = (operatoriRes.data ?? []).map((r) => ({
     id: r.id,
     attivo: r.attivo,
     servizioIds: servizioIdsPerOperatore.get(r.id) ?? [],
+    orari: orariPerOperatore.get(r.id),
   }));
 
   const appuntamenti: AppuntamentoEsistente[] = (appuntamentiRes.data ?? []).map((r) => ({
@@ -215,7 +309,7 @@ export async function caricaContestoBooking(
     fusoOrario
   );
 
-  return { orari, chiusure, operatori, appuntamenti: [...appuntamenti, ...impegniEsterni] };
+  return { orari, chiusure, operatori, regole, appuntamenti: [...appuntamenti, ...impegniEsterni] };
 }
 
 /**
@@ -240,8 +334,11 @@ export interface RicercaSlotParams {
   data: Date;
   servizioIds: string[]; // 1 elemento = servizio singolo, più elementi = catena consecutiva
   operatoreId?: string;
+  // Lasciati vuoti (il caso normale) valgono le regole del salone, caricate
+  // dal database: un valore qui le sovrascrive solo per questa ricerca.
   bufferMinuti?: number;
   passoMinuti?: number;
+  modalitaRiempimento?: ModalitaRiempimento;
 }
 
 export interface RisultatoRicercaSlot {
@@ -293,8 +390,9 @@ async function trovaSlotEContestoTenant(
     orari: contesto.orari,
     chiusure: contesto.chiusure,
     appuntamentiEsistenti: contesto.appuntamenti,
-    bufferMinuti: params.bufferMinuti,
-    passoMinuti: params.passoMinuti,
+    bufferMinuti: params.bufferMinuti ?? contesto.regole.bufferMinuti,
+    passoMinuti: params.passoMinuti ?? contesto.regole.passoMinuti,
+    modalitaRiempimento: params.modalitaRiempimento ?? contesto.regole.modalitaRiempimento,
   };
 
   const slot =

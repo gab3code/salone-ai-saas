@@ -875,6 +875,63 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27quindecies. Le regole d'agenda sono del salone, non del codice (18/09/2026)
+
+Migrazioni 0056 e 0057. Tre parametri che erano costanti nel codice (passo,
+buffer, modalita' di riempimento) e gli orari del singolo operatore.
+
+Il pezzo che vale la pena ricordare non e' la funzionalita', e' come si era
+nascosto il buco: `bufferMinuti` esisteva nel motore dalla Fase 1, era
+documentato, aveva un suo test verde -- e nessuna delle quattro schermate che
+cercano slot lo passava. Il test provava che la funzione sa usare il buffer,
+non che il prodotto lo usi. Per un anno intero avremmo potuto dire "c'e' il
+buffer" in buona fede.
+
+Regola: quando un parametro attraversa piu' livelli, il test che conta e'
+quello sul livello piu' esterno che l'utente tocca davvero. Un test sulla
+funzione pura dimostra solo che la funzione e' scritta bene.
+
+Seconda cosa, sulle intersezioni: gli orari dell'operatore si INTERSECANO con
+quelli del salone, non li sostituiscono. Scrivere 07:00-22:00 nella scheda di
+un dipendente non deve poter riaprire il salone di nascosto -- e' lo stesso
+principio dei permessi, il livello piu' restrittivo vince sempre.
+
+## 27quattuordecies. La suite intera gira in un container Linux (18/09/2026)
+
+Sul Mac di Gabriel, attraverso il ponte, `vitest` non parte: i binari nativi
+installati in `node_modules` sono quelli di macOS e la VM del ponte e' Linux.
+Per mesi questo ha voluto dire eseguire solo i file di test che si riuscivano a
+copiare a mano in un sandbox -- cioe' non eseguire la suite.
+
+Il modo che funziona: `tar` di `src/`, `supabase/`, `package.json`,
+`package-lock.json`, `tsconfig.json` sul Mac, staging dell'archivio,
+estrazione in un container Linux, `npm ci --legacy-peer-deps`, `vitest.config.mts`
+ricreato identico (alias `@` e stub di `server-only`), `npx vitest run`.
+Meno di un minuto in tutto, e la prima volta ha trovato subito tre test che i
+file singoli davano per verdi.
+
+Regola: **una modifica non e' verificata finche' non e' passata la suite
+intera.** `tsc --noEmit` sul Mac va bene per i tipi e non dice niente sul
+comportamento.
+
+## 27terdecies. La griglia degli slot si ancora all'apertura (18/09/2026)
+
+Gabriel ha messo un evento 13:40-15:40 e gli slot liberi dopo sono usciti
+15:40, 15:55, 16:10. Non era un bug di fuso ne' di import: `calcolaSlotDisponibili`
+faceva ripartire il passo di 15 minuti dall'inizio di OGNI finestra libera, quindi
+qualunque impegno che finisce fuori griglia sfasava tutto il resto della giornata.
+
+Ora il passo e' ancorato all'apertura del giorno (`apertura[0].inizioMin`) e ogni
+finestra libera salta al primo punto di griglia utile. Il prezzo e' esplicito e
+accettato: si perdono al massimo `passoMinuti - 1` minuti di poltrona dopo un
+impegno fuori griglia, in cambio di orari che un cliente sa leggere. L'altra
+scelta (riempire al minuto, orari brutti) e' arrivata poche ore dopo, ed e'
+stata davvero un parametro in piu' e non una riscrittura: modalita'
+"attaccato", vedi 27quindecies.
+
+Regola generale dietro: quando un calcolo produce una LISTA che un umano dovra'
+leggere, l'allineamento non e' un dettaglio estetico -- e' parte della correttezza.
+
 ## 27duodecies. I segreti che non sono nostri si cifrano (18/09/2026)
 
 Nella tabella `collegamenti_calendario_esterni` ci sono la password specifica
@@ -1019,23 +1076,6 @@ variabili a mano.
 Sempre da qui: l'esclusione di vitest e' `tests/e2e/**/*.spec.ts`, non
 `tests/e2e/**`. La seconda portava via anche i test vitest che stanno dentro
 `tests/e2e/helpers/` -- scritti e mai eseguiti nemmeno una volta.
-
-## 27octies. La griglia degli slot si ancora all'apertura (18/09/2026)
-
-Gabriel ha messo un evento 13:40-15:40 e gli slot liberi dopo sono usciti
-15:40, 15:55, 16:10. Non era un bug di fuso ne' di import: `calcolaSlotDisponibili`
-faceva ripartire il passo di 15 minuti dall'inizio di OGNI finestra libera, quindi
-qualunque impegno che finisce fuori griglia sfasava tutto il resto della giornata.
-
-Ora il passo e' ancorato all'apertura del giorno (`apertura[0].inizioMin`) e ogni
-finestra libera salta al primo punto di griglia utile. Il prezzo e' esplicito e
-accettato: si perdono al massimo `passoMinuti - 1` minuti di poltrona dopo un
-impegno fuori griglia, in cambio di orari che un cliente sa leggere. Se un giorno
-serve l'altra scelta (riempire al minuto, orari brutti), e' un parametro in piu',
-non una riscrittura.
-
-Regola generale dietro: quando un calcolo produce una LISTA che un umano dovra'
-leggere, l'allineamento non e' un dettaglio estetico -- e' parte della correttezza.
 
 ## 27septies. La tabella `clienti` si tocca solo da `clienti.server.ts` (18/09/2026)
 

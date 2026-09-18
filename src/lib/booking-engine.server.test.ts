@@ -186,6 +186,8 @@ describe("caricaContestoBooking", () => {
         ],
       },
       chiusure: { select: [{ data: [], error: null }] },
+      // Nessuno staff con orari propri: tutti seguono il salone (migrazione 0057).
+      orari_operatore: { select: [{ data: [], error: null }] },
       operatori: { select: [{ data: [{ id: OPERATORE_ID, attivo: true }], error: null }] },
       operatori_servizi: {
         select: [{ data: [{ operatore_id: OPERATORE_ID, servizio_id: SERVIZIO_ID }], error: null }],
@@ -241,6 +243,8 @@ describe("caricaContestoBooking", () => {
       tenants: { select: [rispostaTenantFuso()] },
       orari_apertura: { select: [{ data: [], error: null }] },
       chiusure: { select: [{ data: [], error: null }] },
+      // Nessuno staff con orari propri: tutti seguono il salone (migrazione 0057).
+      orari_operatore: { select: [{ data: [], error: null }] },
       operatori: { select: [{ data: [], error: null }] },
       operatori_servizi: { select: [{ data: [], error: null }] },
       appuntamenti: { select: [{ data: [], error: null }] },
@@ -256,6 +260,8 @@ describe("caricaContestoBooking", () => {
       tenants: { select: [rispostaTenantFuso()] },
       orari_apertura: { select: [{ data: null, error: { message: "connessione persa" } }] },
       chiusure: { select: [{ data: [], error: null }] },
+      // Nessuno staff con orari propri: tutti seguono il salone (migrazione 0057).
+      orari_operatore: { select: [{ data: [], error: null }] },
       operatori: { select: [{ data: [], error: null }] },
       operatori_servizi: { select: [{ data: [], error: null }] },
       appuntamenti: { select: [{ data: [], error: null }] },
@@ -285,6 +291,8 @@ describe("trovaSlotEStatoGiornoTenant", () => {
         select: [{ data: [{ giorno_settimana: 3, chiuso: true, apertura: null, chiusura: null, pausa_inizio: null, pausa_fine: null }], error: null }],
       },
       chiusure: { select: [{ data: [], error: null }] },
+      // Nessuno staff con orari propri: tutti seguono il salone (migrazione 0057).
+      orari_operatore: { select: [{ data: [], error: null }] },
       operatori: { select: [{ data: [{ id: OPERATORE_ID, attivo: true }], error: null }] },
       operatori_servizi: {
         select: [{ data: [{ operatore_id: OPERATORE_ID, servizio_id: SERVIZIO_ID }], error: null }],
@@ -314,6 +322,8 @@ describe("trovaSlotEStatoGiornoTenant", () => {
         ],
       },
       chiusure: { select: [{ data: [], error: null }] },
+      // Nessuno staff con orari propri: tutti seguono il salone (migrazione 0057).
+      orari_operatore: { select: [{ data: [], error: null }] },
       operatori: { select: [{ data: [{ id: OPERATORE_ID, attivo: true }], error: null }] },
       operatori_servizi: {
         select: [{ data: [{ operatore_id: OPERATORE_ID, servizio_id: SERVIZIO_ID }], error: null }],
@@ -346,6 +356,113 @@ describe("trovaSlotEStatoGiornoTenant", () => {
 
     expect(risultato.slot).toEqual([]);
     expect(risultato.giornoChiuso).toBe(false);
+  });
+
+  // Regole d'agenda per salone (migrazione 0056). Fino al 18/09/2026 il passo
+  // era 15 per tutti e il buffer era peggio che fisso: il parametro esisteva
+  // nel motore, aveva un test, e NESSUNA delle quattro schermate che cercano
+  // slot lo passava. Questi test verificano il collegamento, cioe' proprio il
+  // pezzo che mancava.
+  function saloneConRegole(regole: Record<string, unknown>, appuntamenti: unknown[] = []) {
+    return creaSupabaseFinto({
+      tenants: { select: [{ data: { fuso_orario: FUSO, ...regole }, error: null }] },
+      orari_apertura: {
+        select: [
+          {
+            data: [{ giorno_settimana: 3, chiuso: false, apertura: "09:00:00", chiusura: "12:00:00", pausa_inizio: null, pausa_fine: null }],
+            error: null,
+          },
+        ],
+      },
+      chiusure: { select: [{ data: [], error: null }] },
+      // Nessuno staff con orari propri: tutti seguono il salone (migrazione 0057).
+      orari_operatore: { select: [{ data: [], error: null }] },
+      operatori: { select: [{ data: [{ id: OPERATORE_ID, attivo: true }], error: null }] },
+      operatori_servizi: {
+        select: [{ data: [{ operatore_id: OPERATORE_ID, servizio_id: SERVIZIO_ID }], error: null }],
+      },
+      appuntamenti: { select: [{ data: appuntamenti, error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+    });
+  }
+
+  function orePropose(slot: { inizio: Date }[]) {
+    return slot.map((s) => `${String(s.inizio.getUTCHours()).padStart(2, "0")}:${String(s.inizio.getUTCMinutes()).padStart(2, "0")}`);
+  }
+
+  it("il passo del salone arriva davvero al motore", async () => {
+    const risultato = await trovaSlotEStatoGiornoTenant(saloneConRegole({ passo_slot_minuti: 30 }), TENANT_ID, {
+      data: MERCOLEDI,
+      servizioIds: [SERVIZIO_ID],
+    });
+    expect(orePropose(risultato.slot)).toEqual(["09:00", "09:30", "10:00", "10:30", "11:00", "11:30"]);
+  });
+
+  it("il buffer del salone arriva davvero al motore", async () => {
+    // Appuntamento 09:00-09:30 civile (07:00-07:30 UTC reale, estate a Roma)
+    // e 20 minuti di stacco: il prossimo slot non e' le 09:30 ne' le 09:45.
+    const supabase = saloneConRegole({ buffer_minuti: 20 }, [
+      { operatore_id: OPERATORE_ID, inizio: "2026-07-15T07:00:00.000Z", fine: "2026-07-15T07:30:00.000Z", stato: "confermato" },
+    ]);
+    const risultato = await trovaSlotEStatoGiornoTenant(supabase, TENANT_ID, {
+      data: MERCOLEDI,
+      servizioIds: [SERVIZIO_ID],
+    });
+    expect(orePropose(risultato.slot)[0]).toBe("10:00");
+  });
+
+  it("un salone che non ha mai toccato niente lavora esattamente come prima", async () => {
+    const risultato = await trovaSlotEStatoGiornoTenant(saloneConRegole({}), TENANT_ID, {
+      data: MERCOLEDI,
+      servizioIds: [SERVIZIO_ID],
+    });
+    expect(orePropose(risultato.slot).slice(0, 3)).toEqual(["09:00", "09:15", "09:30"]);
+  });
+
+  it("gli orari propri di un operatore lo tolgono dalle ore in cui non c'e'", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [rispostaTenantFuso()] },
+      orari_apertura: {
+        select: [
+          {
+            data: [{ giorno_settimana: 3, chiuso: false, apertura: "09:00:00", chiusura: "12:00:00", pausa_inizio: null, pausa_fine: null }],
+            error: null,
+          },
+        ],
+      },
+      chiusure: { select: [{ data: [], error: null }] },
+      operatori: { select: [{ data: [{ id: OPERATORE_ID, attivo: true }], error: null }] },
+      orari_operatore: {
+        select: [
+          {
+            data: [
+              {
+                operatore_id: OPERATORE_ID,
+                giorno_settimana: 3,
+                chiuso: false,
+                apertura: "09:00:00",
+                chiusura: "10:00:00",
+                pausa_inizio: null,
+                pausa_fine: null,
+              },
+            ],
+            error: null,
+          },
+        ],
+      },
+      operatori_servizi: {
+        select: [{ data: [{ operatore_id: OPERATORE_ID, servizio_id: SERVIZIO_ID }], error: null }],
+      },
+      appuntamenti: { select: [{ data: [], error: null }] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+    });
+
+    const risultato = await trovaSlotEStatoGiornoTenant(supabase, TENANT_ID, {
+      data: MERCOLEDI,
+      servizioIds: [SERVIZIO_ID],
+    });
+    // Salone aperto fino a mezzogiorno, lui c'e' solo fino alle 10.
+    expect(orePropose(risultato.slot)).toEqual(["09:00", "09:15", "09:30"]);
   });
 });
 

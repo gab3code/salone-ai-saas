@@ -99,6 +99,16 @@ interface Istruzione {
  */
 export function leggiIstruzioni(sql: string): Istruzione[] {
   const senzaCommenti = sql.replace(/--[^\n]*/g, " ");
+
+  // `alter default privileges ... revoke select on tables from anon;` NON e'
+  // un permesso su una tabella: e' una regola su quelle che verranno. Senza
+  // toglierla di mezzo, la ricerca qui sotto ci legge dentro un bersaglio
+  // chiamato "tables" e si inventa una tabella che non esiste. Finora era
+  // innocua (una tabella fantasma con zero privilegi combacia con il nulla
+  // che c'e' in produzione), ma un controllo che tiene in pancia dati finti
+  // e' un controllo che prima o poi dira' una bugia.
+  const senzaDefault = senzaCommenti.replace(/alter\s+default\s+privileges[^;]*;/gi, " ");
+
   const istruzioni: Istruzione[] = [];
 
   // `[^;]` e non `[\s\S]`: il punto e virgola chiude un'istruzione, e senza
@@ -120,7 +130,7 @@ export function leggiIstruzioni(sql: string): Istruzione[] {
     /\b(grant|revoke)\s+([^;]*?)\s+on\s+(all\s+tables\s+in\s+schema\s+public|(?:table\s+)?(?:public\.)?"?[a-z0-9_]+"?)\s+(?:to|from)\s+([^;]+);/gi;
 
   let m: RegExpExecArray | null;
-  while ((m = re.exec(senzaCommenti)) !== null) {
+  while ((m = re.exec(senzaDefault)) !== null) {
     const [, verbo, partePrivilegi, parteBersaglio, parteRuoli] = m;
 
     // `on all tables in schema public` contiene la parola "schema" ma e'

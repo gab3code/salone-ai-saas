@@ -35,6 +35,33 @@ Non esistono fasi oltre la 7.
 
 ---
 
+## 18/09, pomeriggio -- l'agenda smette di essere uguale per tutti
+
+Tre cose, nate da una domanda di Gabriel ("i saloni riescono a riempirsi
+l'agenda come preferiscono?") a cui la risposta onesta era no.
+
+1. **La griglia degli orari era sfasata da qualunque impegno fuori orario
+   tondo** (evento 13:40-15:40 -> slot 15:40, 15:55, 16:10). Ora il passo e'
+   ancorato all'apertura del salone. Difetto reale, non estetica: quella lista
+   la legge il cliente.
+2. **Il buffer fra appuntamenti era codice morto.** Il parametro esisteva nel
+   motore dalla Fase 1, aveva un test, e nessuna delle quattro schermate che
+   cercano slot lo passava: in produzione valeva 0 per tutti. Sembrava una
+   protezione e non lo era. Ora arriva dal database, con il passo e con la
+   modalita' di riempimento (migrazione 0056, sezione "Regole dell'agenda").
+3. **Gli orari erano solo del salone.** Un part-time si poteva dire soltanto
+   inserendo una chiusura pomeridiana a mano ogni singolo giorno. Ora ogni
+   operatore puo' avere i propri orari settimanali (migrazione 0057), che
+   valgono in intersezione con quelli del salone: scriverli piu' larghi non
+   riapre il salone di nascosto.
+
+Nota di metodo: da oggi la suite completa (872 test) gira davvero prima di
+ogni consegna, in un ambiente Linux a parte. Prima si potevano lanciare solo i
+file singoli, e infatti tre test rotti da una modifica di questa sessione sono
+saltati fuori solo li'.
+
+---
+
 ## Fase 2 -- AI conversazionale (2 aperte)
 
 - Contesto persistente in `conversazioni.slot_in_costruzione`: la colonna

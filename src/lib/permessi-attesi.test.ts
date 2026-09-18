@@ -62,6 +62,16 @@ describe("leggere le istruzioni dalle migrazioni", () => {
     expect(istruzioni[0].privilegi).toEqual(["SELECT", "INSERT", "UPDATE", "DELETE"]);
   });
 
+  it("`alter default privileges` non e' un permesso su una tabella chiamata 'tables'", () => {
+    const istruzioni = leggiIstruzioni(
+      "alter default privileges in schema public revoke select on tables from anon;\n" +
+        "grant select on public.servizi to authenticated;"
+    );
+    expect(istruzioni).toHaveLength(1);
+    expect(istruzioni[0].bersaglio).toEqual({ tipo: "tabella", nome: "servizi" });
+    expect(tabelleDichiarate("alter default privileges in schema public revoke select on tables from anon;")).toEqual([]);
+  });
+
   it("ignora quello che sta dentro un commento", () => {
     expect(leggiIstruzioni("-- grant select on public.clienti to anon;\n")).toEqual([]);
   });
@@ -191,6 +201,16 @@ describe("contro le migrazioni vere del progetto", () => {
     expect(tabelle).toContain("profiles");
     expect(tabelle).toContain("tenants");
     expect(tabelle.length).toBeGreaterThan(20);
+  });
+
+  it("dopo la 0057 `anon` non legge gli orari dello staff", () => {
+    // Una tabella nuova nasce con i default dello schema: senza la revoca
+    // esplicita nella 0057, la chiave pubblica leggerebbe chi lavora quando
+    // in ogni salone. Il test guarda i file, il confronto con `npm run
+    // permessi` guarda il database: servono tutti e due.
+    const stato = permessiAttesi(migrazioni, RUOLI);
+    expect(stato.get(chiave("orari_operatore", "anon"))?.tabella.has("SELECT") ?? false).toBe(false);
+    expect(stato.get(chiave("orari_operatore", "authenticated"))?.tabella.has("SELECT")).toBe(true);
   });
 
   it("dopo la 0051 nessuno dei due ruoli pubblici legge o scrive `clienti`", () => {

@@ -43,6 +43,18 @@ export interface Operatore {
   id: string;
   attivo: boolean;
   servizioIds: string[]; // servizi che questo operatore può erogare
+  /**
+   * Orari settimanali PROPRI di questo operatore (part-time, chi fa solo le
+   * mattine, chi il sabato non c'e'). L'assenza vuol sempre dire "segue gli
+   * orari del salone", a ogni livello: nessun elemento = li segue tutti i
+   * giorni, nessuna riga per un certo giorno = li segue quel giorno.
+   *
+   * La disponibilita' vera e' l'INTERSEZIONE con gli orari del salone, mai
+   * l'unione: un operatore non puo' lavorare quando il salone e' chiuso, e
+   * scrivere orari piu' larghi qui non deve poter riaprire il salone di
+   * nascosto.
+   */
+  orari?: OrarioGiorno[];
 }
 
 export interface ParametriDisponibilita {
@@ -56,7 +68,23 @@ export interface ParametriDisponibilita {
   appuntamentiEsistenti: AppuntamentoEsistente[];
   bufferMinuti?: number; // spazio minimo tra due appuntamenti dello stesso operatore
   passoMinuti?: number; // granularità degli slot proposti (default 15)
+  /**
+   * Come si riempie l'agenda dopo un impegno che finisce fuori griglia.
+   *
+   * - "griglia" (default): gli orari proposti restano allineati all'apertura
+   *   del salone -- dopo un appuntamento che finisce alle 15:40 il primo slot
+   *   e' le 15:45. Si perdono al massimo `passoMinuti - 1` minuti, in cambio
+   *   di una lista di orari che un cliente sa leggere.
+   * - "attaccato": il prossimo cliente attacca alla fine del precedente
+   *   (15:40, 15:55, 16:10...). Non si perde un minuto di poltrona, ma gli
+   *   orari proposti diventano quelli.
+   *
+   * Sono due modi legittimi di lavorare e la scelta e' del salone, non nostra.
+   */
+  modalitaRiempimento?: ModalitaRiempimento;
 }
+
+export type ModalitaRiempimento = "griglia" | "attaccato";
 
 export interface SlotDisponibile {
   operatoreId: string;
@@ -110,6 +138,19 @@ function sottraiIntervalli(intervalli: Intervallo[], da: Intervallo[]): Interval
     risultato = nuovo;
   }
   return risultato;
+}
+
+/** Gli intervalli presenti in ENTRAMBE le liste (orari salone ∩ orari operatore). */
+function intersecaIntervalli(a: Intervallo[], b: Intervallo[]): Intervallo[] {
+  const risultato: Intervallo[] = [];
+  for (const x of a) {
+    for (const y of b) {
+      const inizioMin = Math.max(x.inizioMin, y.inizioMin);
+      const fineMin = Math.min(x.fineMin, y.fineMin);
+      if (fineMin > inizioMin) risultato.push({ inizioMin, fineMin });
+    }
+  }
+  return risultato.sort((p, q) => p.inizioMin - q.inizioMin);
 }
 
 /** Gli intervalli aperti di un operatore in un giorno, prima di sottrarre appuntamenti. */
@@ -248,6 +289,7 @@ export function calcolaSlotDisponibili(params: ParametriDisponibilita): SlotDisp
     appuntamentiEsistenti,
     bufferMinuti = 0,
     passoMinuti = 15,
+    modalitaRiempimento = "griglia",
   } = params;
 
   if (durataMinuti <= 0) return [];
@@ -265,21 +307,32 @@ export function calcolaSlotDisponibili(params: ParametriDisponibilita): SlotDisp
       (operatoreId === undefined || o.id === operatoreId)
   );
 
+  const aperturaSalone = intervalliApertura(orarioGiorno);
+  if (aperturaSalone.length === 0) return [];
+
+  // La griglia degli orari proposti e' ancorata all'APERTURA DEL SALONE, non
+  // all'inizio di ogni finestra libera. Senza ancoraggio, un appuntamento che
+  // finisce a un minuto fuori griglia (es. 15:40) sfasava tutti gli slot
+  // successivi -- 15:40, 15:55, 16:10... invece di 15:45, 16:00, 16:15.
+  // Difetto reale segnalato il 18/09/2026.
+  //
+  // L'ancora e' del salone anche quando l'operatore ha orari propri: cosi' gli
+  // orari proposti da operatori diversi restano allineati FRA LORO, e il
+  // cliente vede una lista sola invece di due griglie sfasate.
+  const ancoraMin = aperturaSalone[0].inizioMin;
+
   const slot: SlotDisponibile[] = [];
 
   for (const operatore of operatoriDaControllare) {
-    const apertura = intervalliApertura(orarioGiorno);
-    if (apertura.length === 0) continue;
+    let liberi = aperturaSalone;
 
-    // La griglia degli orari proposti e' ancorata all'APERTURA del giorno, non
-    // all'inizio di ogni finestra libera. Senza ancoraggio, un appuntamento che
-    // finisce a un minuto fuori griglia (es. 15:40) sfasava tutti gli slot
-    // successivi -- 15:40, 15:55, 16:10... invece di 15:45, 16:00, 16:15.
-    // Difetto reale segnalato il 18/09/2026: si perdono al massimo
-    // `passoMinuti - 1` minuti di poltrona, in cambio di orari leggibili.
-    const ancoraMin = apertura[0].inizioMin;
-
-    let liberi = apertura;
+    // Orari propri dell'operatore, se ne ha per QUESTO giorno: intersezione,
+    // mai unione (vedi il commento sul campo `orari`).
+    const suoOrario = operatore.orari?.find((o) => o.giornoSettimana === giornoSettimana);
+    if (suoOrario) {
+      liberi = intersecaIntervalli(liberi, intervalliApertura(suoOrario));
+      if (liberi.length === 0) continue;
+    }
 
     liberi = sottraiIntervalli(liberi, intervalliChiusura(chiusure, operatore.id, dataStr));
     liberi = sottraiIntervalli(
@@ -288,9 +341,12 @@ export function calcolaSlotDisponibili(params: ParametriDisponibilita): SlotDisp
     );
 
     for (const intervallo of liberi) {
-      // Primo punto della griglia >= inizio della finestra libera.
+      // Primo punto della griglia >= inizio della finestra libera -- oppure
+      // l'inizio stesso della finestra, se il salone preferisce riempire.
       const primoInizioMin =
-        ancoraMin + Math.ceil((intervallo.inizioMin - ancoraMin) / passoMinuti) * passoMinuti;
+        modalitaRiempimento === "attaccato"
+          ? intervallo.inizioMin
+          : ancoraMin + Math.ceil((intervallo.inizioMin - ancoraMin) / passoMinuti) * passoMinuti;
 
       for (
         let inizioMin = primoInizioMin;

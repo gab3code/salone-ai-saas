@@ -287,6 +287,100 @@ describe("griglia degli orari proposti", () => {
   it("un passo non valido non manda in loop: nessuno slot", () => {
     expect(slotMartedi({ passoMinuti: 0 })).toEqual([]);
   });
+
+  it("in modalita' attaccato il prossimo cliente parte dalla fine del precedente", () => {
+    // L'altra scelta legittima: non si perde un minuto di poltrona, gli orari
+    // proposti sono quelli. E' del salone la decisione, non nostra.
+    const slot = slotMartedi({ modalitaRiempimento: "attaccato" });
+    const primoDopo = slot.find((s) => s.inizio.getTime() >= orario(15, 40, MARTEDI).getTime());
+    expect(primoDopo?.inizio.getTime()).toBe(orario(15, 40, MARTEDI).getTime());
+  });
+
+  it("modalita' attaccato: la mattina prima dell'impegno resta identica", () => {
+    // Fuori dalle finestre spezzate le due modalita' devono coincidere,
+    // altrimenti cambiare impostazione rimescolerebbe orari che vanno bene.
+    const griglia = slotMartedi().filter((s) => s.inizio < orario(13, 0, MARTEDI));
+    const attaccato = slotMartedi({ modalitaRiempimento: "attaccato" }).filter(
+      (s) => s.inizio < orario(13, 0, MARTEDI)
+    );
+    expect(attaccato.map((s) => s.inizio.toISOString())).toEqual(
+      griglia.map((s) => s.inizio.toISOString())
+    );
+  });
+});
+
+describe("orari propri dell'operatore", () => {
+  // Rita fa solo le mattine. Prima della 0057 l'unico modo di dirlo era una
+  // chiusura pomeridiana inserita a mano ogni singolo giorno, per sempre.
+  const rita: Operatore = {
+    id: "rita",
+    attivo: true,
+    servizioIds: ["taglio"],
+    orari: [{ giornoSettimana: 2, chiuso: false, apertura: "09:00", chiusura: "13:00" }],
+  };
+
+  function slotDi(operatore: Operatore, data = MARTEDI) {
+    return calcolaSlotDisponibili({
+      data,
+      durataMinuti: 30,
+      servizioId: "taglio",
+      operatoreId: operatore.id,
+      operatori: [operatore],
+      orari: orariStandard, // salone 09:00-18:00 il martedì
+      chiusure: [],
+      appuntamentiEsistenti: [],
+    });
+  }
+
+  it("un part-time non viene proposto fuori dai propri orari", () => {
+    const slot = slotDi(rita);
+    expect(slot.length).toBeGreaterThan(0);
+    expect(slot.every((s) => s.fine.getTime() <= orario(13, 0, MARTEDI).getTime())).toBe(true);
+  });
+
+  it("orari dell'operatore più larghi di quelli del salone NON allargano il salone", () => {
+    // Intersezione, non unione: scrivere 07:00-22:00 nella scheda di un
+    // operatore non deve poter riaprire il salone di nascosto.
+    const espansiva: Operatore = {
+      ...rita,
+      orari: [{ giornoSettimana: 2, chiuso: false, apertura: "07:00", chiusura: "22:00" }],
+    };
+    const slot = slotDi(espansiva);
+    expect(slot[0].inizio.getTime()).toBe(orario(9, 0, MARTEDI).getTime());
+    expect(slot[slot.length - 1].fine.getTime()).toBeLessThanOrEqual(orario(18, 0, MARTEDI).getTime());
+  });
+
+  it("un giorno marcato chiuso per l'operatore lo toglie di mezzo, salone aperto o no", () => {
+    const aCasa: Operatore = { ...rita, orari: [{ giornoSettimana: 2, chiuso: true }] };
+    expect(slotDi(aCasa)).toEqual([]);
+  });
+
+  it("nessuna riga per quel giorno = segue gli orari del salone", () => {
+    // Rita ha orari propri solo per il martedì: il lunedì resta un operatore
+    // come tutti gli altri. L'assenza vuol dire "segue il salone" a ogni
+    // livello, mai "non lavora".
+    const slot = slotDi(rita, LUNEDI);
+    expect(slot.some((s) => s.inizio.getTime() === orario(15, 0).getTime())).toBe(true);
+  });
+
+  it("nessun campo orari = comportamento di prima, invariato", () => {
+    const conCampo = slotDi({ ...rita, orari: undefined });
+    const senzaCampo = slotDi({ id: "rita", attivo: true, servizioIds: ["taglio"] });
+    expect(conCampo.map((s) => s.inizio.toISOString())).toEqual(
+      senzaCampo.map((s) => s.inizio.toISOString())
+    );
+  });
+
+  it("la griglia resta ancorata all'apertura del SALONE, non a quella dell'operatore", () => {
+    // Se ogni operatore avesse la propria griglia, il cliente vedrebbe due
+    // liste sfasate fra loro (09:00, 09:15... e 09:10, 09:25...) per lo stesso
+    // servizio nello stesso salone.
+    const tardiva: Operatore = {
+      ...rita,
+      orari: [{ giornoSettimana: 2, chiuso: false, apertura: "09:10", chiusura: "13:00" }],
+    };
+    expect(slotDi(tardiva)[0].inizio.getTime()).toBe(orario(9, 15, MARTEDI).getTime());
+  });
 });
 
 describe("giornoChiuso", () => {

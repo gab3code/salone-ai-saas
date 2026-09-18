@@ -9,6 +9,18 @@ import { sincronizzaQuantitaOperatoriStripe } from "@/lib/stripe/operatori.serve
 
 const GIORNI = [0, 1, 2, 3, 4, 5, 6] as const;
 
+// Solo per i messaggi d'errore: "Lunedi': l'orario di fine..." e' leggibile,
+// "giorno 1" no.
+const NOMI_GIORNI = [
+  "Domenica",
+  "Lunedì",
+  "Martedì",
+  "Mercoledì",
+  "Giovedì",
+  "Venerdì",
+  "Sabato",
+] as const;
+
 /**
  * Onboarding minimo (punto 1 del funnel self-service, Fase 1): senza orari,
  * operatori e servizi veri non c'è nulla su cui il booking engine possa
@@ -46,6 +58,130 @@ export async function salvaOrari(formData: FormData) {
   if (error) return { errore: `Errore salvando gli orari: ${error.message}` };
 
   revalidatePath("/dashboard/configura");
+  return { ok: true };
+}
+
+/**
+ * Regole con cui QUESTO salone riempie l'agenda (migrazione 0056).
+ *
+ * Non sono preferenze estetiche: il passo decide gli orari che il cliente si
+ * vede proporre, il buffer decide se fra un cliente e l'altro resta il tempo
+ * di pulire, la modalita' decide se si privilegia la poltrona piena o la
+ * lista di orari leggibile. Prima erano gli stessi numeri per tutti.
+ */
+export async function salvaRegoleAgenda(formData: FormData) {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+
+  const passo = Number(formData.get("passo_slot_minuti"));
+  const buffer = Number(formData.get("buffer_minuti"));
+  const riempimento = String(formData.get("riempimento_agenda") || "griglia");
+
+  // Gli stessi limiti dei vincoli della 0056, controllati anche qui: un
+  // errore di database arriva all'utente come stringa incomprensibile.
+  if (!Number.isInteger(passo) || passo < 5 || passo > 240) {
+    return { errore: "Il passo degli orari deve stare fra 5 e 240 minuti." };
+  }
+  if (!Number.isInteger(buffer) || buffer < 0 || buffer > 240) {
+    return { errore: "Lo stacco fra appuntamenti deve stare fra 0 e 240 minuti." };
+  }
+  if (riempimento !== "griglia" && riempimento !== "attaccato") {
+    return { errore: "Modalita' di riempimento non valida." };
+  }
+
+  const { error } = await supabase
+    .from("tenants")
+    .update({
+      passo_slot_minuti: passo,
+      buffer_minuti: buffer,
+      riempimento_agenda: riempimento,
+    })
+    .eq("id", accesso.tenantId);
+
+  if (error) return { errore: `Errore salvando le regole dell'agenda: ${error.message}` };
+
+  // Gli orari proposti cambiano ovunque, non solo qui: calendario interno,
+  // pagina pubblica e link di gestione leggono tutti dallo stesso motore.
+  revalidatePath("/dashboard/configura");
+  revalidatePath("/dashboard/calendario");
+  return { ok: true };
+}
+
+/**
+ * Orari settimanali di UN operatore (migrazione 0057).
+ *
+ * "Segue gli orari del salone" non e' un valore speciale: e' l'assenza di
+ * righe. Toglierle e' quindi un'operazione legittima e prevista, non una
+ * cancellazione di dati da temere.
+ */
+export async function salvaOrariOperatore(operatoreId: string, formData: FormData) {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoConfigurareAttivita);
+  if (accessoNegato(accesso)) return { errore: accesso.errore };
+  const tenantId = accesso.tenantId;
+
+  // L'operatore deve essere di QUESTO salone: RLS lo impedirebbe comunque,
+  // ma un controllo esplicito produce un errore leggibile invece di un
+  // silenzioso "zero righe aggiornate".
+  const { data: operatore } = await supabase
+    .from("operatori")
+    .select("id")
+    .eq("id", operatoreId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!operatore) return { errore: "Operatore non trovato." };
+
+  const segueIlSalone = formData.get("segue_salone") === "on";
+
+  const { error: erroreCancellazione } = await supabase
+    .from("orari_operatore")
+    .delete()
+    .eq("tenant_id", tenantId)
+    .eq("operatore_id", operatoreId);
+  if (erroreCancellazione) {
+    return { errore: `Errore aggiornando gli orari: ${erroreCancellazione.message}` };
+  }
+
+  if (!segueIlSalone) {
+    const righe = [];
+    for (const giorno of GIORNI) {
+      const apertura = String(formData.get(`op_apertura_${giorno}`) || "");
+      const chiusura = String(formData.get(`op_chiusura_${giorno}`) || "");
+      const pausaInizio = String(formData.get(`op_pausa_inizio_${giorno}`) || "");
+      const pausaFine = String(formData.get(`op_pausa_fine_${giorno}`) || "");
+      // Un giorno senza orari e' un giorno non lavorato: i vincoli della 0057
+      // rifiuterebbero la riga a meta' con un errore tecnico illeggibile.
+      const chiuso = formData.get(`op_chiuso_${giorno}`) === "on" || !apertura || !chiusura;
+
+      if (!chiuso && chiusura <= apertura) {
+        return { errore: `${NOMI_GIORNI[giorno]}: l'orario di fine deve venire dopo quello di inizio.` };
+      }
+      // Mezza pausa non e' un dato: o ci sono tutti e due gli estremi o non
+      // ce n'e' nessuno.
+      const conPausa = !chiuso && Boolean(pausaInizio) && Boolean(pausaFine);
+      if (conPausa && pausaFine <= pausaInizio) {
+        return { errore: `${NOMI_GIORNI[giorno]}: la pausa deve finire dopo il suo inizio.` };
+      }
+
+      righe.push({
+        tenant_id: tenantId,
+        operatore_id: operatoreId,
+        giorno_settimana: giorno,
+        chiuso,
+        apertura: chiuso ? null : apertura,
+        chiusura: chiuso ? null : chiusura,
+        pausa_inizio: conPausa ? pausaInizio : null,
+        pausa_fine: conPausa ? pausaFine : null,
+      });
+    }
+
+    const { error } = await supabase.from("orari_operatore").insert(righe);
+    if (error) return { errore: `Errore salvando gli orari: ${error.message}` };
+  }
+
+  revalidatePath("/dashboard/configura");
+  revalidatePath("/dashboard/calendario");
   return { ok: true };
 }
 

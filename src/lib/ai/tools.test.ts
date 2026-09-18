@@ -394,6 +394,8 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
         select: [{ data: [{ giorno_settimana: 0, chiuso: true, apertura: null, chiusura: null, pausa_inizio: null, pausa_fine: null }], error: null }],
       },
       chiusure: { select: [{ data: [], error: null }] },
+      // Nessuno staff con orari propri: tutti seguono il salone (migrazione 0057).
+      orari_operatore: { select: [{ data: [], error: null }] },
       operatori: { select: [{ data: [], error: null }] },
       operatori_servizi: { select: [{ data: [], error: null }] },
       appuntamenti: { select: [{ data: [], error: null }] },
@@ -422,6 +424,8 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
         ],
       },
       chiusure: { select: [{ data: [], error: null }] },
+      // Nessuno staff con orari propri: tutti seguono il salone (migrazione 0057).
+      orari_operatore: { select: [{ data: [], error: null }] },
       operatori: { select: [{ data: [], error: null }] },
       operatori_servizi: { select: [{ data: [], error: null }] },
       appuntamenti: { select: [{ data: [], error: null }] },
@@ -444,6 +448,8 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
         select: [{ data: [{ giorno_settimana: 6, chiuso: true, apertura: null, chiusura: null, pausa_inizio: null, pausa_fine: null }], error: null }],
       },
       chiusure: { select: [{ data: [], error: null }] },
+      // Nessuno staff con orari propri: tutti seguono il salone (migrazione 0057).
+      orari_operatore: { select: [{ data: [], error: null }] },
       operatori: { select: [{ data: [], error: null }] },
       operatori_servizi: { select: [{ data: [], error: null }] },
       appuntamenti: { select: [{ data: [], error: null }] },

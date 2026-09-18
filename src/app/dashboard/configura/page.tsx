@@ -10,6 +10,8 @@ import {
   eliminaServizio,
   impostaAssociazioneOperatoreServizio,
   salvaOrari,
+  salvaOrariOperatore,
+  salvaRegoleAgenda,
 } from "./azioni";
 import { PannelloOnboardingAI } from "./PannelloOnboardingAI";
 import { OnboardingWizard } from "./OnboardingWizard";
@@ -56,8 +58,15 @@ export default async function PaginaConfigura() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [orariRes, operatoriRes, serviziRes, opServiziRes, profiloRes] = await Promise.all([
+  const [orariRes, regoleRes, orariOperatoreRes, operatoriRes, serviziRes, opServiziRes, profiloRes] =
+    await Promise.all([
     supabase.from("orari_apertura").select("*").eq("tenant_id", tenantId),
+    supabase
+      .from("tenants")
+      .select("passo_slot_minuti, buffer_minuti, riempimento_agenda")
+      .eq("id", tenantId)
+      .maybeSingle(),
+    supabase.from("orari_operatore").select("*").eq("tenant_id", tenantId),
     supabase.from("operatori").select("id, nome, descrizione").eq("tenant_id", tenantId).order("nome"),
     supabase
       .from("servizi")
@@ -66,7 +75,7 @@ export default async function PaginaConfigura() {
       .order("nome"),
     supabase.from("operatori_servizi").select("operatore_id, servizio_id"),
     user ? supabase.from("profiles").select("nome").eq("id", user.id).single() : Promise.resolve({ data: null }),
-  ]);
+    ]);
 
   const orariPerGiorno = new Map<number, OrarioRiga>(
     (orariRes.data ?? []).map((r) => [r.giorno_settimana, r])
@@ -77,6 +86,20 @@ export default async function PaginaConfigura() {
     (opServiziRes.data ?? []).map((r) => `${r.operatore_id}:${r.servizio_id}`)
   );
   const nomeTitolare = profiloRes.data?.nome || "Titolare";
+
+  // Regole d'agenda (0056) e orari propri dello staff (0057). I default qui
+  // sono gli stessi della migrazione: una riga vecchia o una lettura a vuoto
+  // non deve mai mostrare campi vuoti.
+  const passoSlot = regoleRes.data?.passo_slot_minuti ?? 15;
+  const bufferMinuti = regoleRes.data?.buffer_minuti ?? 0;
+  const riempimento = regoleRes.data?.riempimento_agenda ?? "griglia";
+
+  const orariPerOperatore = new Map<string, Map<number, OrarioRiga>>();
+  for (const riga of (orariOperatoreRes.data ?? []) as (OrarioRiga & { operatore_id: string })[]) {
+    const perGiorno = orariPerOperatore.get(riga.operatore_id) ?? new Map<number, OrarioRiga>();
+    perGiorno.set(riga.giorno_settimana, riga);
+    orariPerOperatore.set(riga.operatore_id, perGiorno);
+  }
 
   if (soloLettura) {
     return (
@@ -114,13 +137,35 @@ export default async function PaginaConfigura() {
 
         <section>
           <h2 className="text-base font-medium">Operatori</h2>
-          <ul className="mt-3 flex flex-col gap-1 text-sm">
-            {operatori.map((o) => (
-              <li key={o.id}>
-                {o.nome}
-                {o.descrizione && <span className="ml-2 text-xs text-zinc-500">{o.descrizione}</span>}
-              </li>
-            ))}
+          <ul className="mt-3 flex flex-col gap-2 text-sm">
+            {operatori.map((o) => {
+              const suoiOrari = orariPerOperatore.get(o.id);
+              return (
+                <li key={o.id}>
+                  {o.nome}
+                  {o.descrizione && <span className="ml-2 text-xs text-zinc-500">{o.descrizione}</span>}
+                  {/* Chi lavora quando serve anche a un dipendente, non solo
+                      al titolare: e' l'informazione che evita di promettere a
+                      un cliente un orario in cui la collega non c'e'. */}
+                  {suoiOrari && suoiOrari.size > 0 && (
+                    <ul className="ml-4 mt-1 flex flex-col gap-0.5 text-xs text-zinc-500">
+                      {NOMI_GIORNI.map((nomeGiorno, giorno) => {
+                        const riga = suoiOrari.get(giorno);
+                        if (!riga) return null;
+                        return (
+                          <li key={giorno}>
+                            {nomeGiorno}:{" "}
+                            {riga.chiuso
+                              ? "libero"
+                              : `${riga.apertura?.slice(0, 5) ?? "--"} - ${riga.chiusura?.slice(0, 5) ?? "--"}`}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
             {operatori.length === 0 && <li className="text-zinc-500">Nessun operatore configurato.</li>}
           </ul>
         </section>
@@ -240,28 +285,216 @@ export default async function PaginaConfigura() {
         </form>
       </section>
 
+      {/* --- Regole dell'agenda (migrazione 0056) --- */}
+      <section>
+        <h2 className="text-base font-medium">Regole dell&apos;agenda</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Come vengono proposti gli orari liberi ai clienti. Valgono ovunque: calendario,
+          pagina pubblica e assistente.
+        </p>
+        <form
+          key={`regole:${passoSlot}:${bufferMinuti}:${riempimento}`}
+          action={async (formData: FormData) => {
+            "use server";
+            await salvaRegoleAgenda(formData);
+          }}
+          className="mt-3 flex flex-col gap-3 text-sm"
+        >
+          <div className="flex flex-wrap gap-4">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="passo_slot_minuti" className="text-xs text-zinc-500">
+                Ogni quanti minuti proporre un orario
+              </label>
+              <input
+                id="passo_slot_minuti"
+                name="passo_slot_minuti"
+                type="number"
+                min={5}
+                max={240}
+                step={5}
+                defaultValue={passoSlot}
+                className="w-28 rounded border border-zinc-300 px-2 py-1"
+              />
+              <span className="text-xs text-zinc-500">15 vuol dire 09:00, 09:15, 09:30</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="buffer_minuti" className="text-xs text-zinc-500">
+                Stacco dopo ogni appuntamento
+              </label>
+              <input
+                id="buffer_minuti"
+                name="buffer_minuti"
+                type="number"
+                min={0}
+                max={240}
+                step={5}
+                defaultValue={bufferMinuti}
+                className="w-28 rounded border border-zinc-300 px-2 py-1"
+              />
+              <span className="text-xs text-zinc-500">
+                Minuti per pulire e riordinare, tolti dagli orari proponibili
+              </span>
+            </div>
+          </div>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-xs text-zinc-500">Quando un appuntamento finisce a un orario strano</legend>
+            <label className="flex items-start gap-2">
+              <input
+                type="radio"
+                name="riempimento_agenda"
+                value="griglia"
+                defaultChecked={riempimento !== "attaccato"}
+                className="mt-1"
+              />
+              <span>
+                Orari ordinati
+                <span className="block text-xs text-zinc-500">
+                  Dopo un appuntamento che finisce alle 15:40 il primo orario libero è le 15:45.
+                  Si perde qualche minuto, i clienti leggono orari normali.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input
+                type="radio"
+                name="riempimento_agenda"
+                value="attaccato"
+                defaultChecked={riempimento === "attaccato"}
+                className="mt-1"
+              />
+              <span>
+                Agenda piena
+                <span className="block text-xs text-zinc-500">
+                  Il cliente dopo attacca subito: 15:40, 15:55, 16:10. Non si perde un minuto,
+                  gli orari proposti diventano questi.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+
+          <button
+            type="submit"
+            className="mt-1 w-fit rounded bg-black px-4 py-2 text-sm font-medium text-white"
+          >
+            Salva regole
+          </button>
+        </form>
+      </section>
+
       {/* --- Operatori --- */}
       <section>
         <h2 className="text-base font-medium">Operatori</h2>
         <ul className="mt-3 flex flex-col gap-2 text-sm">
-          {operatori.map((o) => (
-            <li key={o.id} className="flex items-center gap-3">
-              <span className="min-w-40">
-                {o.nome}
-                {o.descrizione && <span className="ml-2 text-xs text-zinc-500">{o.descrizione}</span>}
-              </span>
-              <form
-                action={async () => {
-                  "use server";
-                  await eliminaOperatore(o.id);
-                }}
-              >
-                <button type="submit" className="text-xs text-red-600 underline">
-                  Elimina
-                </button>
-              </form>
+          {operatori.map((o) => {
+            const suoiOrari = orariPerOperatore.get(o.id);
+            const segueIlSalone = !suoiOrari || suoiOrari.size === 0;
+            return (
+            <li key={o.id} className="flex flex-col gap-2 border-b border-zinc-100 pb-3 last:border-0">
+              <div className="flex items-center gap-3">
+                <span className="min-w-40">
+                  {o.nome}
+                  {o.descrizione && <span className="ml-2 text-xs text-zinc-500">{o.descrizione}</span>}
+                </span>
+                <span className="text-xs text-zinc-500">
+                  {segueIlSalone ? "Orari del salone" : "Orari propri"}
+                </span>
+                <form
+                  action={async () => {
+                    "use server";
+                    await eliminaOperatore(o.id);
+                  }}
+                >
+                  <button type="submit" className="text-xs text-red-600 underline">
+                    Elimina
+                  </button>
+                </form>
+              </div>
+
+              {/* Orari propri dell'operatore (migrazione 0057): chi fa solo le
+                  mattine, o il sabato non c'è. Chiuso di default, perché il
+                  caso normale resta "segue il salone". */}
+              <details className="text-sm">
+                <summary className="cursor-pointer text-xs text-zinc-500 underline">
+                  Orari di {o.nome}
+                </summary>
+                <form
+                  key={`orari-op:${o.id}:${segueIlSalone}`}
+                  action={async (formData: FormData) => {
+                    "use server";
+                    await salvaOrariOperatore(o.id, formData);
+                  }}
+                  className="mt-2 flex flex-col gap-2"
+                >
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="segue_salone" defaultChecked={segueIlSalone} />
+                    <span>Segue gli orari del salone</span>
+                  </label>
+                  <p className="text-xs text-zinc-500">
+                    Togli la spunta per dare a {o.nome} orari suoi. Restano comunque dentro
+                    gli orari del salone: se il salone è chiuso, non lavora.
+                  </p>
+                  <div className="grid grid-cols-[100px_auto_1fr_1fr_1fr_1fr] items-center gap-x-3 gap-y-2 text-sm">
+                    <span className="font-medium text-zinc-500">Giorno</span>
+                    <span className="font-medium text-zinc-500">Libero</span>
+                    <span className="font-medium text-zinc-500">Inizio</span>
+                    <span className="font-medium text-zinc-500">Fine</span>
+                    <span className="font-medium text-zinc-500">Pausa da</span>
+                    <span className="font-medium text-zinc-500">Pausa a</span>
+                    {NOMI_GIORNI.map((nomeGiorno, giorno) => {
+                      const suo = suoiOrari?.get(giorno);
+                      const delSalone = orariPerGiorno.get(giorno);
+                      return (
+                        <div key={giorno} className="contents">
+                          <span>{nomeGiorno}</span>
+                          <input
+                            type="checkbox"
+                            name={`op_chiuso_${giorno}`}
+                            defaultChecked={suo?.chiuso ?? (delSalone?.chiuso ?? giorno === 0)}
+                          />
+                          <input
+                            type="time"
+                            name={`op_apertura_${giorno}`}
+                            defaultValue={
+                              suo?.apertura?.slice(0, 5) ?? delSalone?.apertura?.slice(0, 5) ?? "09:00"
+                            }
+                            className="rounded border border-zinc-300 px-2 py-1"
+                          />
+                          <input
+                            type="time"
+                            name={`op_chiusura_${giorno}`}
+                            defaultValue={
+                              suo?.chiusura?.slice(0, 5) ?? delSalone?.chiusura?.slice(0, 5) ?? "19:00"
+                            }
+                            className="rounded border border-zinc-300 px-2 py-1"
+                          />
+                          <input
+                            type="time"
+                            name={`op_pausa_inizio_${giorno}`}
+                            defaultValue={suo?.pausa_inizio?.slice(0, 5) ?? ""}
+                            className="rounded border border-zinc-300 px-2 py-1"
+                          />
+                          <input
+                            type="time"
+                            name={`op_pausa_fine_${giorno}`}
+                            defaultValue={suo?.pausa_fine?.slice(0, 5) ?? ""}
+                            className="rounded border border-zinc-300 px-2 py-1"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="submit"
+                    className="mt-1 w-fit rounded bg-black px-4 py-2 text-sm font-medium text-white"
+                  >
+                    Salva orari di {o.nome}
+                  </button>
+                </form>
+              </details>
             </li>
-          ))}
+            );
+          })}
           {operatori.length === 0 && (
             <li className="text-zinc-500">Nessun operatore ancora, aggiungine uno sotto.</li>
           )}
