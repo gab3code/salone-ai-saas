@@ -3,6 +3,7 @@ import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { caricaRecensioniDashboard } from "@/lib/recensioni.server";
 import { PannelloRecensioni } from "./pannello-recensioni";
+import Link from "next/link";
 
 /**
  * Impostazioni -> Recensioni (Fase 3, 16/09/2026 -- vedi DECISIONS.md).
@@ -21,9 +22,9 @@ export default async function PaginaRecensioni() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Recensioni</h1>
         <p className="mt-1 text-sm text-zinc-600">
           Ogni cliente riceve un invito a lasciare una recensione qualche ora dopo l&apos;appuntamento, solo se ha

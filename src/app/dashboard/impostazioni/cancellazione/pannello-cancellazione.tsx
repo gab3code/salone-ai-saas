@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { aggiornaFinestraCancellazione } from "./azioni";
+import Link from "next/link";
 
 export function PannelloCancellazione({
   oreIniziali,
@@ -64,9 +65,9 @@ export function PannelloCancellazione({
             Nessun numero: chi prova a cancellare troppo tardi non sa chi chiamare.
           </p>
         )}
-        <a href="/dashboard/impostazioni/contatti" className="mt-1 inline-block text-xs underline">
+        <Link href="/dashboard/impostazioni/contatti" className="mt-1 inline-block text-xs underline">
           Modifica in Contatti
-        </a>
+        </Link>
       </div>
 
       <button

@@ -38,6 +38,7 @@ function tornaConErrore(
 import { trovaSlotEStatoGiornoTenant, giornoDiChiusuraTenant } from "@/lib/booking-engine.server";
 import { nomiClientiPerId } from "@/lib/clienti.server";
 import { SelettoreGiorno } from "./selettore-giorno";
+import Link from "next/link";
 import type { MotivoOperatoriMancanti } from "@/lib/booking-engine";
 import { pseudoUtcAReale, realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
@@ -242,9 +243,9 @@ export default async function PaginaCalendario({
   return (
     <div className="flex flex-1 flex-col gap-6 p-8">
       <div>
-        <a href="/dashboard" className="text-sm underline">
+        <Link href="/dashboard" className="text-sm underline">
           ← Dashboard
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Calendario</h1>
       </div>
 
@@ -268,9 +269,9 @@ export default async function PaginaCalendario({
             ? avvisoListaAttesa.servizi[0]?.nome
             : (avvisoListaAttesa.servizi as { nome: string } | null)?.nome}
           ) -- contattalo per riproporglielo. Vedi anche{" "}
-          <a href="/dashboard/lista-attesa" className="underline">
+          <Link href="/dashboard/lista-attesa" className="underline">
             Lista d&apos;attesa
-          </a>
+          </Link>
           .
         </p>
       )}
@@ -284,9 +285,9 @@ export default async function PaginaCalendario({
             {giornoChiusoGuardato ? (
               <>
                 Il salone è chiuso in questo giorno.{" "}
-                <a href="/dashboard/configura" className="underline">
+                <Link href="/dashboard/configura" className="underline">
                   Cambia gli orari
-                </a>
+                </Link>
               </>
             ) : (
               "Nessun appuntamento per questo giorno."
@@ -345,12 +346,12 @@ export default async function PaginaCalendario({
                           </button>
                         </form>
                       )}
-                      <a
+                      <Link
                         href={`/dashboard/calendario?${parametriSenzaModifica.toString()}&modifica=${a.id}`}
                         className="underline"
                       >
                         {inModifica ? "Modifica in corso" : "Modifica"}
-                      </a>
+                      </Link>
                       <form
                         action={async () => {
                           "use server";
@@ -412,12 +413,12 @@ export default async function PaginaCalendario({
                       >
                         Salva spostamento
                       </button>
-                      <a
+                      <Link
                         href={`/dashboard/calendario?${parametriSenzaModifica.toString()}`}
                         className="text-xs underline"
                       >
                         Annulla
-                      </a>
+                      </Link>
                     </form>
                   )}
                 </li>
@@ -430,9 +431,9 @@ export default async function PaginaCalendario({
       {operatori.length === 0 || servizi.length === 0 ? (
         <p className="text-sm text-zinc-500">
           Configura almeno un operatore e un servizio prima di creare appuntamenti --{" "}
-          <a href="/dashboard/configura" className="underline">
+          <Link href="/dashboard/configura" className="underline">
             vai a Configura l&apos;attività
-          </a>
+          </Link>
           .
         </p>
       ) : (

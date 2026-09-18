@@ -31,9 +31,9 @@ export default async function PaginaListaAttesa() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Contatto automatico lista d&apos;attesa</h1>
         <p className="mt-1 text-sm text-zinc-600">
           Quando un posto si libera e un cliente in lista d&apos;attesa lo riceve in proposta, decidi se

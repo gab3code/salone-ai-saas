@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { creaAppuntamento } from "./azioni";
 import { formattaGiornoEsteso } from "@/lib/data-italiana";
 import type { MotivoOperatoriMancanti } from "@/lib/booking-engine";
+import Link from "next/link";
 
 interface Operatore {
   id: string;
@@ -131,9 +132,9 @@ export function PannelloNuovoAppuntamento({
       return (
         <>
           Il salone è chiuso in questo giorno: scegli un altro giorno qui sopra, oppure{" "}
-          <a href="/dashboard/configura" className="underline">
+          <Link href="/dashboard/configura" className="underline">
             cambia gli orari di apertura
-          </a>
+          </Link>
           .
         </>
       );
@@ -151,9 +152,9 @@ export function PannelloNuovoAppuntamento({
       return (
         <>
           {frase}: <strong>{nomi}</strong>.{" "}
-          <a href="/dashboard/configura" className="underline">
+          <Link href="/dashboard/configura" className="underline">
             Assegna un operatore al servizio
-          </a>
+          </Link>
           {operatoreIdIniziale ? ", oppure scegli “Qualsiasi”." : "."}
         </>
       );

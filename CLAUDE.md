@@ -875,6 +875,31 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27novies. `Link` ovunque, tranne i quattro casi in cui rompe (18/09/2026)
+
+Nella dashboard i link interni usano `Link` di next/link: un `<a href>` fa
+ricaricare il documento intero e rieseguire tutto il JavaScript a ogni clic.
+
+Quattro eccezioni, che devono restare `<a>` e che un "convertiamoli tutti"
+romperebbe in silenzio:
+
+1. **`/dashboard/clienti/export`** -- non e' una pagina, e' una rotta che
+   restituisce un file. Con `Link` il download non parte.
+2. **`target="_blank"`** (anteprima pagina pubblica, demo).
+3. **`download=`** (il QR code in CondividiLink.tsx).
+4. **href non letterali verso `/api/...`** (il collegamento Google in
+   pannello-calendari.tsx).
+
+Il criterio in una riga: `Link` serve a navigare fra PAGINE dell'app. Se
+l'indirizzo produce un file, apre un'altra scheda o parla con una rotta API,
+resta un `<a>`.
+
+Sempre dalla stessa sessione: ogni sezione della dashboard ha un
+`loading.tsx` che disegna la forma della pagina in arrivo (vedi
+`scheletro-caricamento.tsx`). Senza, il browser resta fermo sulla pagina
+vecchia mentre il server lavora, e mezzo secondo di immobilita' si legge come
+"non ha registrato il clic".
+
 ## 27octies. Un test non si costruisce il client Supabase da solo (18/09/2026)
 
 Con il database di test separato, `.env.local` punta a PRODUZIONE e `.env.test`

@@ -46,9 +46,9 @@ export default async function PaginaPromemoria() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Promemoria automatici</h1>
         <p className="mt-1 max-w-lg text-sm text-zinc-600">
           Tutto quello che il tuo salone scrive da solo ai clienti: il promemoria prima

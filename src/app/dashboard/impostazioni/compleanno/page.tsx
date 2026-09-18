@@ -32,9 +32,9 @@ export default async function PaginaCompleanno() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Promemoria di compleanno</h1>
         <p className="mt-1 text-sm text-zinc-600">
           Manda un augurio automatico ai clienti che hanno lasciato la data di nascita (si aggiunge dalla scheda

@@ -55,9 +55,9 @@ export default async function PaginaAnalytics({
     <div className="flex flex-1 flex-col gap-6 p-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <a href="/dashboard" className="text-sm underline">
+          <Link href="/dashboard" className="text-sm underline">
             ← Dashboard
-          </a>
+          </Link>
           <h1 className="mt-2 text-xl font-semibold">Analytics</h1>
           <p className="mt-1 max-w-xl text-sm text-zinc-600">
             Come sta andando nel tempo, e quanti clienti tornano. Non solo i numeri di oggi.

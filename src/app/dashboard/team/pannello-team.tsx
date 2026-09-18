@@ -8,6 +8,7 @@ import {
   rimuoviMembroAction,
 } from "./azioni";
 import type { InvitoPendente, MembroAttivita } from "@/lib/membri.server";
+import Link from "next/link";
 
 function formatoData(iso: string): string {
   return new Date(iso).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -59,12 +60,12 @@ export function PannelloTeam({
             agenda, clienti e lista d&apos;attesa e può prenotare per chiunque, senza vedere il
             fatturato né poter cambiare servizi, prezzi o abbonamento.
           </p>
-          <a
+          <Link
             href="/dashboard/impostazioni"
             className="mt-4 inline-block rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
           >
             Vedi i piani
-          </a>
+          </Link>
         </section>
       ) : (
       <section className="rounded-2xl border border-zinc-200 bg-white p-5">

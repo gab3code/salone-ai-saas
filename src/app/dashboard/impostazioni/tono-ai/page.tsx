@@ -28,9 +28,9 @@ export default async function PaginaTonoAi() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Tono dell&apos;AI</h1>
         <p className="mt-1 text-sm text-zinc-600">
           Guida il modo in cui l&apos;assistente risponde ai tuoi clienti in chat -- resta comunque vincolato alle

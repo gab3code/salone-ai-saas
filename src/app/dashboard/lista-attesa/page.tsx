@@ -5,6 +5,7 @@ import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { PannelloListaAttesa } from "./pannello-lista-attesa";
 import { segnaListaAttesaRisolta, rimuoviListaAttesa } from "./azioni";
+import Link from "next/link";
 
 interface RigaListaAttesa {
   id: string;
@@ -126,9 +127,9 @@ export default async function PaginaListaAttesa() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard" className="text-sm underline">
+        <Link href="/dashboard" className="text-sm underline">
           ← Dashboard
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Lista d&apos;attesa</h1>
         <p className="mt-1 text-sm text-zinc-600">
           Quando cancelli un appuntamento, se un cliente in questa lista era in attesa proprio di quel servizio (e
@@ -140,9 +141,9 @@ export default async function PaginaListaAttesa() {
       {servizi.length === 0 ? (
         <p className="text-sm text-zinc-500">
           Configura almeno un servizio prima di usare la lista d&apos;attesa --{" "}
-          <a href="/dashboard/configura" className="underline">
+          <Link href="/dashboard/configura" className="underline">
             vai a Configura l&apos;attività
-          </a>
+          </Link>
           .
         </p>
       ) : (

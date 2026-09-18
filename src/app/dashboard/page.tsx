@@ -143,9 +143,9 @@ export default async function PaginaDashboard({
 
       {tenant && (
         <div className="mt-4 flex gap-3 text-sm">
-          <a href="/dashboard/calendario" className="rounded border border-zinc-300 px-3 py-1.5">
+          <Link href="/dashboard/calendario" className="rounded border border-zinc-300 px-3 py-1.5">
             Calendario
-          </a>
+          </Link>
           <Link href="/dashboard/clienti" className="rounded border border-zinc-300 px-3 py-1.5">
             Clienti
           </Link>
@@ -157,13 +157,13 @@ export default async function PaginaDashboard({
               Analytics
             </Link>
           )}
-          <a href="/dashboard/configura" className="rounded border border-zinc-300 px-3 py-1.5">
+          <Link href="/dashboard/configura" className="rounded border border-zinc-300 px-3 py-1.5">
             Configura l&apos;attività
-          </a>
+          </Link>
           {puoConfigurareAttivita(ruolo) && (
-            <a href="/dashboard/impostazioni" className="rounded border border-zinc-300 px-3 py-1.5">
+            <Link href="/dashboard/impostazioni" className="rounded border border-zinc-300 px-3 py-1.5">
               Impostazioni
-            </a>
+            </Link>
           )}
           {puoGestireMembri(ruolo) && (
             <Link href="/dashboard/team" className="rounded border border-zinc-300 px-3 py-1.5">

@@ -40,9 +40,9 @@ export default async function PaginaInformazioniAttivita() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Informazioni per l&apos;AI (receptionist)</h1>
         <p className="mt-1 text-sm text-zinc-600">
           I clienti potranno chiedere all&apos;AI in chat parcheggio, pagamenti, policy di cancellazione e

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { PannelloCancellazione } from "./pannello-cancellazione";
+import Link from "next/link";
 
 /**
  * Impostazioni -> Finestra minima di cancellazione online (richiesta
@@ -25,9 +26,9 @@ export default async function PaginaCancellazione() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Cancellazione online</h1>
         <p className="mt-1 text-sm text-zinc-600">
           Decidi fino a quante ore prima dell&apos;appuntamento un cliente può cancellare da solo dal link ricevuto

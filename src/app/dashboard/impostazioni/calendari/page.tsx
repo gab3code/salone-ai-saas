@@ -3,6 +3,7 @@ import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { elencaCollegamentiTenant } from "@/lib/calendario-esterno/collegamenti.server";
 import { PannelloCalendari } from "./pannello-calendari";
+import Link from "next/link";
 
 /**
  * Impostazioni -> Calendari personali (Fase 6bis). Collegare il calendario
@@ -29,9 +30,9 @@ export default async function PaginaCalendariEsterni({
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Calendari personali</h1>
         <p className="mt-1 text-sm text-zinc-600">
           Collega il calendario personale di ogni operatore: i suoi impegni privati bloccheranno

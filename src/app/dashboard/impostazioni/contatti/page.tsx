@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { PannelloContatti } from "./pannello-contatti";
+import Link from "next/link";
 
 /**
  * Impostazioni -> Contatti (17/09/2026).
@@ -25,9 +26,9 @@ export default async function PaginaContatti() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Contatti</h1>
         <p className="mt-1 max-w-lg text-sm text-zinc-600">
           I recapiti su cui un cliente ti raggiunge quando l&apos;assistente non basta: un reclamo, una richiesta

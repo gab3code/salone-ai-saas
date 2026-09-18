@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { PannelloMedia } from "./pannello-media";
+import Link from "next/link";
 
 /**
  * Impostazioni -> Logo e foto di copertina (Fase 4, galleria/upload
@@ -26,9 +27,9 @@ export default async function PaginaPubblicaImpostazioni() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Logo e foto di copertina</h1>
         <p className="mt-1 text-sm text-zinc-600">
           Mostrati in cima alla tua pagina pubblica di prenotazione

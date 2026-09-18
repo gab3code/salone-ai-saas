@@ -24,9 +24,9 @@ export default async function PaginaImpostazioni() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-8">
-      <a href="/dashboard" className="text-sm underline">
+      <Link href="/dashboard" className="text-sm underline">
         ← Dashboard
-      </a>
+      </Link>
       <h1 className="text-xl font-semibold">Impostazioni</h1>
 
       <section className="max-w-md rounded border border-zinc-200 p-5">
@@ -44,46 +44,46 @@ export default async function PaginaImpostazioni() {
         </Link>
       </section>
 
-      <a href="/dashboard/fatturazione" className="text-sm underline">
+      <Link href="/dashboard/fatturazione" className="text-sm underline">
         Dati per la fattura
-      </a>
+      </Link>
 
-      <a href="/dashboard/impostazioni/contatti" className="text-sm underline">
+      <Link href="/dashboard/impostazioni/contatti" className="text-sm underline">
         Contatti (telefono e WhatsApp)
-      </a>
-      <a href="/dashboard/impostazioni/notifiche" className="text-sm underline">
+      </Link>
+      <Link href="/dashboard/impostazioni/notifiche" className="text-sm underline">
         Notifiche delle prenotazioni
-      </a>
-      <a href="/dashboard/impostazioni/calendari" className="text-sm underline">
+      </Link>
+      <Link href="/dashboard/impostazioni/calendari" className="text-sm underline">
         Calendari personali
-      </a>
-      <a href="/dashboard/impostazioni/caparra" className="text-sm underline">
+      </Link>
+      <Link href="/dashboard/impostazioni/caparra" className="text-sm underline">
         Deposito/caparra anti-no-show
-      </a>
-      <a href="/dashboard/impostazioni/tono-ai" className="text-sm underline">
+      </Link>
+      <Link href="/dashboard/impostazioni/tono-ai" className="text-sm underline">
         Tono dell&apos;AI
-      </a>
-      <a href="/dashboard/impostazioni/promemoria" className="text-sm underline">
+      </Link>
+      <Link href="/dashboard/impostazioni/promemoria" className="text-sm underline">
         Promemoria automatici
-      </a>
-      <a href="/dashboard/impostazioni/compleanno" className="text-sm underline">
+      </Link>
+      <Link href="/dashboard/impostazioni/compleanno" className="text-sm underline">
         Promemoria di compleanno
-      </a>
-      <a href="/dashboard/impostazioni/lista-attesa" className="text-sm underline">
+      </Link>
+      <Link href="/dashboard/impostazioni/lista-attesa" className="text-sm underline">
         Contatto automatico lista d&apos;attesa
-      </a>
-      <a href="/dashboard/impostazioni/recensioni" className="text-sm underline">
+      </Link>
+      <Link href="/dashboard/impostazioni/recensioni" className="text-sm underline">
         Recensioni
-      </a>
-      <a href="/dashboard/impostazioni/cancellazione" className="text-sm underline">
+      </Link>
+      <Link href="/dashboard/impostazioni/cancellazione" className="text-sm underline">
         Cancellazione online
-      </a>
-      <a href="/dashboard/impostazioni/informazioni-attivita" className="text-sm underline">
+      </Link>
+      <Link href="/dashboard/impostazioni/informazioni-attivita" className="text-sm underline">
         Informazioni per l&apos;AI (receptionist)
-      </a>
-      <a href="/dashboard/impostazioni/pagina-pubblica" className="text-sm underline">
+      </Link>
+      <Link href="/dashboard/impostazioni/pagina-pubblica" className="text-sm underline">
         Logo e foto di copertina
-      </a>
+      </Link>
     </div>
   );
 }

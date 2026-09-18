@@ -3,6 +3,7 @@ import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { PannelloCaparra } from "./pannello-caparra";
 import { formatoEuroDaCentesimi as formatoEuro } from "@/lib/piani";
+import Link from "next/link";
 
 
 const ETICHETTA_STATO: Record<string, string> = {
@@ -36,9 +37,9 @@ export default async function PaginaCaparra() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Deposito/caparra anti-no-show</h1>
         <p className="mt-1 text-sm text-zinc-600">
           Richiedi il pagamento online di una caparra per confermare le prenotazioni fatte dalla tua pagina

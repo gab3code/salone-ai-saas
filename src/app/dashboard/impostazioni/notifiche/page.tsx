@@ -6,6 +6,7 @@ import {
   canaleConfermaValido,
 } from "@/lib/notifiche-prenotazione";
 import { PannelloNotifiche } from "./pannello-notifiche";
+import Link from "next/link";
 
 /**
  * Impostazioni -> Notifiche (17/09/2026, richiesta di Gabriel).
@@ -35,9 +36,9 @@ export default async function PaginaNotifiche() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-8">
       <div>
-        <a href="/dashboard/impostazioni" className="text-sm underline">
+        <Link href="/dashboard/impostazioni" className="text-sm underline">
           ← Impostazioni
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Notifiche</h1>
         <p className="mt-1 max-w-lg text-sm text-zinc-600">
           Chi viene avvisato quando entra una prenotazione: tu, i tuoi clienti, o nessuno dei due.
