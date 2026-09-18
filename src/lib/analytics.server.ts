@@ -10,6 +10,7 @@ import {
 import { calcolaRetention, type Retention } from "@/lib/retention";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
+import { dateCreazioneClienti } from "@/lib/clienti.server";
 
 export interface DatiAnalytics {
   andamento: PuntoAndamento[];
@@ -45,15 +46,13 @@ export async function caricaAnalytics(
   const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
   const adesso = realeAPseudoUtc(new Date(), fusoOrario);
 
-  const [appuntamentiRes, clientiRes] = await Promise.all([
+  const [appuntamentiRes, righeClienti] = await Promise.all([
     supabase.from("appuntamenti").select("inizio, stato, cliente_id").eq("tenant_id", tenantId),
-    supabase.from("clienti").select("created_at").eq("tenant_id", tenantId),
+    // Vedi clienti.server.ts (migrazione 0051).
+    dateCreazioneClienti(tenantId),
   ]);
   if (appuntamentiRes.error) {
     throw new Error(`Errore caricando gli appuntamenti per l'andamento: ${appuntamentiRes.error.message}`);
-  }
-  if (clientiRes.error) {
-    throw new Error(`Errore caricando i clienti per l'andamento: ${clientiRes.error.message}`);
   }
 
   const appuntamenti = (appuntamentiRes.data ?? []).map((a) => ({
@@ -61,7 +60,7 @@ export async function caricaAnalytics(
     stato: a.stato as string,
     clienteId: (a.cliente_id as string | null) ?? "",
   }));
-  const clienti = (clientiRes.data ?? []).map((c) => ({
+  const clienti = righeClienti.map((c) => ({
     createdAt: realeAPseudoUtc(new Date(c.created_at), fusoOrario),
   }));
 

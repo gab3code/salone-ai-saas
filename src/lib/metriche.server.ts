@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { calcolaMetriche, type Metriche } from "@/lib/metriche";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
+import { clientiPerMetriche } from "@/lib/clienti.server";
 
 /**
  * Livello di collegamento tra il calcolo puro (metriche.ts) e Supabase --
@@ -26,7 +27,7 @@ export async function caricaMetriche(supabase: SupabaseClient, tenantId: string)
   const adesso = realeAPseudoUtc(new Date(), fusoOrario);
   const giornoSettimanaOggi = adesso.getUTCDay();
 
-  const [orarioRes, appuntamentiRes, servizioRes, clientiRes, tenantRes] = await Promise.all([
+  const [orarioRes, appuntamentiRes, servizioRes, righeClienti, tenantRes] = await Promise.all([
     supabase
       .from("orari_apertura")
       .select("chiuso, apertura, chiusura, pausa_inizio, pausa_fine")
@@ -38,7 +39,9 @@ export async function caricaMetriche(supabase: SupabaseClient, tenantId: string)
       .select("inizio, fine, stato, cliente_id, operatore_id, servizio_id")
       .eq("tenant_id", tenantId),
     supabase.from("servizi").select("id, prezzo_centesimi").eq("tenant_id", tenantId),
-    supabase.from("clienti").select("id, created_at").eq("tenant_id", tenantId),
+    // Vedi clienti.server.ts: dalla migrazione 0051 la rubrica si legge solo
+    // da li', anche quando serve solo per contare.
+    clientiPerMetriche(tenantId),
     // Soglia "cliente sparito" scelta dal salone (migrazione 0040): la
     // stessa che guida il follow-up automatico, così la card della dashboard
     // e le email raccontano lo stesso insieme di persone.
@@ -49,7 +52,6 @@ export async function caricaMetriche(supabase: SupabaseClient, tenantId: string)
     orari: orarioRes,
     appuntamenti: appuntamentiRes,
     servizi: servizioRes,
-    clienti: clientiRes,
   })) {
     if (res.error) throw new Error(`Errore caricando "${nome}" per le metriche: ${res.error.message}`);
   }
@@ -67,7 +69,7 @@ export async function caricaMetriche(supabase: SupabaseClient, tenantId: string)
       operatoreId: a.operatore_id,
       servizioId: a.servizio_id,
     })),
-    clienti: (clientiRes.data ?? []).map((c) => ({
+    clienti: righeClienti.map((c) => ({
       id: c.id,
       createdAt: realeAPseudoUtc(new Date(c.created_at), fusoOrario),
     })),

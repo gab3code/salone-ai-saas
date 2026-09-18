@@ -130,60 +130,89 @@ test.describe("Scenario 23 -- i permessi valgono anche contro il database nudo",
       .eq("tenant_id", tenant.id);
     expect(count ?? 0, "nemmeno gli operatori si cancellano").toBe(1);
 
-    // Ma l'agenda sì: è il suo lavoro, e se gliela bloccassimo il prodotto
-    // sarebbe inutilizzabile per metà delle persone che ci lavorano.
+    // Fino alla migrazione 0051 qui c'era la controprova opposta: "un
+    // collaboratore deve poter creare un cliente", perché l'agenda è il suo
+    // lavoro. Resta vero nel prodotto -- ma non più da PostgREST: la rubrica
+    // ora si tocca solo dal server (vedi il test in fondo a questo file, e
+    // src/lib/clienti.server.ts). Che lo staff possa comunque lavorare con i
+    // clienti lo dimostrano gli scenari che passano dal browser, 12 e 24.
     const { error: erroreCliente } = await come
       .from("clienti")
       .insert({ tenant_id: tenant.id, nome: "Cliente Dello Staff", telefono: "3331230023" });
-    expect(erroreCliente, "un collaboratore deve poter creare un cliente").toBeNull();
+    expect(erroreCliente, "la rubrica non si scrive più con la chiave pubblica").not.toBeNull();
   });
 
   /**
-   * Migrazione 0035. La cancellazione di un cliente è owner-only, e il
-   * confine non può vivere solo nella server action: `clienti` è
-   * raggiungibile da PostgREST con la anon key, quindi senza una policy di
-   * DELETE uno staff cancellerebbe la rubrica dalla console del browser
-   * mentre l'interfaccia gli nasconde il pulsante.
+   * Migrazione 0051. La falla più vecchia rimasta aperta: uno staff vede i
+   * clienti dentro il prodotto -- gli servono -- e con la stessa chiave
+   * poteva chiedere l'intera rubrica a PostgREST e portarsela via in un
+   * file. L'interfaccia riserva l'export CSV al titolare; PostgREST
+   * l'interfaccia non la conosce.
+   *
+   * Non era chiudibile con una policy: "può leggere le righe del suo tenant"
+   * e "può scaricarle tutte" sono la stessa query. L'unica chiusura possibile
+   * era togliere il permesso e far passare ogni accesso dal server
+   * (src/lib/clienti.server.ts).
+   *
+   * Vale anche per il TITOLARE, ed è voluto: se la lettura restasse concessa
+   * a lui, basterebbe un invito accettato per rientrare dalla finestra.
+   * Quello che il titolare può fare in più (esportare, cancellare) continua
+   * a valere, ma passando dal prodotto -- scenari 20 e 24.
    *
    * SE QUESTO TEST FALLISCE e gli altri passano, quasi certamente la
-   * migrazione 0035 non è stata applicata al progetto Supabase: la vecchia
-   * policy `isolamento_tabella for all` autorizza tutti i membri su tutti i
-   * comandi, DELETE compreso.
+   * migrazione 0051 non è stata applicata al progetto Supabase.
    */
-  test("un collaboratore non cancella un cliente nemmeno dal database, il titolare sì", async () => {
-    tenant = await creaTenantDiProva({
-      nome: "Salone E2E Permessi DB Cancellazione",
-      piano: "starter",
-    });
+  test("la rubrica non si legge né si scrive da PostgREST, nemmeno dal titolare", async () => {
+    tenant = await creaTenantDiProva({ nome: "Salone E2E Rubrica Chiusa", piano: "pro" });
     staff = await creaMembroDiProva(tenant.id, "staff");
 
     const { data: cliente } = await tenant.supabase
       .from("clienti")
-      .insert({ tenant_id: tenant.id, nome: "Cliente Bersaglio", telefono: "3331230035" })
+      .insert({ tenant_id: tenant.id, nome: "Cliente Riservato", telefono: "3331230051" })
       .select("id")
       .single();
     expect(cliente?.id, "il cliente di partenza deve esistere").toBeTruthy();
 
-    const comeStaff = await clientComeUtente(staff.email, staff.password);
-    await comeStaff.from("clienti").delete().eq("id", cliente!.id);
+    for (const [chi, credenziali] of [
+      ["il collaboratore", { email: staff.email, password: staff.password }],
+      ["il titolare", { email: tenant.email, password: tenant.password }],
+    ] as const) {
+      const come = await clientComeUtente(credenziali.email, credenziali.password);
 
-    const { data: dopoStaff } = await tenant.supabase
+      // Il punto della migrazione: la LETTURA. Si asserisce sulle righe
+      // tornate, non solo sull'errore -- un permesso mancante può anche
+      // presentarsi come "zero righe", e zero righe è comunque una rubrica
+      // non scaricata.
+      const { data: letti } = await come.from("clienti").select("id, nome, telefono").eq("tenant_id", tenant.id);
+      expect(letti ?? [], `${chi} non deve poter scaricare la rubrica`).toEqual([]);
+
+      await come.from("clienti").insert({ tenant_id: tenant.id, nome: "Intruso", telefono: "3339990051" });
+      await come.from("clienti").update({ nome: "Cambiato" }).eq("id", cliente!.id);
+      await come.from("clienti").delete().eq("id", cliente!.id);
+    }
+
+    // Controprova sullo STATO, non sugli errori restituiti: niente creato,
+    // niente cambiato, niente cancellato.
+    const { data: rimasti } = await tenant.supabase
       .from("clienti")
-      .select("id")
-      .eq("id", cliente!.id)
-      .maybeSingle();
-    expect(dopoStaff?.id, "uno staff non deve poter cancellare un cliente").toBe(cliente!.id);
-
-    // Lo stesso identico comando, fatto dal titolare, deve invece passare:
-    // una policy che blocca tutti non è una protezione, è un guasto.
-    const comeOwner = await clientComeUtente(tenant.email, tenant.password);
-    await comeOwner.from("clienti").delete().eq("id", cliente!.id);
-
-    const { data: dopoOwner } = await tenant.supabase
-      .from("clienti")
-      .select("id")
-      .eq("id", cliente!.id)
-      .maybeSingle();
-    expect(dopoOwner, "il titolare deve poter cancellare un suo cliente").toBeNull();
+      .select("id, nome")
+      .eq("tenant_id", tenant.id);
+    expect(rimasti ?? [], "nessuna delle scritture tentate deve aver lasciato traccia").toEqual([
+      { id: cliente!.id, nome: "Cliente Riservato" },
+    ]);
   });
+
+  /**
+   * Qui stava il test della migrazione 0035 (cancellazione cliente
+   * owner-only contro il database nudo): uno staff non doveva poter
+   * cancellare via PostgREST, il titolare sì.
+   *
+   * La 0051 lo ha superato per intero: da PostgREST non cancella più
+   * nessuno, titolare compreso, ed è il test qui sopra a dimostrarlo. La
+   * policy `cancellazione_owner` resta scritta nel database -- se un domani
+   * si riconcedessero i permessi tornerebbe a valere -- ma non è più lei a
+   * tenere il confine. Quel confine oggi lo tiene `richiediPermesso` nella
+   * server action, ed è verificato dallo scenario 24, che passa dal browser
+   * e prova anche a chiamare l'azione a mano da un account staff.
+   */
 });

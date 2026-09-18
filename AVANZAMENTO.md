@@ -4,7 +4,7 @@ Fotografia al **18/09/2026**. Conta le caselle di `PIANO.md` e dice, fase per
 fase, cosa manca davvero. Non sostituisce il PIANO: lo riassume per poterci
 ragionare sopra senza rileggere duemila righe.
 
-Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 54 voci
+Regola di lettura: **"aperte" non vuol dire "da fare adesso"**. Delle 53 voci
 aperte, 20 sono bloccate dalla partita IVA e non dipendono da una riga di
 codice.
 
@@ -37,17 +37,27 @@ Non esistono fasi oltre la 7.
 - Webhook WhatsApp/Telegram verso lo stesso motore. Bloccato dalla verifica
   business Meta, che a sua volta vuole la P.IVA.
 
-## Fase 6 -- Automazioni e sicurezza (9 aperte)
+## Fase 6 -- Automazioni e sicurezza (8 aperte)
 
-Delle cinque di sicurezza, **una e' stata chiusa il 18/09**: l'invito che si
-consumava prima della conferma dell'email (migrazione 0050, Scenario 29). Era
-l'unica sfruttabile da un estraneo -- bastava indovinare l'indirizzo invitato.
+Delle cinque di sicurezza, **due sono state chiuse il 18/09**:
 
-Le quattro che restano richiedono tutte le credenziali di qualcuno gia' dentro
+1. L'invito che si consumava prima della conferma dell'email (migrazione 0050,
+   Scenario 29). Era l'unica sfruttabile da un estraneo -- bastava indovinare
+   l'indirizzo invitato.
+2. La rubrica clienti scaricabile via PostgREST (migrazione 0051). Non era
+   chiudibile con una policy: "puo' leggere le righe del suo tenant" e "puo'
+   scaricarle tutte" sono la stessa query, e la differenza vive nel
+   comportamento, non nei dati. Chiusa togliendo il permesso ad
+   `authenticated` -- titolare compreso -- e facendo passare ogni accesso da
+   `src/lib/clienti.server.ts` col client admin. Il prezzo e' che dentro quel
+   file la rete di RLS non c'e' piu': per questo tutte le query stanno in un
+   file solo e un test (`clienti.server.test.ts`) verifica il filtro sul
+   tenant su OGNI funzione esportata, e fallisce anche solo se qualcuno ne
+   aggiunge una nuova senza il suo test.
+
+Le tre che restano richiedono tutte le credenziali di qualcuno gia' dentro
 l'attivita', e sono dichiarate nel PIANO, non nascoste.
 
-- Uno staff puo' scaricare la rubrica clienti via PostgREST. Per chiuderla
-  davvero le letture dei clienti devono passare solo da server action.
 - Password CalDAV e refresh token Google leggibili da qualunque membro, e non
   revocati quando un membro viene rimosso. Va fatta insieme al cifraggio a
   riposo (Fase 6bis).

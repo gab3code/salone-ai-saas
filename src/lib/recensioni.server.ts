@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { creaClientAdmin } from "@/lib/supabase/admin";
+import { nomiClientiPerId } from "@/lib/clienti.server";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { inviaEmail } from "@/lib/email/mailjet.server";
 import { escapeHtml, formattaOrario, urlBaseSito } from "@/lib/email/notifiche.server";
@@ -178,14 +179,20 @@ export async function caricaRecensioniDashboard(
 ): Promise<{ recensioni: RecensioneDashboard[]; media: RecensioneMedia }> {
   const { data, error } = await supabase
     .from("recensioni")
-    .select("id, valutazione, commento, risposta_titolare, created_at, clienti(nome), appuntamenti(servizi(nome))")
+    // Niente embed `clienti(nome)`: vedi clienti.server.ts, migrazione 0051.
+    .select("id, valutazione, commento, risposta_titolare, created_at, cliente_id, appuntamenti(servizi(nome))")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(`Errore caricando le recensioni: ${error.message}`);
 
+  const nomiClienti = await nomiClientiPerId(
+    tenantId,
+    (data ?? []).map((r) => r.cliente_id as string | null)
+  );
+
   const righe = (data ?? []).map((r) => {
-    const cliente = uno<{ nome: string | null }>(r.clienti);
+    const cliente = r.cliente_id ? (nomiClienti.get(r.cliente_id as string) ?? null) : null;
     const appuntamento = uno<{ servizi: unknown }>(r.appuntamenti);
     const servizio = appuntamento ? uno<{ nome: string }>(appuntamento.servizi) : null;
     return {

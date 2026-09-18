@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { creaSupabaseFinto, type ChiamataScrittura } from "@/test/supabase-finto";
+import { creaSupabaseFinto as creaSupabaseFintoBase, type ChiamataScrittura } from "@/test/supabase-finto";
 import {
   parsaOrarioLocale,
   caricaContestoBooking,
@@ -11,6 +11,23 @@ import {
   trovaSlotEStatoGiornoTenant,
 } from "./booking-engine.server";
 import type { AppuntamentoEsistente } from "./booking-engine";
+
+/**
+ * La rubrica clienti non si legge piu' col client che questi test passano a
+ * `creaAppuntamentoTenant`: dalla migrazione 0051 passa da
+ * src/lib/clienti.server.ts, che usa il client admin. Qui l'admin viene
+ * sostituito con LO STESSO finto del test, cosi' le risposte gia' messe in
+ * coda sotto `clienti:` continuano a valere e `registro.insert` continua a
+ * vedere la creazione del cliente. Senza questo, i test sui clienti
+ * proverebbero a parlare con un database vero.
+ */
+let ultimoSupabaseFinto: ReturnType<typeof creaSupabaseFintoBase>;
+vi.mock("@/lib/supabase/admin", () => ({ creaClientAdmin: () => ultimoSupabaseFinto }));
+
+function creaSupabaseFinto(...argomenti: Parameters<typeof creaSupabaseFintoBase>) {
+  ultimoSupabaseFinto = creaSupabaseFintoBase(...argomenti);
+  return ultimoSupabaseFinto;
+}
 
 // Isola questo livello dalla sincronizzazione calendari esterni (Fase 6bis):
 // quella ha già i suoi test (ics.test.ts) e le sue chiamate di rete vere --

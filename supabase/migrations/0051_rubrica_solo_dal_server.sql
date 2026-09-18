@@ -1,0 +1,42 @@
+-- La rubrica clienti smette di essere scaricabile con il JWT dello staff
+-- (18/09/2026).
+--
+-- LA FALLA, dichiarata nel PIANO e rimasta aperta fino a oggi.
+--
+-- Un dipendente del salone vede i clienti dentro il prodotto: gli servono,
+-- sono il suo lavoro. Ma la stessa chiave che gli fa vedere la scheda di
+-- Anna gli fa anche fare una richiesta HTTP diretta a PostgREST e portarsi
+-- via la rubrica intera in un file, il giorno prima di cambiare salone.
+-- L'interfaccia riserva l'export CSV al titolare; PostgREST no, perche'
+-- PostgREST l'interfaccia non la conosce.
+--
+-- In SQL quella differenza non e' esprimibile: una policy RLS puo' dire
+-- "questo utente puo' leggere le righe del suo tenant", non "puo' leggerle
+-- una alla volta guardandole, ma non tutte insieme". Sono le stesse righe,
+-- la stessa query, lo stesso permesso. E' una distinzione che vive nel
+-- comportamento, non nei dati -- quindi non nel database.
+--
+-- LA CHIUSURA: se il permesso non puo' essere condizionato, si toglie.
+-- Da qui in poi `authenticated` su `clienti` non ha piu' niente: ne'
+-- lettura ne' scrittura. Ogni accesso alla rubrica passa da
+-- src/lib/clienti.server.ts, che usa la service_role key -- una chiave che
+-- sta solo sul server, non nel browser di nessuno.
+--
+-- IL PREZZO, detto chiaramente: dentro quel file la rete di RLS non c'e'
+-- piu'. Se una query la' dimenticasse `.eq("tenant_id", ...)`, un salone
+-- vedrebbe i clienti di un altro e niente lo fermerebbe. E' il motivo per
+-- cui le query stanno tutte in un file solo, con un test
+-- (clienti.server.test.ts) che verifica il filtro su OGNI funzione
+-- esportata -- e che fallisce anche solo se qualcuno aggiunge una funzione
+-- nuova senza aggiungere il suo test.
+--
+-- Le policy della 0035 restano dove sono: non servono piu' ad
+-- `authenticated` (che non ha piu' permessi), ma restano scritte, e se un
+-- domani si riconcedesse la SELECT tornerebbero a valere. Toglierle
+-- significherebbe lasciare la tabella senza confine scritto.
+--
+-- `anon` non ha mai avuto niente da fare qui: la pagina pubblica di
+-- prenotazione parla col server, non con la tabella.
+
+revoke select, insert, update, delete on public.clienti from authenticated;
+revoke select, insert, update, delete on public.clienti from anon;

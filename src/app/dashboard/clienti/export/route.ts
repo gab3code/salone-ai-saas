@@ -5,7 +5,8 @@ import { puoEsportareClienti, ERRORE_PERMESSO_NEGATO } from "@/lib/ruoli";
 import { elencaClientiInattivi } from "@/lib/metriche";
 import { clientiACsv } from "@/lib/csv";
 import { originePerCliente } from "@/lib/origine-cliente";
-import { filtroRicercaClienti, terminoRicercaSicuro } from "@/lib/ricerca";
+import { terminoRicercaSicuro } from "@/lib/ricerca";
+import { elencaClienti } from "@/lib/clienti.server";
 
 /**
  * Esportazione CSV dei clienti del tenant loggato (PIANO.md "Export/import
@@ -43,22 +44,15 @@ export async function GET(request: NextRequest) {
   const q = terminoRicercaSicuro(searchParams.get("q"));
   const filtro = searchParams.get("filtro");
 
-  let query = supabase
-    .from("clienti")
-    .select("nome, telefono, email, tag, creato_da_ai, created_at, id")
-    .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: false });
-
-  if (q) {
-    query = query.or(filtroRicercaClienti(q));
+  // Vedi clienti.server.ts: dalla migrazione 0051 nemmeno il titolare legge
+  // `clienti` con il proprio JWT -- il permesso di esportare resta quello
+  // controllato qui sopra, ma la query passa dal gateway.
+  const { clienti: clientiGrezzi, errore } = await elencaClienti(tenantId, { termine: q, perExport: true });
+  if (errore) {
+    return NextResponse.json({ errore: `Errore esportando i clienti: ${errore}` }, { status: 500 });
   }
 
-  const { data: clientiGrezzi, error } = await query;
-  if (error) {
-    return NextResponse.json({ errore: `Errore esportando i clienti: ${error.message}` }, { status: 500 });
-  }
-
-  let clienti = clientiGrezzi ?? [];
+  let clienti = clientiGrezzi;
 
   // Caricata sempre (non solo per il filtro "inattivi"): serve anche per
   // l'origine di ogni cliente sotto, stesso principio "una query sola per

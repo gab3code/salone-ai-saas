@@ -875,6 +875,32 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27septies. La tabella `clienti` si tocca solo da `clienti.server.ts` (18/09/2026)
+
+Dalla migrazione 0051 il ruolo `authenticated` su `clienti` non ha piu' nessun
+permesso: ne' lettura ne' scrittura, titolare compreso. Vuol dire che
+
+  supabase.from("clienti")...
+
+con il client di una pagina o di una server action NON funziona piu', e non
+fallisce sempre in modo rumoroso: una lettura senza permesso puo' tornare zero
+righe, che dal codice sembra "nessun cliente" invece di "non ti e' permesso".
+Lo stesso vale per un embed PostgREST: `select("..., clienti(nome)")` dentro
+una query su `appuntamenti` torna semplicemente `null` al posto del nome.
+
+Ogni accesso passa da `src/lib/clienti.server.ts`, che usa il client admin. Il
+client admin bypassa RLS, quindi dentro quel file il filtro sul tenant e'
+l'unica difesa rimasta: due regole, scritte anche nell'intestazione del file,
+`tenantId` sempre primo parametro e `.eq("tenant_id", tenantId)` su ogni
+query, anche quando sembra ridondante. `clienti.server.test.ts` le verifica su
+ogni funzione esportata e fallisce se ne aggiungi una senza aggiungere il suo
+caso alla lista `INVOCAZIONI` -- e' voluto, non e' un test da aggirare.
+
+Restano legittime le query dirette fatte col client admin (webhook, cron,
+strumenti dell'AI, pagina pubblica): quelle non passano da `authenticated` e la
+0051 non le tocca. Se pero' stai scrivendo codice che gira per conto di un
+utente loggato, la risposta e' sempre il gateway.
+
 ## 27sexies. Aspettare il secondo effetto, non solo il primo (18/09/2026)
 
 Quando un'azione ha piu' effetti in sequenza, un test che aspetta il PRIMO e

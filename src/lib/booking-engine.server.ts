@@ -15,6 +15,10 @@ import { limiteMensilePrenotazioni, pianoHaListaAttesaAutomatica } from "@/lib/p
 import { caricaImpegniEsterni } from "@/lib/calendario-esterno/collegamenti.server";
 import { pseudoUtcAReale, realeAPseudoUtc, inizioGiornoUTC, fineGiornoUTC } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
+import {
+  trovaOCreaCliente as trovaOCreaClienteInRubrica,
+  trovaClientePerTelefono,
+} from "@/lib/clienti.server";
 import { inviaNotificheNuovoAppuntamento, escapeHtml, formattaOrario, urlBaseSito } from "@/lib/email/notifiche.server";
 import { inviaEmail } from "@/lib/email/mailjet.server";
 import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
@@ -462,39 +466,25 @@ async function verificaOperatoreCompatibile(
   return { ok: true };
 }
 
-/** Trova un cliente per telefono o lo crea -- stesso cliente non duplicato tra canali. */
+/**
+ * Trova un cliente per telefono o lo crea.
+ *
+ * Il corpo vive in clienti.server.ts (17/09/2026): questa funzione viene
+ * chiamata anche dal calendario della dashboard, quindi con il client
+ * AUTENTICATO del titolare -- e dalla migrazione 0051 quel client su
+ * `clienti` non ha piu' nessun permesso. Il `supabase` ricevuto qui non si
+ * usa piu' per la rubrica: ci pensa il gateway col client admin, che pero'
+ * il filtro sul tenant lo mette sempre (vedi il file).
+ */
 async function trovaOCreaCliente(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   tenantId: string,
   nome: string | null,
   telefono: string,
   creatoDaAi: boolean,
   email?: string | null
 ): Promise<{ id: string } | { errore: string }> {
-  const { data: esistente } = await supabase
-    .from("clienti")
-    .select("id, email")
-    .eq("tenant_id", tenantId)
-    .eq("telefono", telefono)
-    .maybeSingle();
-
-  if (esistente) {
-    // Cliente già noto ma senza email salvata: se questa prenotazione ne
-    // porta una la aggiungiamo, best-effort -- non sovrascrive mai
-    // un'email già presente (potrebbe essere stata corretta a mano).
-    if (email && !esistente.email) {
-      await supabase.from("clienti").update({ email }).eq("id", esistente.id);
-    }
-    return { id: esistente.id };
-  }
-
-  const { data: nuovo, error } = await supabase
-    .from("clienti")
-    .insert({ tenant_id: tenantId, nome: nome || null, telefono, creato_da_ai: creatoDaAi, email: email || null })
-    .select("id")
-    .single();
-  if (error) return { errore: `Errore creando il cliente: ${error.message}` };
-  return { id: nuovo.id };
+  return trovaOCreaClienteInRubrica(tenantId, { nome, telefono, creatoDaAi, email });
 }
 
 export interface CreaAppuntamentoParams {
@@ -633,12 +623,7 @@ async function stessoTelefonoTroppoRecentePubblico(
   tenantId: string,
   telefono: string
 ): Promise<boolean> {
-  const { data: cliente } = await supabase
-    .from("clienti")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("telefono", telefono)
-    .maybeSingle();
+  const cliente = await trovaClientePerTelefono(tenantId, telefono);
   if (!cliente) return false; // primo appuntamento di questo cliente: non può essere "troppo recente"
 
   const { data: ultimo } = await supabase

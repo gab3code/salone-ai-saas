@@ -36,6 +36,7 @@ function tornaConErrore(
   redirect(`/dashboard/calendario?${parametri.toString()}`);
 }
 import { trovaSlotDisponibiliTenant } from "@/lib/booking-engine.server";
+import { nomiClientiPerId } from "@/lib/clienti.server";
 import { pseudoUtcAReale, realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { cancellaAppuntamento, modificaAppuntamento, segnaNoShow } from "./azioni";
@@ -148,7 +149,10 @@ export default async function PaginaCalendario({
       .order("nome"),
     supabase
       .from("appuntamenti")
-      .select("id, inizio, fine, stato, operatore_id, operatori(nome), servizi(nome), clienti(nome, telefono)")
+      // Niente embed `clienti(...)`: dalla migrazione 0051 questa query gira
+      // col JWT del titolare, che su `clienti` non ha piu' permessi. I nomi
+      // arrivano subito sotto da clienti.server.ts.
+      .select("id, inizio, fine, stato, operatore_id, cliente_id, operatori(nome), servizi(nome)")
       .eq("tenant_id", tenantId)
       .gte("inizio", inizioGiornoReale.toISOString())
       .lt("inizio", fineGiornoReale.toISOString())
@@ -170,6 +174,11 @@ export default async function PaginaCalendario({
     tenantRes.data?.demo_ai_usate ?? 0,
     new Date()
   ).rimaste;
+
+  const nomiClienti = await nomiClientiPerId(
+    tenantId,
+    (appuntamentiRes.data ?? []).map((a) => a.cliente_id as string | null)
+  );
 
   const operatori = (operatoriRes.data ?? []).map((o) => ({ id: o.id, nome: o.nome }));
   const servizi = (serviziRes.data ?? []).map((s) => ({
@@ -263,7 +272,7 @@ export default async function PaginaCalendario({
             {appuntamenti.map((a) => {
               const operatoreNome = Array.isArray(a.operatori) ? a.operatori[0]?.nome : (a.operatori as { nome: string } | null)?.nome;
               const servizioNome = Array.isArray(a.servizi) ? a.servizi[0]?.nome : (a.servizi as { nome: string } | null)?.nome;
-              const cliente = Array.isArray(a.clienti) ? a.clienti[0] : (a.clienti as { nome: string | null; telefono: string } | null);
+              const cliente = a.cliente_id ? (nomiClienti.get(a.cliente_id as string) ?? null) : null;
               const inModifica = modificaId === a.id;
               const eFinito = new Date(a.fine).getTime() <= adesso;
               const eAssente = a.stato === "no_show";

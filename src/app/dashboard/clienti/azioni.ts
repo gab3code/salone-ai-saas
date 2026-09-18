@@ -5,6 +5,7 @@ import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
 import { puoCancellareClienti } from "@/lib/ruoli";
+import { aggiornaCliente as scriviCliente, cancellaCliente as eliminaCliente } from "@/lib/clienti.server";
 
 /**
  * CRM (punto 12 di CLAUDE.md): la scheda cliente è il punto centrale della
@@ -36,19 +37,18 @@ export async function aggiornaCliente(id: string, formData: FormData) {
     return { errore: "La data di nascita non può essere nel futuro." };
   }
 
-  const { error } = await supabase
-    .from("clienti")
-    .update({
-      nome: nome || null,
-      email: email || null,
-      note: note || null,
-      tag,
-      data_nascita: dataNascitaGrezza || null,
-    })
-    .eq("id", id)
-    .eq("tenant_id", tenantId);
+  // La scrittura passa da clienti.server.ts come la lettura: dalla
+  // migrazione 0051 `authenticated` non ha piu' permessi su `clienti`, e il
+  // confine fra saloni lo tiene il filtro sul tenant di quel file.
+  const { errore } = await scriviCliente(tenantId, id, {
+    nome: nome || null,
+    email: email || null,
+    note: note || null,
+    tag,
+    data_nascita: dataNascitaGrezza || null,
+  });
 
-  if (error) return { errore: `Errore salvando il cliente: ${error.message}` };
+  if (errore) return { errore: `Errore salvando il cliente: ${errore}` };
 
   revalidatePath(`/dashboard/clienti/${id}`);
   revalidatePath("/dashboard/clienti");
@@ -83,13 +83,9 @@ export async function cancellaCliente(id: string) {
   const accesso = await richiediPermesso(supabase, puoCancellareClienti);
   if (accessoNegato(accesso)) return { errore: accesso.errore };
 
-  const { error } = await supabase
-    .from("clienti")
-    .delete()
-    .eq("id", id)
-    .eq("tenant_id", accesso.tenantId);
+  const { errore } = await eliminaCliente(accesso.tenantId, id);
 
-  if (error) return { errore: `Errore cancellando il cliente: ${error.message}` };
+  if (errore) return { errore: `Errore cancellando il cliente: ${errore}` };
 
   revalidatePath("/dashboard/clienti");
   return { ok: true };

@@ -5,6 +5,7 @@ import { ottieniSessioneTenant } from "@/lib/supabase/tenant";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { aggiornaCliente } from "../azioni";
+import { caricaCliente } from "@/lib/clienti.server";
 import { origineDalPrimoAppuntamento } from "@/lib/origine-cliente";
 import { puoCancellareClienti } from "@/lib/ruoli";
 import { PulsanteCancellaCliente } from "./pulsante-cancella";
@@ -40,12 +41,9 @@ export default async function PaginaClienteDettaglio({
   if (!sessione) redirect("/dashboard");
   const tenantId = sessione.tenantId;
 
-  const { data: cliente } = await supabase
-    .from("clienti")
-    .select("id, nome, telefono, email, note, tag, data_nascita, creato_da_ai, created_at")
-    .eq("id", id)
-    .eq("tenant_id", tenantId)
-    .maybeSingle();
+  // Vedi clienti.server.ts: dalla migrazione 0051 la scheda non si legge
+  // piu' con il client dell'utente.
+  const cliente = await caricaCliente(tenantId, id);
 
   if (!cliente) notFound();
 

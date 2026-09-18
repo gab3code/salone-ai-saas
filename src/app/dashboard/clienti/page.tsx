@@ -5,7 +5,8 @@ import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { elencaClientiInattivi } from "@/lib/metriche";
 import { giorniInattivitaValidi } from "@/lib/promemoria";
 import { originePerCliente } from "@/lib/origine-cliente";
-import { filtroRicercaClienti, terminoRicercaSicuro } from "@/lib/ricerca";
+import { terminoRicercaSicuro } from "@/lib/ricerca";
+import { elencaClienti } from "@/lib/clienti.server";
 
 /**
  * CRM (punto 12): anagrafica cliente con storico -- qui l'elenco con
@@ -35,21 +36,15 @@ export default async function PaginaClienti({
   const tenantId = await ottieniTenantCorrente(supabase);
   if (!tenantId) redirect("/dashboard");
 
-  let query = supabase
-    .from("clienti")
-    .select("id, nome, telefono, email, tag, creato_da_ai, created_at")
-    .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: false });
-
   // Il termine si ripulisce PRIMA di entrare nel filtro: virgole, parentesi
   // e punti hanno un significato nella grammatica di PostgREST, e i jolly di
   // `like` permetterebbero di farsi tornare l'intera rubrica con un "%".
   const termine = terminoRicercaSicuro(q);
-  if (termine) {
-    query = query.or(filtroRicercaClienti(termine));
-  }
 
-  const { data: clientiGrezzi, error } = await query;
+  // La rubrica non si legge piu' da qui con il client dell'utente: dopo la
+  // migrazione 0051 `authenticated` non ha piu' SELECT su `clienti`, e ogni
+  // lettura passa da clienti.server.ts (vedi la spiegazione in quel file).
+  const { clienti: clientiGrezzi, errore } = await elencaClienti(tenantId, { termine });
 
   // Soglia "cliente sparito" scelta dal salone (migrazione 0040): la stessa
   // che usano la card della dashboard e il follow-up automatico. Se questa
@@ -146,7 +141,7 @@ export default async function PaginaClienti({
         </a>
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-600">Errore caricando i clienti: {error.message}</p>}
+      {errore && <p className="mt-4 text-sm text-red-600">Errore caricando i clienti: {errore}</p>}
 
       <div className="mt-4 overflow-x-auto rounded border border-zinc-200">
         <table className="w-full text-sm">
