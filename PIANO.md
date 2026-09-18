@@ -2179,6 +2179,26 @@ e i clienti sono zero. Il vincolo non è più una funzione mancante. Ogni funzio
 in avanti allarga la distanza fra quanto il prodotto è pronto e quanto è venduto, invece di
 ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
 
+- [ ] **La "prova l'assistente" esiste e non la trova nessuno** (trovata il 18/09/2026 sera,
+      partendo da una frase di Gabriel: *"io non vedo nessuna prova da nessuna parte"*).
+      Il riquadro `RiquadroProvaAssistente` c'e', funziona, ha il suo contatore -- ma per
+      comparire servono TRE condizioni insieme:
+      1. piano `free` o `starter` (`pianoPuoProvareAssistente`, `src/lib/ai/demo-assistente.ts:57`);
+      2. ruolo che puo' configurare l'attivita' (giusto: non e' una proposta commerciale che un
+         collaboratore possa accettare);
+      3. **`appenaCreato`** -- cioe' solo DOPO aver inserito a mano un appuntamento, in fondo al
+         pannello "nuovo appuntamento" (`pannello-nuovo-appuntamento.tsx:349`).
+      La terza e' quella che la uccide. E' l'unica leva commerciale che fa vedere l'assistente a
+      chi non ce l'ha, e sta dietro a un'azione che un salone appena registrato compie forse una
+      volta, in una schermata dove sta pensando ad altro. Una leva che si vede solo per caso non
+      e' una leva: e' codice che costa manutenzione e non converte.
+      **Da decidere con Gabriel, non da me**: darle un posto fisso (un riquadro sulla dashboard
+      o una voce sua) invece di farla comparire dopo un'azione. Il vincolo da rispettare e' che
+      resti onesta -- deve far vedere l'assistente, non promettere e chiedere la carta.
+      Nota che il caso di Gabriel era doppio: il suo salone di prova e' su `pro`, quindi il
+      riquadro era nascosto a ragione (l'assistente vero ce l'ha gia'). Ma anche su un account
+      nuovo non lo avrebbe visto, per la condizione 3.
+
 - [ ] **P.IVA -- il collo di bottiglia vero, e non è sviluppo.** Blocca la verifica business Meta
       (quindi WhatsApp), le credenziali Skebby (quindi gli SMS), Stripe in modalità live, il
       `[NOME_TITOLARE]` nelle pagine legali e la possibilità di firmare l'accordo sul trattamento
