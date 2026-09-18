@@ -106,10 +106,14 @@ test.describe("Scenario 13 -- nuova attività si registra e completa l'onboardin
       await accediComeTitolare(page, tenant.email, tenant.password);
       await page.goto("/dashboard/configura");
 
-      // Attività vuota -> le sezioni manuali sono chiuse dentro un
-      // <details> sotto il wizard AI (vedi page.tsx, "Preferisci configurare
-      // tutto a mano?") -- vanno espanse prima di poterci interagire.
-      await page.getByText("Preferisci configurare tutto a mano?").click();
+      // Attività vuota -> la pagina mostra la scelta fra i tre modi di
+      // configurare (SceltaOnboarding, 18/09/2026). I form manuali esistono
+      // solo dopo aver scelto "Compila a mano": prima non sono nascosti,
+      // non sono proprio nel DOM.
+      // `exact` perché "Compila a mano" comparirebbe anche nel titolo della
+      // schermata successiva ("Configurazione a mano") se si cercasse per
+      // sottostringa.
+      await page.getByText("Compila a mano", { exact: true }).click();
 
       // Apre il Lunedì (giorno_settimana 1), lasciando tutto il resto come
       // arriva dal trigger (chiuso).

@@ -3,6 +3,7 @@ import { creaTenantDiProva, type TenantDiProva } from "./helpers/tenant-di-prova
 import { accediComeTitolare } from "./helpers/login";
 import { creaAbbonamentoDiProva, type AbbonamentoDiProva } from "./helpers/abbonamento-di-prova";
 import { priceIdOperatoreExtra, priceIdPerPiano } from "@/lib/stripe/piani";
+import { aggiungiOperatore } from "./helpers/configura";
 
 /**
  * Scenario 17 (Fase 5, 16/09/2026): quando un salone cambia piano, la riga
@@ -51,9 +52,7 @@ test.describe("Scenario 17 -- cambio piano e quota per operatore", () => {
     await page.goto("/dashboard/configura");
 
     // Si parte da un salone Starter con 2 operatori: 1 quota da 10€.
-    await page.locator("#nome_operatore").fill("Seconda");
-    await page.getByRole("button", { name: "Aggiungi" }).first().click();
-    await expect(page.getByText("Seconda").first()).toBeVisible({ timeout: 15_000 });
+    await aggiungiOperatore(page, "Seconda");
 
     await expect
       .poll(async () => (await abbonamento!.leggiItem()).map((i) => i.priceId), { timeout: 15_000 })
@@ -94,9 +93,7 @@ test.describe("Scenario 17 -- cambio piano e quota per operatore", () => {
     // operatore. È anche il caso peggiore -- la quantità cambia E il price
     // cambia nello stesso giro.
     await page.reload();
-    await page.locator("#nome_operatore").fill("Terza");
-    await page.getByRole("button", { name: "Aggiungi" }).first().click();
-    await expect(page.getByText("Terza").first()).toBeVisible({ timeout: 15_000 });
+    await aggiungiOperatore(page, "Terza");
 
     // Si asserisce sull'elenco COMPLETO dei price presenti, non su due
     // booleani: quando fallisce, il messaggio di Playwright deve dire cosa

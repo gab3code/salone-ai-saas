@@ -3,6 +3,7 @@ import { creaTenantDiProva, type TenantDiProva } from "./helpers/tenant-di-prova
 import { accediComeTitolare } from "./helpers/login";
 import { creaAbbonamentoDiProva, type AbbonamentoDiProva } from "./helpers/abbonamento-di-prova";
 import { priceIdOperatoreExtra, priceIdPerPiano } from "@/lib/stripe/piani";
+import { aggiungiOperatore } from "./helpers/configura";
 
 /**
  * Scenario 16 (Fase 5, 16/09/2026): la quota per operatore finisce davvero
@@ -60,9 +61,7 @@ test.describe("Scenario 16 -- fatturazione dell'operatore extra", () => {
     await page.goto("/dashboard/configura");
 
     // --- secondo operatore -> 1 extra ---
-    await page.locator("#nome_operatore").fill("Seconda");
-    await page.getByRole("button", { name: "Aggiungi" }).first().click();
-    await expect(page.getByText("Seconda").first()).toBeVisible({ timeout: 15_000 });
+    await aggiungiOperatore(page, "Seconda");
 
     await expect
       .poll(async () => await abbonamento!.leggiItem(), {
@@ -77,9 +76,7 @@ test.describe("Scenario 16 -- fatturazione dell'operatore extra", () => {
       );
 
     // --- terzo operatore -> 2 extra ---
-    await page.locator("#nome_operatore").fill("Terza");
-    await page.getByRole("button", { name: "Aggiungi" }).first().click();
-    await expect(page.getByText("Terza").first()).toBeVisible({ timeout: 15_000 });
+    await aggiungiOperatore(page, "Terza");
 
     await expect
       .poll(async () => (await abbonamento!.leggiItem()).find((i) => i.priceId === priceExtra)?.quantita, {
@@ -125,9 +122,7 @@ test.describe("Scenario 16 -- fatturazione dell'operatore extra", () => {
 
     await accediComeTitolare(page, tenant.email, tenant.password);
     await page.goto("/dashboard/configura");
-    await page.locator("#nome_operatore").fill("Seconda");
-    await page.getByRole("button", { name: "Aggiungi" }).first().click();
-    await expect(page.getByText("Seconda").first()).toBeVisible({ timeout: 15_000 });
+    await aggiungiOperatore(page, "Seconda");
 
     await expect
       .poll(async () => (await abbonamento!.leggiItem()).map((i) => i.priceId), { timeout: 15_000 })

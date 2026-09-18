@@ -154,6 +154,14 @@ export async function creaTenantDiProva(opzioni: OpzioniTenantDiProva = {}): Pro
     .update({
       slug,
       piano: opzioni.piano ?? "growth",
+      // La prova gratuita che il trigger di registrazione assegna a
+      // chiunque si iscriva (migrazione 0061/0064) qui va tolta: un tenant
+      // di prova nasce gia' sul piano che lo scenario ha chiesto, e
+      // lasciare la data di fine prova vorrebbe dire far comparire il
+      // riquadro "la prova scade fra N giorni" su una dashboard di prova
+      // che, per lo scenario, sta pagando. Chi vuole provare LA PROVA la
+      // riscrive da se' (vedi prova-gratuita.server.test.ts).
+      prova_growth_fino_al: null,
       caparra_attiva: opzioni.caparraAttiva ?? false,
       caparra_valore: opzioni.caparraValore ?? 20,
       telefono: opzioni.telefono ?? "0219999999",
