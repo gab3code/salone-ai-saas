@@ -2192,8 +2192,14 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       chi non ce l'ha, e sta dietro a un'azione che un salone appena registrato compie forse una
       volta, in una schermata dove sta pensando ad altro. Una leva che si vede solo per caso non
       e' una leva: e' codice che costa manutenzione e non converte.
-      **Da decidere con Gabriel, non da me**: darle un posto fisso (un riquadro sulla dashboard
-      o una voce sua) invece di farla comparire dopo un'azione. Il vincolo da rispettare e' che
+      **Direzione data da Gabriel il 19/09/2026**: *"se non mette un appuntamento a mano non lo
+      vedra' mai, quindi conviene farlo comparire comunque dopo un po' di giorni"*. Cioe' la
+      condizione `appenaCreato` resta come scorciatoia -- chi inserisce un appuntamento lo vede
+      subito, nel momento in cui sta pensando all'agenda -- ma non e' piu' l'unica strada: dopo
+      N giorni dalla registrazione il riquadro compare comunque, in un posto suo. Da decidere
+      quando ci si arriva: quanti giorni, e dove (dashboard o calendario).
+      **Resta da decidere con Gabriel**: darle un posto fisso (un riquadro sulla dashboard
+      o una voce sua) invece di farla comparire solo dopo un'azione. Il vincolo da rispettare e' che
       resti onesta -- deve far vedere l'assistente, non promettere e chiedere la carta.
       Nota che il caso di Gabriel era doppio: il suo salone di prova e' su `pro`, quindi il
       riquadro era nascosto a ragione (l'assistente vero ce l'ha gia'). Ma anche su un account
@@ -2766,6 +2772,22 @@ Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davv
          prima di aprire i pagamenti veri, o escono dalla lista. **Tracciato come voce a sé in
          Fase 6ter**: va chiuso prima, non quando si rifà la grafica -- qui resta solo perché
          tocca il copy della pagina.
+
+- [ ] **Ferie/chiusure e calendari personali vanno dove sta il calendario** (chiesto da Gabriel
+      il 19/09/2026, che ha lasciato a me la decisione se farlo subito o qui: **qui**, e il
+      motivo e' scritto perche' sia verificabile e non una scusa).
+      Oggi "Ferie e chiusure" e "Calendari personali" stanno sotto Impostazioni. Hanno ragione
+      di stare accanto al calendario: parlano tutte e due di quando il salone NON lavora, che e'
+      esattamente la domanda che uno si fa guardando l'agenda, non quella che si fa aprendo le
+      impostazioni.
+      **Perche' non adesso.** E' puro spostamento di navigazione: non cambia un comportamento,
+      non chiude un difetto, non sblocca una vendita. In cambio 17 dei 30 file di test Playwright
+      cercano gli elementi per testo visibile e 65 punti cliccano un link o un bottone per nome:
+      spostare le voci ora significa aggiornare i test ora, e poi di nuovo quando la Fase 7
+      ridisegna la stessa navigazione. Si paga due volte lo stesso prezzo per avere prima una
+      cosa che nessun cliente sta aspettando -- e di clienti, per ora, non ce n'e' nessuno.
+      Quando si arriva qui, la navigazione si ridisegna una volta sola e i test si aggiornano
+      una volta sola.
 
 - [ ] **Direzione colore già scelta il 16/09/2026, da implementare qui**: verde smeraldo
       (`#0d7a5f`), un solo accento condiviso tra landing e dashboard, base scura ed espressiva
