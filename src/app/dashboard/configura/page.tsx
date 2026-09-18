@@ -17,10 +17,12 @@ import {
 } from "./azioni";
 import { raggruppaInPeriodi, type RigaChiusura } from "@/lib/periodi-chiusura";
 import { BottoneAzione } from "./BottoneAzione";
+import { tettoBozzaOnboarding } from "@/lib/ai/limiti";
+import { contaBozzeOnboarding } from "@/lib/ai/usi-interni.server";
 import { impostaAttivoOperatore, impostaAttivoServizio } from "./azioni";
 import { formattaDataItaliana } from "@/lib/data-italiana";
 import { PannelloOnboardingAI } from "./PannelloOnboardingAI";
-import { OnboardingWizard } from "./OnboardingWizard";
+import { SceltaOnboarding } from "./SceltaOnboarding";
 
 const NOMI_GIORNI = [
   "Domenica",
@@ -77,7 +79,7 @@ export default async function PaginaConfigura() {
     supabase.from("orari_apertura").select("*").eq("tenant_id", tenantId),
     supabase
       .from("tenants")
-      .select("passo_slot_minuti, buffer_minuti, riempimento_agenda")
+      .select("piano, passo_slot_minuti, buffer_minuti, riempimento_agenda")
       .eq("id", tenantId)
       .maybeSingle(),
     supabase.from("orari_operatore").select("*").eq("tenant_id", tenantId),
@@ -127,6 +129,15 @@ export default async function PaginaConfigura() {
       motivo: (r.motivo as string | null) ?? null,
     })) satisfies RigaChiusura[]
   );
+
+  // Quante configurazioni assistite restano, da dire PRIMA che le usi. Un
+  // tetto che si scopre solo quando e' finito e' un tetto che fa arrabbiare.
+  // `null` sui piani con quota AI: li' il numero da guardare e' quello
+  // mensile della dashboard, non un totale a vita.
+  const tettoBozze = tettoBozzaOnboarding(regoleRes.data?.piano ?? "", operatori.length || 1);
+  const bozzeRimaste = tettoBozze.daSempre
+    ? Math.max(0, tettoBozze.limite - (await contaBozzeOnboarding(supabase, tenantId)))
+    : null;
 
   const orariPerOperatore = new Map<string, Map<number, OrarioRiga>>();
   for (const riga of (orariOperatoreRes.data ?? []) as (OrarioRiga & { operatore_id: string })[]) {
@@ -860,24 +871,11 @@ export default async function PaginaConfigura() {
       </div>
 
       {vuoto ? (
-        <>
-          <section className="rounded-2xl border border-violet-200 bg-violet-50/40 p-5">
-            <h2 className="text-base font-medium">Iniziamo a configurare la tua attività</h2>
-            <p className="mt-1 text-sm text-zinc-600">
-              Rispondi a poche domande, l&apos;AI prepara una bozza da rivedere prima di salvarla --
-              non scrive nulla senza la tua conferma.
-            </p>
-            <div className="mt-4">
-              <OnboardingWizard nomeTitolare={nomeTitolare} />
-            </div>
-          </section>
-          <details className="rounded-2xl border border-zinc-200 p-5">
-            <summary className="cursor-pointer text-sm font-medium text-zinc-600">
-              Preferisci configurare tutto a mano?
-            </summary>
-            <div className="mt-4 flex flex-col gap-10">{sezioniManuali}</div>
-          </details>
-        </>
+        <SceltaOnboarding
+          nomeTitolare={nomeTitolare}
+          sezioniManuali={sezioniManuali}
+          bozzeRimaste={bozzeRimaste}
+        />
       ) : (
         <>
           {/* Fase 3 di PIANO.md: resta disponibile come opzione da riaprire
@@ -885,7 +883,7 @@ export default async function PaginaConfigura() {
               descrivendoli invece di compilare i form uno per uno -- il
               wizard a domande guidate sopra è pensato solo per il primo
               giro, quando l'attività è ancora vuota. */}
-          <PannelloOnboardingAI evidenzia={false} />
+          <PannelloOnboardingAI evidenzia={false} bozzeRimaste={bozzeRimaste} />
           {sezioniManuali}
         </>
       )}

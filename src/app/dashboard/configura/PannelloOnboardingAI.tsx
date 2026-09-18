@@ -5,12 +5,13 @@ import type { BozzaOnboarding } from "@/lib/onboarding-ai";
 import type { DiffConfigurazione, StatoSalone } from "@/lib/onboarding-ai-diff";
 import { generaBozzaOnboardingAction } from "./onboarding-ai-azioni";
 import { RevisioneBozzaOnboarding } from "./RevisioneBozzaOnboarding";
+import { AvvisoBozza, ContatoreBozze } from "./AvvisoBozza";
 
 type Stato =
   | { fase: "descrizione" }
   | { fase: "generando" }
   | { fase: "revisione"; bozza: BozzaOnboarding; diff: DiffConfigurazione; stato: StatoSalone }
-  | { fase: "errore"; messaggio: string };
+  | { fase: "errore"; messaggio: string; esaurite?: boolean };
 
 /**
  * Fase 3 di PIANO.md (onboarding AI-assisted): il titolare scrive una
@@ -27,7 +28,13 @@ type Stato =
  * la prima volta) -- questo componente si occupa solo di raccogliere il
  * testo libero e generare la bozza iniziale.
  */
-export function PannelloOnboardingAI({ evidenzia }: { evidenzia: boolean }) {
+export function PannelloOnboardingAI({
+  evidenzia,
+  bozzeRimaste = null,
+}: {
+  evidenzia: boolean;
+  bozzeRimaste?: number | null;
+}) {
   const [stato, setStato] = useState<Stato>({ fase: "descrizione" });
   const [descrizione, setDescrizione] = useState("");
   const [aperto, setAperto] = useState(evidenzia);
@@ -36,7 +43,7 @@ export function PannelloOnboardingAI({ evidenzia }: { evidenzia: boolean }) {
     setStato({ fase: "generando" });
     const esito = await generaBozzaOnboardingAction(descrizione);
     if (!esito.ok) {
-      setStato({ fase: "errore", messaggio: esito.errore });
+      setStato({ fase: "errore", messaggio: esito.errore, esaurite: esito.esaurite });
       return;
     }
     setStato({ fase: "revisione", bozza: esito.bozza, diff: esito.diff, stato: esito.stato });
@@ -85,10 +92,9 @@ export function PannelloOnboardingAI({ evidenzia }: { evidenzia: boolean }) {
           >
             {stato.fase === "generando" ? "Genero la bozza..." : "Genera bozza"}
           </button>
+          <ContatoreBozze rimaste={bozzeRimaste} />
           {stato.fase === "errore" && (
-            <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-              {stato.messaggio}
-            </p>
+            <AvvisoBozza messaggio={stato.messaggio} esaurite={stato.esaurite} />
           )}
         </div>
       )}

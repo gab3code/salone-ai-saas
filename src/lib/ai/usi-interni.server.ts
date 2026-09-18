@@ -36,13 +36,14 @@ export type EsitoConsumo =
 export async function consumaUsoAiInterno(
   tenantId: string,
   tipo: TipoUsoAi,
-  limite: number
+  tetto: { limite: number; daSempre: boolean }
 ): Promise<EsitoConsumo> {
   const admin = creaClientAdmin();
   const { data, error } = await admin.rpc("consuma_uso_ai_interno", {
     p_tenant_id: tenantId,
     p_tipo: tipo,
-    p_limite: limite,
+    p_limite: tetto.limite,
+    p_da_sempre: tetto.daSempre,
   });
 
   if (error) {
@@ -74,6 +75,28 @@ export async function contaUsiAiInterniQuestoMese(
   if (error) {
     // Un errore nel MOSTRARE un numero non deve rompere la dashboard.
     console.error("Errore contando gli usi AI interni del mese:", tenantId, error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
+/**
+ * Quante bozze di configurazione ha gia' chiesto questo salone, DA SEMPRE.
+ * Serve a dirglielo prima che ne chieda un'altra: un tetto che si scopre
+ * solo quando e' finito e' un tetto che fa arrabbiare.
+ */
+export async function contaBozzeOnboarding(
+  supabase: SupabaseClient,
+  tenantId: string
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("usi_ai_interni")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .eq("tipo", "onboarding");
+
+  if (error) {
+    console.error("Errore contando le bozze di onboarding:", tenantId, error);
     return 0;
   }
   return count ?? 0;

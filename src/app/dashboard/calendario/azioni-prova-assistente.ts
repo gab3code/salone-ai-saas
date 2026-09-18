@@ -2,7 +2,7 @@
 
 import { creaClientServer } from "@/lib/supabase/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
-import { limiteUsiAiMensile } from "@/lib/ai/limiti";
+import { tettoProvaAssistente } from "@/lib/ai/limiti";
 import { consumaUsoAiInterno } from "@/lib/ai/usi-interni.server";
 import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
 import { puoConfigurareAttivita } from "@/lib/ruoli";
@@ -80,7 +80,7 @@ export async function provaAssistente(domanda: string): Promise<EsitoProva> {
   const consumo = await consumaUsoAiInterno(
     tenantId,
     "prova_assistente",
-    limiteUsiAiMensile(tenant.piano, numeroOperatori ?? 1)
+    tettoProvaAssistente(tenant.piano, numeroOperatori ?? 1)
   );
   if (!consumo.ok) {
     if (consumo.motivo === "errore") {

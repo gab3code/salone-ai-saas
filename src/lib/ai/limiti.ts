@@ -91,16 +91,58 @@ export function limiteMensileMessaggi(piano: string, numeroOperatori: number = 1
 }
 
 /**
- * Quante volte al mese un salone SENZA quota AI (Free, Starter) puo' far
- * lavorare il modello dalla propria dashboard.
+ * Quante bozze di configurazione puo' farsi preparare dall'AI, IN TUTTO, un
+ * salone che non paga (Free, Starter).
  *
- * Non e' zero di proposito: chi si registra parte su Free, e l'onboarding
- * assistito e' il primo momento in cui il prodotto dimostra di valere
- * qualcosa. Chiuderlo dietro un piano a pagamento vorrebbe dire far pagare
- * prima di aver fatto vedere niente. Quindici bozze al mese sono tante per
- * configurare un salone e poche per fare danni.
+ * Non zero e non infinite: tre. Zero vorrebbe dire far pagare prima di aver
+ * fatto vedere qualcosa, proprio nel momento in cui una persona sta
+ * decidendo se il prodotto vale qualcosa -- e la configurazione a mano e' il
+ * punto in cui piu' gente molla. Infinite vorrebbero dire regalare per
+ * sempre la cosa che su Growth si paga.
+ *
+ * Tre e' quanto serve davvero: una per configurare il salone, due per
+ * sbagliare e riprovare. La quarta volta la domanda non e' piu' "funziona?"
+ * ma "mi conviene?", e a quella risponde il listino.
+ *
+ * A VITA, non al mese (decisione di Gabriel, 18/09/2026): un tetto mensile
+ * su un'operazione che serve una volta sola e' un tetto che non si vede mai.
  */
-export const USI_AI_INTERNI_SENZA_QUOTA = 15;
+export const BOZZE_ONBOARDING_SENZA_PIANO = 3;
+
+/**
+ * Quante volte al mese un salone senza quota AI puo' provare l'assistente
+ * dalla dashboard. Questa resta MENSILE anche su Free e Starter: e' l'altra
+ * meta' della leva commerciale -- far vedere l'assistente all'opera a chi
+ * non ce l'ha -- e azzerarla dopo tre volte toglierebbe proprio la cosa che
+ * convince.
+ */
+export const PROVE_ASSISTENTE_SENZA_PIANO = 10;
+
+export interface TettoUsoAi {
+  limite: number;
+  /** true = si conta da sempre, non nel mese corrente. */
+  daSempre: boolean;
+}
+
+/**
+ * Il tetto per una BOZZA di configurazione.
+ *
+ * Su un piano con quota AI la bozza consuma quella, come tutto il resto: un
+ * costo solo, un numero solo. Su Free e Starter, che quota non ne hanno,
+ * vale il tetto a vita qui sopra.
+ */
+export function tettoBozzaOnboarding(piano: string, numeroOperatori: number = 1): TettoUsoAi {
+  const quota = limiteMensileMessaggi(piano, numeroOperatori);
+  return quota > 0
+    ? { limite: quota, daSempre: false }
+    : { limite: BOZZE_ONBOARDING_SENZA_PIANO, daSempre: true };
+}
+
+/** Il tetto per una PROVA dell'assistente: mensile su tutti i piani. */
+export function tettoProvaAssistente(piano: string, numeroOperatori: number = 1): TettoUsoAi {
+  const quota = limiteMensileMessaggi(piano, numeroOperatori);
+  return { limite: quota > 0 ? quota : PROVE_ASSISTENTE_SENZA_PIANO, daSempre: false };
+}
 
 /**
  * Il tetto mensile che vale per TUTTO quello che il salone fa fare al
@@ -111,9 +153,13 @@ export const USI_AI_INTERNI_SENZA_QUOTA = 15;
  * non comparivano da nessuna parte: l'onboarding AI non aveva contatore ne'
  * tetto ne' gate di piano (18/09/2026).
  */
+/**
+ * Il tetto mensile da MOSTRARE in dashboard: quanto puo' fare lavorare il
+ * modello, in tutto, questo salone in un mese. Per i piani senza quota e'
+ * il tetto delle prove, che e' l'unica cosa ricorrente che possono fare.
+ */
 export function limiteUsiAiMensile(piano: string, numeroOperatori: number = 1): number {
-  const quota = limiteMensileMessaggi(piano, numeroOperatori);
-  return quota > 0 ? quota : USI_AI_INTERNI_SENZA_QUOTA;
+  return tettoProvaAssistente(piano, numeroOperatori).limite;
 }
 
 // Anti-burst: un vero cliente non manda due messaggi a meno di 2 secondi di

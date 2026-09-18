@@ -25,7 +25,7 @@ import { aggiungiRegolaPromemoria } from "../impostazioni/promemoria/azioni";
 import { aggiornaCaparra } from "../impostazioni/caparra/azioni";
 import { aggiungiChiusura, salvaOrariOperatore, salvaRegoleAgenda } from "./azioni";
 import { pianoHaPromemoria } from "@/lib/piani";
-import { limiteUsiAiMensile } from "@/lib/ai/limiti";
+import { BOZZE_ONBOARDING_SENZA_PIANO, tettoBozzaOnboarding } from "@/lib/ai/limiti";
 import { consumaUsoAiInterno } from "@/lib/ai/usi-interni.server";
 
 /**
@@ -82,8 +82,17 @@ async function caricaStatoSalone(
 }
 
 export type RisultatoBozzaConDiff =
-  | { ok: true; bozza: BozzaOnboarding; diff: DiffConfigurazione; stato: StatoSalone }
-  | { ok: false; errore: string };
+  | {
+      ok: true;
+      bozza: BozzaOnboarding;
+      diff: DiffConfigurazione;
+      stato: StatoSalone;
+      /** Quante configurazioni assistite restano dopo questa. */
+      rimaste: number;
+      /** true se quel numero e' un totale a vita, non un tetto mensile. */
+      aVita: boolean;
+    }
+  | { ok: false; errore: string; esaurite?: boolean };
 
 export async function generaBozzaOnboardingAction(descrizione: string): Promise<RisultatoBozzaConDiff> {
   const supabase = await creaClientServer();
@@ -112,18 +121,22 @@ export async function generaBozzaOnboardingAction(descrizione: string): Promise<
     .from("operatori")
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId);
-  const consumo = await consumaUsoAiInterno(
-    tenantId,
-    "onboarding",
-    limiteUsiAiMensile(tenant?.piano ?? "", numeroOperatori ?? 1)
-  );
+  const tetto = tettoBozzaOnboarding(tenant?.piano ?? "", numeroOperatori ?? 1);
+  const consumo = await consumaUsoAiInterno(tenantId, "onboarding", tetto);
   if (!consumo.ok) {
+    if (consumo.motivo === "errore") {
+      return { ok: false, errore: "Non riesco a verificare quante bozze puoi ancora usare. Riprova fra poco." };
+    }
     return {
       ok: false,
-      errore:
-        consumo.motivo === "tetto_raggiunto"
-          ? "Hai finito le bozze disponibili questo mese. Riparte il primo del mese prossimo, oppure passa a un piano con più margine."
-          : "Non riesco a verificare quante bozze puoi ancora generare. Riprova fra poco.",
+      // Il messaggio dice cosa e' successo, cosa si puo' fare adesso, e
+      // dove provare il resto senza pagare: un tetto raggiunto e' il
+      // momento in cui la persona sta decidendo, non quello in cui la si
+      // lascia davanti a una porta chiusa e basta.
+      errore: tetto.daSempre
+        ? `Hai usato tutte e ${BOZZE_ONBOARDING_SENZA_PIANO} le configurazioni assistite comprese nel tuo piano. Da qui in poi puoi configurare tutto a mano, oppure passare a Growth per continuare a farlo fare all'assistente.`
+        : "Hai finito la quota AI di questo mese. Riparte il primo del mese prossimo.",
+      esaurite: true,
     };
   }
 
@@ -134,7 +147,14 @@ export async function generaBozzaOnboardingAction(descrizione: string): Promise<
 
   // Il diff lo calcola codice puro, non il modello: vedi il docblock di
   // onboarding-ai-diff.ts per il perche'.
-  return { ok: true, bozza: esito.bozza, diff: calcolaDiff(stato, bozzaAStatoDesiderato(esito.bozza)), stato };
+  return {
+    ok: true,
+    bozza: esito.bozza,
+    diff: calcolaDiff(stato, bozzaAStatoDesiderato(esito.bozza)),
+    stato,
+    rimaste: consumo.rimasti,
+    aVita: tetto.daSempre,
+  };
 }
 
 export interface RisultatoApplicazioneBozza {

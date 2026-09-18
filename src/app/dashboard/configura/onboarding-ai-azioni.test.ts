@@ -219,7 +219,38 @@ describe("generaBozzaOnboardingAction", () => {
 
     await generaBozzaOnboardingAction("Descrizione");
 
-    expect(consumaUsoAiInterno).toHaveBeenCalledWith(TENANT_ID, "onboarding", expect.any(Number));
+    // Su un piano senza quota AI il tetto e' a vita, non mensile: tre
+    // configurazioni assistite in tutto (decisione 18/09/2026).
+    expect(consumaUsoAiInterno).toHaveBeenCalledWith(TENANT_ID, "onboarding", {
+      limite: 3,
+      daSempre: true,
+    });
+  });
+
+  it("su un piano con quota AI la bozza consuma quella, al mese", async () => {
+    vi.mocked(creaClientServer).mockResolvedValue(supabaseFinto({ piano: "growth" }));
+    vi.mocked(generaBozzaOnboarding).mockResolvedValue({ ok: true, bozza: bozzaVuota() });
+
+    await generaBozzaOnboardingAction("Descrizione");
+
+    expect(consumaUsoAiInterno).toHaveBeenCalledWith(TENANT_ID, "onboarding", {
+      limite: 2500,
+      daSempre: false,
+    });
+  });
+
+  it("quando le configurazioni assistite finiscono, il messaggio dice cosa fare", async () => {
+    vi.mocked(creaClientServer).mockResolvedValue(supabaseFinto({ piano: "free" }));
+    vi.mocked(consumaUsoAiInterno).mockResolvedValueOnce({ ok: false, motivo: "tetto_raggiunto" });
+
+    const risultato = await generaBozzaOnboardingAction("Descrizione");
+
+    expect(risultato.ok).toBe(false);
+    // Un tetto raggiunto e' il momento in cui la persona sta decidendo:
+    // il messaggio deve dire cosa puo' fare adesso, non solo di no.
+    expect(!risultato.ok && risultato.errore).toContain("a mano");
+    expect(!risultato.ok && risultato.errore).toContain("Growth");
+    expect(!risultato.ok && risultato.esaurite).toBe(true);
   });
 
   it("con il tetto raggiunto NON chiama il modello", async () => {

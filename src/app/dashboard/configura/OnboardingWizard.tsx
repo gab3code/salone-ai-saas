@@ -5,6 +5,7 @@ import type { BozzaOnboarding } from "@/lib/onboarding-ai";
 import type { DiffConfigurazione, StatoSalone } from "@/lib/onboarding-ai-diff";
 import { generaBozzaOnboardingAction } from "./onboarding-ai-azioni";
 import { RevisioneBozzaOnboarding } from "./RevisioneBozzaOnboarding";
+import { AvvisoBozza } from "./AvvisoBozza";
 
 const TIPI_ATTIVITA = [
   "Parrucchiere/Barbiere",
@@ -91,7 +92,7 @@ type Fase =
   | { nome: "domande"; passo: 0 | 1 | 2 }
   | { nome: "generando" }
   | { nome: "revisione"; bozza: BozzaOnboarding; diff: DiffConfigurazione; stato: StatoSalone }
-  | { nome: "errore"; messaggio: string };
+  | { nome: "errore"; messaggio: string; esaurite?: boolean };
 
 function Chip({ attivo, onClick, children }: { attivo: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -149,7 +150,7 @@ export function OnboardingWizard({ nomeTitolare }: { nomeTitolare: string }) {
     const descrizione = costruisciDescrizioneOnboarding(risposte, nomeTitolare);
     const esito = await generaBozzaOnboardingAction(descrizione);
     if (!esito.ok) {
-      setFase({ nome: "errore", messaggio: esito.errore });
+      setFase({ nome: "errore", messaggio: esito.errore, esaurite: esito.esaurite });
       return;
     }
     setFase({ nome: "revisione", bozza: esito.bozza, diff: esito.diff, stato: esito.stato });
@@ -353,9 +354,7 @@ export function OnboardingWizard({ nomeTitolare }: { nomeTitolare: string }) {
             />
           </div>
           {fase.nome === "errore" && (
-            <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-              {fase.messaggio}
-            </p>
+            <AvvisoBozza messaggio={fase.messaggio} esaurite={fase.esaurite} />
           )}
           <div className="flex items-center gap-3">
             <button onClick={() => setFase({ nome: "domande", passo: 1 })} className="text-sm text-zinc-500 underline">
