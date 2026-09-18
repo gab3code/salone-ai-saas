@@ -2317,8 +2317,10 @@ cliente che paga la cifra sbagliata o una fattura che non parte.
       divergerebbero in silenzio. Elenco: `checkout.session.completed`,
       `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
       `checkout.session.expired`, `customer.subscription.created/updated/deleted`.
-- [ ] Aggiungere `customer.subscription.trial_will_end` quando esisterà l'email di fine prova, e
-      `charge.dispute.created` (vedi le voci in 6ter).
+- [ ] Aggiungere `charge.dispute.created` (vedi la voce in 6ter). **`customer.subscription.
+      trial_will_end` NON serve più**: dal 18/09/2026 non esiste nessun trial lato Stripe, la
+      prova è quella alla registrazione e l'email di scadenza la manda il cron notturno.
+      Iscrivere un evento che non arriverà mai è solo rumore.
 - [ ] Con Connect servirà un secondo blocco di eventi, quelli degli account collegati.
 
 **Portale clienti**
