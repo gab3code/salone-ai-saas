@@ -187,6 +187,12 @@ export async function POST(request: NextRequest) {
         // cosi' non se ne apre un altro per niente.
         supabase: admin,
         tenantId: "demo",
+        // Il costo della demo e' reale e lo paghiamo noi, quindi va contato
+        // (migrazione 0068) -- ma `tenantId: "demo"` non e' un salone che
+        // esiste, e una riga con quell'id la chiave esterna la rifiuterebbe.
+        // `null` e' la risposta onesta: questa spesa non appartiene a
+        // nessun cliente.
+        usoApi: { canale: "demo_landing", tenantId: null },
         nomeAttivita: NOME_SALONE_DEMO,
         // Su Pro l'assistente conosce anche l'attivita': e' la differenza
         // che l'interruttore in pagina fa provare.

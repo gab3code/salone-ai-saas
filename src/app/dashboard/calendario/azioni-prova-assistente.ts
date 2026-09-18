@@ -99,6 +99,7 @@ export async function provaAssistente(domanda: string): Promise<EsitoProva> {
     const risultato = await rispondiConversazione([], domanda.trim(), {
       supabase: admin,
       tenantId,
+      usoApi: { canale: "prova_assistente", tenantId },
       nomeAttivita: tenant.nome,
       telefono: tenant.telefono ?? null,
       telefonoWhatsapp: tenant.telefono_whatsapp ?? null,

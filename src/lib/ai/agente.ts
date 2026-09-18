@@ -14,6 +14,8 @@ import {
 } from "./giorni-settimana";
 import { pulisciMarkdown } from "./pulisci-markdown";
 import { istruzioniContatto } from "@/lib/contatti";
+import { registraUsoApi } from "./costi.server";
+import type { CanaleUsoApi } from "./costi";
 
 /**
  * Il loop vero e proprio (Task #66): MESSAGGIO -> AI -> intent/contesto ->
@@ -225,7 +227,8 @@ async function correggiSeIncongruente(
   system: Anthropic.TextBlockParam[],
   tools: Anthropic.Tool[],
   importoCaparraReale: number | null,
-  adesso: Date
+  adesso: Date,
+  usoApi: { canale: CanaleUsoApi; tenantId: string | null }
 ): Promise<string> {
   const potrebbeMenzionareUnNumero = /€|euro|minut/i.test(testo);
 
@@ -253,17 +256,21 @@ async function correggiSeIncongruente(
   const problemi = verificaIncongruenze(testo);
   if (problemi.length === 0) return testo;
 
-  const rispostaCorretta = await clientAnthropic.messages.create({
-    model: MODELLO,
-    max_tokens: 1024,
-    system,
-    tools,
-    messages: [
-      ...messages,
-      { role: "assistant", content: contenutoRisposta },
-      { role: "user", content: problemi.join(" Inoltre: ") },
-    ],
-  });
+  const rispostaCorretta = await chiamaModello(
+    clientAnthropic,
+    {
+      model: MODELLO,
+      max_tokens: 1024,
+      system,
+      tools,
+      messages: [
+        ...messages,
+        { role: "assistant", content: contenutoRisposta },
+        { role: "user", content: problemi.join(" Inoltre: ") },
+      ],
+    },
+    usoApi
+  );
 
   const haRichiestoStrumento = rispostaCorretta.content.some((blocco) => blocco.type === "tool_use");
   const testoCorretto = rispostaCorretta.content
@@ -349,6 +356,34 @@ function strumentiConCacheControl(strumenti: readonly Anthropic.Tool[]): Anthrop
  * risolto il tenant dallo slug pubblico, vedi risolviTenantIdDaSlug in
  * tools.ts) -- questa funzione non fa provisioning, solo conversazione.
  */
+/**
+ * L'unica porta verso il modello, da qui in avanti (19/09/2026).
+ *
+ * Prima c'erano due `clientAnthropic.messages.create` sparsi in questo file:
+ * il giro normale e il giro di autocorrezione. Il secondo e' esattamente
+ * quello che un conto a mano dimentica -- costa quanto il primo e non
+ * compare da nessuna parte. Farli passare entrambi di qui e' l'unico modo
+ * perche' la misura non abbia un buco della forma "il pezzo che avevo
+ * scordato".
+ *
+ * La registrazione non e' attesa: parte e non blocca la risposta al cliente
+ * (vedi il commento in costi.server.ts).
+ */
+async function chiamaModello(
+  clientAnthropic: ClienteAnthropic,
+  parametri: Anthropic.MessageCreateParamsNonStreaming,
+  uso: { canale: CanaleUsoApi; tenantId: string | null }
+): Promise<Anthropic.Message> {
+  const risposta = await clientAnthropic.messages.create(parametri);
+  registraUsoApi({
+    tenantId: uso.tenantId,
+    canale: uso.canale,
+    modello: MODELLO,
+    usage: (risposta as { usage?: unknown }).usage,
+  });
+  return risposta;
+}
+
 export async function rispondiConversazione(
   storico: MessaggioConversazione[],
   messaggioNuovo: string,
@@ -366,6 +401,18 @@ export async function rispondiConversazione(
     // è chiamare o scrivere su WhatsApp.
     telefono?: string | null;
     telefonoWhatsapp?: string | null;
+    /**
+     * Da quale porta arriva questa conversazione, per il registro dei costi
+     * (migrazione 0068). Assente = la chat sulla pagina pubblica del salone,
+     * che e' il caso di gran lunga piu' comune.
+     *
+     * `tenantId` e' separato da `ctx.tenantId` per un motivo solo: la demo
+     * della landing usa un salone finto che nel database non esiste, e una
+     * riga di costo con quell'id verrebbe rifiutata dalla chiave esterna.
+     * Li' si passa `null` -- il costo e' reale e va contato comunque, non
+     * appartiene a nessun cliente.
+     */
+    usoApi?: { canale: CanaleUsoApi; tenantId: string | null };
     /**
      * Sottoinsieme di strumenti concessi per QUESTO turno (17/09/2026).
      *
@@ -437,14 +484,20 @@ export async function rispondiConversazione(
   );
   const strumentiPerQuestoTurno = strumentiConCacheControl(strumentiDisponibili as unknown as Anthropic.Tool[]);
 
+  const usoApi = ctx.usoApi ?? { canale: "chat_web" as const, tenantId: ctx.tenantId };
+
   for (let iterazione = 0; iterazione < MAX_ITERAZIONI_TOOL; iterazione++) {
-    const risposta = await clientAnthropic.messages.create({
-      model: MODELLO,
-      max_tokens: 1024,
-      system: systemPerQuestoTurno,
-      tools: strumentiPerQuestoTurno,
-      messages,
-    });
+    const risposta = await chiamaModello(
+      clientAnthropic,
+      {
+        model: MODELLO,
+        max_tokens: 1024,
+        system: systemPerQuestoTurno,
+        tools: strumentiPerQuestoTurno,
+        messages,
+      },
+      usoApi
+    );
 
     const blocchiToolUse = risposta.content.filter(
       (blocco): blocco is Anthropic.ToolUseBlock => blocco.type === "tool_use"
@@ -474,7 +527,8 @@ export async function rispondiConversazione(
               systemPerQuestoTurno,
               strumentiPerQuestoTurno,
               importoCaparraRichiesto,
-              adesso
+              adesso,
+              usoApi
             )
           )
         : testo;
