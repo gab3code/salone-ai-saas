@@ -200,6 +200,56 @@ test.describe("Scenario 23 -- i permessi valgono anche contro il database nudo",
   });
 
   /**
+   * Migrazione 0052. La colonna che decide chi comanda su TUTTA la
+   * piattaforma.
+   *
+   * `profiles.ruolo` a 'admin_piattaforma' non da' accesso al pannello di un
+   * salone: da' accesso a quello di tutti -- cambiare piani, sospendere,
+   * cancellare attivita' altrui. Se un utente qualunque potesse scriverla dal
+   * browser, sarebbe il buco piu' grande del prodotto, e non ci sarebbe
+   * nemmeno bisogno di sapere che il pannello esiste.
+   *
+   * Lo stesso vale per `tenant_id`: scriverlo vorrebbe dire atterrare dentro
+   * il salone di qualcun altro con il proprio account.
+   *
+   * Si asserisce sul VALORE nel database dopo il tentativo, non sull'errore:
+   * un permesso mancante puo' presentarsi come "zero righe aggiornate", che
+   * dal client sembra un successo.
+   */
+  test("un utente non si promuove admin di piattaforma, ne' si sposta di salone", async () => {
+    tenant = await creaTenantDiProva({ nome: "Salone E2E Autopromozione", piano: "free" });
+    const altro = await creaTenantDiProva({ nome: "Salone E2E Bersaglio", piano: "free" });
+
+    try {
+      const come = await clientComeUtente(tenant.email, tenant.password);
+
+      const { data: prima } = await tenant.supabase
+        .from("profiles")
+        .select("id, ruolo, tenant_id")
+        .eq("tenant_id", tenant.id)
+        .limit(1)
+        .single();
+      expect(prima?.id, "il profilo di partenza deve esistere").toBeTruthy();
+
+      await come.from("profiles").update({ ruolo: "admin_piattaforma" }).eq("id", prima!.id);
+      await come.from("profiles").update({ tenant_id: altro.id }).eq("id", prima!.id);
+      await come.from("profiles").delete().eq("id", prima!.id);
+
+      const { data: dopo } = await tenant.supabase
+        .from("profiles")
+        .select("ruolo, tenant_id")
+        .eq("id", prima!.id)
+        .maybeSingle();
+
+      expect(dopo, "il profilo non deve essere stato cancellato").toBeTruthy();
+      expect(dopo?.ruolo, "nessuno si nomina admin di piattaforma da solo").toBe(prima!.ruolo);
+      expect(dopo?.tenant_id, "nessuno si sposta nel salone di un altro").toBe(tenant.id);
+    } finally {
+      await altro.pulisci();
+    }
+  });
+
+  /**
    * Qui stava il test della migrazione 0035 (cancellazione cliente
    * owner-only contro il database nudo): uno staff non doveva poter
    * cancellare via PostgREST, il titolare sì.

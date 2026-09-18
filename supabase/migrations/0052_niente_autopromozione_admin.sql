@@ -1,0 +1,37 @@
+-- Il permesso che aspettava solo una policy distratta (18/09/2026).
+--
+-- Trovato controllando un sospetto di Gabriel ("chiunque puo' entrare nel
+-- pannello admin"). Il sospetto era infondato -- il layout di /admin
+-- risponde 404 a chi non e' admin di piattaforma, e lo Scenario 22 lo
+-- verifica -- ma il controllo ha tirato fuori qualcos'altro.
+--
+-- Su `profiles`, il ruolo `authenticated` ha INSERT, UPDATE e DELETE, e fra
+-- i permessi di colonna c'e' UPDATE sulla colonna `ruolo`. Quella colonna
+-- decide chi e' admin di PIATTAFORMA: chi la scrive non entra nel pannello
+-- di un salone, entra nel pannello di tutti.
+--
+-- Oggi non e' sfruttabile, ed e' importante dire PERCHE': su `profiles` c'e'
+-- una sola policy, e copre la SELECT. Con RLS attivo e nessuna policy di
+-- UPDATE, Postgres nega ogni UPDATE a prescindere dal grant. Il permesso
+-- c'e' ma non porta da nessuna parte.
+--
+-- Il problema e' quel "oggi". La difesa non e' una decisione presa, e' una
+-- dimenticanza fortunata: il giorno in cui qualcuno aggiunge a `profiles` una
+-- policy di UPDATE per una cosa banale e legittima -- "l'utente puo'
+-- cambiare il proprio nome" -- l'autopromozione ad admin di piattaforma si
+-- apre nello stesso istante, senza che nessuno la stia guardando. E chi
+-- scrive quella policy non ha nessun motivo di sospettare, perche' stava
+-- lavorando sul nome.
+--
+-- Quindi si toglie il permesso. Non serve a niente: TUTTE le scritture su
+-- `profiles` nel prodotto passano dal client admin (membri.server.ts), e i
+-- trigger che creano il profilo alla registrazione sono SECURITY DEFINER,
+-- quindi non girano come `authenticated`. La lettura non si tocca: la policy
+-- `solo_mio_profilo` continua a decidere chi vede cosa.
+--
+-- E' la stessa regola della 0030 e della 0049, applicata prima che serva
+-- invece che dopo: un permesso che nessuno usa e' un permesso che qualcuno
+-- usera'.
+
+revoke insert, update, delete on public.profiles from authenticated;
+revoke insert, update, delete on public.profiles from anon;
