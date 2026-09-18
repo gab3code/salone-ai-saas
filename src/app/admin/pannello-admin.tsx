@@ -399,6 +399,19 @@ function RigaAttivita({ riga }: { riga: RigaAdmin }) {
             La pagina pubblica smette di accettare prenotazioni. Il titolare continua a entrare in
             dashboard e a vedere la sua agenda, così può onorare gli appuntamenti già presi.
           </p>
+          {/* Sospendere NON tocca Stripe, ed e' una scelta (la sospensione
+              nasce come misura punitiva, non come pausa concordata). Ma
+              finche' non era scritta da nessuna parte era una scelta
+              implicita: chi preme il pulsante deve sapere che dall'altra
+              parte l'addebito continua. Detto qui e non altrove perche'
+              questo e' il momento in cui la decisione si prende. */}
+          {riga.piano !== "free" && (
+            <p className="w-full rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              L&apos;abbonamento <strong>{riga.piano}</strong> resta attivo e continua a essere
+              addebitato: sospendere non tocca Stripe. Se l&apos;attività non deve più pagare,
+              va cambiata anche di piano qui sopra.
+            </p>
+          )}
         </div>
       )}
 

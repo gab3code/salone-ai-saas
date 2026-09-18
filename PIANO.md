@@ -948,12 +948,38 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       nell'SQL Editor il 02/09/2026 -- confermata funzionante dal vivo collegando il motore di
       conversazione (una chat di test riconosce e riprende la stessa sessione tra un messaggio
       e l'altro).
-- [ ] Contesto di conversazione persistente in `conversazioni.slot_in_costruzione` -- colonna
-      esiste nello schema ma non ancora usata: il contesto oggi funziona (verificato dal vivo:
-      il modello ricorda servizio/orario/telefono già dati nello stesso turno) semplicemente
-      rileggendo tutto lo storico messaggi ad ogni turno, senza uno stato strutturato separato.
-      Da valutare se serve davvero (es. per dare a un operatore umano un riassunto strutturato
-      al momento del passaggio, invece di fargli rileggere tutta la chat) prima di costruirlo.
+- [x] **Contesto di conversazione persistente in `conversazioni.slot_in_costruzione` -- DECISO
+      DI NON FARLO ADESSO** (18/09/2026, con Gabriel). Non e' rinviata per mancanza di tempo:
+      e' stata guardata e scartata, e il ragionamento va tenuto perche' la tentazione torna.
+
+      Tre motivi.
+
+      1. **Sul web le chat lunghe non esistono.** Una conversazione si chiude dopo tre ore di
+         inattivita' (`SOGLIA_INATTIVITA_NUOVA_CONVERSAZIONE_MS`) e la successiva riparte
+         pulita; una prenotazione si esaurisce in una manciata di turni, e chi divaga viene
+         fermato dopo tre turni senza strumenti. Il problema che questa voce risolve, oggi,
+         quasi non si presenta.
+      2. **Nella forma ovvia peggiora le cose.** Se lo stato lo scrive il MODELLO, diventano
+         due fonti di verita' che possono litigare, e nelle chat lunghe va peggio: un valore
+         sbagliato entrato una volta nello stato si ripropone a ogni turno come fatto, mentre
+         nella trascrizione ci sarebbero ancora le parole vere del cliente. Il caso "no
+         aspetta, facciamo venerdi'" diventa un campo strutturato in evidenza contro una frase
+         in fondo. L'unica forma sana e' quella derivata dalle chiamate agli strumenti --
+         deterministica, coerente col resto del progetto -- ma sa solo cio' che e' passato da
+         uno strumento.
+      3. **Il rischio e' asimmetrico nel verso sbagliato.** Aiuta dove serve meno (chat brevi)
+         e rischia dove servirebbe: una conversazione ripresa dopo giorni, cioe' WhatsApp,
+         dove lo stato vecchio e' la cosa piu' pericolosa che ci sia.
+
+      **Il problema vero, quando arrivera' WhatsApp**, non e' la memoria ma il fatto che oggi
+      `caricaMessaggi` rilegge e rispedisce TUTTA la conversazione a ogni turno, senza nessun
+      tetto. Con le tre ore non fa male; con un thread che dura mesi e non ha confini di
+      sessione diventa un costo che cresce da solo. La risposta li' e' un tetto sullo storico
+      con riassunto dei turni vecchi, piu' lo stato ricavato dagli strumenti. Si fa insieme a
+      WhatsApp, non prima.
+
+      La colonna resta dov'e' (non si cancella niente in produzione per un'ipotesi), ma da
+      oggi e' documentata come deliberatamente inutilizzata e non come dimenticanza.
 - [x] Canale chat web -> AI -> booking engine -> risposta: `api/chat/[slug]/route.ts` (pubblico,
       nessuna autenticazione Supabase, riconosce il visitatore da `identificatoreSessione`) +
       `prova-chat/[slug]` (pagina di test manuale, non la pagina pubblica definitiva --
@@ -1837,7 +1863,19 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
   (booking + AI + CRM) e facile da sottovalutare in complessità. Da valutare SOLO se più di un
   cliente reale lo chiede esplicitamente, non perché un concorrente ce l'ha -- vedi PIANO.md
   "Gruppo B-bis" punto 9 per il ragionamento completo.
-- [ ] Revisione sicurezza (RLS, permessi tool AI, rate limiting, input validation)
+- [x] **Revisione sicurezza (RLS, permessi tool AI, rate limiting, input validation) -- CHIUSA
+      il 18/09/2026**, dopo aver verificato ogni pezzo invece di fidarsi della casella. RLS e
+      permessi: la 0030 introduce `auth_ruolo()`/`e_owner()` e separa lettura e scrittura sulle
+      tabelle di configurazione; le revoche stanno tutte in file dalla 0049, e
+      `npm run permessi` confronta ogni volta quello che i file dichiarano con quello che il
+      database concede davvero (22 test sul calcolo puro in `permessi-attesi.test.ts`, piu' gli
+      scenari 19 e 23 che provano select/insert/update/delete col JWT vero di uno staff).
+      Permessi dei tool AI: i tre strumenti che toccano dati di un cliente passano da
+      `ctx.telefonoVerificato` e rispondono `RISPOSTA_RISERVATA` quando manca. Rate limiting:
+      `limiti-ip.server.ts` sulla chat pubblica e sulla demo, con impronta dell'indirizzo e non
+      l'indirizzo. Validazione: `anti-bot.ts` sulle azioni pubbliche, `validaRichiestaDemo` sul
+      corpo della demo, e i guardiani deterministici su tutto cio' che il modello produce.
+      Restano aperte, ognuna con la sua voce qui sotto, le cose che questa riga non copriva.
 - [x] ~~Test completo su tutti gli scenari del punto 30~~ **FATTO 16/09/2026, Task #190**: vedi
       il dettaglio completo in Fase 1 e in DECISIONS.md "Task #190 chiuso" -- 18/18 scenari E2E
       verdi in un'unica run.
@@ -1853,7 +1891,13 @@ funnel self-service che dipende da un'approvazione esterna a Meta, non dallo sta
       scopre solo da un utente che si lamenta o controllando i log Vercel a mano, rischio
       concreto con Stripe live in avvicinamento. Nessuno swap sul resto (Clerk/Resend
       restano fuori, Supabase Auth e Mailjet funzionano già, cambiarli sarebbe solo churn).
-- [ ] **PostHog (analytics di utilizzo)** -- stessa occasione, priorità molto più lontana:
+- [ ] **PostHog (analytics di utilizzo) -- DELIBERATAMENTE RINVIATA** (riconfermato il
+      18/09/2026). Resta aperta perche' aperta e', ma non e' "da fare quando c'e' tempo": e' da
+      fare quando c'e' **traffico vero da capire**. Con zero clienti non ottimizza nessun
+      imbuto, e in cambio porta dentro uno script di terze parti, il banner cookie da rimettere
+      a posto e le pagine privacy da aggiornare -- costo certo, beneficio nullo. La condizione
+      per riaprirla: quando esiste acquisizione da misurare, cioe' dopo i primi clienti paganti.
+      Testo originale:
       utile quando ci sarà acquisizione vera da ottimizzare (funnel di prenotazione, traffico),
       prematuro con zero clienti paganti. Non uno swap delle metriche di prodotto già in
       dashboard (quelle restano come sono, è un'altra cosa).
@@ -1970,7 +2014,24 @@ produzione e ne fanno partire i webhook.
       query). Coperta da `clienti.server.test.ts` (che fallisce se qualcuno aggiunge una funzione
       esportata senza test) e dallo scenario E2E 23, che prova select/insert/update/delete col
       JWT vero di uno staff.
-- [ ] **Password CalDAV e refresh token Google: NON PIÙ IN CHIARO, ma ancora leggibili.**
+- [x] **Password CalDAV e refresh token Google -- CHIUSA il 18/09/2026** (migrazione 0065).
+      `collegamenti_calendario_esterni` e `eventi_calendario_esterni` non concedono piu' niente
+      ad `authenticated` e `anon`: verificato con `has_table_privilege` sul database di prova,
+      false su entrambe (e true su `appuntamenti`, che deve restare leggibile). L'unica porta e'
+      `collegamenti.server.ts`, che si costruisce il client admin da solo, ha `esigiTenant` e un
+      test che controlla ogni query una per una piu' il confronto fra funzioni esportate e
+      coperte. Il callback OAuth di Google scrive con l'admin dopo aver verificato con la
+      sessione vera che l'operatore appartenga al tenant.
+      **Due code, da fare DOPO il deploy** (il codice online legge ancora con il client
+      dell'utente: applicare la revoca prima gli romperebbe la pagina calendari):
+      1. applicare la 0065 alla produzione;
+      2. `npm run cifra-credenziali` per la riga rimasta in chiaro -- in produzione ce n'e'
+         esattamente una, un `google_refresh_token` non cifrato, verificato il 18/09 sera.
+      Nota su `rimuoviMembro`, che questa voce citava: con la SELECT revocata non c'e' piu'
+      niente da revocare, perche' un collaboratore non raggiunge piu' quelle righe in nessun
+      modo. Resta vero che chi le avesse gia' lette PRIMA di oggi le ha ancora: se il dubbio
+      c'e', la via e' scollegare e ricollegare il calendario, che dal pannello si fa gia'.
+      Testo originale della voce, per capire da dove si partiva:
       Aggiornata il 18/09/2026 sera: la voce diceva "in chiaro in colonna" e non è più vero. La
       cifratura a riposo esiste ed è applicata davvero (`src/lib/cifratura.ts`, AES-256-GCM, 17
       test; usata in `collegamenti.server.ts` e nel callback Google). Quello che resta aperto,
@@ -1996,9 +2057,15 @@ produzione e ne fanno partire i webhook.
       numero ha una prenotazione il link arriva solo al suo proprietario, e la chat risponde la
       stessa cosa in ogni caso. Restituisce la funzione tolta al punto 2 senza riaprirla.
       Dipende da SMS (Skebby, quindi P.IVA) o dall'email del cliente quando c'è.
-- [ ] **Sospendere un'attività non tocca Stripe**: continua a pagare il piano pieno pur non
-      potendo più ricevere prenotazioni. Sembra una scelta deliberata (sospensione punitiva),
-      ma va resa consapevole invece che implicita.
+- [x] **Sospendere un'attività non tocca Stripe -- RESA CONSAPEVOLE il 18/09/2026.** Il
+      comportamento non cambia, ed e' voluto: la sospensione nasce come misura punitiva, non
+      come pausa concordata, e chi viene sospeso per morosita' non deve anche smettere di
+      pagare. Quello che mancava era che la scelta fosse esplicita nel momento in cui si prende:
+      adesso il pannello admin, accanto al pulsante Sospendi, dice a chiare lettere che
+      l'abbonamento resta attivo e continua a essere addebitato, e che se l'attivita' non deve
+      piu' pagare va cambiata anche di piano. L'avviso compare solo sui piani a pagamento.
+      Se un giorno servira' una sospensione che mette davvero in pausa l'addebito, e' un'altra
+      funzione (`pause_collection` su Stripe) e merita la sua voce.
 
 ## Fase 6bis -- Sincronizzazione calendari esterni (deciso con Gabriel il 02/09/2026, non nei 33 punti originali)
 Il calendario del database (`appuntamenti`) resta l'unica fonte di verità (punto 9) -- questa
@@ -2056,11 +2123,12 @@ calendario personale, E bloccare uno slot se l'operatore ha già un impegno pers
       scrittura vera e propria (creare/aggiornare/cancellare l'evento sul calendario esterno
       quando cambia un appuntamento interno) non è ancora stata scritta -- prossimo pezzo di
       questa fase, indipendente da Google/Apple (funziona sull'uno o sull'altro).
-- [ ] Nota sicurezza aperta (vedi commento nella migrazione 0008): oggi sia le credenziali
-      CalDAV sia i token OAuth Google (access/refresh token) sono salvati in chiaro nel
-      database, come altre colonne token già esistenti nel progetto -- da valutare il
-      cifraggio a riposo prima della revisione di sicurezza di Fase 6 (punto 29), non prima di
-      avere clienti paganti reali con dati qui dentro.
+- [x] **Nota sicurezza -- CHIUSA il 18/09/2026.** Era in due pezzi e sono caduti a un giorno
+      di distanza: la cifratura a riposo il 17/09 (`src/lib/cifratura.ts`, AES-256-GCM, applicata
+      su entrambi i percorsi di scrittura) e la lettura il 18/09 con la migrazione 0065, che
+      toglie ogni permesso ad `authenticated` e `anon` sulla tabella. Dettaglio completo e le due
+      code da fare dopo il deploy nella voce gemella di Fase 6. Il commento della migrazione 0008
+      che dice "oggi in chiaro" e' rimasto indietro e va letto come storia, non come stato.
 
 ## Fase 6ter -- Quello che manca per vendere davvero (aggiunta 16/09/2026)
 
