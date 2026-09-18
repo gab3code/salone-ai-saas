@@ -2161,11 +2161,13 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       piano Supabase è attivo e se include il ripristino a un punto nel tempo. Se non lo include,
       un export periodico automatico è meglio di niente.
 
-- [ ] **Separare il database dei test da quello di produzione.** La suite Playwright crea e
-      cancella tenant veri sul database di produzione. Oggi è accettabile (zero clienti reali) ed
-      è anche il motivo per cui quei test sono credibili, visto che non simulano nulla. Dal primo
-      cliente vero non lo è più: un run interrotto ha già lasciato sei tenant orfani il
-      16/09/2026. Serve un secondo progetto Supabase per i test, con le stesse migrazioni.
+- [x] **Separare il database dei test da quello di produzione.** FATTO il 18/09/2026. Progetto
+      Supabase dedicato, ricostruito dalle migrazioni e verificato identico a produzione su
+      schema, policy e permessi. La suite ora si RIFIUTA di partire senza configurazione
+      esplicita (`database-di-prova.ts`, sette test), con un opt-out dichiarato
+      `E2E_CONSENTI_PRODUZIONE=1` per i giri al volo. Dettagli in
+      `docs/database-di-test-separato.md`. La ricostruzione ha anche scoperto che le revoche dei
+      permessi esistevano solo in produzione e in nessun file: migrazione 0049.
 
 - [ ] **Email "la tua prova sta per scadere".** Il trial da 10 giorni su Growth è l'imbuto
       principale, e oggi finisce senza che nessuno dica niente al salone: il primo segnale che
