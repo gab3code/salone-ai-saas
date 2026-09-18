@@ -1,29 +1,38 @@
 import { expect, type Page } from "@playwright/test";
 
 /**
- * Aggiunge un operatore dalla pagina /dashboard/configura.
+ * Aggiunge un operatore dalla pagina /dashboard/configura e aspetta che
+ * compaia davvero nell'elenco.
  *
- * Esiste come helper per un motivo preciso, trovato il 18/09/2026: gli
- * scenari 16 e 17 facevano
+ * Esiste come helper perche' e' il punto in cui gli scenari 13, 16 e 17 si
+ * sono rotti due volte di fila il 18/09/2026, sempre per lo stesso motivo:
+ * un locator ancorato alla POSIZIONE invece che alla STRUTTURA.
  *
- *   page.getByRole("button", { name: "Aggiungi" }).first().click()
+ * La prima volta era il pulsante. `getByRole("button", { name: "Aggiungi"
+ * }).first()`: `name` senza `exact` cerca una sottostringa, quindi il giorno
+ * in cui la sezione "Ferie e chiusure" (che sta PRIMA di "Operatori") ha
+ * guadagnato un pulsante "Aggiungi chiusura", `.first()` ha iniziato a
+ * premere quello. Nessun errore, nessun operatore, solo un'asserzione rossa
+ * venti righe piu' sotto.
  *
- * e hanno smesso di funzionare nel momento in cui la pagina ha guadagnato la
- * sezione "Ferie e chiusure", che sta PRIMA di "Operatori" e ha un pulsante
- * "Aggiungi chiusura". `name` senza `exact` cerca una sottostringa, quindi
- * quel pulsante e' diventato il primo della lista e i due scenari premevano
- * il pulsante sbagliato: nessun errore, nessun operatore, solo
- * un'asserzione rossa venti righe piu' sotto.
+ * La seconda volta era l'attesa. `getByText(nome).first()` trova cinque
+ * elementi -- l'`<option>` dentro il menu "Chi", la riga dell'elenco, il
+ * riassunto "Orari di <nome>", la frase che lo nomina e il pulsante "Salva
+ * orari di <nome>" -- e il primo in ordine di DOM e' l'`<option>`, che
+ * Playwright considera sempre nascosto. Il test aspettava quindici secondi
+ * che diventasse visibile una cosa che per definizione non lo e'.
  *
- * La lezione, e il motivo per cui questo helper e' l'unico posto in cui si
- * aggiunge un operatore: un locator ancorato alla POSIZIONE ("il primo
- * pulsante che si chiama cosi'") e' una scommessa sull'ordine del DOM, e
- * l'ordine del DOM cambia ogni volta che si aggiunge una sezione. Un locator
- * ancorato alla STRUTTURA (il form che contiene #nome_operatore) sopravvive.
+ * Qui si aspetta la riga dell'elenco operatori, presa per struttura: il
+ * `<li>` dentro la sezione che contiene il form di inserimento. Non dipende
+ * dall'ordine delle sezioni, ne' da quante altre volte il nome compare
+ * altrove nella pagina.
  */
 export async function aggiungiOperatore(page: Page, nome: string): Promise<void> {
+  const sezione = page.locator("section", { has: page.locator("#nome_operatore") });
   const form = page.locator("form", { has: page.locator("#nome_operatore") });
   await form.locator("#nome_operatore").fill(nome);
   await form.getByRole("button", { name: "Aggiungi", exact: true }).click();
-  await expect(page.getByText(nome).first()).toBeVisible({ timeout: 15_000 });
+  await expect(sezione.locator("li").filter({ hasText: nome }).first()).toBeVisible({
+    timeout: 15_000,
+  });
 }

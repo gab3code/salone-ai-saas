@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { creaTenantDiProva, type TenantDiProva } from "./helpers/tenant-di-prova";
 import { creaClientAdminTest } from "./helpers/supabase-admin";
 import { accediComeTitolare } from "./helpers/login";
+import { aggiungiOperatore } from "./helpers/configura";
 
 /**
  * Scenario 13 (punto 27 di CLAUDE.md): una nuova attività si registra e
@@ -121,10 +122,11 @@ test.describe("Scenario 13 -- nuova attività si registra e completa l'onboardin
       await page.getByRole("button", { name: "Salva orari" }).click();
       await expect(page.locator('input[name="chiuso_1"]')).not.toBeChecked();
 
-      const formOperatore = page.locator("form", { has: page.locator("#nome_operatore") });
-      await formOperatore.locator("#nome_operatore").fill("Marta Rossi");
-      await formOperatore.getByRole("button", { name: "Aggiungi" }).click();
-      await expect(page.getByText("Marta Rossi")).toBeVisible();
+      // Via l'helper e non a mano: `getByText("Marta Rossi")` da solo trova
+      // cinque elementi (l'<option> del menu "Chi", la riga dell'elenco, il
+      // riassunto "Orari di Marta Rossi", la frase che la nomina e il
+      // pulsante "Salva orari di Marta Rossi") e fa fallire lo strict mode.
+      await aggiungiOperatore(page, "Marta Rossi");
 
       const formServizio = page.locator("form", { has: page.locator("#nome_servizio") });
       await formServizio.locator("#nome_servizio").fill("Manicure");
