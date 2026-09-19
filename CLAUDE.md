@@ -1188,6 +1188,42 @@ va rivisto quello che stava supplendo. Col costo misurato ($0,0079 a messaggio) 
 messaggi valgono 12 centesimi di dollaro contro una prenotazione da 30-60 euro: il conto non era
 nemmeno vicino.
 
+
+## 27octovicies-bis. Un esempio nel prompt e' codice: se la rete non lo riconosce, l'hai insegnata a bucare (19/09/2026)
+
+Provando io stesso la chat, come mi aveva chiesto Gabriel:
+
+    cliente:     Marco Rossi 3331234567
+    assistente:  Tutto fatto 🎉 Ci vediamo mercoledi' 23 settembre alle 16:00
+                 per la pedicure!
+
+Nel database: **niente**. Nessuno strumento chiamato in quel turno, nessun appuntamento. E la
+rete anti-bugia -- quella costruita apposta, con dentro undici modi di dire "ho prenotato" -- non
+ha fiatato.
+
+Il motivo e' la parte che vale la pena ricordare: **quella frase l'avevo scritta io tre ore
+prima**, come esempio del tono "informale con emoji". Cercando di far suonare meglio
+l'assistente gli ho insegnato un modo di annunciare una prenotazione che il mio stesso controllo
+non riconosce. Due file scritti dalla stessa mano nella stessa notte avevano gia' smesso di
+parlarsi.
+
+**Un esempio in un prompt non e' testo, e' comportamento.** Ogni frase di esempio che il modello
+imitera' va trattata come codice: se ne aggiungi una che dichiara un'azione, il controllo che
+verifica quelle dichiarazioni deve riconoscerla, e la verifica non puo' dipendere da chi si
+ricorda di farla.
+
+Quindi gli esempi non sono piu' stringhe sparse: sono un oggetto (`ESEMPI_TONO` in agente.ts) con
+un campo `conferma` per tono, e `esempi-tono.test.ts` passa ognuno per `azioniDichiarate` e
+fallisce se la rete non lo vede -- piu' il controllo opposto, che nessun altro esempio ("Che
+giorno ti va bene?") venga scambiato per una dichiarazione. Stesso meccanismo di
+STRUMENTI_CHE_CAMBIANO_QUALCOSA: **una regola scritta in un documento e' un promemoria, una
+regola scritta in un test e' un vincolo.**
+
+Coda, sul metodo: questo difetto non l'ha trovato nessun test e nessuna rilettura. L'ha trovato
+una conversazione vera di cinque messaggi, fatta guardando il database accanto. Gabriel lo chiede
+da due giorni ("provala tu stesso prima di farmi fare il push"), e ogni volta che l'ho fatto e'
+uscito qualcosa che leggendo il codice non si vedeva.
+
 ## 27duodetricies. Ogni trasformazione che chiedi al modello e' un posto dove puo' sbagliare (19/09/2026)
 
 `verifica_disponibilita` restituiva quaranta slot come timestamp ISO. Nessuno ne mostra quaranta

@@ -414,21 +414,54 @@ describe("le bugie vere dell'assistente, rigiocate", () => {
    * usarne nessuna. Quella meta' smette di dipendere dal modello.
    */
   it("con uno stile senza emoji, un'emoji del modello non arriva al cliente", async () => {
-    const create = vi.fn().mockResolvedValue(testoFinale("Tutto fatto 🎉 Ci vediamo martedì!"));
+    // Frase senza nessuna dichiarazione di prenotazione: altrimenti scatta
+    // (giustamente) la rete anti-bugia e non si sta piu' misurando l'emoji.
+    const create = vi.fn().mockResolvedValue(testoFinale("Ottimo, a presto! 🎉"));
     const risultato = await rispondiConversazione([], "ok", { ...contesto(), tonoAi: "amichevole" }, {
       messages: { create },
     } as ClienteAnthropic);
 
-    expect(risultato.rispostaTesto).toBe("Tutto fatto Ci vediamo martedì!");
+    expect(risultato.rispostaTesto).toBe("Ottimo, a presto!");
   });
 
   it("con lo stile informale le emoji restano", async () => {
-    const create = vi.fn().mockResolvedValue(testoFinale("Tutto fatto 🎉 Ci vediamo martedì!"));
+    const create = vi.fn().mockResolvedValue(testoFinale("Ottimo, a presto! 🎉"));
     const risultato = await rispondiConversazione([], "ok", { ...contesto(), tonoAi: "informale_con_emoji" }, {
       messages: { create },
     } as ClienteAnthropic);
 
     expect(risultato.rispostaTesto).toContain("🎉");
+  });
+
+
+  /**
+   * LA BUGIA TROVATA PROVANDO LA CHAT IO STESSO, 19/09/2026 03:09.
+   *
+   *   cliente:     Marco Rossi 3331234567
+   *   assistente:  Tutto fatto 🎉 Ci vediamo mercoledì 23 settembre alle 16:00
+   *                per la pedicure!
+   *
+   * Nel database: nessun appuntamento. Nessuno strumento chiamato in quel
+   * turno. La rete non ha visto la dichiarazione perche' la frase era mia --
+   * l'avevo scritta tre ore prima come esempio del tono.
+   */
+  it("BUGIA 7 -- 'Tutto fatto, ci vediamo mercoledi'' senza aver prenotato niente", async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValue(
+        testoFinale("Tutto fatto 🎉 Ci vediamo mercoledì 23 settembre alle 16:00 per la pedicure!")
+      );
+
+    const risultato = await rispondiConversazione(
+      [{ ruolo: "cliente", contenuto: "pedicure mercoledì alle 16" }],
+      "Marco Rossi 3331234567",
+      { ...contesto(), tonoAi: "informale_con_emoji" },
+      { messages: { create } } as ClienteAnthropic
+    );
+
+    expect(risultato.rispostaTesto).not.toMatch(/tutto fatto/i);
+    expect(risultato.rispostaTesto).not.toMatch(/ci vediamo/i);
+    expect(risultato.rispostaTesto).toMatch(/non risulta nessun appuntamento/i);
   });
 
 });

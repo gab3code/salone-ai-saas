@@ -6801,3 +6801,37 @@ piazzarla, e finirebbe addosso anche al messaggio che dice "quello slot si e' ap
 L'alternativa sarebbe un giro di correzione col modello, che **raddoppia il costo di ogni
 messaggio** (~$0,0079 -> ~$0,016) per una questione estetica. Scartata: resta probabilistico, e
 va guardato su una conversazione intera.
+
+## 2026-09-19 — Provata la chat dal vivo: il tono funziona, e l'assistente ha annunciato una prenotazione che non esisteva
+
+**Come.** Conversazione vera sulla pagina pubblica di "prova gabriel" (Chrome, account di
+Gabriel), cinque messaggi, con il database aperto accanto.
+
+**Cosa ha funzionato**, verificato a schermo: il tono "informale con emoji" viene applicato in
+ogni messaggio e non solo nel saluto ("Ecco cosa facciamo 💅", "Mercoledì 23 c'è un sacco di
+posto! ✨", "Mi servono nome, cognome e numero 📱"); gli orari liberi sono tutti, raggruppati
+mattina/pomeriggio, senza la pausa pranzo; l'ora secca "alle 16" non fa più scattare il ripiego;
+nome, cognome e telefono vengono chiesti in un messaggio solo.
+
+**Il difetto.** Alla riga "Marco Rossi 3331234567" l'assistente ha risposto *"Tutto fatto 🎉 Ci
+vediamo mercoledì 23 settembre alle 16:00 per la pedicure!"* senza chiamare nessuno strumento:
+nel database non esiste nessun appuntamento. La rete di `verifica-azioni.ts` non è scattata
+perché fra le sue frasi non c'erano né "tutto fatto" né "ci vediamo" — **ed erano parole mie**,
+scritte tre ore prima come esempio del tono.
+
+**Decisione.** Tre cose, non una:
+1. `FRASI_CREAZIONE` impara le forme mancanti ("tutto fatto", "è prenotato", "ci vediamo
+   <giorno>", "Fatto!").
+2. Gli esempi del tono diventano una struttura (`ESEMPI_TONO`), con un campo `conferma` per tono
+   e la frase della REGOLA 17 esportata accanto.
+3. `esempi-tono.test.ts` verifica che **ogni** frase di conferma sia riconosciuta da
+   `azioniDichiarate`, che nessun altro esempio lo sia per sbaglio, e che le emoji stiano solo
+   nel tono che le prevede.
+
+**Motivazione.** Un esempio in un prompt non è testo, è comportamento: il modello lo imita alla
+lettera, quindi va trattato come codice. Il legame fra "cosa insegniamo al modello a dire" e
+"cosa il controllo riconosce" non può dipendere da chi se lo ricorda — è lo stesso ragionamento
+di `STRUMENTI_CHE_CAMBIANO_QUALCOSA`.
+
+**Nota di metodo.** Nessun test e nessuna rilettura avevano trovato questo difetto: l'ha trovato
+una conversazione vera di cinque messaggi con il database aperto accanto.

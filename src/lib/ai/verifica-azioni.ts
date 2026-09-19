@@ -107,6 +107,16 @@ const FRASI_CREAZIONE: RegExp[] = [
   // messaggio con la frase prudente rischierebbe di rispondere di
   // prenotazioni a chi stava chiedendo un prezzo.
   /\b(?:te\s+la\s+|ti\s+)?confermo\s+(?:l['’]appuntamento|la\s+(?:tua\s+)?prenotazione|il\s+(?:tuo\s+)?posto|il\s+tuo\s+appuntamento)/i,
+  // 19/09/2026, TROVATE PROVANDO LA CHAT VERA. L'assistente ha scritto "Tutto
+  // fatto 🎉 Ci vediamo mercoledi' 23 settembre alle 16:00 per la pedicure!" e
+  // nel database non c'era niente: nessuna delle frasi qui sopra la copriva.
+  // Era una frase che avevo scritto io tre ore prima come esempio del tono --
+  // vedi il commento su `EsempiTono.conferma` in agente.ts e il test che adesso
+  // impedisce che accada di nuovo.
+  /\btutto\s+fatto\b/i,
+  /\b(?:e'|è)\s+prenotat[oa]\b/i,
+  /\bci\s+vediamo\s+(?:luned|marted|mercoled|gioved|venerd|sabato|domenica|il\s|lo\s|l['’])/i,
+  /^\s*fatto\s*[!.]/i,
 ];
 
 const FRASI_MODIFICA: RegExp[] = [
