@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
+import { costruisciIcs } from "./ics";
 import { inviaEmail } from "./mailjet.server";
 import { inviaSmsSeInclusoNelPiano } from "@/lib/sms/invio.server";
 import {
@@ -129,7 +130,7 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
         // Stringa unica e letterale, mai concatenata: Supabase deduce i tipi
         // del risultato dal testo del `select`, e una concatenazione glielo
         // rende opaco (il risultato diventa `GenericStringError`).
-        .select("inizio, note, clienti(nome, email, telefono), servizi(nome), operatori(nome), tenants(nome, piano, notifica_titolare_nuova_prenotazione, conferma_cliente_canale)")
+        .select("inizio, fine, note, clienti(nome, email, telefono), servizi(nome), operatori(nome), tenants(nome, piano, indirizzo, notifica_titolare_nuova_prenotazione, conferma_cliente_canale)")
         .eq("id", appuntamentoId)
         .eq("tenant_id", tenantId)
         .single(),
@@ -147,6 +148,7 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
     const tenant = uno<{
       nome: string;
       piano: string;
+      indirizzo: string | null;
       notifica_titolare_nuova_prenotazione: boolean | null;
       conferma_cliente_canale: string | null;
     }>(appuntamento.tenants);
@@ -205,6 +207,33 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
         ? `<p><a href="${base}/gestisci/${appuntamentoId}">Gestisci o cancella la prenotazione</a></p>`
         : "";
 
+      // L'evento da aggiungere al calendario del telefono (vedi ics.ts): la
+      // difesa anti no-show che non costa niente. `fine` puo' mancare solo su
+      // righe vecchie malformate: in quel caso niente allegato, mai un evento
+      // senza fine.
+      const fineReale = appuntamento.fine ? new Date(appuntamento.fine) : null;
+      const allegati =
+        fineReale && Number.isFinite(fineReale.getTime())
+          ? [
+              {
+                nome: "appuntamento.ics",
+                tipo: "text/calendar",
+                contenuto: costruisciIcs({
+                  uid: `${appuntamentoId}@salone-ai`,
+                  inizio: new Date(appuntamento.inizio),
+                  fine: fineReale,
+                  titolo: `${nomeServizio} da ${nomeTenant}`,
+                  descrizione: [nomeOperatore ? `Con ${nomeOperatore}.` : null, base ? `Gestisci: ${base}/gestisci/${appuntamentoId}` : null]
+                    .filter(Boolean)
+                    .join("\n"),
+                  luogo: tenant?.indirizzo ?? undefined,
+                  url: base ? `${base}/gestisci/${appuntamentoId}` : undefined,
+                  generatoIl: new Date(),
+                }),
+              },
+            ]
+          : undefined;
+
       await inviaEmail({
         a: cliente.email,
         oggetto: `Prenotazione confermata - ${nomeTenant}`,
@@ -215,8 +244,10 @@ export async function inviaNotificheNuovoAppuntamento(tenantId: string, appuntam
           <p>Servizio: ${escapeHtml(nomeServizio)}</p>
           ${rigaOperatore}
           <p>Quando: ${quando}</p>
+          ${allegati ? "<p>In allegato trovi l&apos;appuntamento da aggiungere al calendario del telefono.</p>" : ""}
           ${rigaGestisci}
         `,
+        allegati,
       });
     }
 

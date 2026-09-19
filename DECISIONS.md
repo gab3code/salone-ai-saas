@@ -6933,3 +6933,21 @@ sono uno script. Un picco dopo un post social arriva da indirizzi diversi e non 
 venti prenotazioni ciascuno passa. Lo fermano il tetto per tenant e il fatto che ogni salone
 vede le proprie. Scelta in autonomia con numeri larghi: se Gabriel preferisce altri numeri,
 sono due costanti in `limiti-ip.ts`.
+
+## 2026-09-19 (notte) — L'evento .ics nella conferma al cliente, e perché NON l'assistente multilingua
+
+**Decisione.** L'email di conferma al cliente porta in allegato `appuntamento.ics` (RFC 5545,
+UTC con la Z, UID stabile per appuntamento, luogo = indirizzo del salone, link "gestisci" nella
+descrizione). Un tocco e l'appuntamento sta nel calendario del telefono con la notifica di
+sistema: la difesa anti no-show che non costa niente e non passa da nessun provider. Il
+titolare non riceve l'allegato — l'agenda ce l'ha nel prodotto. `src/lib/email/ics.ts`, 5 test
++ 2 sulle notifiche; `inviaEmail` accetta allegati.
+
+**Scartato, e il motivo vale più della funzione: l'assistente che risponde nella lingua del
+cliente.** Era nella lista dei consigli ("una riga nel prompt"). Costruendola è emerso che tutte
+le reti anti-bugia sono in italiano: `FRASI_CREAZIONE` riconosce "ho prenotato", non "your
+appointment is booked"; i giorni della settimana verificati sono quelli italiani. Un assistente
+che risponde in inglese aggirerebbe le reti proprio sulle frasi più pericolose. Si fa solo
+estendendo prima i controlli alle lingue ammesse, con i loro test — non è una riga nel prompt,
+ed è l'argomento più forte trovato stanotte per tenere quelle frasi come dati, non come regex
+sparse.

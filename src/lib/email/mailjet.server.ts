@@ -41,6 +41,8 @@ export interface ParametriEmail {
    * ricadono sul nome della piattaforma.
    */
   nomeMittente?: string;
+  /** Allegati, es. l'evento .ics della conferma (19/09/2026). Contenuto gia' in testo: si codifica qui. */
+  allegati?: { nome: string; tipo: string; contenuto: string }[];
 }
 
 /**
@@ -62,7 +64,7 @@ export interface ParametriEmail {
  * errore "Unauthorized sender" -- gestito comunque qui sotto come un
  * semplice `false`, mai un'eccezione che risale al chiamante.
  */
-export async function inviaEmail({ a, oggetto, html, nomeMittente }: ParametriEmail): Promise<boolean> {
+export async function inviaEmail({ a, oggetto, html, nomeMittente, allegati }: ParametriEmail): Promise<boolean> {
   const client = creaClientMailjet();
   if (!client) {
     console.warn(`[email] MJ_APIKEY_PUBLIC/MJ_APIKEY_PRIVATE non configurate: email a ${a} non inviata.`);
@@ -83,6 +85,15 @@ export async function inviaEmail({ a, oggetto, html, nomeMittente }: ParametriEm
           To: [{ Email: a }],
           Subject: oggetto,
           HTMLPart: html,
+          ...(allegati && allegati.length > 0
+            ? {
+                Attachments: allegati.map((al) => ({
+                  ContentType: al.tipo,
+                  Filename: al.nome,
+                  Base64Content: Buffer.from(al.contenuto, "utf8").toString("base64"),
+                })),
+              }
+            : {}),
         },
       ],
     } satisfies SendEmailV3_1.Body);

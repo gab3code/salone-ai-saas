@@ -18,6 +18,7 @@ const TENANT_ID = "tenant-1";
 const APPUNTAMENTO_ID = "app-1";
 const RIGA_APPUNTAMENTO_BASE = {
   inizio: "2026-07-15T14:00:00.000Z", // 16:00 civile Roma (CEST, UTC+2)
+  fine: null as string | null,
   note: null,
   clienti: { nome: "Giulia Bianchi", email: null as string | null, telefono: "+393331234567" as string | null },
   servizi: { nome: "Taglio" },
@@ -150,6 +151,44 @@ describe("inviaNotificheNuovoAppuntamento", () => {
     expect(inviaEmailFinto).toHaveBeenCalledTimes(2);
     expect(inviaEmailFinto).toHaveBeenCalledWith(expect.objectContaining({ a: "titolare@esempio.it" }));
     expect(inviaEmailFinto).toHaveBeenCalledWith(expect.objectContaining({ a: "giulia@esempio.it" }));
+  });
+
+  it("allega l'evento .ics alla conferma del cliente quando l'appuntamento ha una fine (19/09/2026)", async () => {
+    creaClientAdminFinto.mockReturnValue(
+      creaAdminFinto({
+        appuntamento: {
+          ...RIGA_APPUNTAMENTO_BASE,
+          fine: "2026-07-15T14:30:00.000Z",
+          clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it", telefono: null },
+        },
+      })
+    );
+
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
+
+    const alCliente = inviaEmailFinto.mock.calls.map((c) => c[0]).find((p) => p.a === "giulia@esempio.it");
+    expect(alCliente?.allegati).toHaveLength(1);
+    expect(alCliente?.allegati?.[0]).toMatchObject({ nome: "appuntamento.ics", tipo: "text/calendar" });
+    expect(alCliente?.allegati?.[0].contenuto).toContain("DTSTART:20260715T140000Z");
+    expect(alCliente?.allegati?.[0].contenuto).toContain("DTEND:20260715T143000Z");
+    expect(alCliente?.allegati?.[0].contenuto).toContain(`UID:${APPUNTAMENTO_ID}@salone-ai`);
+    // Il titolare non riceve l'allegato: l'agenda ce l'ha gia' nel prodotto.
+    const alTitolare = inviaEmailFinto.mock.calls.map((c) => c[0]).find((p) => p.a === "titolare@esempio.it");
+    expect(alTitolare?.allegati).toBeUndefined();
+  });
+
+  it("senza una fine valida la conferma parte lo stesso, senza allegato", async () => {
+    creaClientAdminFinto.mockReturnValue(
+      creaAdminFinto({
+        appuntamento: { ...RIGA_APPUNTAMENTO_BASE, clienti: { nome: "Giulia Bianchi", email: "giulia@esempio.it", telefono: null } },
+      })
+    );
+
+    await inviaNotificheNuovoAppuntamento(TENANT_ID, APPUNTAMENTO_ID);
+
+    const alCliente = inviaEmailFinto.mock.calls.map((c) => c[0]).find((p) => p.a === "giulia@esempio.it");
+    expect(alCliente).toBeDefined();
+    expect(alCliente?.allegati).toBeUndefined();
   });
 
   it("fail-open: se non esiste nessun profilo owner per il tenant, salta solo l'email del titolare (il cliente la riceve comunque)", async () => {
