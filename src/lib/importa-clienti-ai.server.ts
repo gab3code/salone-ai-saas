@@ -1,6 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { registraUsoApi } from "@/lib/ai/costi.server";
+import { LISTINO_SONNET_4_5 } from "@/lib/ai/costi";
 import { telefonoUtilizzabile, type ClienteImportato } from "@/lib/importa-clienti";
 
 /**
@@ -28,6 +29,15 @@ import { telefonoUtilizzabile, type ClienteImportato } from "@/lib/importa-clien
  */
 
 const MODELLO = "claude-haiku-4-5-20251001"; // stessa scelta di src/lib/ai/agente.ts
+/**
+ * La seconda lettura della foto la fa un modello DIVERSO. Al secondo collaudo
+ * (19/09/2026) Haiku aveva letto "349" al posto di un "347" scritto chiaro,
+ * due volte su due, con due compiti diversi: lo stesso modello sbaglia lo
+ * stesso glifo nello stesso modo, e una doppia lettura con lo stesso occhio
+ * non e' indipendente. Sonnet costa tre volte tanto sull'immagine (~$0,009
+ * a pagina), e per questo si usa solo qui, dove l'errore e' un cliente perso.
+ */
+const MODELLO_SECONDA_LETTURA = "claude-sonnet-4-5-20250929";
 export const MAX_RIGHE_PER_RECUPERO = 60;
 
 /** Lo stesso contratto minimo dell'onboarding: nei test si passa un finto. */
@@ -204,20 +214,21 @@ function pulisci(valore: unknown, max: number): string | null {
  *
  *  4. (19/09/2026, dopo il primo collaudo dal vivo) la foto si legge DUE
  *     volte, con due compiti diversi -- trascrivi le voci / elenca solo i
- *     numeri cifra per cifra -- e un numero si propone solo se le due
- *     letture coincidono. Al primo collaudo il modello aveva letto "349"
- *     dove c'era scritto "347", con sicurezza: trascrizione e proposta
- *     concordavano, la rete 3 era passata, e il titolare avrebbe dovuto
- *     accorgersene da solo confrontando dieci cifre. Due letture
- *     indipendenti che sbagliano la stessa cifra nello stesso modo sono
- *     molto meno probabili di una; non impossibili, e va detto.
+ *     numeri cifra per cifra -- e DUE MODELLI diversi (Haiku, poi Sonnet):
+ *     un numero si propone solo se le due letture coincidono. Al primo
+ *     collaudo Haiku aveva letto "349" dove c'era scritto "347", con
+ *     sicurezza; al secondo, con la doppia lettura fatta ancora da Haiku,
+ *     l'ha riletto "349" anche la seconda volta. Lo stesso occhio sbaglia
+ *     lo stesso glifo nello stesso modo: la seconda lettura e' indipendente
+ *     solo se la fa un altro modello. Due modelli che sbagliano la stessa
+ *     cifra nello stesso modo restano possibili, e va detto.
  *
  * Costo: due chiamate per foto, con l'immagine (ridotta dal browser a 1568
- * px sul lato lungo: e' il massimo che il modello usa, oltre butta via
- * pixel e basta), registrate come "import_clienti". Misurato al primo
- * collaudo: ~$0,007 per una pagina da dieci voci con una lettura sola; la
- * seconda aggiunge l'immagine in input e poche cifre in output, ~$0,003.
- * La quota e' la stessa delle righe non capite: una foto = un uso.
+ * px sul lato lungo: e' il massimo che i modelli usano, oltre butta via
+ * pixel e basta), registrate come "import_clienti". Misurato: ~$0,007 per
+ * una pagina da dieci voci con Haiku; la seconda lettura con Sonnet
+ * aggiunge ~$0,009 (immagine a $3/M, poche cifre in output). ~$0,016 a
+ * pagina. La quota e' la stessa delle righe non capite: una foto = un uso.
  */
 
 export const TIPI_IMMAGINE_IMPORT = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
@@ -271,7 +282,7 @@ async function rileggiNumeriEdEmail(
   let risposta: Anthropic.Message;
   try {
     risposta = await client.messages.create({
-      model: MODELLO,
+      model: MODELLO_SECONDA_LETTURA,
       max_tokens: 2048,
       system: ISTRUZIONI_RILETTURA,
       messages: [
@@ -306,7 +317,8 @@ async function rileggiNumeriEdEmail(
   registraUsoApi({
     tenantId: opzioni.tenantId,
     canale: "import_clienti",
-    modello: MODELLO,
+    modello: MODELLO_SECONDA_LETTURA,
+    listino: LISTINO_SONNET_4_5,
     usage: (risposta as { usage?: unknown }).usage,
   });
   const blocco = risposta.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");

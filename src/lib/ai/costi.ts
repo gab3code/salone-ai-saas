@@ -62,6 +62,19 @@ export const LISTINO_HAIKU_4_5: ListinoModello = {
   letturaCache: 0.1,
 };
 
+/**
+ * Sonnet 4.5: usato solo per la seconda lettura delle foto dell'import
+ * (19/09/2026), dove serve un occhio DIVERSO da Haiku, non un secondo giro
+ * dello stesso. Prezzi dal listino Anthropic del 19/09/2026.
+ */
+export const LISTINO_SONNET_4_5: ListinoModello = {
+  nome: "sonnet-4.5@2026-09-19",
+  input: 3.0,
+  output: 15.0,
+  scritturaCache: 3.75,
+  letturaCache: 0.3,
+};
+
 /** I quattro numeri che l'API restituisce in `usage`. */
 export interface UsoToken {
   input: number;

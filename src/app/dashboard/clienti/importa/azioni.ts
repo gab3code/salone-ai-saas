@@ -21,6 +21,7 @@ import { leggiTestoImport } from "@/lib/importa-vcard";
 import {
   calcolaDiffImport,
   campiDaCompletare,
+  telefonoCanonico,
   telefonoUtilizzabile,
   type DiffImport,
   type RigaImport,
@@ -234,14 +235,30 @@ export async function applicaImportAzione(
 
   // Non ci si fida di quello che torna dal browser: si ricontrolla che ogni
   // riga abbia un numero utilizzabile e si scartano quelle che dicono di
-  // corrispondere a un cliente gia' esistente.
+  // corrispondere a un cliente gia' esistente. E siccome la bozza e'
+  // modificabile (un numero corretto a mano puo' diventare quello di un
+  // cliente che c'e' gia'), il confronto con la rubrica si RIFA' qui, sulla
+  // forma canonica: il vincolo UNIQUE del database vede solo le stringhe
+  // identiche, "333 123 4567" e "3331234567" per lui sono due clienti.
+  const esistenti = await elencaClienti(accesso.tenantId, { perExport: true });
+  if (esistenti.errore) {
+    return { ok: false, errore: `Non riesco a leggere la rubrica attuale: ${esistenti.errore}` };
+  }
+  const giaInRubrica = new Set(esistenti.clienti.map((c) => telefonoCanonico(c.telefono)).filter((k) => k !== ""));
+  const vistiOra = new Set<string>();
   const daCreare = righe
     .filter((r) => !r.esistenteId && telefonoUtilizzabile(r.telefono))
+    .filter((r) => {
+      const chiave = telefonoCanonico(r.telefono);
+      if (giaInRubrica.has(chiave) || vistiOra.has(chiave)) return false;
+      vistiOra.add(chiave);
+      return true;
+    })
     .map((r) => ({
-      nome: r.nome?.trim() || null,
-      telefono: r.telefono.trim(),
-      email: r.email?.trim() || null,
-      note: r.note?.trim() || null,
+      nome: r.nome?.trim().slice(0, 200) || null,
+      telefono: r.telefono.trim().slice(0, 40),
+      email: r.email?.trim().slice(0, 200) || null,
+      note: r.note?.trim().slice(0, 500) || null,
     }));
 
   // I completamenti: SOLO clienti gia' presenti, SOLO i campi vuoti. Il

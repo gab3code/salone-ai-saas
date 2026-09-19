@@ -7040,3 +7040,24 @@ mensile sugli altri come ora. Non la cambio io: le quote sono fra i limiti inval
 **Più foto in un giro.** Fino a 10 per volta, lette in sequenza con "foto 2 di 5", stesso
 numero su due pagine tenuto una volta, se una fallisce (quota, rete) si mostrano le pagine già
 lette con l'errore. Non è un problema di costo, è di attesa: dieci pagine sono ~2 minuti.
+
+## 2026-09-19 (primo pomeriggio) — La doppia lettura con lo stesso occhio non è doppia; la bozza si corregge a mano
+
+**Secondo collaudo, dopo il deploy della doppia lettura.** Tre foto in un giro: 24 voci lette,
+le due incerte escluse, l'email "georgia" lasciata vuota come previsto. Ma **"347" è stato letto
+"349" anche la seconda volta**, con il compito diverso ("elenca solo i numeri cifra per cifra").
+Il crop della foto è inequivocabile per un occhio umano. Conclusione: lo stesso modello sbaglia
+lo stesso glifo nello stesso modo, e due letture con lo stesso modello non sono indipendenti.
+
+**Correzione: la seconda lettura la fa Sonnet 4.5**, non Haiku. Costa tre volte tanto
+sull'immagine (~$0,009 a pagina contro $0,003), quindi ~$0,016 a pagina in tutto. Si usa solo
+qui, perché qui l'errore è un cliente perso. Da verificare al prossimo deploy se Sonnet legge
+"347": se lo sbaglia anche lui, la rete resta la trascrizione accanto alla proposta e la bozza
+modificabile — e va detto a chiare lettere nel copy che la foto scritta a mano va ricontrollata.
+`LISTINO_SONNET_4_5` in costi.ts, registrato con il suo listino.
+
+**La bozza è tutta modificabile** (richiesta di Gabriel): nome, numero, email e note su ogni
+riga nuova, nome/email sui completamenti, "spunta tutti / nessuno". Il server ricontrolla ogni
+riga come se arrivasse da zero, e rifà il confronto con la rubrica sulla forma canonica alla
+scrittura, non solo all'analisi: un numero corretto a mano può diventare quello di un cliente
+che c'è già, e il vincolo UNIQUE del database vede solo le stringhe identiche.

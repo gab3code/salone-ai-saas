@@ -4,7 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { analizzaImportAzione, applicaImportAzione, leggiFotoAzione, recuperaRigheNonCapiteAzione } from "./azioni";
-import { haQualcosaDaCompletare, telefonoCanonico, type DiffImport, type RigaImport } from "@/lib/importa-clienti";
+import {
+  haQualcosaDaCompletare,
+  telefonoCanonico,
+  telefonoUtilizzabile,
+  type DiffImport,
+  type RigaImport,
+} from "@/lib/importa-clienti";
 import type { VoceNonLetta } from "@/lib/importa-clienti-ai.server";
 import { preparaFotoPerImport, type FotoPronta } from "./foto";
 
@@ -197,6 +203,21 @@ export function PannelloImport() {
     setTesto(await file[0].text());
   }
 
+  /**
+   * La bozza e' tutta modificabile (richiesta di Gabriel, 19/09/2026): un
+   * numero letto male dalla foto si corregge qui, guardando la trascrizione,
+   * invece di importarlo sbagliato e sistemarlo dopo dalla scheda. Il server
+   * ricontrolla comunque ogni riga come se arrivasse da zero.
+   */
+  function modificaNuovo(i: number, campo: "nome" | "telefono" | "email" | "note", valore: string) {
+    if (!diff) return;
+    setDiff({ ...diff, nuovi: diff.nuovi.map((r, j) => (j === i ? { ...r, [campo]: valore === "" ? null : valore } : r)) });
+  }
+  function modificaGiaPresente(i: number, campo: "nome" | "email", valore: string) {
+    if (!diff) return;
+    setDiff({ ...diff, giaPresenti: diff.giaPresenti.map((r, j) => (j === i ? { ...r, [campo]: valore === "" ? null : valore } : r)) });
+  }
+
   const quantiScelti = scelti.filter(Boolean).length;
   const quantiCompletamenti = completaScelti.filter(Boolean).length;
   const quantiTotali = quantiScelti + quantiCompletamenti;
@@ -306,34 +327,86 @@ export function PannelloImport() {
         <div className="flex flex-col gap-5">
           {diff.nuovi.length > 0 ? (
             <section>
-              <h2 className="text-sm font-medium">
-                {diff.nuovi.length === 1 ? "1 cliente nuovo" : `${diff.nuovi.length} clienti nuovi`}
-              </h2>
+              <div className="flex flex-wrap items-baseline gap-3">
+                <h2 className="text-sm font-medium">
+                  {diff.nuovi.length === 1 ? "1 cliente nuovo" : `${diff.nuovi.length} clienti nuovi`}
+                </h2>
+                {diff.nuovi.length > 1 && (
+                  <span className="text-xs text-zinc-500">
+                    <button type="button" className="underline" onClick={() => setScelti(diff.nuovi.map(() => true))}>
+                      spunta tutti
+                    </button>
+                    {" · "}
+                    <button type="button" className="underline" onClick={() => setScelti(diff.nuovi.map(() => false))}>
+                      nessuno
+                    </button>
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-zinc-500">
+                Puoi correggere nome, numero, email e note prima di importare: quello che scrivi qui è quello
+                che entra in rubrica.
+              </p>
               <ul className="mt-2 flex flex-col gap-1 text-sm">
-                {diff.nuovi.map((riga, i) => (
-                  <li key={`${riga.telefono}-${i}`}>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={scelti[i] ?? false}
-                        onChange={(e) =>
-                          setScelti(scelti.map((v, j) => (j === i ? e.target.checked : v)))
-                        }
-                      />
-                      <span className="font-medium">{riga.nome ?? "(senza nome)"}</span>
-                      <span className="text-zinc-500">{riga.telefono}</span>
-                      {riga.email && <span className="text-xs text-zinc-400">{riga.email}</span>}
-                      {riga.propostoDallAi && (
-                        <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-600">
-                          letto dall&apos;assistente
-                        </span>
-                      )}
+                {diff.nuovi.map((riga, i) => {
+                  const numeroOk = telefonoUtilizzabile(riga.telefono);
+                  return (
+                    <li key={i} className="flex flex-col gap-1 rounded-lg border border-zinc-200 px-2 py-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="checkbox"
+                          aria-label={`Importa ${riga.nome ?? riga.telefono}`}
+                          checked={(scelti[i] ?? false) && numeroOk}
+                          disabled={!numeroOk}
+                          onChange={(e) => setScelti(scelti.map((v, j) => (j === i ? e.target.checked : v)))}
+                        />
+                        <input
+                          type="text"
+                          value={riga.nome ?? ""}
+                          placeholder="Nome"
+                          aria-label="Nome"
+                          onChange={(e) => modificaNuovo(i, "nome", e.target.value)}
+                          className="w-40 rounded border border-zinc-300 px-2 py-1 text-sm"
+                        />
+                        <input
+                          type="tel"
+                          value={riga.telefono}
+                          placeholder="Telefono"
+                          aria-label="Telefono"
+                          onChange={(e) => modificaNuovo(i, "telefono", e.target.value)}
+                          className={`w-36 rounded border px-2 py-1 font-mono text-sm ${numeroOk ? "border-zinc-300" : "border-red-400"}`}
+                        />
+                        <input
+                          type="email"
+                          value={riga.email ?? ""}
+                          placeholder="Email"
+                          aria-label="Email"
+                          onChange={(e) => modificaNuovo(i, "email", e.target.value)}
+                          className="w-48 rounded border border-zinc-300 px-2 py-1 text-sm"
+                        />
+                        <input
+                          type="text"
+                          value={riga.note ?? ""}
+                          placeholder="Note"
+                          aria-label="Note"
+                          onChange={(e) => modificaNuovo(i, "note", e.target.value)}
+                          className="w-40 rounded border border-zinc-300 px-2 py-1 text-sm"
+                        />
+                        {riga.propostoDallAi && (
+                          <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-600">
+                            letto dall&apos;assistente
+                          </span>
+                        )}
+                      </div>
                       {riga.rigaOriginale && (
-                        <span className="text-xs text-zinc-400">da «{riga.rigaOriginale}»</span>
+                        <span className="pl-6 text-xs text-zinc-400">da «{riga.rigaOriginale}»</span>
                       )}
-                    </label>
-                  </li>
-                ))}
+                      {!numeroOk && (
+                        <span className="pl-6 text-xs text-red-600">Serve un numero di telefono con almeno 6 cifre.</span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           ) : (
@@ -365,12 +438,25 @@ export function PannelloImport() {
                           }
                         />
                         <span>{riga.telefono}</span>
-                        <span className="text-zinc-900">
-                          aggiungi
-                          {riga.completabile.nome && <> il nome «{riga.nome}»</>}
-                          {riga.completabile.nome && riga.completabile.email && " e"}
-                          {riga.completabile.email && <> l&apos;email {riga.email}</>}
-                        </span>
+                        <span className="text-zinc-900">aggiungi</span>
+                        {riga.completabile.nome && (
+                          <input
+                            type="text"
+                            value={riga.nome ?? ""}
+                            aria-label="Nome da aggiungere"
+                            onChange={(e) => modificaGiaPresente(i, "nome", e.target.value)}
+                            className="w-40 rounded border border-zinc-300 px-2 py-1 text-sm"
+                          />
+                        )}
+                        {riga.completabile.email && (
+                          <input
+                            type="email"
+                            value={riga.email ?? ""}
+                            aria-label="Email da aggiungere"
+                            onChange={(e) => modificaGiaPresente(i, "email", e.target.value)}
+                            className="w-48 rounded border border-zinc-300 px-2 py-1 text-sm"
+                          />
+                        )}
                         {riga.propostoDallAi && (
                           <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-600">
                             letto dall&apos;assistente

@@ -175,8 +175,12 @@ describe("leggiRubricaDaFoto -- il modello e' l'unico lettore, quindi le reti st
     const esito = await leggiRubricaDaFoto(FOTO, { tenantId: "t1" }, modello);
     expect(esito.ok && esito.esito.proposte.map((p) => p.telefono)).toEqual(["3339876543"]);
     expect(esito.ok && esito.esito.nonLette).toEqual([{ trascrizione: "Rossi Paolo +39 349 8899001", motivo: "letture_discordanti" }]);
-    // Due chiamate, due registrazioni di costo.
+    // Due chiamate, due registrazioni di costo, DUE MODELLI: lo stesso occhio
+    // sbaglia lo stesso glifo nello stesso modo (collaudo del 19/09).
     expect(modello.messages.create).toHaveBeenCalledTimes(2);
+    const modelli = modello.messages.create.mock.calls.map((c) => (c[0] as { model: string }).model);
+    expect(modelli[0]).not.toBe(modelli[1]);
+    expect(modelli[1]).toMatch(/sonnet/);
   });
 
   it("nella seconda lettura un '?' non e' una cifra: la voce non passa; il +39 in piu' o in meno non conta", () => {
