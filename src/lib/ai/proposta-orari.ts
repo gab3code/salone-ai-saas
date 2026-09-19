@@ -67,18 +67,18 @@ export interface SlotGrezzo {
 
 export interface OrariPerIlModello {
   /** Ogni orario libero, come stringa gia' pronta da scrivere. */
-  orari_liberi: string[];
+  tutti_gli_orari_liberi: string[];
   /** I pochi da mostrare subito, ben distribuiti sulla giornata. */
-  da_proporre: string[];
+  orari_da_mostrare: string[];
   /** Quanti ce ne sono in tutto: serve a dire "ho anche altri orari" senza inventare. */
-  totale_orari_liberi: number;
+  quanti_in_tutto: number;
 }
 
 export function preparaOrariPerIlModello(slot: SlotGrezzo[]): OrariPerIlModello {
   const orari = [...new Set(slot.map((s) => oraDaIso(s.inizio)).filter((o): o is string => o !== null))].sort();
   return {
-    orari_liberi: orari,
-    da_proporre: selezionaOrariDaProporre(orari),
-    totale_orari_liberi: orari.length,
+    tutti_gli_orari_liberi: orari,
+    orari_da_mostrare: selezionaOrariDaProporre(orari),
+    quanti_in_tutto: orari.length,
   };
 }

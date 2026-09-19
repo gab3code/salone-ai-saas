@@ -184,7 +184,12 @@ Se il cliente nomina sia un giorno della settimana sia una data che secondo ques
 
 REGOLE ASSOLUTE, non negoziabili:
 1. Non inventare MAI servizi, prezzi, durate, orari o disponibilità. Ogni informazione di questo tipo deve venire da uno strumento -- se non l'hai ancora chiamato, chiamalo prima di rispondere. Quando rispondi su un servizio specifico -- anche in un follow-up breve tipo "e quello X?" o "e il prezzo dell'altro?" -- usa ESATTAMENTE i valori di durata e prezzo che elenca_servizi ha restituito per QUEL servizio preciso: non stimarli, non arrotondarli, e non riusare un numero visto per un servizio diverso nella stessa conversazione anche se ti sembra plausibile o simile. Se hai un dubbio su quale valore appartenga a quale servizio, richiama elenca_servizi invece di rispondere a memoria. Quando uno strumento richiede un id (servizio_id, servizio_ids, operatore_id, appuntamento_id), usa SEMPRE l'id esatto restituito da elenca_servizi/elenca_operatori/cerca_prenotazioni_cliente -- mai il nome del servizio o dell'operatore al suo posto. La stessa regola vale per le AZIONI, non solo per le informazioni: non dire MAI di aver creato, modificato o cancellato una prenotazione se non hai davvero chiamato lo strumento corrispondente (crea_prenotazione/modifica_prenotazione/cancella_prenotazione) in QUESTO turno e ricevuto un risultato positivo. Se il cliente conferma un'azione, chiama SEMPRE lo strumento in quello stesso turno -- anche se pensi di averlo già chiamato in un turno precedente o il cliente ripete la stessa conferma una seconda volta: l'unica prova che un'azione sia davvero avvenuta è il risultato dello strumento ricevuto in questo turno, mai un tuo messaggio precedente. Non affermare mai che qualcosa "è già stato fatto" basandoti solo su ciò che hai scritto prima, senza aver rivisto un risultato di strumento a conferma.
-2. Prima di proporre un orario, chiama sempre verifica_disponibilita: non calcolare o supporre mai una disponibilità da solo. Il risultato ti da' gli orari GIA' SCRITTI come vanno detti, e tu li copi senza toccarli: il campo "da_proporre" sono quelli da mostrare (pochi e distribuiti sulla giornata, usa quelli), "orari_liberi" sono tutti quanti (usali solo se il cliente chiede esplicitamente l'elenco completo), "totale_orari_liberi" e' quanti ce ne sono. Non arrotondare un orario, non trasformarlo, non aggiungerne uno che non c'e' in quelle liste nemmeno se sembra ovvio che ci dovrebbe essere: se il cliente chiede un'ora che li' non compare, quell'ora non e' libera. Se vuoi dire che ci sono altre possibilita', usa il numero di "totale_orari_liberi", mai una frase a sentimento come "ne ho molti altri".
+2. Prima di proporre un orario, chiama sempre verifica_disponibilita: non calcolare o supporre mai una disponibilità da solo. Il risultato ti da' gli orari GIA' SCRITTI come vanno detti, e tu li copi senza toccarli. Tre campi, e vanno usati per quello che sono:
+   - "orari_da_mostrare": i pochi da proporre normalmente. Quando il cliente chiede genericamente se c'e' posto, mostra QUESTI.
+   - "tutti_gli_orari_liberi": l'elenco completo. Usalo quando il cliente chiede di averne altri o di vederli tutti ("hai altri orari?", "dimmeli tutti"). In quel caso elencali davvero, non ripetere gli stessi di prima.
+   - "quanti_in_tutto": quanti orari liberi ci sono DAVVERO in tutto il giorno. Se dici un numero al cliente, dici questo -- mai quanti ne hai elencati tu, che sono molti di meno.
+   Non arrotondare un orario, non trasformarlo, non aggiungerne uno che non compare in quelle liste nemmeno se sembra ovvio che ci dovrebbe essere: se il cliente chiede un'ora che li' non c'e', quell'ora non e' libera.
+   E se il cliente ti richiede la disponibilita' -- anche se gliel'hai appena data -- RICHIAMA lo strumento invece di ripetere a memoria quello che avevi detto prima: nel frattempo qualcuno puo' aver prenotato, e "ho gia' controllato" non e' una risposta ma un rifiuto.
 3. Per creare/modificare/cancellare una prenotazione ti serve sempre il telefono del cliente (è come lo riconosciamo tra un messaggio e l'altro, e tra i canali), e per crearne una nuova anche il nome: senza entrambi non chiamare crea_prenotazione e non generare nessun link di pagamento.
    L'ORDINE IN CUI LE CHIEDI NON È LIBERO. Nome e telefono si chiedono PER ULTIMI, quando servizio, giorno e orario sono già stabiliti e hai già verificato che quell'orario è libero. Mai all'inizio, mai insieme alla richiesta del servizio. Il motivo è concreto: se chiedi i dati personali per primi e poi scopri che quel servizio non esiste o che quel giorno siete chiusi, hai fatto dare a una persona il suo numero di telefono per niente -- e sei tu ad averglielo chiesto. Prima si capisce se la cosa è possibile, poi si chiede a chi la si sta prenotando. È l'ordine che segue chiunque stia dietro un bancone.
    Se il cliente ti dà nome e telefono spontaneamente prima che tu li chieda, tienili da parte e vai avanti: non ha senso rifiutarli, il punto è non CHIEDERLI troppo presto.
@@ -285,19 +290,22 @@ async function correggiSeIncongruente(
   const problemi = verificaIncongruenze(testo);
   if (problemi.length === 0) return testo;
 
-  // LEVA DELL'API, non del prompt (19/09/2026): in questo giro il modello e'
-  // stato appena colto a scrivere un dato che non ha verificato. Lasciarlo
-  // libero di rispondere ancora a parole vuol dire dargli una seconda
-  // occasione di inventare la stessa cosa -- ed e' successo davvero: alla
-  // domanda "hai prenotato davvero?" ha risposto di si'.
+  // NIENTE `tool_choice` qui, ed e' una correzione di un mio errore delle
+  // 00:20 del 19/09/2026 che vale la pena lasciare scritta.
   //
-  // `tool_choice: {type: "any"}` lo obbliga a chiamare uno strumento invece
-  // di rispondere. Non e' un suggerimento piu' forte: e' l'API che non gli
-  // lascia l'alternativa. Quando la correzione riguarda un orario o
-  // un'azione, l'unica risposta onesta e' andare a guardare, e questo lo
-  // costringe a farlo.
-  const deveVerificare = problemi.some((p) => p.startsWith("ATTENZIONE:"));
-
+  // Avevo messo `tool_choice: {type: "any"}` su questo giro per obbligare il
+  // modello a verificare invece di rispondere a memoria. Sembrava la leva
+  // giusta. Era un vicolo cieco: questa funzione NON esegue gli strumenti,
+  // sa solo accorgersi che ne e' stato chiesto uno. Forzandolo, il modello
+  // chiedeva SEMPRE uno strumento, `haRichiestoStrumento` era sempre vero,
+  // la correzione veniva sempre scartata e il cliente riceveva sempre la
+  // frase di ripiego. Nel giro di prova di Gabriel la conversazione moriva
+  // esattamente li': "Scusa, non riesco a dirti gli orari liberi".
+  //
+  // Il posto giusto dove far verificare il modello e' il loop principale,
+  // che gli strumenti li esegue davvero -- vedi `deveTornareAVerificare`
+  // piu' sotto. Qui resta solo la correzione di cio' che si puo' correggere
+  // a parole.
   const rispostaCorretta = await chiamaModello(
     clientAnthropic,
     {
@@ -305,7 +313,6 @@ async function correggiSeIncongruente(
       max_tokens: 1024,
       system,
       tools,
-      ...(deveVerificare ? { tool_choice: { type: "any" as const } } : {}),
       messages: [
         ...messages,
         { role: "assistant", content: contenutoRisposta },
@@ -540,6 +547,12 @@ export async function rispondiConversazione(
     messaggioNuovo,
   ];
 
+  // Quante volte, in questo turno, abbiamo gia' rimandato il modello a
+  // verificare. Uno basta: se anche dopo aver avuto la possibilita' di
+  // chiamare lo strumento continua a inventare, il problema non e' che non
+  // sapeva, e le reti deterministiche piu' sotto fanno il loro lavoro.
+  let rientriPerVerifica = 0;
+
   const azioniAvvenute = new Set<AzioneAppuntamento>();
   let inAttesaDiCaparra = false;
   let emailDisponibile = false;
@@ -633,6 +646,45 @@ export async function rispondiConversazione(
       // fallback deterministico non ne contiene mai, la seconda passata è a
       // costo zero in quel caso).
       const testo = testoGrezzo ? pulisciMarkdown(testoGrezzo) : testoGrezzo;
+
+      // IL RIENTRO NEL LOOP (19/09/2026, dopo aver sbagliato la prima
+      // versione di questa cosa).
+      //
+      // Se il modello ha appena scritto un orario che non ha verificato, o
+      // ha dichiarato un'azione che non ha compiuto, la risposta giusta non
+      // e' chiedergli di riscrivere meglio: e' mandarlo a guardare. Ma
+      // "guardare" vuol dire eseguire uno strumento, e l'unico posto che
+      // esegue gli strumenti e' questo loop.
+      //
+      // Quindi invece di correggere a parole, si rimette il suo messaggio
+      // nella conversazione con accanto il problema, e si continua il giro:
+      // alla prossima iterazione puo' chiamare verifica_disponibilita, noi
+      // la eseguiamo davvero, e i suoi orari diventano quelli veri.
+      //
+      // Una volta sola: se anche con lo strumento a disposizione continua a
+      // inventare, allora il problema non era la mancanza di dati, e sotto
+      // ci sono le reti che sostituiscono il messaggio.
+      const daVerificare = testo
+        ? [
+            trovaOrarioInventato(testo, orariConsentiti(testiConOrariLeciti)),
+            trovaAzioneNonAvvenuta(testo, {
+              avvenute: azioniAvvenute,
+              emailDisponibile,
+              inAttesaDiCaparra,
+            }),
+          ].filter((p): p is string => p !== null)
+        : [];
+
+      if (daVerificare.length > 0 && rientriPerVerifica < 1) {
+        rientriPerVerifica++;
+        messages.push({ role: "assistant", content: risposta.content });
+        messages.push({
+          role: "user",
+          content: `${daVerificare.join(" Inoltre: ")} Chiama adesso lo strumento che serve e rispondi con i dati veri.`,
+        });
+        continue;
+      }
+
       const testoFinale = testo
         ? pulisciMarkdown(
             await correggiSeIncongruente(

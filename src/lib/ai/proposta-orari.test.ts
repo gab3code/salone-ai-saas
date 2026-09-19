@@ -60,16 +60,16 @@ describe("preparaOrariPerIlModello", () => {
       { inizio: "2026-09-22T08:00:00.000Z", operatoreId: "b" },
     ]);
     // Lo stesso orario con due operatori diversi e' UN orario per il cliente.
-    expect(risultato.orari_liberi).toEqual(["08:00", "08:15"]);
-    expect(risultato.totale_orari_liberi).toBe(2);
-    expect(risultato.da_proporre).toEqual(["08:00", "08:15"]);
+    expect(risultato.tutti_gli_orari_liberi).toEqual(["08:00", "08:15"]);
+    expect(risultato.quanti_in_tutto).toBe(2);
+    expect(risultato.orari_da_mostrare).toEqual(["08:00", "08:15"]);
   });
 
   it("giornata vuota: tutto a zero, niente di inventato", () => {
     expect(preparaOrariPerIlModello([])).toEqual({
-      orari_liberi: [],
-      da_proporre: [],
-      totale_orari_liberi: 0,
+      tutti_gli_orari_liberi: [],
+      orari_da_mostrare: [],
+      quanti_in_tutto: 0,
     });
   });
 });

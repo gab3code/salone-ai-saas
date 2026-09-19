@@ -411,9 +411,9 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
 
     expect(risultato).toEqual({
       slot: [],
-      orari_liberi: [],
-      da_proporre: [],
-      totale_orari_liberi: 0,
+      tutti_gli_orari_liberi: [],
+      orari_da_mostrare: [],
+      quanti_in_tutto: 0,
       giorno_chiuso: true,
       giorno_settimana_richiesto: "domenica",
     });
@@ -447,9 +447,9 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
 
     expect(risultato).toEqual({
       slot: [],
-      orari_liberi: [],
-      da_proporre: [],
-      totale_orari_liberi: 0,
+      tutti_gli_orari_liberi: [],
+      orari_da_mostrare: [],
+      quanti_in_tutto: 0,
       giorno_chiuso: false,
       giorno_settimana_richiesto: "domenica",
     });
@@ -481,9 +481,9 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
 
     expect(risultato).toEqual({
       slot: [],
-      orari_liberi: [],
-      da_proporre: [],
-      totale_orari_liberi: 0,
+      tutti_gli_orari_liberi: [],
+      orari_da_mostrare: [],
+      quanti_in_tutto: 0,
       giorno_chiuso: true,
       giorno_settimana_richiesto: "sabato",
     });
