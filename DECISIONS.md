@@ -6884,3 +6884,30 @@ esisteva già su `appuntamenti`.
 **Osservazione, non difetto**: il vincolo di esclusione non conosce il buffer fra
 appuntamenti. Due prenotazioni concorrenti che non si sovrappongono ma violano il buffer
 passano entrambe. Non produce doppie prenotazioni; lo si annota.
+
+## 2026-09-19 (notte) — Import rubrica: le due metà che si potevano fare, e la terza no
+
+**Decisione.** Costruite le due metà mancanti dell'import che non richiedono decisioni aperte:
+1. *Righe non capite → modello.* Pulsante "Prova a leggerle con l'assistente". Il modello
+   propone nome, telefono, email, note; il codice tiene solo le proposte con un numero
+   riconoscibile **e presente nella riga originale** (spazi, punti, trattini e +39 a parte):
+   ripulire sì, inventare no. Le proposte partono non spuntate e portano l'etichetta "letto
+   dall'assistente". Contatore a sé (`import_clienti`, migrazione 0069 applicata a test e
+   produzione, con export della tabella in `backup/` prima della DDL), 3 a vita su Free/Starter,
+   quota mensile sugli altri; costo registrato in `usi_api_ai` col canale `import_clienti`.
+2. *Completare chi c'è già.* Solo i campi vuoti nel prodotto e pieni nel file (nome, email),
+   riga per riga, mai in blocco. Il "solo se vuoto" lo applica la query (`is("nome", null)`),
+   non il codice che ha letto la riga un attimo prima: fra revisione e scrittura un collega può
+   aver messo il nome a mano.
+
+**Alternative scartate.** Riusare il tipo "onboarding" per la quota (avrebbe consumato le 3
+bozze a vita e mostrato "bozze rimaste" sbagliato). Aggiornare i clienti esistenti in blocco
+(no: sovrascrivere un nome corretto a mano con uno da un file vecchio è un danno silenzioso).
+
+**Non fatto: la foto dell'agenda.** La rete "il numero deve stare nella riga" qui non esiste,
+perché la riga È la foto: un 3 letto come 8 non è verificabile da codice. Va deciso quanto ci
+si fida — e con quale conferma dal titolare — prima di costruirla. Decisione di Gabriel.
+
+**Osservazione trovata lavorando qui**: l'onboarding assistito (`onboarding-ai.server.ts`) non
+registra il proprio uso in `usi_api_ai` — conta la quota ma non il costo. Le medie di
+`npm run costi-ai` sono quindi solo della chat. Da allineare, cinque righe.

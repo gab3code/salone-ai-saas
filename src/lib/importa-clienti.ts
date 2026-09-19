@@ -46,6 +46,7 @@ export interface ClienteEsistente {
   nome: string | null;
   /** Puo' essere null: in rubrica esistono schede senza numero. */
   telefono: string | null;
+  email: string | null;
 }
 
 /** Numero massimo di righe per import: oltre, meglio due giri che un timeout. */
@@ -259,6 +260,17 @@ export interface RigaImport extends ClienteImportato {
   esistenteId: string | null;
   /** Come si chiama oggi nel prodotto: serve a mostrare cosa cambierebbe. */
   nomeEsistente: string | null;
+  emailEsistente: string | null;
+  /**
+   * Cosa l'import AGGIUNGEREBBE a un cliente gia' presente, campo per campo:
+   * solo dove nel prodotto quel campo e' vuoto e nel file c'e'. Mai una
+   * sovrascrittura -- un nome corretto a mano dal salone non si tocca con uno
+   * preso da un file vecchio (19/09/2026, la meta' "aggiorna chi c'e' gia'"
+   * dell'import).
+   */
+  completabile: { nome: boolean; email: boolean };
+  /** La riga e' stata ricostruita dal modello a partire da una riga non capita: si vede, e parte non spuntata. */
+  propostoDallAi?: boolean;
 }
 
 export interface DiffImport {
@@ -295,10 +307,37 @@ export function calcolaDiffImport(
       ...cliente,
       esistenteId: esistente?.id ?? null,
       nomeEsistente: esistente?.nome ?? null,
+      emailEsistente: esistente?.email ?? null,
+      completabile: {
+        nome: !!esistente && vuoto(esistente.nome) && !vuoto(cliente.nome),
+        email: !!esistente && vuoto(esistente.email) && !vuoto(cliente.email),
+      },
     };
     if (esistente) giaPresenti.push(riga);
     else nuovi.push(riga);
   }
 
   return { nuovi, giaPresenti, scartate: esito.scartate };
+}
+
+function vuoto(valore: string | null | undefined): boolean {
+  return !valore || valore.trim() === "";
+}
+
+/** true se per questo cliente gia' presente c'e' almeno un campo da riempire. */
+export function haQualcosaDaCompletare(riga: RigaImport): boolean {
+  return riga.completabile.nome || riga.completabile.email;
+}
+
+/**
+ * I soli campi da scrivere su un cliente esistente: quelli vuoti nel
+ * prodotto e presenti nel file. Il server li ricalcola e non si fida di
+ * `completabile` cosi' com'e' arrivato dal browser -- ma il filtro finale
+ * (`nome is null`) lo mette la query, vedi clienti.server.ts.
+ */
+export function campiDaCompletare(riga: RigaImport): { nome?: string; email?: string } {
+  const campi: { nome?: string; email?: string } = {};
+  if (riga.completabile.nome && !vuoto(riga.nome)) campi.nome = riga.nome!.trim();
+  if (riga.completabile.email && !vuoto(riga.email)) campi.email = riga.email!.trim();
+  return campi;
 }

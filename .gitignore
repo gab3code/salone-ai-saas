@@ -45,3 +45,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Export di tabelle fatti prima di una DDL in produzione: restano sul Mac, mai su git.
+backup/

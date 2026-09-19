@@ -130,4 +130,5 @@ export type CanaleUsoApi =
   | "prova_assistente"
   | "onboarding"
   | "follow_up"
-  | "report";
+  | "report"
+  | "import_clienti";

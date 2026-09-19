@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  haQualcosaDaCompletare,
+  campiDaCompletare,
   calcolaDiffImport,
   dividiRiga,
   leggiIncolla,
@@ -108,8 +110,8 @@ describe("leggere un incolla senza modello", () => {
 
 describe("il confronto con chi c'e' gia'", () => {
   const esistenti = [
-    { id: "cli-1", nome: "Maria R.", telefono: "+39 333 123 4567" },
-    { id: "cli-2", nome: "Luca", telefono: "3339876543" },
+    { id: "cli-1", nome: "Maria R.", telefono: "+39 333 123 4567", email: null },
+    { id: "cli-2", nome: "Luca", telefono: "3339876543", email: null },
   ];
 
   it("CHI C'E' GIA' NON DIVENTA UN DOPPIONE, anche se il numero e' scritto diverso", () => {
@@ -137,7 +139,7 @@ describe("il confronto con chi c'e' gia'", () => {
     // regola diventerebbero la calamita a cui si attaccano tutte le righe
     // importate che non hanno un numero riconoscibile.
     const diff = calcolaDiffImport(
-      [{ id: "cli-3", nome: "Senza numero", telefono: null }],
+      [{ id: "cli-3", nome: "Senza numero", telefono: null, email: null }],
       leggiIncolla("Nome;Telefono\nGiulia;3335550000")
     );
     expect(diff.nuovi).toHaveLength(1);
@@ -148,5 +150,42 @@ describe("il confronto con chi c'e' gia'", () => {
     const diff = calcolaDiffImport([], leggiIncolla("Nome;Telefono\nGiulia;3335550000"));
     expect(diff.nuovi).toHaveLength(1);
     expect(diff.giaPresenti).toHaveLength(0);
+  });
+});
+
+describe("completare chi c'e' gia' (19/09/2026, la meta' mancante dell'import)", () => {
+  it("propone di riempire SOLO i campi vuoti nel prodotto e pieni nel file", () => {
+    const diff = calcolaDiffImport(
+      [{ id: "cli-1", nome: null, telefono: "3331234567", email: null }],
+      leggiIncolla("Nome;Telefono;Email\nMaria Rossi;3331234567;maria@esempio.it")
+    );
+    const riga = diff.giaPresenti[0];
+    expect(riga.completabile).toEqual({ nome: true, email: true });
+    expect(haQualcosaDaCompletare(riga)).toBe(true);
+    expect(campiDaCompletare(riga)).toEqual({ nome: "Maria Rossi", email: "maria@esempio.it" });
+  });
+
+  it("NON propone di sovrascrivere un nome che nel prodotto c'e' gia', anche se diverso", () => {
+    const diff = calcolaDiffImport(
+      [{ id: "cli-1", nome: "Maria R.", telefono: "3331234567", email: "vecchia@esempio.it" }],
+      leggiIncolla("Nome;Telefono;Email\nMaria Rossi;3331234567;nuova@esempio.it")
+    );
+    const riga = diff.giaPresenti[0];
+    expect(riga.completabile).toEqual({ nome: false, email: false });
+    expect(haQualcosaDaCompletare(riga)).toBe(false);
+    expect(campiDaCompletare(riga)).toEqual({});
+  });
+
+  it("un file senza email non propone niente sull'email, anche se nel prodotto manca", () => {
+    const diff = calcolaDiffImport(
+      [{ id: "cli-1", nome: null, telefono: "3331234567", email: null }],
+      leggiIncolla("Nome;Telefono\nMaria Rossi;3331234567")
+    );
+    expect(diff.giaPresenti[0].completabile).toEqual({ nome: true, email: false });
+  });
+
+  it("un cliente nuovo non ha niente da completare (non esiste ancora)", () => {
+    const diff = calcolaDiffImport([], leggiIncolla("Nome;Telefono\nGiulia;3335550000"));
+    expect(diff.nuovi[0].completabile).toEqual({ nome: false, email: false });
   });
 });

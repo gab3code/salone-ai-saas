@@ -2279,18 +2279,22 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
       una forma canonica, se no "333 123 4567" e "+393331234567" sarebbero due clienti diversi e
       la rubrica si sdoppiava.
 
+      **Fatto anche, il 19/09/2026 (notte):**
+      - **l'incolla sporco**: le righe non capite hanno un pulsante "Prova a leggerle con
+        l'assistente". Il modello propone nome/numero/email/note, ma con due reti in codice: il
+        numero deve essere riconoscibile E preso dalla riga (puo' ripulire, non inventare). Le
+        proposte partono non spuntate e si vedono marcate. Quota: contatore a se'
+        (`import_clienti`, migrazione 0069), 3 a vita su Free/Starter, la quota mensile sugli
+        altri; costo registrato in `usi_api_ai`. `src/lib/importa-clienti-ai.server.ts`, 11 test.
+      - **completare chi c'e' gia'**: riga per riga, solo i campi vuoti nel prodotto e pieni nel
+        file (nome, email), mai una sovrascrittura. Il "solo se vuoto" lo mette la query
+        (`is null`), non il codice che ha letto un attimo prima. `completaClienteDoveVuoto`,
+        coperta dal test sul filtro tenant.
+
       **Non fatto, e va detto chiaro:**
-      - **la foto di una pagina d'agenda.** E' il caso che il PIANO citava per primo ed e'
-        quello che colpisce di piu' in una demo. Serve il modello con la vista, e serve
-        decidere quanto ci si fida di una trascrizione di numeri di telefono scritti a mano --
-        un numero letto male e' un cliente che non risponde piu';
-      - **l'incolla sporco** (righe irregolari, colonne mischiate, tutto in un campo solo):
-        oggi quelle righe finiscono fra le "non capite" e si vedono, ma nessuno le recupera. E'
-        il posto naturale per il modello, con lo stesso schema dell'onboarding: propone, il
-        titolare conferma;
-      - **l'aggiornamento di chi c'e' gia'**: per ora i clienti esistenti non si toccano mai.
-        Va bene come default, ma un "aggiorna il nome dove manca" sarebbe utile e va fatto con
-        la revisione riga per riga, non in blocco.
+      - **la foto di una pagina d'agenda.** Serve il modello con la vista, e serve decidere
+        quanto ci si fida di una trascrizione di numeri scritti a mano: qui la rete "il numero
+        deve essere nella riga" non esiste, perche' la riga E' la foto. Decisione di Gabriel.
 
 - [ ] **Note vocali che diventano scheda cliente.** Un parrucchiere non digita: ha le mani
       occupate e le unghie di qualcun altro davanti. Detta trenta secondi a fine servizio e l'AI ne

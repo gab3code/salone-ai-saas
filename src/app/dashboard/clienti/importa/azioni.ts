@@ -4,9 +4,13 @@ import { revalidatePath } from "next/cache";
 import { creaClientServer } from "@/lib/supabase/server";
 import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
 import { puoImportareClienti } from "@/lib/ruoli";
-import { creaClientiInBlocco, elencaClienti } from "@/lib/clienti.server";
+import { creaClientiInBlocco, completaClienteDoveVuoto, elencaClienti } from "@/lib/clienti.server";
+import { recuperaRigheConModello, MAX_RIGHE_PER_RECUPERO } from "@/lib/importa-clienti-ai.server";
+import { consumaUsoAiInterno } from "@/lib/ai/usi-interni.server";
+import { RECUPERI_IMPORT_SENZA_PIANO, tettoRecuperoImport } from "@/lib/ai/limiti";
 import {
   calcolaDiffImport,
+  campiDaCompletare,
   leggiIncolla,
   telefonoUtilizzabile,
   type DiffImport,
@@ -57,14 +61,73 @@ export async function analizzaImportAzione(testo: string): Promise<RisultatoAnal
   return {
     ok: true,
     diff: calcolaDiffImport(
-      esistenti.clienti.map((c) => ({ id: c.id, nome: c.nome, telefono: c.telefono })),
+      esistenti.clienti.map((c) => ({ id: c.id, nome: c.nome, telefono: c.telefono, email: c.email })),
       esito
     ),
   };
 }
 
+export type RisultatoRecupero =
+  | { ok: true; proposte: RigaImport[]; nonRecuperate: string[]; rimaste: number; aVita: boolean }
+  | { ok: false; errore: string; esaurite?: boolean };
+
+/**
+ * Le righe che il lettore non ha capito, passate al modello (19/09/2026).
+ *
+ * Stesso schema dell'onboarding assistito: la quota si consuma PRIMA di
+ * chiamare il modello, anche se poi la chiamata fallisce (vedi
+ * usi-interni.server.ts per il perche'). Le proposte tornano gia' confrontate
+ * con la rubrica, come le righe lette dal codice, e marcate come proposte
+ * dal modello: in revisione partono non spuntate.
+ */
+export async function recuperaRigheNonCapiteAzione(righe: string[]): Promise<RisultatoRecupero> {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoImportareClienti);
+  if (accessoNegato(accesso)) return { ok: false, errore: accesso.errore };
+  const tenantId = accesso.tenantId;
+
+  if (!Array.isArray(righe) || righe.length === 0) return { ok: false, errore: "Nessuna riga da leggere." };
+  const daLeggere = righe.filter((r): r is string => typeof r === "string" && r.trim() !== "").slice(0, MAX_RIGHE_PER_RECUPERO);
+  if (daLeggere.length === 0) return { ok: false, errore: "Nessuna riga da leggere." };
+
+  const [{ data: tenant }, { count: numeroOperatori }] = await Promise.all([
+    supabase.from("tenants").select("piano").eq("id", tenantId).single(),
+    supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+  ]);
+  const tetto = tettoRecuperoImport(tenant?.piano ?? "", numeroOperatori ?? 1);
+  const consumo = await consumaUsoAiInterno(tenantId, "import_clienti", tetto);
+  if (!consumo.ok) {
+    if (consumo.motivo === "errore") {
+      return { ok: false, errore: "Non riesco a verificare la quota adesso. Riprova fra poco." };
+    }
+    return {
+      ok: false,
+      esaurite: true,
+      errore: tetto.daSempre
+        ? `Hai usato tutte e ${RECUPERI_IMPORT_SENZA_PIANO} le letture assistite comprese nel tuo piano. Puoi aggiungere queste righe a mano, oppure passare a Growth.`
+        : "Hai finito la quota AI di questo mese. Riparte il primo del mese prossimo.",
+    };
+  }
+
+  const esito = await recuperaRigheConModello(daLeggere, { tenantId });
+  if (!esito.ok) return esito;
+
+  const esistenti = await elencaClienti(tenantId, { perExport: true });
+  if (esistenti.errore) {
+    return { ok: false, errore: `Non riesco a leggere la rubrica attuale: ${esistenti.errore}` };
+  }
+  const diff = calcolaDiffImport(
+    esistenti.clienti.map((c) => ({ id: c.id, nome: c.nome, telefono: c.telefono, email: c.email })),
+    { clienti: esito.esito.proposte, scartate: [] }
+  );
+  // Chi risulta gia' in rubrica non e' una proposta nuova: si segnala come
+  // "gia' presente" nel conteggio, non si ripropone.
+  const proposte = [...diff.nuovi, ...diff.giaPresenti].map((r) => ({ ...r, propostoDallAi: true }));
+  return { ok: true, proposte, nonRecuperate: esito.esito.nonRecuperate, rimaste: consumo.rimasti, aVita: tetto.daSempre };
+}
+
 export type RisultatoImport =
-  | { ok: true; creati: number }
+  | { ok: true; creati: number; completati: number }
   | { ok: false; errore: string };
 
 /**
@@ -73,15 +136,20 @@ export type RisultatoImport =
  * il salone puo' aver corretto a mano, con uno preso da un file vecchio,
  * sarebbe un danno silenzioso. Chi vuole cambiarli lo fa dalla scheda.
  */
-export async function applicaImportAzione(righe: RigaImport[]): Promise<RisultatoImport> {
+export async function applicaImportAzione(
+  righe: RigaImport[],
+  completamenti: RigaImport[] = []
+): Promise<RisultatoImport> {
   const supabase = await creaClientServer();
   const accesso = await richiediPermesso(supabase, puoImportareClienti);
   if (accessoNegato(accesso)) return { ok: false, errore: accesso.errore };
 
-  if (!Array.isArray(righe) || righe.length === 0) {
+  if (!Array.isArray(righe)) righe = [];
+  if (!Array.isArray(completamenti)) completamenti = [];
+  if (righe.length === 0 && completamenti.length === 0) {
     return { ok: false, errore: "Nessun cliente selezionato." };
   }
-  if (righe.length > MAX_RIGHE_IMPORT) {
+  if (righe.length + completamenti.length > MAX_RIGHE_IMPORT) {
     return { ok: false, errore: `Troppi clienti in una volta: il massimo e' ${MAX_RIGHE_IMPORT}.` };
   }
 
@@ -97,13 +165,33 @@ export async function applicaImportAzione(righe: RigaImport[]): Promise<Risultat
       note: r.note?.trim() || null,
     }));
 
-  if (daCreare.length === 0) {
-    return { ok: false, errore: "Nessun cliente nuovo da importare fra quelli selezionati." };
+  // I completamenti: SOLO clienti gia' presenti, SOLO i campi vuoti. Il
+  // "solo se vuoto" lo applica la query, riga per riga (vedi
+  // completaClienteDoveVuoto): quello che arriva dal browser dice cosa il
+  // titolare ha spuntato, non cosa e' vuoto adesso nel database.
+  const daCompletare = completamenti
+    .filter((r) => r.esistenteId && telefonoUtilizzabile(r.telefono))
+    .map((r) => ({ id: r.esistenteId as string, campi: campiDaCompletare(r) }))
+    .filter((c) => c.campi.nome !== undefined || c.campi.email !== undefined);
+
+  if (daCreare.length === 0 && daCompletare.length === 0) {
+    return { ok: false, errore: "Niente da importare fra le righe selezionate." };
   }
 
-  const esito = await creaClientiInBlocco(accesso.tenantId, daCreare);
-  if (esito.errore) return { ok: false, errore: esito.errore };
+  let creati = 0;
+  if (daCreare.length > 0) {
+    const esito = await creaClientiInBlocco(accesso.tenantId, daCreare);
+    if (esito.errore) return { ok: false, errore: esito.errore };
+    creati = esito.creati;
+  }
+
+  let completati = 0;
+  for (const c of daCompletare) {
+    const esito = await completaClienteDoveVuoto(accesso.tenantId, c.id, c.campi);
+    if (esito.errore) return { ok: false, errore: esito.errore };
+    if (esito.scritti > 0) completati += 1;
+  }
 
   revalidatePath("/dashboard/clienti");
-  return { ok: true, creati: esito.creati };
+  return { ok: true, creati, completati };
 }

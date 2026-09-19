@@ -161,6 +161,20 @@ export function tettoBozzaOnboarding(piano: string, numeroOperatori: number = 1)
     : { limite: BOZZE_ONBOARDING_SENZA_PIANO, daSempre: true };
 }
 
+/**
+ * Il tetto per un RECUPERO delle righe non capite nell'import della rubrica
+ * (19/09/2026): stessa forma della bozza di configurazione, contatore a
+ * parte. Su Free e Starter un import e' quasi sempre uno solo, all'inizio:
+ * tre giri bastano e non sono la cosa che si compra.
+ */
+export const RECUPERI_IMPORT_SENZA_PIANO = 3;
+export function tettoRecuperoImport(piano: string, numeroOperatori: number = 1): TettoUsoAi {
+  const quota = limiteMensileMessaggi(piano, numeroOperatori);
+  return quota > 0
+    ? { limite: quota, daSempre: false }
+    : { limite: RECUPERI_IMPORT_SENZA_PIANO, daSempre: true };
+}
+
 /** Il tetto per una PROVA dell'assistente: mensile su tutti i piani. */
 export function tettoProvaAssistente(piano: string, numeroOperatori: number = 1): TettoUsoAi {
   const quota = limiteMensileMessaggi(piano, numeroOperatori);

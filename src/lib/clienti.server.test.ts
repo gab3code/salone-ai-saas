@@ -98,6 +98,11 @@ function creaClientRegistrante(risposte: { data?: unknown; error?: { message: st
       ultima().or.push(espressione);
       return catena;
     },
+    // `.is(colonna, null)`: il filtro "solo se vuoto" di completaClienteDoveVuoto.
+    is: (colonna: string, valore: unknown) => {
+      ultima().filtri.push({ colonna, valore });
+      return catena;
+    },
     order: () => catena,
     limit: () => catena,
     maybeSingle: () => Promise.resolve(risposta()),
@@ -150,6 +155,11 @@ const INVOCAZIONI: Invocazione[] = [
     esegui: (t, c) =>
       clienti.trovaOCreaCliente(t, { nome: "Anna", telefono: "3331112222", creatoDaAi: false, email: "a@b.it" }, c),
     risposte: [{ data: { id: "cliente-1", email: null } }, { error: null }],
+  },
+  {
+    nome: "completaClienteDoveVuoto",
+    esegui: (t, c) => clienti.completaClienteDoveVuoto(t, "cliente-1", { nome: "Anna", email: "a@b.it" }, c),
+    risposte: [{ data: [{ id: "cliente-1" }] }, { data: [] }],
   },
   {
     // L'import inserisce PIU' righe in una volta: il confine del tenant deve
@@ -290,6 +300,28 @@ describe("clienti.server: i casi che il codice deve gestire da solo", () => {
     const { client } = creaClientRegistrante([{ error: { message: "connessione persa" } }]);
 
     await expect(clienti.clientiPerMetriche(TENANT, client)).rejects.toThrow(/connessione persa/);
+  });
+});
+
+describe("clienti.server: completare dove vuoto", () => {
+  it("scrive un campo solo con il filtro 'is null' sulla stessa colonna, e conta solo le righe toccate", async () => {
+    const { client, query } = creaClientRegistrante([{ data: [{ id: "cliente-1" }] }, { data: [] }]);
+
+    const esito = await clienti.completaClienteDoveVuoto(TENANT, "cliente-1", { nome: "Anna", email: "a@b.it" }, client);
+
+    expect(esito).toEqual({ scritti: 1, errore: null });
+    expect(query).toHaveLength(2);
+    expect(query[0].payload).toEqual({ nome: "Anna" });
+    expect(query[0].filtri).toContainEqual({ colonna: "nome", valore: null });
+    expect(query[1].payload).toEqual({ email: "a@b.it" });
+    expect(query[1].filtri).toContainEqual({ colonna: "email", valore: null });
+  });
+
+  it("un campo vuoto o assente non produce nessuna query", async () => {
+    const { client, query } = creaClientRegistrante([]);
+    const esito = await clienti.completaClienteDoveVuoto(TENANT, "cliente-1", { nome: "  " }, client);
+    expect(esito).toEqual({ scritti: 0, errore: null });
+    expect(query).toEqual([]);
   });
 });
 

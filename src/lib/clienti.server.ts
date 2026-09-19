@@ -178,6 +178,44 @@ export async function creaClientiInBlocco(
   return { creati: (data ?? []).length, errore: null };
 }
 
+/**
+ * Completa un cliente gia' presente SOLO nei campi vuoti (import della
+ * rubrica, 19/09/2026).
+ *
+ * Il "solo se vuoto" lo mette la query (`is("nome", null)`), non il codice
+ * che ha letto la riga un attimo prima: fra la lettura in revisione e la
+ * scrittura un collega puo' aver messo un nome a mano, e quel nome non va
+ * sovrascritto da uno preso da un file. Un update per campo: e' il prezzo di
+ * un filtro atomico per colonna, e le righe in gioco sono quelle spuntate
+ * una per una dal titolare, non trecento.
+ *
+ * Torna quanti campi ha davvero scritto: se torna 0 il cliente era gia'
+ * completo (o qualcuno l'ha completato prima), e non e' un errore.
+ */
+export async function completaClienteDoveVuoto(
+  tenantId: string,
+  clienteId: string,
+  campi: { nome?: string; email?: string },
+  client?: SupabaseClient
+): Promise<{ scritti: number; errore: string | null }> {
+  esigiTenant(tenantId);
+  let scritti = 0;
+  for (const colonna of ["nome", "email"] as const) {
+    const valore = campi[colonna]?.trim();
+    if (!valore) continue;
+    const { data, error } = await db(client)
+      .from("clienti")
+      .update({ [colonna]: valore })
+      .eq("id", clienteId)
+      .eq("tenant_id", tenantId)
+      .is(colonna, null)
+      .select("id");
+    if (error) return { scritti, errore: `Errore completando il cliente: ${error.message}` };
+    if ((data ?? []).length > 0) scritti += 1;
+  }
+  return { scritti, errore: null };
+}
+
 export async function cancellaCliente(
   tenantId: string,
   clienteId: string,

@@ -13,7 +13,7 @@ import { creaClientAdmin } from "@/lib/supabase/admin";
  * e la bolletta era nostra.
  */
 
-export type TipoUsoAi = "onboarding" | "prova_assistente" | "follow_up";
+export type TipoUsoAi = "onboarding" | "prova_assistente" | "follow_up" | "import_clienti";
 
 export type EsitoConsumo =
   | { ok: true; rimasti: number }
