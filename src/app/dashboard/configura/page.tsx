@@ -17,6 +17,7 @@ import {
 } from "./azioni";
 import { raggruppaInPeriodi, type RigaChiusura } from "@/lib/periodi-chiusura";
 import { BottoneAzione } from "./BottoneAzione";
+import { AvvisoModificheNonSalvate } from "./AvvisoModificheNonSalvate";
 import { tettoBozzaOnboarding } from "@/lib/ai/limiti";
 import { contaBozzeOnboarding } from "@/lib/ai/usi-interni.server";
 import { impostaAttivoOperatore, impostaAttivoServizio } from "./azioni";
@@ -349,6 +350,10 @@ export default async function PaginaConfigura() {
           >
             Salva orari
           </button>
+          {/* Il 19/09/2026 un sabato corretto a mano e mai salvato e' sembrato
+              per un'ora un salvataggio rotto (27sexvicies): il campo mostrava
+              un orario, il calendario ne usava un altro. */}
+          <AvvisoModificheNonSalvate messaggio="Modifiche non salvate: il calendario usa ancora gli orari precedenti." />
         </form>
       </section>
 
