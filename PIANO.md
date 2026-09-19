@@ -2872,7 +2872,18 @@ sono in `docs/economia-19-09-2026.md`. Ordine = priorita'. Tutte da confermare d
       configurabile per servizio, con override sulla scheda cliente. Dipende dal consenso
       sopra (e' marketing).
 
-- [ ] **Caparra selettiva: solo per chi ha gia' saltato.** Chiedere la caparra a tutti frena
+- [x] **Caparra selettiva: solo per chi ha gia' saltato** -- FATTO 19/09/2026 pomeriggio.
+      Migrazione 0071 (test e produzione): `tenants.caparra_regola` ('tutti' | 'dopo_no_show')
+      e `caparra_no_show_soglia`. Il conteggio dei no-show si deriva dagli appuntamenti con
+      stato `no_show`, riconoscendo il cliente dal telefono; un cliente mai visto non paga.
+      `caparraDovuta` in caparra.ts (puro, 3 test), `caricaImportoCaparraServizio` prende il
+      telefono (form pubblico, tool AI e checkout passano tutti da li'; 2 test server). Il
+      form pubblico chiede al server `importoCaparraPubblico` prima di scegliere fra conferma
+      e pagamento, e lo dice al cliente ("solo a chi in passato non si e' presentato").
+      Impostazioni caparra: select "A chi chiederla" + soglia. I soldi veri restano su
+      Stripe Connect (bloccante).
+
+- [ ] ~~**Caparra selettiva: solo per chi ha gia' saltato.**~~ (vedi sopra) Chiedere la caparra a tutti frena
       le prenotazioni dei clienti buoni; non chiederla a nessuno espone ai furbi. La via di
       mezzo che i saloni usano gia' a mano: caparra obbligatoria dal secondo no-show. Un
       contatore `no_show` sulla scheda (gia' derivabile dagli appuntamenti con stato

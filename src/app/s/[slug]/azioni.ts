@@ -213,7 +213,7 @@ export async function prenotaPubblico(
   if (tenant.sospesa) return { ok: false, errore: MESSAGGIO_ATTIVITA_SOSPESA };
   const tenantId = tenant.id;
 
-  const importoCaparra = await caricaImportoCaparraServizio(supabase, tenantId, dati.servizioId);
+  const importoCaparra = await caricaImportoCaparraServizio(supabase, tenantId, dati.servizioId, clienteTelefono);
   // `null` = non si e' riusciti a leggere la configurazione della caparra.
   // Ci si ferma invece di tirare a indovinare: proseguire vorrebbe dire
   // creare una prenotazione confermata senza deposito su un salone che forse
@@ -241,6 +241,28 @@ export async function prenotaPubblico(
 
   if (!risultato.ok) return { ok: false, errore: risultato.errore };
   return { ok: true, appuntamentoId: risultato.appuntamentoId };
+}
+
+/**
+ * Con la caparra selettiva (migrazione 0071) il form non puo' sapere da solo
+ * se QUESTO cliente deve pagare: dipende dai suoi no-show, che stanno nel
+ * database. Il componente client lo chiede qui, prima di scegliere fra
+ * conferma diretta e pagamento. E' una lettura, non una decisione: le due
+ * azioni di scrittura ricontrollano comunque da sole.
+ */
+export async function importoCaparraPubblico(
+  slug: string,
+  dati: { servizioId: string; clienteTelefono: string }
+): Promise<RisultatoAzionePubblica<{ importoCentesimi: number }>> {
+  if (await oltreIlTettoPerIp(slug)) return { ok: false, errore: MESSAGGIO_TROPPI_TENTATIVI };
+  const telefono = (dati.clienteTelefono ?? "").trim();
+  if (!dati.servizioId || !FORMATO_TELEFONO.test(telefono)) return { ok: false, errore: "Inserisci un numero di telefono valido." };
+  const supabase = creaClientAdmin();
+  const tenant = await risolviTenantDaSlug(supabase, slug);
+  if (!tenant) return { ok: false, errore: "Attività non trovata." };
+  const importo = await caricaImportoCaparraServizio(supabase, tenant.id, dati.servizioId, telefono);
+  if (importo === null) return { ok: false, errore: "Non riesco a verificare le condizioni di prenotazione adesso. Riprova fra poco." };
+  return { ok: true, importoCentesimi: importo };
 }
 
 /**

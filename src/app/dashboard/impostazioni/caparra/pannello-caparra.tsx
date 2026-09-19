@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useAllineamentoAlServer } from "@/lib/react/allineamento-al-server";
 import { alInvio } from "@/lib/react/invio-form";
 import { aggiornaCaparra } from "./azioni";
-import type { TipoCaparra } from "@/lib/stripe/caparra";
+import type { RegolaCaparra, TipoCaparra } from "@/lib/stripe/caparra";
 
 interface ConfigurazioneCaparra {
   attiva: boolean;
   tipo: TipoCaparra;
   valore: number; // percentuale: 1-100; fisso: centesimi (convertito in euro solo per il campo del form)
+  regola: RegolaCaparra;
+  sogliaNoShow: number;
 }
 
 export function PannelloCaparra({ configurazioneIniziale }: { configurazioneIniziale: ConfigurazioneCaparra }) {
@@ -20,6 +22,8 @@ export function PannelloCaparra({ configurazioneIniziale }: { configurazioneIniz
       ? (configurazioneIniziale.valore / 100).toString()
       : configurazioneIniziale.valore.toString()
   );
+  const [regola, setRegola] = useState<RegolaCaparra>(configurazioneIniziale.regola);
+  const [soglia, setSoglia] = useState<string>(configurazioneIniziale.sogliaNoShow.toString());
   const [inCorso, setInCorso] = useState(false);
   const [messaggio, setMessaggio] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
 
@@ -33,10 +37,14 @@ export function PannelloCaparra({ configurazioneIniziale }: { configurazioneIniz
       attiva: configurazioneIniziale.attiva,
       tipo: configurazioneIniziale.tipo,
       valore: configurazioneIniziale.valore,
+      regola: configurazioneIniziale.regola,
+      sogliaNoShow: configurazioneIniziale.sogliaNoShow,
     },
     () => {
       setAttiva(configurazioneIniziale.attiva);
       setTipo(configurazioneIniziale.tipo);
+      setRegola(configurazioneIniziale.regola);
+      setSoglia(configurazioneIniziale.sogliaNoShow.toString());
       setValore(
         configurazioneIniziale.tipo === "fisso"
           ? (configurazioneIniziale.valore / 100).toString()
@@ -63,7 +71,11 @@ export function PannelloCaparra({ configurazioneIniziale }: { configurazioneIniz
         setMessaggio({
           tipo: "ok",
           testo: attiva
-            ? `Caparra attiva: ${tipo === "percentuale" ? `${valore}% del prezzo` : `${valore}€ fissi`}.`
+            ? `Caparra attiva: ${tipo === "percentuale" ? `${valore}% del prezzo` : `${valore}€ fissi`}, ${
+                regola === "dopo_no_show"
+                  ? `solo a chi ha saltato almeno ${soglia} ${soglia === "1" ? "appuntamento" : "appuntamenti"}`
+                  : "a tutti"
+              }.`
             : "Caparra disattivata: le prenotazioni online non richiedono piu' un anticipo.",
         });
       }
@@ -118,6 +130,39 @@ export function PannelloCaparra({ configurazioneIniziale }: { configurazioneIniz
             ? "Es. 20% su un servizio da 50€ richiede una caparra di 10€."
             : "Stesso importo per ogni servizio, indipendentemente dal prezzo."}
         </p>
+
+        <label className="flex flex-col gap-1 text-sm">
+          A chi chiederla
+          <select
+            name="regola"
+            value={regola}
+            disabled={!attiva}
+            onChange={(e) => setRegola(e.target.value as RegolaCaparra)}
+            className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+          >
+            <option value="tutti">A tutti, a ogni prenotazione online</option>
+            <option value="dopo_no_show">Solo a chi ha già saltato un appuntamento</option>
+          </select>
+        </label>
+        {regola === "dopo_no_show" && (
+          <label className="flex flex-col gap-1 text-sm">
+            Da quanti appuntamenti saltati in poi
+            <input
+              type="number"
+              name="soglia"
+              min={1}
+              step={1}
+              value={soglia}
+              disabled={!attiva}
+              onChange={(e) => setSoglia(e.target.value)}
+              className="w-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+            />
+            <span className="text-xs text-zinc-400">
+              Conta gli appuntamenti segnati come &laquo;non presentato&raquo; dal calendario. Un cliente nuovo
+              non paga niente: la caparra scatta solo per chi ti ha già fatto perdere un posto.
+            </span>
+          </label>
+        )}
       </div>
 
       <button

@@ -25,7 +25,11 @@ export default async function PaginaCaparra() {
   if (!tenantId) redirect("/accedi");
 
   const [tenantRes, richiesteRes] = await Promise.all([
-    supabase.from("tenants").select("caparra_attiva, caparra_tipo, caparra_valore").eq("id", tenantId).single(),
+    supabase
+      .from("tenants")
+      .select("caparra_attiva, caparra_tipo, caparra_valore, caparra_regola, caparra_no_show_soglia")
+      .eq("id", tenantId)
+      .single(),
     supabase
       .from("richieste_caparra")
       .select("id, cliente_nome, importo_centesimi, stato, created_at")
@@ -53,6 +57,8 @@ export default async function PaginaCaparra() {
           attiva: tenantRes.data?.caparra_attiva ?? false,
           tipo: (tenantRes.data?.caparra_tipo as "percentuale" | "fisso") ?? "percentuale",
           valore: tenantRes.data?.caparra_valore ?? 20,
+          regola: tenantRes.data?.caparra_regola === "dopo_no_show" ? "dopo_no_show" : "tutti",
+          sogliaNoShow: tenantRes.data?.caparra_no_show_soglia ?? 1,
         }}
       />
 

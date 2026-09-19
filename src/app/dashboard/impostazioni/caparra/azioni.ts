@@ -68,9 +68,22 @@ export async function aggiornaCaparra(formData: FormData) {
   // titolare) -> convertito in centesimi qui, unico punto di conversione.
   const valore = tipo === "fisso" ? Math.round(valoreNumero * 100) : Math.round(valoreNumero);
 
+  // Caparra selettiva (migrazione 0071): a tutti, o solo da N no-show in poi.
+  const regola = formData.get("regola") === "dopo_no_show" ? "dopo_no_show" : "tutti";
+  const sogliaNumero = Number(String(formData.get("soglia") || "1"));
+  if (regola === "dopo_no_show" && (!Number.isInteger(sogliaNumero) || sogliaNumero < 1)) {
+    return { errore: "La soglia dei no-show deve essere un numero intero, almeno 1." };
+  }
+
   const { error } = await supabase
     .from("tenants")
-    .update({ caparra_attiva: true, caparra_tipo: tipo, caparra_valore: valore })
+    .update({
+      caparra_attiva: true,
+      caparra_tipo: tipo,
+      caparra_valore: valore,
+      caparra_regola: regola,
+      caparra_no_show_soglia: regola === "dopo_no_show" ? sogliaNumero : 1,
+    })
     .eq("id", tenantId);
 
   revalidatePath("/dashboard/impostazioni/caparra");

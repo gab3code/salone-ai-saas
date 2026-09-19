@@ -85,7 +85,7 @@ describe("caricaProfiloPubblico", () => {
     expect(profilo?.operatori).toEqual([
       { id: "op-1", nome: "Sara", fotoUrl: null, ruolo: "Titolare", servizioIds: ["serv-1"] },
     ]);
-    expect(profilo?.caparra).toEqual({ attiva: false, tipo: "percentuale", valore: 20 });
+    expect(profilo?.caparra).toEqual({ attiva: false, tipo: "percentuale", valore: 20, regola: "tutti", sogliaNoShow: 1 });
   });
 
   it("caparra attiva/tipo/valore riflettono la configurazione del tenant", async () => {
@@ -100,7 +100,7 @@ describe("caricaProfiloPubblico", () => {
     });
 
     const profilo = await caricaProfiloPubblico(supabase, "bella-hair");
-    expect(profilo?.caparra).toEqual({ attiva: true, tipo: "fisso", valore: 1000 });
+    expect(profilo?.caparra).toEqual({ attiva: true, tipo: "fisso", valore: 1000, regola: "tutti", sogliaNoShow: 1 });
   });
 
   it("chatAiAttiva è false per un piano senza AI (es. free)", async () => {

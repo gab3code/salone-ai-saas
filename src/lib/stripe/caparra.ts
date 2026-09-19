@@ -13,12 +13,31 @@
  */
 
 export type TipoCaparra = "percentuale" | "fisso";
+/** A chi si chiede: a tutti, o solo a chi ha gia' saltato (migrazione 0071). */
+export type RegolaCaparra = "tutti" | "dopo_no_show";
 
 export interface ConfigCaparra {
   attiva: boolean;
   tipo: TipoCaparra;
   // percentuale: 1-100 (percento del prezzo del servizio); fisso: importo in centesimi.
   valore: number;
+  /** Assente = "tutti" (le configurazioni scritte prima della 0071). */
+  regola?: RegolaCaparra;
+  /** Con "dopo_no_show": da quanti no-show in poi. Assente = 1. */
+  sogliaNoShow?: number;
+}
+
+/**
+ * La caparra e' dovuta da QUESTO cliente? Con la regola "tutti" sempre (se
+ * attiva); con "dopo_no_show" solo da chi ha almeno `sogliaNoShow` assenze.
+ * `noShowCliente` sconosciuto (null/undefined) vale zero: un cliente mai
+ * visto, o un telefono non ancora scritto nel form, non paga.
+ */
+export function caparraDovuta(config: ConfigCaparra, noShowCliente?: number | null): boolean {
+  if (!config.attiva) return false;
+  if ((config.regola ?? "tutti") === "tutti") return true;
+  const soglia = Math.max(1, Math.round(config.sogliaNoShow ?? 1));
+  return (noShowCliente ?? 0) >= soglia;
 }
 
 /**
@@ -32,9 +51,10 @@ export interface ConfigCaparra {
  */
 export function calcolaImportoCaparraCentesimi(
   config: ConfigCaparra,
-  prezzoServizioCentesimi: number
+  prezzoServizioCentesimi: number,
+  noShowCliente?: number | null
 ): number {
-  if (!config.attiva) return 0;
+  if (!caparraDovuta(config, noShowCliente)) return 0;
   if (config.tipo === "fisso") return Math.max(0, Math.round(config.valore));
   const importo = Math.round((prezzoServizioCentesimi * config.valore) / 100);
   return Math.max(0, importo);

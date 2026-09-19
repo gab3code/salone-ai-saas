@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 import { creaClientStripe } from "./server";
 import { calcolaImportoCaparraCentesimi, type ConfigCaparra } from "./caparra";
 import { verificaConflittoTenant } from "@/lib/booking-engine.server";
+import { trovaClientePerTelefono } from "@/lib/clienti.server";
 
 /**
  * Logica di avvio pagamento caparra condivisa tra il form pubblico manuale
@@ -59,20 +60,72 @@ export type RisultatoAvvioCaparra =
 export async function caricaImportoCaparraServizio(
   supabase: SupabaseClient,
   tenantId: string,
-  servizioId: string
+  servizioId: string,
+  /** Il telefono del cliente: serve solo con la regola "dopo_no_show" (0071). */
+  telefonoCliente?: string | null
 ): Promise<number | null> {
   const [tenantRes, servizioRes] = await Promise.all([
-    supabase.from("tenants").select("caparra_attiva, caparra_tipo, caparra_valore").eq("id", tenantId).single(),
+    supabase.from("tenants").select(COLONNE_CAPARRA).eq("id", tenantId).single(),
     supabase.from("servizi").select("prezzo_centesimi").eq("id", servizioId).eq("tenant_id", tenantId).single(),
   ]);
   if (!tenantRes.data || !servizioRes.data) return null;
 
-  const config: ConfigCaparra = {
-    attiva: tenantRes.data.caparra_attiva,
-    tipo: tenantRes.data.caparra_tipo,
-    valore: tenantRes.data.caparra_valore,
+  const config = configDaRiga(tenantRes.data);
+  const noShow = await noShowSeServono(supabase, tenantId, config, telefonoCliente);
+  if (noShow === null) return null;
+  return calcolaImportoCaparraCentesimi(config, servizioRes.data.prezzo_centesimi, noShow);
+}
+
+const COLONNE_CAPARRA = "caparra_attiva, caparra_tipo, caparra_valore, caparra_regola, caparra_no_show_soglia";
+
+function configDaRiga(riga: {
+  caparra_attiva: boolean;
+  caparra_tipo: string;
+  caparra_valore: number;
+  caparra_regola?: string | null;
+  caparra_no_show_soglia?: number | null;
+}): ConfigCaparra {
+  return {
+    attiva: riga.caparra_attiva,
+    tipo: riga.caparra_tipo as ConfigCaparra["tipo"],
+    valore: riga.caparra_valore,
+    regola: riga.caparra_regola === "dopo_no_show" ? "dopo_no_show" : "tutti",
+    sogliaNoShow: riga.caparra_no_show_soglia ?? 1,
   };
-  return calcolaImportoCaparraCentesimi(config, servizioRes.data.prezzo_centesimi);
+}
+
+/**
+ * Quanti appuntamenti saltati ha questo cliente in questo salone. Si legge
+ * SOLO se la regola lo richiede: con "tutti" (o caparra spenta) non si fa
+ * nessuna query e torna 0. Null = errore di lettura: chi chiama non decide
+ * alla cieca (stessa regola di caricaImportoCaparraServizio).
+ */
+async function noShowSeServono(
+  supabase: SupabaseClient,
+  tenantId: string,
+  config: ConfigCaparra,
+  telefonoCliente?: string | null
+): Promise<number | null> {
+  if (!config.attiva || config.regola !== "dopo_no_show") return 0;
+  if (!telefonoCliente) return 0;
+  return contaNoShowPerTelefono(supabase, tenantId, telefonoCliente);
+}
+
+export async function contaNoShowPerTelefono(
+  supabase: SupabaseClient,
+  tenantId: string,
+  telefono: string
+): Promise<number | null> {
+  const cliente = await trovaClientePerTelefono(tenantId, telefono, supabase);
+  if (!cliente) return 0;
+  const { count, error } = await supabase
+    .from("appuntamenti")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .eq("cliente_id", cliente.id)
+    .eq("stato", "no_show");
+  if (error) return null;
+  return count ?? 0;
 }
 
 /**
@@ -97,7 +150,7 @@ export async function avviaPagamentoCaparraTenant(
   const [tenantRes, servizioRes] = await Promise.all([
     supabase
       .from("tenants")
-      .select("nome, caparra_attiva, caparra_tipo, caparra_valore")
+      .select(`nome, ${COLONNE_CAPARRA}`)
       .eq("id", params.tenantId)
       .single(),
     supabase
@@ -110,12 +163,12 @@ export async function avviaPagamentoCaparraTenant(
   if (!tenantRes.data) return { ok: false, errore: "Attività non trovata." };
   if (!servizioRes.data) return { ok: false, errore: "Servizio non trovato." };
 
-  const config: ConfigCaparra = {
-    attiva: tenantRes.data.caparra_attiva,
-    tipo: tenantRes.data.caparra_tipo,
-    valore: tenantRes.data.caparra_valore,
-  };
-  const importoCentesimi = calcolaImportoCaparraCentesimi(config, servizioRes.data.prezzo_centesimi);
+  const config = configDaRiga(tenantRes.data);
+  const noShow = await noShowSeServono(supabase, params.tenantId, config, params.clienteTelefono);
+  if (noShow === null) {
+    return { ok: false, errore: "Non riesco a verificare le condizioni di prenotazione adesso. Riprova fra poco." };
+  }
+  const importoCentesimi = calcolaImportoCaparraCentesimi(config, servizioRes.data.prezzo_centesimi, noShow);
   if (importoCentesimi <= 0) {
     return { ok: false, errore: "Nessuna caparra richiesta per questa prenotazione: usa la conferma diretta." };
   }

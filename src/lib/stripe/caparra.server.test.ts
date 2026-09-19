@@ -23,6 +23,51 @@ function creaStripeFinto(sessionUrl: string | null = "https://checkout.stripe.co
   return { checkout: { sessions: { create } } } as unknown as Stripe;
 }
 
+vi.mock("@/lib/clienti.server", () => ({
+  trovaClientePerTelefono: vi.fn(async (_t: string, telefono: string) => (telefono === "3330000000" ? null : { id: "cliente-1" })),
+}));
+
+describe("caricaImportoCaparraServizio -- caparra selettiva (0071)", () => {
+  const TENANT_SELETTIVO = {
+    caparra_attiva: true,
+    caparra_tipo: "fisso",
+    caparra_valore: 1500,
+    caparra_regola: "dopo_no_show",
+    caparra_no_show_soglia: 1,
+  };
+
+  it("chi ha gia' saltato paga, chi non ha assenze no, un telefono mai visto no", async () => {
+    const conAssenza = creaSupabaseFinto({
+      tenants: { select: [{ data: TENANT_SELETTIVO, error: null }] },
+      servizi: { select: [{ data: { prezzo_centesimi: 5000 }, error: null }] },
+      appuntamenti: { select: [{ data: null, count: 1, error: null }] },
+    });
+    expect(await caricaImportoCaparraServizio(conAssenza, TENANT_ID, SERVIZIO_ID, "3331234567")).toBe(1500);
+
+    const senzaAssenze = creaSupabaseFinto({
+      tenants: { select: [{ data: TENANT_SELETTIVO, error: null }] },
+      servizi: { select: [{ data: { prezzo_centesimi: 5000 }, error: null }] },
+      appuntamenti: { select: [{ data: null, count: 0, error: null }] },
+    });
+    expect(await caricaImportoCaparraServizio(senzaAssenze, TENANT_ID, SERVIZIO_ID, "3331234567")).toBe(0);
+
+    const maiVisto = creaSupabaseFinto({
+      tenants: { select: [{ data: TENANT_SELETTIVO, error: null }] },
+      servizi: { select: [{ data: { prezzo_centesimi: 5000 }, error: null }] },
+    });
+    expect(await caricaImportoCaparraServizio(maiVisto, TENANT_ID, SERVIZIO_ID, "3330000000")).toBe(0);
+  });
+
+  it("se il conteggio dei no-show fallisce torna null: non si decide alla cieca", async () => {
+    const rotto = creaSupabaseFinto({
+      tenants: { select: [{ data: TENANT_SELETTIVO, error: null }] },
+      servizi: { select: [{ data: { prezzo_centesimi: 5000 }, error: null }] },
+      appuntamenti: { select: [{ data: null, count: null, error: { message: "boom" } }] },
+    });
+    expect(await caricaImportoCaparraServizio(rotto, TENANT_ID, SERVIZIO_ID, "3331234567")).toBeNull();
+  });
+});
+
 describe("caricaImportoCaparraServizio", () => {
   it("torna l'importo se la caparra è attiva", async () => {
     const supabase = creaSupabaseFinto({

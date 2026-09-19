@@ -626,7 +626,14 @@ describe("eseguiStrumento -- crea_prenotazione con servizi consecutivi (più id 
     // La caparra si calcola solo sul primo servizio della catena (limite noto,
     // vedi commento nel codice sorgente): verifica che sia proprio quell'id a
     // essere passato a caricaImportoCaparraServizio, non un array o l'ultimo.
-    expect(caricaImportoCaparraServizioFinto).toHaveBeenCalledWith(expect.anything(), TENANT_ID, SERVIZIO_ID);
+    // ...e col telefono del cliente: con la caparra selettiva (0071) serve a
+    // contare i suoi no-show.
+    expect(caricaImportoCaparraServizioFinto).toHaveBeenCalledWith(
+      expect.anything(),
+      TENANT_ID,
+      SERVIZIO_ID,
+      INPUT_DUE_SERVIZI.cliente_telefono
+    );
     expect(creaAppuntamentoTenantFinto).toHaveBeenCalledWith(
       expect.anything(),
       TENANT_ID,

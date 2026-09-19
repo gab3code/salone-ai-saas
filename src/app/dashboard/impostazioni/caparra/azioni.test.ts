@@ -79,7 +79,21 @@ describe("aggiornaCaparra", () => {
       caparra_attiva: true,
       caparra_tipo: "percentuale",
       caparra_valore: 20,
+      caparra_regola: "tutti",
+      caparra_no_show_soglia: 1,
     });
+  });
+
+  it("caparra selettiva (0071): 'solo dopo N no-show' salva regola e soglia, e una soglia non valida ferma tutto", async () => {
+    expect(
+      await aggiornaCaparra(form({ attiva: "on", tipo: "percentuale", valore: "20", regola: "dopo_no_show", soglia: "2" }))
+    ).toEqual({ ok: true });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ caparra_regola: "dopo_no_show", caparra_no_show_soglia: 2 }));
+    update.mockClear();
+    expect(
+      await aggiornaCaparra(form({ attiva: "on", tipo: "percentuale", valore: "20", regola: "dopo_no_show", soglia: "0" }))
+    ).toEqual({ errore: "La soglia dei no-show deve essere un numero intero, almeno 1." });
+    expect(update).not.toHaveBeenCalled();
   });
 
   it("accesa con importo fisso, gli euro diventano centesimi in un punto solo", async () => {
@@ -88,6 +102,8 @@ describe("aggiornaCaparra", () => {
       caparra_attiva: true,
       caparra_tipo: "fisso",
       caparra_valore: 1250,
+      caparra_regola: "tutti",
+      caparra_no_show_soglia: 1,
     });
   });
 

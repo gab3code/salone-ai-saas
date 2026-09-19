@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ServizioPubblico, OperatorePubblico } from "@/lib/pagina-pubblica.server";
 import { calcolaImportoCaparraCentesimi, type ConfigCaparra } from "@/lib/stripe/caparra";
+import { importoCaparraPubblico } from "./azioni";
 import { formatoEuroDaCentesimi as formatoEuro } from "@/lib/piani";
 import {
   cercaSlotPubblici,
@@ -136,6 +137,10 @@ export default function FlussoPrenotazione({
     () => (servizioScelto ? calcolaImportoCaparraCentesimi(caparra, servizioScelto.prezzoCentesimi) : 0),
     [caparra, servizioScelto]
   );
+  // Caparra selettiva (migrazione 0071): con la regola "dopo_no_show" il
+  // calcolo qui sopra da' 0 perche' non conosce i no-show del cliente. Si
+  // chiede al server al momento della conferma, col telefono.
+  const caparraSelettiva = caparra.attiva && caparra.regola === "dopo_no_show";
 
   async function cercaDisponibilita() {
     setErrore(null);
@@ -214,11 +219,21 @@ export default function FlussoPrenotazione({
         iniziatoAlleMs,
       };
 
+      let importoDaPagare = importoCaparra;
+      if (caparraSelettiva) {
+        const verifica = await importoCaparraPubblico(slug, { servizioId: servizioScelto.id, clienteTelefono: telefono });
+        if (!verifica.ok) {
+          setErrore(verifica.errore);
+          return;
+        }
+        importoDaPagare = verifica.importoCentesimi;
+      }
+
       // Caparra richiesta: si passa da Stripe, l'appuntamento nasce solo a
       // pagamento confermato (vedi azioni.ts) -- il redirect lascia questa
       // pagina, quindi non c'è un passo "fatto" da mostrare qui: il cliente
       // torna su questa stessa pagina dopo aver pagato (o annullato).
-      if (importoCaparra > 0) {
+      if (importoDaPagare > 0) {
         const risultato = await avviaPagamentoCaparra(slug, datiPrenotazione);
         if (!risultato.ok) {
           setErrore(risultato.errore);
@@ -427,6 +442,12 @@ export default function FlussoPrenotazione({
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
               Questa attività richiede una caparra di <strong>{formatoEuro(importoCaparra)}</strong> per confermare la
               prenotazione, da pagare online nel passo successivo.
+            </p>
+          )}
+          {caparraSelettiva && importoCaparra === 0 && (
+            <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+              Questa attività chiede una caparra solo a chi in passato non si è presentato a un appuntamento. Se
+              riguarda te, te lo diciamo prima di confermare.
             </p>
           )}
           <div className="flex gap-3">

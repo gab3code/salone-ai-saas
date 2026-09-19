@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcolaImportoCaparraCentesimi, type ConfigCaparra } from "./caparra";
+import { caparraDovuta, calcolaImportoCaparraCentesimi, type ConfigCaparra } from "./caparra";
 
 describe("calcolaImportoCaparraCentesimi", () => {
   it("torna 0 se la caparra non è attiva, qualunque sia tipo/valore", () => {
@@ -31,5 +31,30 @@ describe("calcolaImportoCaparraCentesimi", () => {
   it("non torna mai un importo negativo anche con valori di configurazione anomali", () => {
     const config: ConfigCaparra = { attiva: true, tipo: "fisso", valore: -500 };
     expect(calcolaImportoCaparraCentesimi(config, 5000)).toBe(0);
+  });
+});
+
+describe("caparra selettiva (migrazione 0071): a chi si chiede", () => {
+  const base = { attiva: true, tipo: "fisso" as const, valore: 1000 };
+
+  it("regola 'tutti' (o assente, per le configurazioni vecchie): sempre", () => {
+    expect(caparraDovuta(base)).toBe(true);
+    expect(caparraDovuta({ ...base, regola: "tutti" }, 0)).toBe(true);
+    expect(calcolaImportoCaparraCentesimi(base, 5000)).toBe(1000);
+  });
+
+  it("regola 'dopo_no_show': un cliente nuovo o senza assenze non paga, chi ha raggiunto la soglia si'", () => {
+    const cfg = { ...base, regola: "dopo_no_show" as const, sogliaNoShow: 2 };
+    expect(caparraDovuta(cfg)).toBe(false);
+    expect(caparraDovuta(cfg, null)).toBe(false);
+    expect(caparraDovuta(cfg, 1)).toBe(false);
+    expect(caparraDovuta(cfg, 2)).toBe(true);
+    expect(calcolaImportoCaparraCentesimi(cfg, 5000, 1)).toBe(0);
+    expect(calcolaImportoCaparraCentesimi(cfg, 5000, 3)).toBe(1000);
+  });
+
+  it("soglia assente vale 1; caparra spenta non chiede a nessuno", () => {
+    expect(caparraDovuta({ ...base, regola: "dopo_no_show" }, 1)).toBe(true);
+    expect(caparraDovuta({ ...base, attiva: false, regola: "dopo_no_show" }, 5)).toBe(false);
   });
 });

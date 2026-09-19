@@ -541,7 +541,7 @@ async function eseguiStrumentoInterno(
       // decisione di prodotto a parte, vedi DECISIONS.md 16/09/2026): se
       // richiesta e la catena ha più di un servizio, si chiede di prenotarli
       // uno alla volta invece di gestire male i soldi del cliente.
-      const importoCaparra = await caricaImportoCaparraServizio(supabase, tenantId, servizio_ids[0]);
+      const importoCaparra = await caricaImportoCaparraServizio(supabase, tenantId, servizio_ids[0], cliente_telefono);
       if (importoCaparra === null) {
         // Non si e' potuto leggere se questa attivita' chiede una caparra:
         // non si prenota alla cieca (vedi caparra.server.ts).

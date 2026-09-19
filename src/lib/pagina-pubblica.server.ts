@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { pianoHaAccessoAIChatWeb } from "@/lib/ai/limiti";
 import { pianoHaKnowledgeBaseAi } from "@/lib/piani";
-import type { ConfigCaparra, TipoCaparra } from "@/lib/stripe/caparra";
+import type { ConfigCaparra, RegolaCaparra, TipoCaparra } from "@/lib/stripe/caparra";
 
 /**
  * Loader del profilo pubblico del salone (Fase 4, punto 15 di CLAUDE.md) --
@@ -90,7 +90,7 @@ export async function caricaProfiloPubblico(
   const { data: tenant, error: erroreTenant } = await supabase
     .from("tenants")
     .select(
-      "id, slug, nome, descrizione, indirizzo, telefono, telefono_whatsapp, email, sito_web, social, logo_url, cover_url, piano, caparra_attiva, caparra_tipo, caparra_valore"
+      "id, slug, nome, descrizione, indirizzo, telefono, telefono_whatsapp, email, sito_web, social, logo_url, cover_url, piano, caparra_attiva, caparra_tipo, caparra_valore, caparra_regola, caparra_no_show_soglia"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -161,6 +161,8 @@ export async function caricaProfiloPubblico(
       attiva: tenant.caparra_attiva,
       tipo: tenant.caparra_tipo as TipoCaparra,
       valore: tenant.caparra_valore,
+      regola: (tenant.caparra_regola as RegolaCaparra | null) ?? "tutti",
+      sogliaNoShow: tenant.caparra_no_show_soglia ?? 1,
     },
     servizi: (serviziRes.data ?? []).map((s) => ({
       id: s.id,

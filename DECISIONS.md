@@ -7094,3 +7094,20 @@ finché non c'è un sì registrato. È voluto: prima partivano senza base giurid
 
 **30 letture assistite** su Free/Starter (erano 3): deciso da Gabriel dopo il report economico
 (`docs/economia-19-09-2026.md`), costo massimo 0,50 € per salone.
+
+## 2026-09-19 (pomeriggio) — Caparra selettiva: il conteggio si deriva, non si scrive
+
+**Scelta.** Nessuna colonna `no_show` sul cliente: si contano gli appuntamenti con stato
+`no_show` al momento della prenotazione, riconoscendo il cliente dal telefono. Un contatore
+scritto a parte sarebbe una seconda verità da tenere allineata quando il titolare corregge uno
+stato dal calendario; il conteggio derivato è sempre giusto per costruzione. Costa una query in
+più, e solo con la regola attiva (`noShowSeServono` non tocca il database con "tutti").
+
+**Il form non può decidere da solo.** Con "dopo_no_show" il calcolo lato client dà 0 perché non
+conosce i no-show: il componente chiede `importoCaparraPubblico` col telefono prima di scegliere
+fra conferma diretta e checkout. Le due azioni di scrittura ricontrollano comunque: la lettura
+serve alla UI, non è un'autorizzazione. Un telefono mai visto vale zero no-show.
+
+**Fallimento chiuso.** Se il conteggio fallisce, `null` e la prenotazione si ferma con un
+messaggio: stessa regola di `caricaImportoCaparraServizio` dal 16/09 ("non prenotare alla
+cieca su un salone che forse chiede una caparra").
