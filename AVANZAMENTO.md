@@ -22,6 +22,46 @@ perdere tempo nello stesso modo di uno che dice "fatto" quando non e' fatto.
 
 ---
 
+## 19/09/2026, notte -- quello che e' cambiato dopo la foto del 18
+
+**I numeri aggiornati**: 1160 test unitari in 83 file (erano 991), 70 scenari Playwright in 30
+file (erano 63), 69 migrazioni scritte e tutte applicate a produzione e al database di test
+(la 0069 e' stata creata e ritirata la notte stessa, vedi DECISIONS.md). Build, tipi e lint
+puliti. La tabella delle fasi qui sotto vale ancora: nessuna casella si e' spostata, il lavoro
+di oggi e' tutto correzione.
+
+**Il costo dell'AI non e' piu' una stima.** La migrazione 0068 ha raccolto i primi dati veri:
+166 chiamate su 70 messaggi di cliente, **$0,0079 a messaggio** contro gli $0,008 stimati. Il
+costo per prenotazione non e' ancora leggibile (quasi tutte le chat erano prove che non
+prenotavano). `npm run costi-ai` legge la tabella.
+
+**Nove pannelli si resettavano da soli.** `<form action={...}>` di React 19 resetta il form
+quando l'azione finisce: misurato, tornano indietro checkbox, radio e select, non testo e
+textarea. Era la causa di tre segnalazioni che sembravano diverse (la spunta della caparra, il
+tono che tornava predefinito). Corretto con `alInvio` (onSubmit) e un test che scandisce il
+codice e blocca ogni `<form action>` con dentro una spunta, un radio o una select.
+
+**Quattro difetti dell'assistente, tre trovati usandolo e non leggendolo:**
+- l'ora confermata diversa da quella prenotata (09:00 nel database, "09:30" nel messaggio);
+- "alle 16" scambiato per un orario inventato -> il cliente riceveva "non riesco a dirti gli
+  orari liberi" proprio mentre diceva l'ora che voleva;
+- i due tetti anti-abuso tagliavano **sulla conferma**, perche' la parte finale di una
+  prenotazione non chiama strumenti: ora 10 messaggi senza strumenti e 30 totali (erano 5 e 15);
+- **"Tutto fatto, ci vediamo mercoledi'" senza aver prenotato niente**: la frase era un esempio
+  di tono aggiunto tre ore prima, e la rete anti-bugia non la riconosceva. Ora gli esempi del
+  prompt sono una struttura e un test verifica che ogni conferma sia riconosciuta dai controlli.
+
+**Il tono dell'AI** ora si insegna con otto esempi per stile invece che con una riga di
+aggettivi, e le emoji fuori tono le toglie il codice. Verificato dal vivo: il tono si vede in
+ogni messaggio, non solo nel saluto.
+
+**Un giorno passato** non dice piu' "la giornata e' gia' piena".
+
+**Documento nuovo**: `docs/prompt-agente-autonomo.md`, il prompt da dare a un altro agente per
+una sessione autonoma, con i limiti scritti.
+
+---
+
 ## Il quadro in una tabella
 
 | Fase | Cosa copre | Fatte | Aperte | Stato |
