@@ -29,7 +29,19 @@ export function PannelloCaparra({ configurazioneIniziale }: { configurazioneIniz
       if (risultato?.errore) {
         setMessaggio({ tipo: "errore", testo: risultato.errore });
       } else {
-        setMessaggio({ tipo: "ok", testo: "Impostazioni salvate." });
+        // NON "Impostazioni salvate", ma COSA e' stato salvato.
+        //
+        // Il 19/09/2026 Gabriel ha tolto la spunta, ha salvato, ha letto
+        // "Impostazioni salvate" e si e' visto la spunta tornare blu. Un
+        // messaggio che conferma senza dire cosa non aiuta a capire chi dei
+        // due ha ragione. Questo lo dice, e siccome nasce da quello che
+        // abbiamo appena mandato al server, non puo' contraddirlo.
+        setMessaggio({
+          tipo: "ok",
+          testo: attiva
+            ? `Caparra attiva: ${tipo === "percentuale" ? `${valore}% del prezzo` : `${valore}€ fissi`}.`
+            : "Caparra disattivata: le prenotazioni online non richiedono piu' un anticipo.",
+        });
       }
     } finally {
       setInCorso(false);

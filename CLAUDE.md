@@ -875,6 +875,45 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27tricies. Uno `useState` inizializzato da una prop del server e' uno stato che mente (19/09/2026)
+
+Gabriel toglie la spunta alla caparra, salva, legge "Impostazioni salvate" -- e vede **la spunta
+tornare blu**. Nel database era gia' `false`: il salvataggio aveva funzionato, era la schermata
+a raccontare il contrario.
+
+La causa e' un pattern che in questo progetto era gia' comparso due volte (il form degli orari,
+quello delle regole d'agenda) e che ogni volta e' costato tempo prima di essere riconosciuto:
+
+```tsx
+const [attiva, setAttiva] = useState(configurazioneIniziale.attiva);
+```
+
+`useState` legge la prop **una volta sola, al montaggio**. Dopo un salvataggio la pagina si
+rigenera e le prop arrivano aggiornate, ma React riusa il componente invece di rimontarlo,
+quindi lo stato resta quello di prima -- e a seconda di come si incastrano rigenerazione e
+riconciliazione si finisce con la schermata che mostra un valore e il database che ne contiene
+un altro. Non c'e' un errore da nessuna parte: ci sono due verita' e nessuna che vince.
+
+**Il rimedio, gia' adottato altrove e da adottare sempre:** una `key` sul componente costruita
+da cio' che e' SALVATO.
+
+```tsx
+<PannelloCaparra key={`caparra:${attiva}:${tipo}:${valore}`} ... />
+```
+
+Cosi' il componente si rimonta -- e rilegge le prop -- esattamente quando cambia quello che c'e'
+nel database, e mai per caso.
+
+**La seconda meta', che vale da sola.** Il messaggio di conferma diceva "Impostazioni salvate".
+Non serviva a niente: confermava che qualcosa era stato salvato senza dire cosa, mentre la
+schermata mostrava il contrario. Adesso dice **cosa** e' stato salvato ("Caparra disattivata:
+le prenotazioni online non richiedono piu' un anticipo"), ed e' costruito da quello che abbiamo
+appena mandato al server, quindi non puo' contraddirlo.
+
+La regola generale: **un messaggio di conferma che non nomina il risultato non e' una conferma,
+e' un rumore rassicurante.** Quando l'utente e la schermata sono in disaccordo, e' l'unica cosa
+che puo' dire chi dei due ha ragione.
+
 ## 27duodetricies. Ogni trasformazione che chiedi al modello e' un posto dove puo' sbagliare (19/09/2026)
 
 `verifica_disponibilita` restituiva quaranta slot come timestamp ISO. Nessuno ne mostra quaranta
