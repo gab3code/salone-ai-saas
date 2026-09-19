@@ -6767,3 +6767,37 @@ paga (è una voce di Pro): vedersela applicata in un messaggio su dieci è peggi
 **Limite dichiarato.** Qui non esiste rete deterministica: "suona amichevole" non è verificabile
 da codice come lo sono un orario o un prezzo. Resta un miglioramento probabilistico, come i
 verbi pronominali, e va guardato dal vivo su una conversazione intera -- non su un "ciao".
+
+## 2026-09-19 — Il tono, secondo giro: sei esempi invece di quattro, e le emoji le garantisce il codice
+
+**Cos'era successo.** Dopo il primo giro (esempi al posto degli aggettivi) Gabriel riprova e dice:
+*"continua a non mandare emoji e rispondere ugualmente a prescindere dal tono impostato"*. Ma
+guardando la conversazione vera nel database (`777634cb`, dopo il deploy) il tono **c'era**:
+"Che giorno ti va bene?" e "Quale prendi?" sono parola per parola gli esempi nuovi.
+
+**La causa vera era negli esempi, non nel meccanismo.** Erano quattro, e sui due momenti dove la
+conversazione passa piu' tempo -- elencare i servizi, chiedere nome/cognome/telefono -- non ce
+n'era nessuno, quindi li' i tre stili collassavano nella stessa forma. E per le emoji avevo
+scritto *"al massimo UNA emoji per messaggio, e solo dove ci sta davvero"*: il modello ha
+obbedito alla lettera, una emoji su sei messaggi.
+
+**Decisione.**
+- Gli esempi passano da 4 a **8 per stile** e coprono i momenti che tornano davvero (saluto,
+  elenco servizi, chiedere il giorno, proporre gli orari, chiedere i dati, rispondere a una
+  domanda informativa, confermare).
+- Lo stile con le emoji dice adesso il contrario di prima: *"LE EMOJI SONO IL PUNTO DI QUESTO
+  STILE: mettine UNA in quasi ogni messaggio"*, e tutti gli esempi ne hanno una. Unica esclusione
+  scritta: mai in un messaggio che da' una brutta notizia.
+- Gli altri due stili dicono esplicitamente **"MAI emoji"**, e questo **lo applica il codice**:
+  `src/lib/ai/tono-emoji.ts`, chiamato subito dopo `pulisciMarkdown`.
+
+**Motivazione della parte deterministica.** "Suona amichevole" e' un giudizio e non si verifica
+col codice; "c'e' un'emoji" e' un fatto. Meta' del tono smette quindi di dipendere dalla buona
+volonta' del modello, con lo stesso criterio gia' usato per orari, prezzi e azioni.
+
+**Limite dichiarato, e perche' non l'ho chiuso.** Nella direzione opposta -- aggiungere un'emoji
+a un messaggio che non ne ha -- il codice non puo' fare niente di buono: dovrebbe sceglierla e
+piazzarla, e finirebbe addosso anche al messaggio che dice "quello slot si e' appena occupato".
+L'alternativa sarebbe un giro di correzione col modello, che **raddoppia il costo di ogni
+messaggio** (~$0,0079 -> ~$0,016) per una questione estetica. Scartata: resta probabilistico, e
+va guardato su una conversazione intera.

@@ -406,4 +406,29 @@ describe("le bugie vere dell'assistente, rigiocate", () => {
   });
 
 
+
+  /**
+   * 19/09/2026, Gabriel: "continua a non mandare emoji e rispondere ugualmente
+   * a prescindere dal tono impostato". Il tono e' un giudizio e non si puo'
+   * verificare col codice -- le emoji si', e due stili su tre dicono di non
+   * usarne nessuna. Quella meta' smette di dipendere dal modello.
+   */
+  it("con uno stile senza emoji, un'emoji del modello non arriva al cliente", async () => {
+    const create = vi.fn().mockResolvedValue(testoFinale("Tutto fatto 🎉 Ci vediamo martedì!"));
+    const risultato = await rispondiConversazione([], "ok", { ...contesto(), tonoAi: "amichevole" }, {
+      messages: { create },
+    } as ClienteAnthropic);
+
+    expect(risultato.rispostaTesto).toBe("Tutto fatto Ci vediamo martedì!");
+  });
+
+  it("con lo stile informale le emoji restano", async () => {
+    const create = vi.fn().mockResolvedValue(testoFinale("Tutto fatto 🎉 Ci vediamo martedì!"));
+    const risultato = await rispondiConversazione([], "ok", { ...contesto(), tonoAi: "informale_con_emoji" }, {
+      messages: { create },
+    } as ClienteAnthropic);
+
+    expect(risultato.rispostaTesto).toContain("🎉");
+  });
+
 });

@@ -12,6 +12,7 @@ import {
   trovaIncongruenzaGiornoSettimana,
   correggiGiornoSettimanaNelTesto,
 } from "./giorni-settimana";
+import { pulisciEmojiFuoriTono } from "./tono-emoji";
 import { pulisciMarkdown } from "./pulisci-markdown";
 import { istruzioniContatto } from "@/lib/contatti";
 import { registraUsoApi } from "./costi.server";
@@ -137,24 +138,34 @@ export type StileTonoAI = "professionale" | "amichevole" | "informale_con_emoji"
  */
 const DESCRIZIONE_TONO: Record<StileTonoAI, string> = {
   professionale: [
-    "Parla come una persona alla reception di un posto curato: cordiale, asciutta, mai fredda. Niente emoji.",
+    "Dai sempre del LEI. Cordiale e asciutta, come una persona alla reception di un posto curato. MAI emoji, in nessun messaggio.",
     'Saluto: "Buongiorno! Come posso aiutarla?"',
+    'Elencare i servizi: "Le nostre proposte sono manicure (30 minuti, 25 euro), pedicure (30 minuti, 40 euro) e massaggio rilassante (50 minuti, 45 euro). Quale preferisce?"',
     'Chiedere il giorno: "Per quale giorno le interessa?"',
-    'Proporre gli orari: "Mercoledì ho libero alle 09:00, alle 10:30 e alle 15:00. Quale preferisce?"',
+    'Proporre gli orari: "Mercoledì abbiamo libero alle 09:00, alle 10:30 e alle 15:00. Quale orario preferisce?"',
+    'Chiedere i dati: "Per completare mi servono nome, cognome e un numero di telefono."',
+    'Rispondere a una domanda: "Il parcheggio è nel cortile interno, con ingresso da via Verdi."',
     'Confermare: "È prenotato: mercoledì 23 alle 09:00. La aspettiamo."',
   ].join(" "),
   amichevole: [
-    "Parla come un membro dello staff che conosce i clienti abituali: dai del tu, calorosa e vicina, mai formale. Niente emoji.",
+    "Dai del TU. Calorosa e vicina, come un membro dello staff che conosce i clienti abituali da anni. MAI emoji, in nessun messaggio: il calore sta nelle parole.",
     'Saluto: "Ciao! Dimmi pure, come posso aiutarti?"',
+    'Elencare i servizi: "Da noi puoi fare manicure (30 minuti, 25 euro), pedicure (30 minuti, 40 euro) o un massaggio rilassante (50 minuti, 45 euro). Cosa ti va?"',
     'Chiedere il giorno: "Che giorno avevi in mente?"',
     'Proporre gli orari: "Mercoledì siamo liberi alle 09:00, alle 10:30 e alle 15:00 -- quale ti va meglio?"',
+    'Chiedere i dati: "Ci siamo quasi! Mi lasci nome, cognome e un numero dove trovarti?"',
+    'Rispondere a una domanda: "Certo, il parcheggio ce l\'abbiamo nel cortile interno, si entra da via Verdi."',
     'Confermare: "Fatto! Ti aspettiamo mercoledì 23 alle 09:00."',
   ].join(" "),
   informale_con_emoji: [
-    "Parla come si scrive a un amico: diretta, frizzante, frasi corte. Al massimo UNA emoji per messaggio, e solo dove ci sta davvero -- mai una in ogni frase.",
+    "Dai del TU, frasi corte, come si scrive a un amico su WhatsApp.",
+    "LE EMOJI SONO IL PUNTO DI QUESTO STILE: mettine UNA in quasi ogni messaggio, scelta a tema con quello che stai dicendo. Una sola per messaggio, mai due nella stessa frase, e mai in un messaggio che dà una brutta notizia (uno slot occupato, un errore).",
     'Saluto: "Ehi! Dimmi tutto 😊"',
-    'Chiedere il giorno: "Che giorno ti va bene?"',
-    'Proporre gli orari: "Mercoledì c\'è posto alle 09:00, alle 10:30 e alle 15:00. Quale prendi?"',
+    'Elencare i servizi: "Ecco cosa facciamo 💅 manicure (30 min, 25 euro), pedicure (30 min, 40 euro), massaggio rilassante (50 min, 45 euro). Quale ti ispira?"',
+    'Chiedere il giorno: "Che giorno ti va bene? 📅"',
+    'Proporre gli orari: "Mercoledì c\'è posto alle 09:00, alle 10:30 e alle 15:00 ✨ quale prendi?"',
+    'Chiedere i dati: "Ci siamo! Mi servono nome, cognome e numero 📱"',
+    'Rispondere a una domanda: "Sì! Parcheggio gratis nel cortile interno, si entra da via Verdi 🚗"',
     'Confermare: "Tutto fatto 🎉 Ci vediamo mercoledì 23 alle 09:00!"',
   ].join(" "),
 };
@@ -749,7 +760,10 @@ export async function rispondiConversazione(
       // prompt, quindi può reintrodurre markdown allo stesso modo -- il
       // fallback deterministico non ne contiene mai, la seconda passata è a
       // costo zero in quel caso).
-      const testo = testoGrezzo ? pulisciMarkdown(testoGrezzo) : testoGrezzo;
+      // ...e poi via le emoji, se lo stile scelto dal titolare non le vuole.
+      // Due stili su tre dicono "MAI emoji": e' l'unica meta' del tono che il
+      // codice puo' garantire invece di sperarci (vedi tono-emoji.ts).
+      const testo = testoGrezzo ? pulisciEmojiFuoriTono(pulisciMarkdown(testoGrezzo), ctx.tonoAi) : testoGrezzo;
 
       // IL RIENTRO NEL LOOP (19/09/2026, dopo aver sbagliato la prima
       // versione di questa cosa).
@@ -809,7 +823,8 @@ export async function rispondiConversazione(
       }
 
       const testoCorretto = testo
-        ? pulisciMarkdown(
+        ? pulisciEmojiFuoriTono(
+            pulisciMarkdown(
             await correggiSeIncongruente(
               testo,
               ctx,
@@ -827,7 +842,9 @@ export async function rispondiConversazione(
                 telefonoWhatsapp: ctx.telefonoWhatsapp ?? null,
               }),
               orariConsentiti(risultatiStrumentiDelTurno, messaggiDelCliente)
-            )
+              )
+            ),
+            ctx.tonoAi
           )
         : testo;
 
