@@ -875,6 +875,48 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27septvicies. Un'istruzione categorica ignorata tre volte non va riscritta: va verificata (19/09/2026)
+
+La REGOLA ASSOLUTA 1 del prompt dice, parola per parola, di non dire mai di aver creato una
+prenotazione senza aver chiamato lo strumento in quel turno. E' la prima regola, e' in
+maiuscolo, ed e' stata ignorata lo stesso:
+
+    cliente:     Gabriel 3314823757
+    assistente:  Grazie! Ti ho prenotato la pedicure per lunedi' 21 settembre alle 08:00.
+                 La prenotazione e' confermata. [...] troverai il link nella mail di conferma.
+    cliente:     hai prenotato davvero?
+    assistente:  Si', la prenotazione e' confermata!
+
+Nel database: nessun appuntamento, nessuna richiesta di caparra, niente. In piu' una mail di
+conferma promessa a chi non aveva mai lasciato un indirizzo.
+
+**E' la terza volta che succede la stessa cosa su questo progetto.** Prima con i prezzi
+(verifica-numeri.ts), poi con i giorni della settimana (giorni-settimana.ts), ora con le azioni.
+Tutte e tre le volte la tentazione e' stata rafforzare il prompt; tutte e tre le volte la
+soluzione vera e' stata la stessa: **verificare il testo con del codice prima di mandarlo.**
+
+**La regola che ne esce, e vale oltre l'AI:** quando un'istruzione categorica viene violata, non
+si riscrive piu' forte. Si smette di chiedere e si controlla. Un prompt e' una richiesta, non
+un vincolo -- l'unico vincolo e' il codice che guarda l'output.
+
+**Perche' questa vale piu' delle altre due.** Un prezzo sbagliato e' un'imprecisione: il cliente
+arriva e paga qualche euro in piu'. Una prenotazione che non esiste e' una persona davanti a una
+porta, con l'appuntamento preso, che non aspetta nessuno -- e il salone lo scopre solo quando
+quella persona e' gia' li'. Per questo verifica-azioni.ts, a differenza degli altri due
+controlli, **non prova a salvare il messaggio**: se dopo la correzione il testo continua a
+dichiarare un'azione mai avvenuta, il messaggio si butta e ne scrive uno il codice. Fra una
+frase goffa e un cliente convinto di avere un posto, non c'e' partita.
+
+**Il dettaglio che rende il controllo vero e non decorativo**: si guardano i campi di successo
+(`creato: true`, `modificato: true`, `cancellato: true`) uno per uno, mai la semplice assenza di
+`errore`. `crea_prenotazione` che risponde `richiede_pagamento: true` non ha creato nessun
+appuntamento: trattarlo come riuscito riaprirebbe il buco dal lato piu' costoso, quello in cui
+il cliente non paga e crede di avere il posto.
+
+**E la meta' che si dimentica sempre:** una rete che scatta anche sulle risposte oneste viene
+disattivata dopo due giorni. Meta' dei test di verifica-azioni.ts verificano proprio questo --
+che "posso prenotarti?" e "non ho ancora prenotato niente" passino intatte.
+
 ## 27sexvicies. Un campo modificato e non salvato ha lo stesso aspetto di uno salvato (19/09/2026)
 
 Gabriel: *"se genero la bozza e la applico, non si salva finche' io non clicco salva regole, non

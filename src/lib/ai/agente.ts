@@ -15,6 +15,13 @@ import {
 import { pulisciMarkdown } from "./pulisci-markdown";
 import { istruzioniContatto } from "@/lib/contatti";
 import { registraUsoApi } from "./costi.server";
+import {
+  trovaAzioneNonAvvenuta,
+  azioniDichiarate,
+  frasePrudente,
+  type AzioneAppuntamento,
+  type ContestoAzioni,
+} from "./verifica-azioni";
 import type { CanaleUsoApi } from "./costi";
 
 /**
@@ -232,7 +239,9 @@ async function correggiSeIncongruente(
   tools: Anthropic.Tool[],
   importoCaparraReale: number | null,
   adesso: Date,
-  usoApi: { canale: CanaleUsoApi; tenantId: string | null }
+  usoApi: { canale: CanaleUsoApi; tenantId: string | null },
+  azioni: ContestoAzioni,
+  comeContattare: string | null
 ): Promise<string> {
   const potrebbeMenzionareUnNumero = /€|euro|minut/i.test(testo);
 
@@ -254,6 +263,11 @@ async function correggiSeIncongruente(
     }
     const incongruenzaGiorno = trovaIncongruenzaGiornoSettimana(t, adesso);
     if (incongruenzaGiorno) problemi.push(incongruenzaGiorno);
+    // Un'azione dichiarata e mai avvenuta e' l'errore piu' caro di tutti:
+    // il cliente si presenta davanti a una porta chiusa. Vedi
+    // verifica-azioni.ts per il caso vero che ha portato a questo controllo.
+    const azioneInventata = trovaAzioneNonAvvenuta(t, azioni);
+    if (azioneInventata) problemi.push(azioneInventata);
     return problemi;
   };
 
@@ -312,6 +326,22 @@ async function correggiSeIncongruente(
   // messaggio, situazione rara) si preferisce lasciare un'imprecisione sul
   // prezzo piuttosto che perdere il link -- l'importo della caparra, quello
   // già corretto sopra, resta comunque protetto.
+  // L'ULTIMA RETE, e l'unica che non prova a salvare il messaggio.
+  //
+  // Se dopo il giro di correzione il testo continua a dire che una
+  // prenotazione e' stata fatta quando non e' stata fatta, non si cerca piu'
+  // di aggiustarlo: si butta e si scrive al suo posto. Fra un messaggio
+  // goffo e un cliente che crede di avere un appuntamento inesistente non
+  // c'e' partita -- e a differenza di un prezzo sbagliato, questo errore il
+  // salone lo scopre solo quando la persona si presenta.
+  //
+  // Sta PRIMA del fallback prezzo/durata perche' e' piu' grave e perche'
+  // sostituisce comunque l'intero messaggio: quello che viene dopo non
+  // avrebbe piu' niente da correggere.
+  if (trovaAzioneNonAvvenuta(base, azioni) && azioniDichiarate(base).size > 0) {
+    return frasePrudente(comeContattare);
+  }
+
   if (importoCaparraReale === null && trovaIncongruenzaPrezzoDurata(base, servizi)) {
     const servizioMenzionato = servizi.find((s) =>
       new RegExp(`\\b${s.nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(base)
@@ -457,6 +487,19 @@ export async function rispondiConversazione(
   // conversazione se questo turno non tocca affatto una caparra.
   let importoCaparraRichiesto: number | null = null;
 
+  // COSA E' DAVVERO SUCCESSO IN QUESTO TURNO, secondo i risultati degli
+  // strumenti e non secondo quello che il modello racconta.
+  //
+  // "in questo turno" e non "in qualche turno": l'unica prova che una
+  // prenotazione esista e' il risultato appena ricevuto da uno strumento. Un
+  // messaggio precedente dell'assistente non e' una prova -- potrebbe essere
+  // proprio la bugia, ripetuta una seconda volta (e' successo: vedi il caso
+  // in testa a verifica-azioni.ts, dove alla domanda "hai prenotato davvero?"
+  // il modello ha risposto di si').
+  const azioniAvvenute = new Set<AzioneAppuntamento>();
+  let inAttesaDiCaparra = false;
+  let emailDisponibile = false;
+
   // Il tool info_attivita esiste solo per i tenant con la knowledge base
   // dell'AI receptionist (Pro/Enterprise, `pianoHaKnowledgeBaseAi` in
   // piani.ts, gate applicato da chi chiama questa funzione) -- un tenant
@@ -532,7 +575,12 @@ export async function rispondiConversazione(
               strumentiPerQuestoTurno,
               importoCaparraRichiesto,
               adesso,
-              usoApi
+              usoApi,
+              { avvenute: azioniAvvenute, emailDisponibile, inAttesaDiCaparra },
+              istruzioniContatto({
+                telefono: ctx.telefono ?? null,
+                telefonoWhatsapp: ctx.telefonoWhatsapp ?? null,
+              })
             )
           )
         : testo;
@@ -559,6 +607,21 @@ export async function rispondiConversazione(
         typeof risultato.importo_caparra_euro === "number"
       ) {
         importoCaparraRichiesto = risultato.importo_caparra_euro;
+      }
+
+      // Si guardano i campi di successo, uno per uno, e mai la semplice
+      // assenza di `errore`: uno strumento che risponde
+      // `richiede_pagamento: true` non ha creato nessun appuntamento, e
+      // trattarlo come riuscito riaprirebbe esattamente il buco che questo
+      // controllo chiude.
+      if (blocco.name === "crea_prenotazione" && risultato.creato === true) azioniAvvenute.add("creata");
+      if (blocco.name === "modifica_prenotazione" && risultato.modificato === true) azioniAvvenute.add("modificata");
+      if (blocco.name === "cancella_prenotazione" && risultato.cancellato === true) azioniAvvenute.add("cancellata");
+      if (blocco.name === "crea_prenotazione" && risultato.richiede_pagamento === true) inAttesaDiCaparra = true;
+
+      const inputStrumento = blocco.input as Record<string, unknown>;
+      if (typeof inputStrumento.cliente_email === "string" && /\S+@\S+\.\S+/.test(inputStrumento.cliente_email)) {
+        emailDisponibile = true;
       }
       risultatiTool.push({
         type: "tool_result",
