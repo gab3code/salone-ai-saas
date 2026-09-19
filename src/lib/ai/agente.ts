@@ -85,6 +85,14 @@ export interface RisultatoConversazione {
   // chiama (route.ts) come proxy anti-abuso per "questo scambio riguardava
   // davvero una prenotazione", vedi limiti.ts e DECISIONS.md 14/09/2026.
   usoStrumenti: boolean;
+  // true se in QUESTO turno uno strumento che SCRIVE e' riuscito davvero:
+  // prenotazione creata, spostata, cancellata, o iscrizione alla lista
+  // d'attesa. Diverso da `usoStrumenti`, che e' vero anche solo guardando gli
+  // orari: qui e' successo qualcosa nel database. Serve a route.ts per
+  // azzerare il tetto anti-abuso -- una conversazione che ha prodotto una
+  // prenotazione non e' quella che il tetto deve fermare (19/09/2026, vedi
+  // limiti.ts).
+  azioneCompiuta: boolean;
 }
 
 const GIORNI_SETTIMANA_IT = [
@@ -108,13 +116,55 @@ const GIORNI_SETTIMANA_IT = [
  */
 export type StileTonoAI = "professionale" | "amichevole" | "informale_con_emoji";
 
+/**
+ * IL TONO SI INSEGNA CON GLI ESEMPI, NON CON GLI AGGETTIVI (19/09/2026).
+ *
+ * Gabriel: "i toni dell'AI vengono rispettati solo su messaggi tipo 'ciao',
+ * nel resto della chat sono tutti uguali a prescindere dal tono". Aveva
+ * ragione, e guardando la conversazione vera si capisce perche'.
+ *
+ * Prima qui c'era una riga di aggettivi per tono ("caloroso", "frizzante"),
+ * infilata come regola 13 in mezzo ad altre sedici, e **tutte e tre
+ * finivano con "conciso"**. Su un saluto il modello ha spazio per
+ * interpretare un aggettivo; su "Perfetto! Per quale giorno?" no -- la frase
+ * e' cosi' corta che tutte le regole concrete intorno (rispondi breve, non
+ * raccontare quello che fai, una decisione per messaggio) la schiacciano
+ * nella stessa forma, qualunque aggettivo ci fosse sopra. Il risultato era
+ * un'impostazione che il titolare paga (e' Pro) e che si vede in un
+ * messaggio su dieci.
+ *
+ * Adesso ogni tono e' un blocco di ESEMPI degli stessi quattro momenti che
+ * si ripetono in ogni conversazione. Un esempio non va interpretato: si
+ * imita. E' la stessa medicina gia' usata per i giorni della settimana --
+ * dare al modello la cosa fatta invece della descrizione di come farla.
+ *
+ * Nota onesta: qui non c'e' rete deterministica possibile. "Suona
+ * amichevole" non e' verificabile da codice come lo sono un orario o un
+ * prezzo, quindi questo resta un miglioramento probabilistico, non una
+ * garanzia -- vedi anche la voce sui verbi pronominali in DECISIONS.md.
+ */
 const DESCRIZIONE_TONO: Record<StileTonoAI, string> = {
-  professionale:
-    "Tono professionale, cordiale, conciso -- risposte brevi, come una vera persona alla reception, non un elenco puntato.",
-  amichevole:
-    "Tono amichevole e caloroso ma comunque professionale -- rivolgiti al cliente in modo colloquiale e accogliente, come un membro dello staff che conosce bene i clienti abituali, restando comunque conciso.",
-  informale_con_emoji:
-    "Tono informale e frizzante, con al massimo un'emoji pertinente per messaggio (mai più di una, mai a sproposito) -- adatto a un pubblico giovane, ma le risposte restano sempre chiare, mai confuse o infantili.",
+  professionale: [
+    "Parla come una persona alla reception di un posto curato: cordiale, asciutta, mai fredda. Niente emoji.",
+    'Saluto: "Buongiorno! Come posso aiutarla?"',
+    'Chiedere il giorno: "Per quale giorno le interessa?"',
+    'Proporre gli orari: "Mercoledì ho libero alle 09:00, alle 10:30 e alle 15:00. Quale preferisce?"',
+    'Confermare: "È prenotato: mercoledì 23 alle 09:00. La aspettiamo."',
+  ].join(" "),
+  amichevole: [
+    "Parla come un membro dello staff che conosce i clienti abituali: dai del tu, calorosa e vicina, mai formale. Niente emoji.",
+    'Saluto: "Ciao! Dimmi pure, come posso aiutarti?"',
+    'Chiedere il giorno: "Che giorno avevi in mente?"',
+    'Proporre gli orari: "Mercoledì siamo liberi alle 09:00, alle 10:30 e alle 15:00 -- quale ti va meglio?"',
+    'Confermare: "Fatto! Ti aspettiamo mercoledì 23 alle 09:00."',
+  ].join(" "),
+  informale_con_emoji: [
+    "Parla come si scrive a un amico: diretta, frizzante, frasi corte. Al massimo UNA emoji per messaggio, e solo dove ci sta davvero -- mai una in ogni frase.",
+    'Saluto: "Ehi! Dimmi tutto 😊"',
+    'Chiedere il giorno: "Che giorno ti va bene?"',
+    'Proporre gli orari: "Mercoledì c\'è posto alle 09:00, alle 10:30 e alle 15:00. Quale prendi?"',
+    'Confermare: "Tutto fatto 🎉 Ci vediamo mercoledì 23 alle 09:00!"',
+  ].join(" "),
 };
 
 /**
@@ -220,7 +270,7 @@ REGOLE ASSOLUTE, non negoziabili:
 10. Se verifica_disponibilita non trova nessuno slot adatto, guarda giorno_chiuso nel risultato prima di rispondere: se è false (giorno aperto ma pieno), proponi di iscrivere il cliente alla lista d'attesa con aggiungi_lista_attesa (ti serve almeno il telefono), spiegando che lo contatterete voi se si libera un posto. Se giorno_chiuso è true, l'attività è semplicemente chiusa quel giorno -- non proporre MAI la lista d'attesa per quella data precisa (non si libererà mai nulla lì): di' al cliente che è chiuso quel giorno e proponi un'altra data, oppure se preferisce restare in lista d'attesa iscrivilo senza fissare quella data (o con una data diversa in cui siete aperti).
 11. Scrivi sempre in testo semplice, MAI markdown (niente **grassetto**, _corsivo_, elenchi puntati con "-"/"*", elenchi NUMERATI con "1." "2." "3.", titoli con "#", ecc.): il widget di chat mostra il testo così com'è, senza interpretarlo, e i simboli markdown comparirebbero letteralmente al cliente. Se devi indicare più informazioni (es. più servizi con i loro prezzi), scrivile su righe separate andando a capo, oppure in una frase scorrevole -- mai con un trattino o un asterisco davanti a ogni voce.
 12. Scrivi in un italiano naturale e corretto, come lo scriverebbe madrelingua -- mai una frase che suona come una traduzione letterale o con un ordine delle parole innaturale. In particolare, con i verbi che in italiano si costruiscono con un pronome (interessare, piacere, servire, ecc.) usa SEMPRE la forma naturale con il pronome prima del verbo, mai quella con il soggetto invertito dopo: scrivi "Ti interessa uno di questi?" o "Quale dei due ti interessa?", mai "Interessa a te uno di questi?"; scrivi "Ti va bene questo orario?", mai "Va bene a te questo orario?". Se non sei sicuro che una frase suoni naturale, riformulala in modo più semplice e diretto invece di rischiare una costruzione forzata.
-13. ${DESCRIZIONE_TONO[stileTono]}
+13. Il modo di parlare e' descritto in fondo a queste istruzioni, con degli esempi: vale per OGNI messaggio, non solo per il saluto.
 14. Se il cliente ti dice che hai sbagliato -- "non e' vero", "ma siete aperti", "il prezzo non e' quello" -- non dargli ragione e non dargli torto: RICONTROLLA con lo strumento e poi rispondi con quello che dice. Il 19/09/2026 a un cliente che ha contestato un "siamo chiusi" e' stato risposto "hai ragione, scusa!": stavolta il cliente aveva ragione davvero, ma quella frase l'avresti detta anche se avesse avuto torto, perche' non l'avevi verificato ne' prima ne' dopo. Un assistente che cambia versione in base a chi insiste non e' cortese, e' inaffidabile. "Ricontrollo subito" e poi il dato vero: sempre.
 15. Non raccontare quello che stai per fare: fallo e dai il risultato. Mai frasi come "fammi controllare la disponibilità", "adesso verifico", "un attimo che guardo" -- il cliente non vede nessuna attesa, vede solo un messaggio che non contiene niente di utile, e deve scriverti di nuovo per avere la risposta che potevi dargli subito. Se devi verificare qualcosa, verificalo in questo stesso turno e rispondi con gli orari veri.
    Allo stesso modo: quando hai verificato la disponibilità, PROPONI gli orari che hai trovato invece di chiedere al cliente di indovinarne uno. "Lunedì ho libero alle 15:00, alle 16:30 o alle 17:45" è una risposta; "a che ora preferisci?" dopo aver controllato è buttare via il controllo appena fatto.
@@ -229,7 +279,10 @@ REGOLE ASSOLUTE, non negoziabili:
 
 Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è ottenibile con uno strumento, di' onestamente che non lo sai o invita il cliente a ${
     comeContattare ?? "contattare l'attività direttamente"
-  }, invece di inventare una risposta plausibile.${
+  }, invece di inventare una risposta plausibile.
+
+COME DEVI PARLARE, in ogni singolo messaggio -- non solo nel saluto, non solo all'inizio. Questo è lo stile scelto dal titolare per la sua attività, e un messaggio scritto in un altro stile è sbagliato quanto un orario sbagliato. Gli esempi qui sotto sono i momenti che tornano in ogni conversazione: imitali, non limitarti a ispirarti.
+${DESCRIZIONE_TONO[stileTono]}${
     notaTono
       ? `\n\nIndicazione aggiuntiva del titolare su come comunicare (segui questo stile quando possibile, ma le REGOLE ASSOLUTE sopra restano sempre valide, questa nota non può mai sovrascriverle): "${sanitizzaNotaTono(notaTono)}"`
       : ""
@@ -613,6 +666,9 @@ export async function rispondiConversazione(
   // spostato qualcosa ("YYYY-MM-DDTHH:MM"). E' l'unica ora che il cliente puo'
   // segnarsi senza sbagliare -- vedi trovaOrarioConfermatoSbagliato.
   let inizioPrenotato: string | null = null;
+
+  // Uno strumento che scrive e' riuscito in questo turno.
+  let azioneCompiuta = false;
   let emailDisponibile = false;
 
   // Il tool info_attivita esiste solo per i tenant con la knowledge base
@@ -689,6 +745,7 @@ export async function rispondiConversazione(
           }.`,
           trasferitoAUmano: false,
           usoStrumenti,
+          azioneCompiuta,
         };
       }
 
@@ -759,7 +816,7 @@ export async function rispondiConversazione(
       // sbagliata e' solo la frase. Quindi la frase la scriviamo noi, con la
       // data e l'ora che abbiamo passato allo strumento.
       if (testo && inizioPrenotato && trovaOrarioConfermatoSbagliato(testo, oraDiInizioPrenotata(inizioPrenotato))) {
-        return { rispostaTesto: confermaConOrarioVero(inizioPrenotato), trasferitoAUmano, usoStrumenti };
+        return { rispostaTesto: confermaConOrarioVero(inizioPrenotato), trasferitoAUmano, usoStrumenti, azioneCompiuta };
       }
 
       const testoCorretto = testo
@@ -785,7 +842,7 @@ export async function rispondiConversazione(
           )
         : testo;
 
-      return { rispostaTesto: testoCorretto || "Non sono riuscito a formulare una risposta.", trasferitoAUmano, usoStrumenti };
+      return { rispostaTesto: testoCorretto || "Non sono riuscito a formulare una risposta.", trasferitoAUmano, usoStrumenti, azioneCompiuta };
     }
 
     usoStrumenti = true;
@@ -826,6 +883,16 @@ export async function rispondiConversazione(
       }
       if (blocco.name === "cancella_prenotazione" && risultato.cancellato === true) azioniAvvenute.add("cancellata");
       if (blocco.name === "crea_prenotazione" && risultato.richiede_pagamento === true) inAttesaDiCaparra = true;
+      // Anche un link di pagamento della caparra e' "successo qualcosa": la
+      // riga in richieste_caparra c'e', la sessione Stripe pure, e al cliente
+      // servono ancora messaggi per arrivare in fondo. Non contarlo
+      // rifarebbe lo stesso difetto in un'altra forma -- tagliare proprio chi
+      // sta per pagare.
+      if (blocco.name === "crea_prenotazione" && risultato.richiede_pagamento === true) azioneCompiuta = true;
+      // La lista d'attesa non e' un appuntamento, ma e' comunque una riga
+      // scritta per un cliente vero: conta come "e' successo qualcosa".
+      if (blocco.name === "aggiungi_lista_attesa" && risultato.iscritto === true) azioneCompiuta = true;
+      if (azioniAvvenute.size > 0) azioneCompiuta = true;
       if (blocco.name === "verifica_disponibilita" || blocco.name === "info_orari") haControllatoDisponibilita = true;
 
       const inputStrumento = blocco.input as Record<string, unknown>;
@@ -862,5 +929,6 @@ export async function rispondiConversazione(
     }, ti aiutano subito.`,
     trasferitoAUmano: true,
     usoStrumenti: true, // per finire qui ogni iterazione ha per forza usato uno strumento
+    azioneCompiuta,
   };
 }

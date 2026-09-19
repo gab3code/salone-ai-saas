@@ -44,7 +44,12 @@ describe("rispondiConversazione", () => {
     const create = vi.fn().mockResolvedValue(testoFinale("Ciao! Come posso aiutarti?"));
     const risultato = await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
 
-    expect(risultato).toEqual({ rispostaTesto: "Ciao! Come posso aiutarti?", trasferitoAUmano: false, usoStrumenti: false });
+    expect(risultato).toEqual({
+      rispostaTesto: "Ciao! Come posso aiutarti?",
+      trasferitoAUmano: false,
+      usoStrumenti: false,
+      azioneCompiuta: false,
+    });
     expect(create).toHaveBeenCalledTimes(1);
   });
 
@@ -195,7 +200,11 @@ describe("rispondiConversazione", () => {
       await rispondiConversazione([], "Ciao", ctx, { messages: { create } } as ClienteAnthropic);
 
       const system = testoSystem(create.mock.calls[0][0]);
-      expect(system).toContain("Tono professionale, cordiale, conciso");
+      // Dal 19/09/2026 il tono e' un blocco di esempi in fondo al prompt, non
+      // una riga di aggettivi in mezzo alle regole: si verifica che ci sia
+      // l'esempio, perche' e' quello che il modello imita.
+      expect(system).toContain("Buongiorno! Come posso aiutarla?");
+      expect(system).toContain("COME DEVI PARLARE");
     });
 
     it("cambia il tono nel system prompt quando ctx.tonoAi è impostato", async () => {
@@ -203,8 +212,8 @@ describe("rispondiConversazione", () => {
       await rispondiConversazione([], "Ciao", { ...ctx, tonoAi: "amichevole" }, { messages: { create } } as ClienteAnthropic);
 
       const system = testoSystem(create.mock.calls[0][0]);
-      expect(system).toContain("Tono amichevole e caloroso");
-      expect(system).not.toContain("Tono professionale, cordiale, conciso");
+      expect(system).toContain("Ciao! Dimmi pure, come posso aiutarti?");
+      expect(system).not.toContain("Buongiorno! Come posso aiutarla?");
     });
 
     it("aggiunge la nota del titolare al system prompt, incorniciata come non-sovrascrivente", async () => {

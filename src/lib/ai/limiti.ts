@@ -219,7 +219,60 @@ export const INTERVALLO_MINIMO_MS_TRA_MESSAGGI = 2000;
 //    far "ragionare" il modello su qualcos'altro). Il contatore vive su
 //    `conversazioni.turni_senza_tool_consecutivi` (si azzera ad ogni turno
 //    che invece usa almeno uno strumento) -- vedi conversazione.server.ts.
-export const LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE = 15;
+//
+// CORREZIONE DEL 19/09/2026: si contano i messaggi DALL'ULTIMA AZIONE
+// RIUSCITA, non dall'inizio della conversazione.
+//
+// Il caso vero: Gabriel prenota davvero (appuntamento creato, riga nel
+// database), poi nella stessa chat scrive "ciao" e ne prenota una seconda. Al
+// sedicesimo messaggio -- quello con nome, cognome e telefono, l'ultimo prima
+// della conferma -- scatta il tetto e il cliente legge "Non riesco a
+// risponderti oltre da qui".
+//
+// Il tetto esiste per fermare chi consuma quota SENZA prenotare niente. Una
+// conversazione che ha gia' prodotto una prenotazione e' la prova del
+// contrario: tagliarla e' l'unico caso in cui la difesa costa al salone
+// esattamente quello che doveva proteggere. E il taglio arriva sempre nel
+// punto peggiore, perche' il messaggio con i dati personali e' l'ultimo del
+// flusso -- cioe' la difesa scatta proprio quando la prenotazione sta per
+// riuscire.
+//
+// Quindi si conta "da quando non succede piu' niente": ogni strumento che
+// SCRIVE e riesce (crea/modifica/cancella prenotazione, lista d'attesa, link
+// di pagamento della caparra) azzera il contatore.
+//
+// E IL NUMERO SALE DA 15 A 30, perche' 15 erano pochi -- detto da Gabriel, e
+// i conti gli danno ragione:
+//
+//  - il costo misurato il 19/09/2026 su dati veri e' ~$0,0079 a messaggio
+//    (166 chiamate, 70 messaggi, tabella usi_api_ai). Quindici messaggi sono
+//    12 centesimi di dollaro; trenta ne sono 24. Una prenotazione persa vale
+//    al salone 30-60 euro. **Tagliare un cliente vero per 12 centesimi e' il
+//    peggior affare del prodotto**, ed e' lo stesso ragionamento gia' scritto
+//    per i limiti per IP;
+//  - quando il 15 fu scelto (14/09/2026) era l'UNICA difesa vera: non
+//    c'erano i limiti per IP, la quota di Growth era 1.000 invece di 2.500 e
+//    non scalava con gli operatori. Oggi il tetto per conversazione e' il
+//    piu' grossolano dei cinque strati, e il piu' grossolano dev'essere anche
+//    il piu' largo;
+//  - la difesa PRECISA contro chi chiacchiera e non prenotera' mai resta
+//    quella dei tre turni senza strumenti, che scatta molto prima di trenta
+//    messaggi e non colpisce chi sta prenotando.
+//
+// Un flusso vero ne usa 8-15; trenta li raggiunge solo chi cambia idea piu'
+// volte, chiede prezzi, confronta servizi -- cioe' un cliente indeciso, che
+// e' comunque un cliente.
+export const LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE = 30;
+
+// Il tetto che non si azzera mai, sull'intera conversazione.
+//
+// Senza, la regola qui sopra sarebbe aggirabile: creare e cancellare una
+// prenotazione azzera il contatore, quindi bastava alternare per scrivere
+// all'infinito. Questo e' il muro dietro, tenuto alto perche' non deve mai
+// toccare una conversazione vera: 80 messaggi di cliente in una sola chat
+// (~$0,63) non sono piu' una prenotazione, qualunque cosa sia successa nel
+// mezzo.
+export const LIMITE_ASSOLUTO_MESSAGGI_CLIENTE_PER_CONVERSAZIONE = 80;
 // Alzato da 3 a 5 il 19/09/2026, dopo averlo visto tagliare fuori un cliente
 // VERO nel momento peggiore. La conversazione era tutta in tema -- scelta del
 // servizio, giorno, "dimmi tutti gli orari", "prenoto alle 8" -- ma il

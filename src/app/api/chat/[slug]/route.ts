@@ -8,6 +8,7 @@ import {
   salvaMessaggio,
   segnaPassataAOperatore,
   aggiornaTurniSenzaStrumenti,
+  aggiornaMessaggiDaAzione,
 } from "@/lib/ai/conversazione.server";
 import {
   pianoHaAccessoAIChatWeb,
@@ -15,6 +16,7 @@ import {
   limiteMensileMessaggi,
   INTERVALLO_MINIMO_MS_TRA_MESSAGGI,
   LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE,
+  LIMITE_ASSOLUTO_MESSAGGI_CLIENTE_PER_CONVERSAZIONE,
   LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI,
 } from "@/lib/ai/limiti";
 import { pianoHaKnowledgeBaseAi } from "@/lib/piani";
@@ -153,8 +155,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // niente costo Anthropic per un turno che finisce comunque passato a un
     // operatore. Il messaggio del cliente viene comunque salvato (l'operatore
     // deve poterlo leggere), solo non arriva mai all'AI.
+    //
+    // Il tetto conta dall'ULTIMA AZIONE RIUSCITA, non dall'inizio della chat
+    // (19/09/2026). Gabriel aveva prenotato davvero e poi, nella stessa
+    // conversazione, stava prenotando una seconda volta: il taglio e' arrivato
+    // sul messaggio con nome, cognome e telefono -- l'ultimo prima della
+    // conferma. Un tetto pensato per fermare chi NON prenotera' mai non deve
+    // scattare proprio su chi sta prenotando, e men che meno nel punto in cui
+    // costa una prenotazione al salone. Vedi limiti.ts.
+    const messaggiDaUltimaAzione = conversazione.messaggiClienteDaAzione + 1;
     const messaggiClienteConversazione = storico.filter((m) => m.ruolo === "cliente").length + 1;
-    const troppiMessaggi = messaggiClienteConversazione > LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE;
+    const troppiMessaggi =
+      messaggiDaUltimaAzione > LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE ||
+      messaggiClienteConversazione > LIMITE_ASSOLUTO_MESSAGGI_CLIENTE_PER_CONVERSAZIONE;
     const troppiTurniSenzaStrumenti =
       conversazione.turniSenzaToolConsecutivi >= LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI;
 
@@ -200,6 +213,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         false,
         conversazione.turniSenzaToolConsecutivi
       );
+      await aggiornaMessaggiDaAzione(supabase, conversazione.id, false, messaggiDaUltimaAzione);
       return NextResponse.json({ risposta: RISPOSTA_MESSAGGIO_OFFENSIVO });
     }
 
@@ -267,6 +281,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       conversazione.id,
       risultato.usoStrumenti,
       conversazione.turniSenzaToolConsecutivi
+    );
+    await aggiornaMessaggiDaAzione(
+      supabase,
+      conversazione.id,
+      risultato.azioneCompiuta,
+      messaggiDaUltimaAzione
     );
 
     return NextResponse.json({ risposta: risultato.rispostaTesto, trasferitoAUmano: risultato.trasferitoAUmano });

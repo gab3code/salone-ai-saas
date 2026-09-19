@@ -6705,3 +6705,66 @@ piu'.
 **Non si sceglie oggi**: la 0068 inizia a misurare stamattina, e la strada 2 dipende da un
 numero che avremo fra due settimane. Le strade 1 e 3 non richiedono quel numero ma cambiano il
 posizionamento, e quella e' una decisione di Gabriel, non mia.
+
+## 2026-09-19 — Il tetto dei messaggi conta dall'ultima azione, e sale da 15 a 30
+
+**Il caso.** Gabriel prenota davvero dalla chat (martedì 22 alle 17:00, appuntamento creato nel
+database), poi nella stessa conversazione scrive "ciao" e ne prenota una seconda. Al sedicesimo
+messaggio -- quello con nome, cognome e telefono, l'ultimo prima della conferma -- scatta il
+tetto anti-abuso e il cliente legge: *"Non riesco a risponderti oltre da qui. Puoi chiamare il
+02 99999999."*
+
+**Decisione, due parti.**
+
+1. **Il tetto per conversazione conta dall'ultima azione riuscita**, non dall'inizio della chat.
+   Ogni strumento che scrive e va a buon fine (crea/modifica/cancella prenotazione, lista
+   d'attesa, link di pagamento della caparra) azzera il contatore. Nuova colonna
+   `conversazioni.messaggi_cliente_da_azione` (migrazione 0069, applicata a produzione e
+   database di test il 19/09/2026).
+2. **Il numero sale da 15 a 30**, su indicazione di Gabriel ("ma sono pochi 15 messaggi").
+   Aggiunto un tetto assoluto di 80 messaggi sull'intera conversazione, che non si azzera mai.
+
+**Motivazione.** Il tetto esiste per fermare chi consuma quota senza prenotare niente: una
+conversazione che ha già prodotto una prenotazione è la prova del contrario. E il taglio arriva
+sempre nel punto peggiore, perché il messaggio con i dati personali è l'ultimo del flusso --
+cioè la difesa scatta esattamente quando la prenotazione sta per riuscire.
+
+Sul numero, i conti danno ragione a Gabriel: col costo misurato il 19/09 (~$0,0079 a messaggio,
+dati veri di `usi_api_ai`) quindici messaggi sono 12 centesimi di dollaro, trenta ne sono 24, e
+una prenotazione persa vale al salone 30-60 euro. Quando il 15 fu scelto (14/09/2026) era
+l'unica difesa esistente: niente limiti per IP, quota Growth a 1.000 e non scalata sugli
+operatori. Oggi è il più grossolano di cinque strati, e il più grossolano deve essere il più
+largo.
+
+**Alternative considerate.** Lasciare 15 e azzerare soltanto (scartata: un cliente indeciso che
+chiede prezzi e cambia giorno due volte arriva a 15 prima di prenotare, e viene tagliato senza
+aver mai fatto niente di male). Togliere del tutto il tetto per conversazione (scartata: senza
+un muro assoluto, azzerare creando e cancellando diventa il modo di aggirare la difesa).
+
+**Costo accettato.** Una conversazione abusiva può ora costare fino a ~$0,63 invece di ~$0,12
+prima che scatti il muro assoluto. Restano davanti gli altri quattro strati: anti-burst, tre
+turni consecutivi senza strumenti, limiti per IP (non aggirabili dal client) e quota mensile del
+tenant.
+
+## 2026-09-19 — Il tono dell'AI si insegna con gli esempi, non con gli aggettivi
+
+**Il caso.** Gabriel: *"i toni dell'AI vengono rispettati solo su messaggi tipo 'ciao', nel resto
+della chat sono tutti uguali a prescindere dal tono"*. Vero, e la conversazione vera spiega
+perché: il tono era una riga di aggettivi ("caloroso", "frizzante") infilata come regola 13 fra
+altre sedici, e tutte e tre le varianti finivano con la parola "conciso". Su un saluto il
+modello ha spazio per interpretare un aggettivo; su "Perfetto! Per quale giorno?" no -- la frase
+è così corta che le regole concrete intorno (rispondi breve, non raccontare quello che fai, una
+decisione per messaggio) la schiacciano nella stessa forma qualunque aggettivo ci sia sopra.
+
+**Decisione.** Ogni tono diventa un blocco di ESEMPI degli stessi quattro momenti che tornano in
+ogni conversazione (saluto, chiedere il giorno, proporre gli orari, confermare), spostato in
+fondo al prompt in una sezione sua invece che in mezzo all'elenco delle regole. Un esempio non
+va interpretato: si imita.
+
+**Motivazione.** È la stessa medicina già usata per i giorni della settimana: dare al modello la
+cosa fatta invece della descrizione di come farla. E il tono è un'impostazione che il titolare
+paga (è una voce di Pro): vedersela applicata in un messaggio su dieci è peggio che non averla.
+
+**Limite dichiarato.** Qui non esiste rete deterministica: "suona amichevole" non è verificabile
+da codice come lo sono un orario o un prezzo. Resta un miglioramento probabilistico, come i
+verbi pronominali, e va guardato dal vivo su una conversazione intera -- non su un "ciao".

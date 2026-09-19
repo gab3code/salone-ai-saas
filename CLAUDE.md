@@ -1145,6 +1145,35 @@ successo.
 di salvarlo.** L'ordine dei controlli non e' un dettaglio di implementazione: va per specificita'
 decrescente, e chi ha in mano il dato vero parla per primo.
 
+
+## 27sexvicies-bis. Una difesa va giudicata da chi colpisce quando sbaglia (19/09/2026)
+
+Il tetto di 15 messaggi per conversazione e' scattato su Gabriel al sedicesimo messaggio: quello
+con nome, cognome e telefono, l'ultimo prima della conferma, dopo che nella stessa chat aveva
+gia' prenotato davvero una volta. Il cliente ha letto "Non riesco a risponderti oltre da qui".
+
+Due errori nello stesso posto, e valgono oltre questo caso.
+
+**Il primo: contavo la cosa sbagliata.** Il tetto esiste per fermare chi consuma quota senza
+prenotare niente, ma contava i messaggi *dall'inizio della chat*, cioe' anche quelli di una
+conversazione che una prenotazione l'aveva gia' prodotta -- la prova del contrario di cio' che
+il tetto cerca. Adesso conta **dall'ultima azione riuscita**. La regola generale: una difesa
+deve contare il segnale che le interessa, non il suo surrogato piu' comodo.
+
+**Il secondo: il taglio cade sempre nel punto peggiore.** Non per sfortuna, per struttura: in un
+flusso di prenotazione il messaggio con i dati personali e' l'ULTIMO, quindi qualunque tetto sul
+numero di messaggi scatta con la probabilita' piu' alta proprio quando la prenotazione sta per
+riuscire. **Quando progetti un limite, chiediti non "a quale numero scatta" ma "su quale
+messaggio scatta piu' spesso".**
+
+E il numero: 15 era stato scelto quando era l'unica difesa esistente. Poi sono arrivati i limiti
+per IP, i tre turni senza strumenti, l'anti-burst e la quota che scala sugli operatori -- e
+nessuno ha rialzato quel numero, che nel frattempo era diventato il piu' grossolano dei cinque
+strati. **Il piu' grossolano dev'essere il piu' largo**, e quando si aggiunge uno strato preciso
+va rivisto quello che stava supplendo. Col costo misurato ($0,0079 a messaggio) quindici
+messaggi valgono 12 centesimi di dollaro contro una prenotazione da 30-60 euro: il conto non era
+nemmeno vicino.
+
 ## 27duodetricies. Ogni trasformazione che chiedi al modello e' un posto dove puo' sbagliare (19/09/2026)
 
 `verifica_disponibilita` restituiva quaranta slot come timestamp ISO. Nessuno ne mostra quaranta
