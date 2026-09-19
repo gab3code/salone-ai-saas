@@ -163,7 +163,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // Mai promettere un passaggio a un operatore che non avvisa nessuno
       // (15/09/2026, riconfermato il 17/09 dopo aver provato e scartato
       // l'email al titolare): si dà il recapito vero, costruito dalla stessa
-      // `istruzioniContatto` della REGOLA 8 del prompt -- un solo posto che
+      // `istruzioniContatto` della REGOLA 9 del prompt -- un solo posto che
       // decide come si dice "fatti sentire".
       const comeContattare = istruzioniContatto({
         telefono: tenant.telefono ?? null,

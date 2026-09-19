@@ -31,13 +31,21 @@
  * Un orario nel testo e' lecito se compare in almeno uno di questi posti:
  *   1. i risultati degli strumenti chiamati in questo turno (gli slot liberi,
  *      gli orari di apertura, le prenotazioni trovate);
- *   2. quello che si sono gia' detti cliente e assistente -- se il cliente
- *      scrive "prenoto alle 8", l'assistente deve poter rispondere "alle
- *      8:00" senza richiamare uno strumento per il gusto di farlo.
+ *   2. quello che ha scritto IL CLIENTE -- se dice "prenoto alle 9:30",
+ *      l'assistente deve poter rispondere "alle 9:30" senza richiamare uno
+ *      strumento per il gusto di farlo.
  *
- * Tutto il resto e' inventato. Una lista di undici orari che non compare
- * da nessuna parte non supera nessuno dei due controlli; un "confermo le
- * 8:00" dopo che il cliente ha detto "alle 8" li supera entrambi.
+ * **I messaggi dell'assistente non contano come fonte, ed e' una correzione
+ * del 19/09/2026.** All'inizio contavano, e il modello ha trovato il buco: il
+ * cliente chiede gli orari di mercoledi', poi "martedi' invece?", e lui
+ * ripete la stessa identica lista senza ricontrollare. Il controllo la
+ * lasciava passare perche' quegli orari "c'erano gia' nella conversazione" --
+ * scritti da lui un attimo prima. Risultato: le 08:00 di martedi' proposte
+ * come libere mentre erano gia' occupate.
+ *
+ * Un orario scritto dall'assistente non e' una fonte: e' la cosa di cui
+ * stiamo dubitando. **Una verifica che accetta come prova l'affermazione da
+ * verificare non e' una verifica.**
  *
  * Si guardano SOLO gli orari scritti con i due punti (8:00, 14:30). "alle 8"
  * senza minuti resta fuori di proposito: e' ambiguo, e un controllo che

@@ -261,6 +261,52 @@ describe("le bugie vere dell'assistente, rigiocate", () => {
     expect(risultato.rispostaTesto).toBe(onesta);
   });
 
+  it("BUGIA 6 -- gli orari di mercoledi' trapiantati su martedi'", async () => {
+    // Il 19/09/2026: il cliente chiede gli orari di mercoledi', poi
+    // "martedi' invece?", e il modello ripete la stessa identica lista senza
+    // richiamare lo strumento. Le 08:00 di martedi' erano gia' occupate.
+    //
+    // La prima versione del controllo lo lasciava passare, perche' quegli
+    // orari "erano gia' nella conversazione" -- scritti dall'assistente un
+    // attimo prima. Una verifica che accetta come prova l'affermazione da
+    // verificare non e' una verifica.
+    let controlliFatti = 0;
+    const esegui = async (nome: NomeStrumento) => {
+      if (nome === "verifica_disponibilita") {
+        controlliFatti++;
+        return RISULTATO_DISPONIBILITA as unknown as Record<string, unknown>;
+      }
+      return {};
+    };
+
+    const listaDiMercoledi = "Mattina: 09:45, 10:45\nPomeriggio: 16:45";
+
+    const create = vi
+      .fn()
+      // Ripete a memoria la lista del giorno prima, senza controllare.
+      .mockResolvedValueOnce(testoFinale(`Martedì 22 settembre:\n${listaDiMercoledi}`))
+      // Rimandato a verificare, chiama lo strumento.
+      .mockResolvedValueOnce(usoStrumento("verifica_disponibilita", { servizio_ids: ["s1"], data: "2026-09-22" }))
+      .mockResolvedValueOnce(testoFinale("Martedì 22 settembre:\nMattina: 08:00, 08:15"));
+
+    const risultato = await rispondiConversazione(
+      [
+        { ruolo: "cliente", contenuto: "mercoledì?" },
+        { ruolo: "assistente", contenuto: `Mercoledì 23 settembre:\n${listaDiMercoledi}` },
+      ],
+      "martedì invece?",
+      contesto(esegui),
+      { messages: { create } } as ClienteAnthropic
+    );
+
+    // Ha dovuto controllare per davvero.
+    expect(controlliFatti).toBe(1);
+    // Gli orari di mercoledi' non sono finiti su martedi'.
+    expect(risultato.rispostaTesto).not.toContain("09:45");
+    expect(risultato.rispostaTesto).not.toContain("16:45");
+    expect(risultato.rispostaTesto).toContain("08:00");
+  });
+
   it("una risposta TRONCATA dal limite di token non arriva al cliente a meta'", async () => {
     const create = vi.fn().mockResolvedValueOnce({
       content: [{ type: "text", text: "Martedì ho libero alle 08:00, alle 08:15, alle 0" }],

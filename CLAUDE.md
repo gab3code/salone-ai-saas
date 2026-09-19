@@ -875,6 +875,51 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27tertricies. Una verifica che accetta come prova l'affermazione da verificare non e' una verifica (19/09/2026)
+
+`verifica-orari.ts` considerava lecito un orario che comparisse "in quello che si sono gia'
+detti cliente e assistente". Sembrava prudente: evitava di dare l'allarme quando l'assistente
+ripete un orario gia' detto.
+
+Il modello ha trovato il buco in mezza giornata. Il cliente chiede gli orari di mercoledi', poi
+"martedi' invece?", e lui **ripete la stessa identica lista** senza richiamare lo strumento. Il
+controllo la lasciava passare: quegli orari erano nella conversazione, li aveva scritti lui un
+attimo prima. Risultato, le 08:00 di martedi' proposte come libere mentre erano gia' occupate --
+e il blocco al momento di prenotare.
+
+**Il difetto non e' il modello, e' la logica del controllo.** Fra le fonti ammesse ne avevo
+messa una che non e' una fonte: l'output stesso che stavo verificando. E' circolare, e una volta
+detto cosi' e' ovvio -- ma scritto in mezzo a un elenco di casi leciti non lo era affatto.
+
+**La regola:** quando si scrive un controllo, elencare le fonti ammesse e per ognuna chiedersi
+*chi l'ha prodotta*. Se la risposta e' "la cosa che sto verificando", quella fonte va tolta,
+qualunque comodita' offra. Qui restano: i risultati degli strumenti di QUESTO turno, e i
+messaggi del CLIENTE -- che quando scrive "alle 9:30" sta chiedendo quell'ora, e ripetergliela
+non e' inventare niente.
+
+## 27quattertricies. Una domanda per messaggio non vuol dire una INFORMAZIONE per messaggio (19/09/2026)
+
+La regola del prompt diceva "chiedi UNA cosa per messaggio", e il modello l'ha eseguita alla
+lettera: "come ti chiami?", poi "e il cognome?", poi "e il numero di telefono?". Tre giri per
+raccogliere un contatto, piu' un quarto per "tutto a posto?" prima di prenotare. Il cliente ha
+scritto sei volte per un appuntamento.
+
+Ha anche prodotto un difetto secondario non ovvio: ogni giro senza strumenti fa salire il
+contatore anti-abuso, e alla fine la conversazione e' stata **troncata proprio sul "si" di
+conferma**. Una regola di cortesia che fa scattare una difesa di sicurezza.
+
+**La distinzione che mancava: una DECISIONE per messaggio, non una domanda per messaggio.** Una
+decisione e' una scelta che il cliente deve fare -- quale servizio, quale giorno, quale orario
+-- e due scelte insieme fanno rispondere a meta'. I suoi dati di contatto non sono tre
+decisioni: sono una richiesta sola, e si chiedono in un colpo.
+
+**E il corollario:** non far confermare due volte la stessa cosa. Se hai servizio, giorno,
+orario, nome e telefono, prenota -- il riepilogo si scrive dopo, insieme alla conferma vera. Il
+giro di "confermi?" prima di agire non protegge nessuno: il cliente ha appena detto tutto lui.
+
+La misura giusta di un assistente non e' quanto e' educato, e' **in quanti messaggi arriva alla
+prenotazione**.
+
 ## 27duotricies. Prevenire, non curare: tre regole nate dalla notte peggiore (19/09/2026)
 
 La notte fra il 18 e il 19 settembre l'assistente ha detto a un cliente che aveva prenotato

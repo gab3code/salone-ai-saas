@@ -297,7 +297,7 @@ export const STRUMENTI_AI = [
   {
     name: "trasferisci_a_operatore",
     description:
-      "Segnala (solo internamente, per le statistiche del titolare) che questa richiesta va oltre quello che puoi risolvere -- usalo quando è ambigua oltre le tue possibilità, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare da solo. NON avvisa davvero nessun operatore umano, oggi questo canale non esiste: dopo averlo chiamato tocca comunque a te, nella tua risposta di testo, invitare il cliente a contattare l'attività direttamente (vedi REGOLA ASSOLUTA 8) -- non dire mai che qualcuno lo ricontatterà.",
+      "Segnala (solo internamente, per le statistiche del titolare) che questa richiesta va oltre quello che puoi risolvere -- usalo quando è ambigua oltre le tue possibilità, il cliente lo chiede esplicitamente, o serve un giudizio che non puoi dare da solo. NON avvisa davvero nessun operatore umano, oggi questo canale non esiste: dopo averlo chiamato tocca comunque a te, nella tua risposta di testo, invitare il cliente a contattare l'attività direttamente (vedi REGOLA ASSOLUTA 9) -- non dire mai che qualcuno lo ricontatterà.",
     input_schema: {
       type: "object",
       properties: {
