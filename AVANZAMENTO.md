@@ -66,6 +66,13 @@ dell'appuntamento e 8 test dedicati. 1170 test, build ok. Restano aperti, come p
 abuso per IP sul form pubblico di prenotazione (c'è solo sulla chat) e la corsa sul buffer fra
 appuntamenti (annotata, non produce doppie prenotazioni).
 
+**Secondo giro autonomo (stesso branch).** Import della rubrica: fatte le due meta' che non
+richiedevano decisioni -- le righe non capite lette dal modello (propone, il titolare conferma,
+il numero deve stare nella riga) e il completamento dei clienti gia' presenti solo nei campi
+vuoti. Resta la foto dell'agenda, che aspetta una decisione. Tetto per indirizzo anche sul form
+pubblico di prenotazione, per salone (CGNAT). La bozza di onboarding ora registra il proprio
+costo. Migrazione 0069 applicata a test e produzione. 1189 test.
+
 **Documento nuovo**: `docs/prompt-agente-autonomo.md`, il prompt da dare a un altro agente per
 una sessione autonoma, con i limiti scritti.
 
