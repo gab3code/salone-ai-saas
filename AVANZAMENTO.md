@@ -57,6 +57,15 @@ ogni messaggio, non solo nel saluto.
 
 **Un giorno passato** non dice piu' "la giornata e' gia' piena".
 
+**Revisione autonoma della notte (branch `fable/verifica-notturna`, NON su main: il merge lo
+fa Gabriel).** Isolamento multi-tenant verificato pulito sulla produzione, con le prove in
+DECISIONS.md. Trovati e corretti due difetti nel webhook Stripe della caparra che potevano
+rimborsare un cliente che aveva il posto (consegne concorrenti; scritture fallite ignorate):
+ora idempotente per costruzione, con il payment intent scritto nella stessa insert
+dell'appuntamento e 8 test dedicati. 1170 test, build ok. Restano aperti, come prima: l'anti-
+abuso per IP sul form pubblico di prenotazione (c'è solo sulla chat) e la corsa sul buffer fra
+appuntamenti (annotata, non produce doppie prenotazioni).
+
 **Documento nuovo**: `docs/prompt-agente-autonomo.md`, il prompt da dare a un altro agente per
 una sessione autonoma, con i limiti scritti.
 
