@@ -1,5 +1,6 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
+import { registraUsoApi } from "@/lib/ai/costi.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { inviaEmail } from "@/lib/email/mailjet.server";
 import { escapeHtml, urlBaseSito } from "@/lib/email/notifiche.server";
@@ -59,6 +60,8 @@ async function scriviCommento(
       system: SYSTEM_REPORT,
       messages: [{ role: "user", content: promptReport(dati) }],
     });
+    // Il costo, come per la chat (19/09/2026): quota e costo vanno contati insieme.
+    registraUsoApi({ tenantId, canale: "report", modello: MODELLO, usage: (risposta as { usage?: unknown }).usage });
     const blocco = risposta.content.find((b) => b.type === "text");
     return commentoAccettabile(blocco && blocco.type === "text" ? blocco.text : null);
   } catch (errore) {

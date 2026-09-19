@@ -1274,6 +1274,29 @@ describe("modificaAppuntamentoTenant", () => {
     expect(risultato).toEqual({ ok: false, errore: "Appuntamento non trovato." });
   });
 
+  it("NON sposta un appuntamento nel passato, da nessun canale (19/09/2026)", async () => {
+    // ADESSO_FINTO e' il 1/6/2026: il 15/5 e' passato.
+    const supabase = creaSupabaseFinto({
+      appuntamenti: {
+        select: [
+          { data: { servizio_id: SERVIZIO_ID }, error: null },
+          { data: [], error: null },
+        ],
+        update: [{ data: null, error: null }],
+      },
+      servizi: { select: [{ data: { durata_minuti: 30 }, error: null }] },
+      operatori: { select: [rispostaOperatoreValido()] },
+      operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
+      tenants: { select: [rispostaTenantFuso(), rispostaTenantFuso()] },
+    });
+    const risultato = await modificaAppuntamentoTenant(supabase, TENANT_ID, APPUNTAMENTO_ID, {
+      operatoreId: OPERATORE_ID,
+      inizio: new Date(Date.UTC(2026, 4, 15, 10, 0)),
+    });
+    expect(risultato).toEqual({ ok: false, errore: "Quell'orario è già passato. Scegline uno futuro." });
+    expect(supabase.registro.update).toHaveLength(0);
+  });
+
   it("sposta l'appuntamento scrivendo l'istante reale corretto", async () => {
     const supabase = creaSupabaseFinto({
       appuntamenti: {

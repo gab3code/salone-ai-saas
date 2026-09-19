@@ -1096,6 +1096,23 @@ export async function modificaAppuntamentoTenant(
   }
 
   const fusoOrario = await caricaFusoOrarioTenant(supabase, tenantId);
+
+  // NEL PASSATO NON SI SPOSTA (19/09/2026, revisione notturna).
+  //
+  // Il controllo era solo in creaAppuntamentoTenant, e il commento li' lo
+  // aveva previsto: "sarebbero tre controlli da tenere d'accordo, e prima o
+  // poi uno resta indietro". Questo era quello rimasto indietro. Il
+  // percorso pubblico (/gestisci/[id]) mostra solo slot futuri, ma la server
+  // action riceve `inizioIso` dal browser, e il tool modifica_prenotazione
+  // dell'AI riceve l'orario dal modello: un appuntamento spostato a ieri e'
+  // un cliente che crede di avere un posto che non arrivera' mai. Nessuna
+  // eccezione qui: chi deve registrare uno spostamento gia' avvenuto
+  // cancella e ricrea con `registraNelPassato`.
+  const adesso = realeAPseudoUtc(new Date(), fusoOrario);
+  if (params.inizio.getTime() < adesso.getTime()) {
+    return { ok: false, errore: "Quell'orario è già passato. Scegline uno futuro." };
+  }
+
   const { error } = await supabase
     .from("appuntamenti")
     .update({

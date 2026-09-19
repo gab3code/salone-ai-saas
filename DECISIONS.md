@@ -6951,3 +6951,25 @@ che risponde in inglese aggirerebbe le reti proprio sulle frasi più pericolose.
 estendendo prima i controlli alle lingue ammesse, con i loro test — non è una riga nel prompt,
 ed è l'argomento più forte trovato stanotte per tenere quelle frasi come dati, non come regex
 sparse.
+
+## 2026-09-19 (notte) — Nel passato non si sposta; e i tre canali AI che contavano la quota ma non il costo
+
+**Difetto.** `modificaAppuntamentoTenant` non rifiutava un orario passato: il controllo stava
+solo in `creaAppuntamentoTenant`, e il commento lì lo aveva previsto ("sarebbero tre controlli
+da tenere d'accordo, e prima o poi uno resta indietro"). Il percorso pubblico `/gestisci/[id]`
+mostra solo slot futuri, ma la server action riceve l'orario dal browser; il tool
+`modifica_prenotazione` dell'AI lo riceve dal modello. Un appuntamento spostato a ieri è un
+cliente che crede di avere un posto. Riprodotto con un test (spostamento al 15/5 con "adesso"
+al 1/6: prima passava), corretto senza eccezioni — chi deve registrare uno spostamento già
+avvenuto cancella e ricrea con `registraNelPassato`.
+
+**Costi.** Onboarding, follow-up AI e report mensile chiamavano il modello contando la quota ma
+non il costo: `usi_api_ai` aveva solo la chat, e la decisione del 19/09 "prima misurare, poi
+decidere" si appoggiava a numeri parziali. Ora tutti e quattro i canali registrano.
+
+**Correzione a un'osservazione di stanotte.** Avevo annotato che sul database di test `anon`
+avesse EXECUTE sulle funzioni helper e su produzione no: era un errore del mio filtro (cercavo
+`public` minuscolo, il grantee si chiama `PUBLIC`). Su entrambi i database le tre funzioni
+`auth_*`/`e_owner` sono eseguibili da PUBLIC (senza JWT restituiscono null: innocuo), e le
+funzioni sensibili (`consuma_*`, `gestisci_nuovo_utente`) solo da service_role/postgres.
+Nessuna divergenza.
