@@ -84,8 +84,10 @@ query di lettura sulla produzione.
    database di test, e prima di aver esportato le tabelle toccate in un file (`.sql` o `.csv`)
    dentro `backup/` -- Supabase non ti da' uno snapshot on-demand su questo piano, quindi il
    backup te lo fai tu e lo dici.
-3. Nessun `git push` su `main`. Lavora su un branch, committa quanto vuoi, e lascia a Gabriel il
-   merge. (Se ti viene detto esplicitamente il contrario in chat, allora si'.)
+3. **Nessun `git push`, su nessun ramo.** Committa quanto vuoi in locale, su un branch tuo: e'
+   Gabriel che porta le cose su GitHub. Non ti serve: l'app la provi in locale (vedi sotto), e un
+   deploy di anteprima su Vercel userebbe le variabili d'ambiente di produzione su un URL
+   pubblico, cioe' una chat AI aperta a chiunque che scrive nel database vero e consuma quota.
 4. Niente Stripe in modalita' live, niente creazione o modifica di prezzi, niente modifica della
    configurazione Vercel (variabili d'ambiente, region, domini).
 5. Nessun invio reale di email o SMS a indirizzi e numeri che non siano di prova.
@@ -93,6 +95,20 @@ query di lettura sulla produzione.
    sono decisioni aperte di Gabriel, non tue.
 7. Non iniziare la Fase 7 (redesign grafico), WhatsApp (bloccato dalla P.IVA) o Stripe Connect:
    sono grandi, dichiarati e non tuoi per questa sessione.
+
+## 3bis. COME PROVI L'APP CHE GIRA
+
+Tutto in locale, sul Mac, senza pubblicare niente.
+
+- `npm run dev` -> `http://localhost:3000`, con le variabili di `.env.local`, quindi **sul
+  database di produzione**. Usalo per guardare le schermate, riprodurre un difetto, provare la
+  chat AI. Ogni riga che scrivi da qui e' una riga vera: tieni le prove corte e pulisci dopo.
+- `npx playwright test` -> gira contro il **database di test** (`.env.test`, caricato in
+  override dalla config). Parte solo se quel file c'e': e' un blocco voluto, non un avviso. Per
+  qualunque cosa che SCRIVE molto, questa e' la strada giusta.
+- Se ti serve davvero un giro della suite sul database vero:
+  `E2E_CONSENTI_PRODUZIONE=1 npx playwright test`, da riga di comando, una decisione presa ogni
+  volta. Dillo nel report quando lo fai.
 
 ## 4. CACCIA AI BUG, in ordine di danno
 
