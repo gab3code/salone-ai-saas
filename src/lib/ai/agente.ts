@@ -16,6 +16,11 @@ import { pulisciMarkdown } from "./pulisci-markdown";
 import { istruzioniContatto } from "@/lib/contatti";
 import { registraUsoApi } from "./costi.server";
 import {
+  trovaOrarioInventato,
+  orariConsentiti,
+  FRASE_ORARI_NON_VERIFICATI,
+} from "./verifica-orari";
+import {
   trovaAzioneNonAvvenuta,
   azioniDichiarate,
   frasePrudente,
@@ -241,7 +246,8 @@ async function correggiSeIncongruente(
   adesso: Date,
   usoApi: { canale: CanaleUsoApi; tenantId: string | null },
   azioni: ContestoAzioni,
-  comeContattare: string | null
+  comeContattare: string | null,
+  orariLeciti: Set<string>
 ): Promise<string> {
   const potrebbeMenzionareUnNumero = /€|euro|minut/i.test(testo);
 
@@ -268,6 +274,11 @@ async function correggiSeIncongruente(
     // verifica-azioni.ts per il caso vero che ha portato a questo controllo.
     const azioneInventata = trovaAzioneNonAvvenuta(t, azioni);
     if (azioneInventata) problemi.push(azioneInventata);
+    // Un orario e' un numero, e i numeri li contiamo noi: vedi
+    // verifica-orari.ts per la lista di undici orari inventata il 19/09,
+    // pausa pranzo compresa.
+    const orarioInventato = trovaOrarioInventato(t, orariLeciti);
+    if (orarioInventato) problemi.push(orarioInventato);
     return problemi;
   };
 
@@ -340,6 +351,15 @@ async function correggiSeIncongruente(
   // avrebbe piu' niente da correggere.
   if (trovaAzioneNonAvvenuta(base, azioni) && azioniDichiarate(base).size > 0) {
     return frasePrudente(comeContattare);
+  }
+
+  // Stessa logica per gli orari: se dopo la correzione ne resta anche uno
+  // senza fonte, il messaggio non esce. La frase sostitutiva non contiene
+  // nessun orario -- e' l'unico modo di essere certi di non ripetere
+  // l'invenzione -- e non chiude la conversazione: chiede il giorno, cosi'
+  // il turno dopo riparte con lo strumento chiamato davvero.
+  if (trovaOrarioInventato(base, orariLeciti)) {
+    return FRASE_ORARI_NON_VERIFICATI;
   }
 
   if (importoCaparraReale === null && trovaIncongruenzaPrezzoDurata(base, servizi)) {
@@ -496,6 +516,16 @@ export async function rispondiConversazione(
   // proprio la bugia, ripetuta una seconda volta (e' successo: vedi il caso
   // in testa a verifica-azioni.ts, dove alla domanda "hai prenotato davvero?"
   // il modello ha risposto di si').
+  // Ogni testo da cui un orario puo' LECITAMENTE provenire: i risultati
+  // degli strumenti di questo turno e quello che cliente e assistente si
+  // sono gia' detti. Vedi verifica-orari.ts per il perche' servano
+  // entrambi -- senza il secondo, "confermo le 8:00" dopo che il cliente ha
+  // scritto "alle 8" verrebbe scambiato per un'invenzione.
+  const testiConOrariLeciti: string[] = [
+    ...storico.map((m) => m.contenuto),
+    messaggioNuovo,
+  ];
+
   const azioniAvvenute = new Set<AzioneAppuntamento>();
   let inAttesaDiCaparra = false;
   let emailDisponibile = false;
@@ -580,7 +610,8 @@ export async function rispondiConversazione(
               istruzioniContatto({
                 telefono: ctx.telefono ?? null,
                 telefonoWhatsapp: ctx.telefonoWhatsapp ?? null,
-              })
+              }),
+              orariConsentiti(testiConOrariLeciti)
             )
           )
         : testo;
@@ -623,10 +654,12 @@ export async function rispondiConversazione(
       if (typeof inputStrumento.cliente_email === "string" && /\S+@\S+\.\S+/.test(inputStrumento.cliente_email)) {
         emailDisponibile = true;
       }
+      const risultatoSerializzato = JSON.stringify(risultato);
+      testiConOrariLeciti.push(risultatoSerializzato);
       risultatiTool.push({
         type: "tool_result",
         tool_use_id: blocco.id,
-        content: JSON.stringify(risultato),
+        content: risultatoSerializzato,
       });
     }
     messages.push({ role: "user", content: risultatiTool });

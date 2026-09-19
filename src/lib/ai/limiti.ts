@@ -220,7 +220,28 @@ export const INTERVALLO_MINIMO_MS_TRA_MESSAGGI = 2000;
 //    `conversazioni.turni_senza_tool_consecutivi` (si azzera ad ogni turno
 //    che invece usa almeno uno strumento) -- vedi conversazione.server.ts.
 export const LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE = 15;
-export const LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI = 3;
+// Alzato da 3 a 5 il 19/09/2026, dopo averlo visto tagliare fuori un cliente
+// VERO nel momento peggiore. La conversazione era tutta in tema -- scelta del
+// servizio, giorno, "dimmi tutti gli orari", "prenoto alle 8" -- ma il
+// modello, in tre turni di fila, non ha chiamato nessuno strumento: ha
+// risposto a memoria inventandosi gli orari. Il contatore ha fatto
+// esattamente il suo mestiere e ha chiuso la conversazione con "non riesco a
+// risponderti oltre da qui" PROPRIO quando il cliente aveva appena dato nome
+// e telefono.
+//
+// Il difetto di fondo, che vale la pena scrivere: questo contatore misura il
+// comportamento del MODELLO e ne fa pagare il conto al CLIENTE. Il proxy
+// "una vera prenotazione chiama uno strumento entro pochi turni" regge
+// finche' il modello gli strumenti li chiama; quando non lo fa, la difesa
+// anti-abuso si trasforma in un modo di perdere un cliente onesto.
+//
+// La correzione vera non e' questo numero: sono verifica-orari.ts e
+// verifica-azioni.ts, che costringono il modello a chiamare gli strumenti
+// perche' altrimenti il suo messaggio non esce. Con quelli il contatore si
+// azzera da solo molto piu' spesso. Cinque e' il margine che serve nel
+// frattempo -- due domande di chiarimento di fila sono normali in una
+// conversazione vera, tre lo sono ancora.
+export const LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI = 5;
 
 // Trovato dal vivo il 15/09/2026 (vedi DECISIONS.md): una conversazione
 // "aperta" non scade mai da sola, quindi lo stesso identificatore_sessione
