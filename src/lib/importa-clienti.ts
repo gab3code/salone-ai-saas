@@ -39,6 +39,12 @@ export interface ClienteImportato {
   telefono: string;
   email: string | null;
   note: string | null;
+  /**
+   * Da dove viene, quando l'ha letto il modello: la riga non capita, o la
+   * trascrizione della voce nella foto. Si mostra accanto alla proposta,
+   * cosi' il titolare confronta con i suoi occhi prima di spuntare.
+   */
+  rigaOriginale?: string;
 }
 
 export interface ClienteEsistente {
@@ -94,6 +100,33 @@ export function stessoTelefono(a: string | null, b: string | null): boolean {
 export function telefonoUtilizzabile(valore: string | null | undefined): boolean {
   const cifre = (valore ?? "").replace(/\D/g, "");
   return cifre.length >= 6 && cifre.length <= 15;
+}
+
+/**
+ * Un campo che CONTIENE un numero non e' un numero (19/09/2026, trovato da
+ * Gabriel al primo incolla vero: "Maria la bionda del martedi' 333 123 4568"
+ * era diventato un cliente senza nome con tutta la riga come telefono, e non
+ * era mai arrivato all'assistente perche' il lettore l'aveva "capito").
+ *
+ * Qui si estrae il numero dal campo e si guarda cosa resta:
+ *  - niente: il campo era il numero;
+ *  - fino a tre parole ("Maria Rossi"): e' il nome, si tiene;
+ *  - di piu': la riga e' sporca, non si indovina -- torna null e finisce fra
+ *    le non capite, dove il modello puo' leggerla e proporre.
+ *
+ * Fra piu' sequenze di cifre si prende quella con piu' cifre: in "Maria 12
+ * Rossi 333 1234567" il numero e' il secondo.
+ */
+export function estraiTelefonoDaCampo(campo: string): { telefono: string; resto: string } | null {
+  const candidati = [...campo.matchAll(/\+?\d[\d\s.\-()\/]*\d/g)]
+    .map((m) => m[0])
+    .filter((c) => telefonoUtilizzabile(c));
+  if (candidati.length === 0) return null;
+  const telefono = candidati.sort((a, b) => b.replace(/\D/g, "").length - a.replace(/\D/g, "").length)[0];
+  const resto = campo.replace(telefono, " ").replace(/\s+/g, " ").trim();
+  const parole = resto === "" ? 0 : resto.split(" ").length;
+  if (parole > 3) return null;
+  return { telefono: telefono.trim(), resto };
 }
 
 const INTESTAZIONI_NOME = ["nome", "cliente", "nominativo", "name", "nome e cognome", "cognome e nome"];
@@ -213,11 +246,12 @@ function leggiConIntestazione(
   iEmail: number,
   iNote: number
 ): ClienteImportato | null {
-  const telefono = iTel !== -1 ? campi[iTel] : campi.find((c) => telefonoUtilizzabile(c)) ?? "";
-  if (!telefonoUtilizzabile(telefono)) return null;
+  const campoTelefono = iTel !== -1 ? campi[iTel] : campi.find((c) => estraiTelefonoDaCampo(c) !== null);
+  const estratto = campoTelefono !== undefined ? estraiTelefonoDaCampo(campoTelefono) : null;
+  if (!estratto) return null;
   return {
-    nome: pulisci(iNome !== -1 ? campi[iNome] : null),
-    telefono: telefono.trim(),
+    nome: pulisci(iNome !== -1 ? campi[iNome] : estratto.resto || null),
+    telefono: estratto.telefono,
     email: pulisciEmail(iEmail !== -1 ? campi[iEmail] : null),
     note: pulisci(iNote !== -1 ? campi[iNote] : null),
   };
@@ -230,15 +264,18 @@ function leggiConIntestazione(
  * indovinato: quello che non si capisce resta fuori e si vede in revisione.
  */
 function leggiSenzaIntestazione(campi: string[]): ClienteImportato | null {
-  const telefono = campi.find((c) => telefonoUtilizzabile(c) && /\d/.test(c));
-  if (!telefono) return null;
+  const campoTelefono = campi.find((c) => estraiTelefonoDaCampo(c) !== null);
+  if (campoTelefono === undefined) return null;
+  const estratto = estraiTelefonoDaCampo(campoTelefono)!;
   const email = campi.find((c) => c.includes("@"));
-  const nome = campi
-    .filter((c) => c !== telefono && c !== email && !telefonoUtilizzabile(c))
+  const nomeDaAltriCampi = campi
+    .filter((c) => c !== campoTelefono && c !== email && estraiTelefonoDaCampo(c) === null)
     .sort((a, b) => b.length - a.length)[0];
+  // Il nome sta in un altro campo se c'e'; altrimenti e' quello che restava
+  // accanto al numero ("Maria Rossi 333 1234567" senza separatori).
   return {
-    nome: pulisci(nome ?? null),
-    telefono: telefono.trim(),
+    nome: pulisci(nomeDaAltriCampi ?? estratto.resto ?? null),
+    telefono: estratto.telefono,
     email: pulisciEmail(email ?? null),
     note: null,
   };

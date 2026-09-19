@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
-import { numeroPresoDallaRiga, recuperaRigheConModello } from "./importa-clienti-ai.server";
+import { leggiRubricaDaFoto, numeroPresoDallaRiga, recuperaRigheConModello } from "./importa-clienti-ai.server";
 
 vi.mock("@/lib/ai/costi.server", () => ({ registraUsoApi: vi.fn() }));
 
@@ -87,5 +87,77 @@ describe("recuperaRigheConModello", () => {
     const modello = modelloChe([]);
     await recuperaRigheConModello(["  ", ""], { tenantId: "t1" }, modello);
     expect(modello.messages.create).not.toHaveBeenCalled();
+  });
+});
+
+function modelloCheVedeNellaFoto(voci: unknown[], nonEUnaRubrica = false) {
+  const create = vi.fn().mockResolvedValue({
+    content: [{ type: "tool_use", id: "t1", name: "restituisci_voci_foto", input: { non_e_una_rubrica: nonEUnaRubrica, voci } }],
+    usage: { input_tokens: 2000, output_tokens: 300 },
+  } as unknown as Anthropic.Message);
+  return { messages: { create } };
+}
+
+const FOTO = { base64: "AAAA", tipo: "image/jpeg" as const };
+
+describe("leggiRubricaDaFoto -- il modello e' l'unico lettore, quindi le reti stringono di piu'", () => {
+  it("manda la foto come immagine e propone la voce con la trascrizione accanto", async () => {
+    const modello = modelloCheVedeNellaFoto([
+      { trascrizione: "Maria R. 333 123 4567 colore", nome: "Maria R.", telefono: "333 123 4567", email: null, note: "colore", cifre_incerte: false },
+    ]);
+    const esito = await leggiRubricaDaFoto(FOTO, { tenantId: "t1" }, modello);
+    expect(esito).toEqual({
+      ok: true,
+      esito: {
+        proposte: [{ rigaOriginale: "Maria R. 333 123 4567 colore", nome: "Maria R.", telefono: "3331234567", email: null, note: "colore" }],
+        nonLette: [],
+        nonEUnaRubrica: false,
+      },
+    });
+    const params = modello.messages.create.mock.calls[0][0];
+    const contenuto = params.messages[0].content as { type: string; source?: { media_type: string; data: string } }[];
+    expect(contenuto[0]).toMatchObject({ type: "image", source: { media_type: "image/jpeg", data: "AAAA" } });
+  });
+
+  it("UNA CIFRA INCERTA E LA VOCE NON SI PROPONE: torna fra le non lette, con la trascrizione", async () => {
+    const modello = modelloCheVedeNellaFoto([
+      // Il modello e' incoerente: dice di non essere sicuro ma propone un numero completo.
+      { trascrizione: "Luca 333 12?4 567", nome: "Luca", telefono: "3331234567", email: null, note: null, cifre_incerte: false },
+      // Qui e' sincero: cifre_incerte true, telefono null.
+      { trascrizione: "Anna 33? 987 6543", nome: "Anna", telefono: null, email: null, note: null, cifre_incerte: true },
+    ]);
+    const esito = await leggiRubricaDaFoto(FOTO, { tenantId: "t1" }, modello);
+    expect(esito.ok && esito.esito.proposte).toEqual([]);
+    expect(esito.ok && esito.esito.nonLette).toEqual([
+      { trascrizione: "Luca 333 12?4 567", motivo: "cifre_incerte" },
+      { trascrizione: "Anna 33? 987 6543", motivo: "cifre_incerte" },
+    ]);
+  });
+
+  it("un numero che nella trascrizione non c'e' non passa: quello che il titolare vede e quello che si scrive devono coincidere", async () => {
+    const modello = modelloCheVedeNellaFoto([
+      { trascrizione: "Maria 333 123 4567", nome: "Maria", telefono: "3339999999", email: null, note: null, cifre_incerte: false },
+    ]);
+    const esito = await leggiRubricaDaFoto(FOTO, { tenantId: "t1" }, modello);
+    expect(esito.ok && esito.esito.nonLette).toEqual([{ trascrizione: "Maria 333 123 4567", motivo: "numero_non_riconoscibile" }]);
+  });
+
+  it("una voce senza numero si vede, non sparisce", async () => {
+    const modello = modelloCheVedeNellaFoto([
+      { trascrizione: "Giulia, richiamare", nome: "Giulia", telefono: null, email: null, note: "richiamare", cifre_incerte: false },
+    ]);
+    const esito = await leggiRubricaDaFoto(FOTO, { tenantId: "t1" }, modello);
+    expect(esito.ok && esito.esito.nonLette).toEqual([{ trascrizione: "Giulia, richiamare", motivo: "senza_numero" }]);
+  });
+
+  it("se non e' una rubrica lo dice, e non propone niente", async () => {
+    const esito = await leggiRubricaDaFoto(FOTO, { tenantId: "t1" }, modelloCheVedeNellaFoto([], true));
+    expect(esito).toEqual({ ok: true, esito: { proposte: [], nonLette: [], nonEUnaRubrica: true } });
+  });
+
+  it("una chiamata fallita torna come errore parlante, senza lanciare", async () => {
+    const modello = { messages: { create: vi.fn().mockRejectedValue(new Error("rete")) } };
+    const esito = await leggiRubricaDaFoto(FOTO, { tenantId: "t1" }, modello);
+    expect(esito).toEqual({ ok: false, errore: "Non sono riuscito a leggere la foto adesso. Riprova fra poco." });
   });
 });

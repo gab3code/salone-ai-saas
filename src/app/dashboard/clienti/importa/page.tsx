@@ -26,10 +26,10 @@ export default async function PaginaImportClienti() {
         </Link>
         <h1 className="mt-2 text-xl font-semibold">Importa la rubrica</h1>
         <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-          Incolla l&apos;elenco dei tuoi clienti, o carica un file CSV. Va bene un foglio Excel
-          copiato, un export di un altro gestionale o una lista scritta a mano: serve un numero
-          di telefono per riga, il resto è facoltativo. Ti mostro cosa entrerebbe prima di
-          salvare qualcosa.
+          Incolla l&apos;elenco dei tuoi clienti, oppure carica un file: un CSV, la rubrica del
+          telefono (.vcf) o una foto dell&apos;agenda. Va bene un foglio Excel copiato, un export di
+          un altro gestionale o una lista scritta a mano: serve un numero di telefono per riga, il
+          resto è facoltativo. Ti mostro cosa entrerebbe prima di salvare qualcosa.
         </p>
       </div>
 

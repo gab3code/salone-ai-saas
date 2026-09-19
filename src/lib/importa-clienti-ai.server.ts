@@ -177,3 +177,163 @@ function pulisci(valore: unknown, max: number): string | null {
   const v = valore.trim().slice(0, max);
   return v === "" ? null : v;
 }
+
+/* ------------------------------------------------------------------
+ * LA FOTO DELL'AGENDA (19/09/2026).
+ *
+ * Il caso vero: un quaderno, una pagina di agenda, lo schermo del vecchio
+ * gestionale fotografato col telefono. Qui il modello non "recupera" righe
+ * che il codice ha gia' visto: e' l'unico lettore, e quindi le reti devono
+ * stringersi di piu', non di meno.
+ *
+ * Il patto e' lo stesso -- propone, il titolare conferma -- con tre cose in
+ * piu' rispetto alle righe di testo:
+ *  1. il modello TRASCRIVE ogni voce cosi' com'e' scritta, e la trascrizione
+ *     torna al titolare accanto alla proposta: e' il suo modo di controllare
+ *     con gli occhi, sulla foto che ha davanti, prima di spuntare;
+ *  2. dove una cifra non si legge il modello scrive "?", e una voce con un
+ *     "?" nella trascrizione NON viene proposta, mai. Un numero con una
+ *     cifra indovinata e' peggio di un numero mancante: al primo il salone
+ *     scrive, e nessuno risponde;
+ *  3. il numero proposto deve comparire nella trascrizione (stessa rete di
+ *     `numeroPresoDallaRiga`): cosi' quello che il titolare vede e quello
+ *     che viene scritto sono la stessa cosa.
+ *
+ * Le voci non proposte non spariscono: tornano come "non lette", con la
+ * trascrizione, cosi' si aggiungono a mano guardando la foto.
+ *
+ * Costo: una chiamata per foto, con l'immagine (ridotta dal browser a 1568
+ * px sul lato lungo: e' il massimo che il modello usa, oltre butta via
+ * pixel e basta), registrata come "import_clienti". La quota e' la stessa
+ * delle righe non capite: una foto = un uso.
+ */
+
+export const TIPI_IMMAGINE_IMPORT = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
+export type TipoImmagineImport = (typeof TIPI_IMMAGINE_IMPORT)[number];
+/** Oltre questa dimensione (in byte, decodificata) la foto non parte: 4 MB bastano a una pagina a 1568 px. */
+export const MAX_BYTE_FOTO_IMPORT = 4 * 1024 * 1024;
+export const MAX_VOCI_PER_FOTO = 150;
+
+export interface VoceNonLetta {
+  trascrizione: string;
+  /** Perche' non si propone: cifre incerte, nessun numero, numero non riconoscibile. */
+  motivo: "cifre_incerte" | "senza_numero" | "numero_non_riconoscibile";
+}
+
+export interface EsitoLetturaFoto {
+  proposte: (ClienteImportato & { rigaOriginale: string })[];
+  nonLette: VoceNonLetta[];
+  /** true quando il modello dice che nella foto non c'e' un elenco di persone. */
+  nonEUnaRubrica: boolean;
+}
+
+const ISTRUZIONI_FOTO = `Ricevi la foto di un elenco di clienti di un salone: una pagina di agenda, un quaderno, un foglio, lo schermo di un programma. Devi trascrivere ogni voce e, da ognuna, estrarre nome, telefono, email.
+
+Regole:
+- "trascrizione": la voce cosi' com'e' scritta nella foto, parola per parola e cifra per cifra, senza interpretare. Dove una cifra NON si legge con certezza scrivi "?" al suo posto. Meglio un "?" in piu' che una cifra indovinata.
+- "telefono": le cifre COPIATE dalla trascrizione. Non completare, non correggere, non indovinare. Se nella trascrizione c'e' un "?" fra le cifre del numero, metti telefono null e cifre_incerte true.
+- "nome": il nome della persona, senza soprannomi o descrizioni ("Maria la bionda" -> "Maria"). Se non c'e', null.
+- "note": tutto il resto della voce (preferenze, giorni, servizi), breve. Se non c'e', null.
+- Un elemento per OGNI voce che vedi, anche quando non trovi un numero.
+- Se la foto non contiene un elenco di persone (e' un paesaggio, un documento di altro tipo, illeggibile), restituisci "non_e_una_rubrica" true e nessuna voce.`;
+
+export async function leggiRubricaDaFoto(
+  immagine: { base64: string; tipo: TipoImmagineImport },
+  opzioni: { tenantId: string | null },
+  client: ClienteAnthropicImport = ottieniClientPredefinito()
+): Promise<{ ok: true; esito: EsitoLetturaFoto } | { ok: false; errore: string }> {
+  let risposta: Anthropic.Message;
+  try {
+    risposta = await client.messages.create({
+      model: MODELLO,
+      max_tokens: 8192,
+      system: ISTRUZIONI_FOTO,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: immagine.tipo, data: immagine.base64 } },
+            { type: "text", text: "Trascrivi le voci di questa foto e restituiscile con lo strumento." },
+          ],
+        },
+      ],
+      tools: [
+        {
+          name: "restituisci_voci_foto",
+          description: "Le voci trascritte dalla foto, una per persona.",
+          input_schema: {
+            type: "object",
+            properties: {
+              non_e_una_rubrica: { type: "boolean" },
+              voci: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    trascrizione: { type: "string", description: "La voce come e' scritta, con '?' al posto delle cifre illeggibili." },
+                    nome: { type: ["string", "null"] },
+                    telefono: { type: ["string", "null"] },
+                    email: { type: ["string", "null"] },
+                    note: { type: ["string", "null"] },
+                    cifre_incerte: { type: "boolean" },
+                  },
+                  required: ["trascrizione", "nome", "telefono", "email", "note", "cifre_incerte"],
+                },
+              },
+            },
+            required: ["non_e_una_rubrica", "voci"],
+          },
+        },
+      ],
+      tool_choice: { type: "tool", name: "restituisci_voci_foto" },
+    });
+  } catch (errore) {
+    console.error("Import clienti: lettura della foto fallita", errore);
+    return { ok: false, errore: "Non sono riuscito a leggere la foto adesso. Riprova fra poco." };
+  }
+
+  registraUsoApi({
+    tenantId: opzioni.tenantId,
+    canale: "import_clienti",
+    modello: MODELLO,
+    usage: (risposta as { usage?: unknown }).usage,
+  });
+
+  const blocco = risposta.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+  const input = blocco?.input as { non_e_una_rubrica?: unknown; voci?: unknown } | undefined;
+  if (!input || !Array.isArray(input.voci)) {
+    return { ok: false, errore: "Il modello non ha restituito niente di utilizzabile da questa foto." };
+  }
+
+  const esito: EsitoLetturaFoto = { proposte: [], nonLette: [], nonEUnaRubrica: input.non_e_una_rubrica === true };
+  for (const voce of input.voci.slice(0, MAX_VOCI_PER_FOTO)) {
+    if (!voce || typeof voce !== "object") continue;
+    const v = voce as { trascrizione?: unknown; nome?: unknown; telefono?: unknown; email?: unknown; note?: unknown; cifre_incerte?: unknown };
+    const trascrizione = pulisci(v.trascrizione, 300);
+    if (!trascrizione) continue;
+    // Rete 2: un "?" nella trascrizione, o il modello che si dichiara incerto,
+    // e la voce non si propone. In codice, non nel prompt.
+    if (v.cifre_incerte === true || trascrizione.includes("?")) {
+      esito.nonLette.push({ trascrizione, motivo: "cifre_incerte" });
+      continue;
+    }
+    const telefono = typeof v.telefono === "string" ? v.telefono.replace(/[\s.\-()]/g, "") : "";
+    if (telefono === "") {
+      esito.nonLette.push({ trascrizione, motivo: "senza_numero" });
+      continue;
+    }
+    // Rete 1 e 3: numero riconoscibile, e preso dalla trascrizione.
+    if (!telefonoUtilizzabile(telefono) || !numeroPresoDallaRiga(telefono, trascrizione)) {
+      esito.nonLette.push({ trascrizione, motivo: "numero_non_riconoscibile" });
+      continue;
+    }
+    esito.proposte.push({
+      rigaOriginale: trascrizione,
+      nome: pulisci(v.nome, 200),
+      telefono,
+      email: pulisci(v.email, 200),
+      note: pulisci(v.note, 500),
+    });
+  }
+  return { ok: true, esito };
+}

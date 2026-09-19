@@ -2291,10 +2291,31 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
         (`is null`), non il codice che ha letto un attimo prima. `completaClienteDoveVuoto`,
         coperta dal test sul filtro tenant.
 
-      **Non fatto, e va detto chiaro:**
-      - **la foto di una pagina d'agenda.** Serve il modello con la vista, e serve decidere
-        quanto ci si fida di una trascrizione di numeri scritti a mano: qui la rete "il numero
-        deve essere nella riga" non esiste, perche' la riga E' la foto. Decisione di Gabriel.
+      **Fatto anche, il 19/09/2026 (mattina), ramo `fable/import-foto`:**
+      - **il lettore non prendeva per "numero" un campo che CONTENEVA un numero**: "Maria la
+        bionda del martedi' 333 123 4568" diventava un cliente senza nome con tutta la riga
+        come telefono, e non arrivava mai all'assistente (trovato da Gabriel al primo incolla
+        vero). Ora `estraiTelefonoDaCampo`: si estrae il numero e si guarda cosa resta -- fino a
+        tre parole e' il nome, di piu' e la riga finisce fra le non capite. 5 test.
+      - **la rubrica del telefono (.vcf)**: iPhone e Android esportano cosi'. Lettore
+        deterministico (`src/lib/importa-vcard.ts`, 10 test): FN/N/ORG, il cellulare vince sul
+        fisso e l'altro numero resta nelle note, quoted-printable del vecchio Android, folding.
+      - **la foto dell'agenda**: il modello (Haiku, con la vista) TRASCRIVE ogni voce e propone
+        nome/numero/email/note. Tre reti in codice, piu' strette di quelle sul testo perche'
+        qui il modello e' l'unico lettore: (1) la trascrizione torna al titolare accanto a ogni
+        proposta, e' il suo modo di confrontare con la foto; (2) una cifra illeggibile diventa
+        "?" e una voce con "?" NON viene proposta, mai -- "un numero indovinato e' peggio di un
+        numero mancante"; (3) il numero deve comparire nella trascrizione. Tutto parte non
+        spuntato. Le voci non proposte si vedono con la trascrizione e il motivo. La foto viene
+        ridotta nel browser (1568 px, JPEG: `foto.ts`), il corpo delle server action e' salito
+        a 4 MB. Una foto = un uso della stessa quota `import_clienti`.
+        `leggiRubricaDaFoto`, 6 test. **Da collaudare dal vivo dopo il deploy** con
+        `backup/foto-agenda-test.jpg` (non in git).
+
+      **Non fatto:**
+      - piu' foto in un colpo (oggi una alla volta; un quaderno di dieci pagine sono dieci
+        letture), e l'HEIC dell'iPhone su Chrome desktop (il browser non lo apre: si dice cosa
+        fare). Sul telefono il selettore converte da solo.
 
 - [ ] **Note vocali che diventano scheda cliente.** Un parrucchiere non digita: ha le mani
       occupate e le unghie di qualcun altro davanti. Detta trenta secondi a fine servizio e l'AI ne

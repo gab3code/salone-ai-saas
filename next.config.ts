@@ -2,7 +2,16 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  /**
+   * Il limite predefinito del corpo di una server action e' 1 MB: basta a
+   * tutto tranne alla foto dell'agenda nell'import clienti, che arriva in
+   * base64 gia' ridotta dal browser (1568 px, JPEG) ma puo' passare il
+   * megabyte. 4 MB e' lo stesso tetto che l'azione ricontrolla lato server
+   * (MAX_BYTE_FOTO_IMPORT).
+   */
+  experimental: {
+    serverActions: { bodySizeLimit: "4mb" },
+  },
 };
 
 /**

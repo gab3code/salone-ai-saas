@@ -22,6 +22,18 @@ perdere tempo nello stesso modo di uno che dice "fatto" quando non e' fatto.
 
 ---
 
+## 19/09/2026, mattina -- l'import legge anche i .vcf e le foto (ramo `fable/import-foto`)
+
+**1218 test unitari in 87 file.** Build, tipi e lint puliti.
+
+- Corretto il lettore: una riga che CONTIENE un numero non e' piu' presa per un numero
+  (la "Maria la bionda del martedi'" della schermata di Gabriel ora finisce fra le non
+  capite, cioe' dall'assistente, invece di diventare un cliente senza nome).
+- La rubrica del telefono (.vcf) si legge senza modello: 10 test, iPhone e Android vecchio.
+- La foto dell'agenda: il modello trascrive e propone, tre reti in codice, tutto parte non
+  spuntato, le voci con una cifra illeggibile non si propongono e si vedono a parte.
+  **Da collaudare dal vivo dopo il deploy** (il ponte non raggiunge il modello dal Mac).
+
 ## 19/09/2026, notte -- quello che e' cambiato dopo la foto del 18
 
 **I numeri aggiornati**: 1160 test unitari in 83 file (erano 991), 70 scenari Playwright in 30

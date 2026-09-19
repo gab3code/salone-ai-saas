@@ -4,6 +4,7 @@ import {
   campiDaCompletare,
   calcolaDiffImport,
   dividiRiga,
+  estraiTelefonoDaCampo,
   leggiIncolla,
   stessoTelefono,
   telefonoCanonico,
@@ -187,5 +188,32 @@ describe("completare chi c'e' gia' (19/09/2026, la meta' mancante dell'import)",
   it("un cliente nuovo non ha niente da completare (non esiste ancora)", () => {
     const diff = calcolaDiffImport([], leggiIncolla("Nome;Telefono\nGiulia;3335550000"));
     expect(diff.nuovi[0].completabile).toEqual({ nome: false, email: false });
+  });
+});
+
+describe("un campo che contiene un numero non e' un numero (19/09/2026, primo incolla vero di Gabriel)", () => {
+  it("la riga sporca dello screenshot non diventa un cliente senza nome: va fra le non capite", () => {
+    expect(estraiTelefonoDaCampo("Maria la bionda del martedi' 333 123 4568")).toBeNull();
+    const esito = leggiIncolla("Maria la bionda del martedi' 333 123 4568");
+    expect(esito.clienti).toEqual([]);
+    expect(esito.scartate).toEqual(["Maria la bionda del martedi' 333 123 4568"]);
+  });
+
+  it("nome e numero nello stesso campo: il resto e' il nome", () => {
+    expect(estraiTelefonoDaCampo("Maria Rossi 333 1234567")).toEqual({ telefono: "333 1234567", resto: "Maria Rossi" });
+    expect(leggiIncolla("Maria Rossi 333 1234567").clienti[0]).toMatchObject({ nome: "Maria Rossi", telefono: "333 1234567" });
+  });
+
+  it("solo il numero: resto vuoto", () => {
+    expect(estraiTelefonoDaCampo(" +39 333 123 4567 ")).toEqual({ telefono: "+39 333 123 4567", resto: "" });
+  });
+
+  it("fra piu' sequenze di cifre vince quella con piu' cifre", () => {
+    expect(estraiTelefonoDaCampo("Maria 12 Rossi 333 1234567")).toEqual({ telefono: "333 1234567", resto: "Maria 12 Rossi" });
+  });
+
+  it("senza un numero utilizzabile non c'e' niente da estrarre", () => {
+    expect(estraiTelefonoDaCampo("Maria Rossi")).toBeNull();
+    expect(estraiTelefonoDaCampo("interno 12")).toBeNull();
   });
 });

@@ -1224,6 +1224,33 @@ una conversazione vera di cinque messaggi, fatta guardando il database accanto. 
 da due giorni ("provala tu stesso prima di farmi fare il push"), e ogni volta che l'ho fatto e'
 uscito qualcosa che leggendo il codice non si vedeva.
 
+## 27novovicies-bis. "Contiene un numero" non e' "e' un numero" (19/09/2026)
+
+`telefonoUtilizzabile("Maria la bionda del martedi' 333 123 4568")` e' true: togli tutto cio'
+che non e' cifra, restano dieci cifre, passa. Cosi' la prima riga sporca che Gabriel ha incollato
+e' diventata un cliente senza nome con tutta la frase come telefono -- e, siccome il lettore
+l'aveva "capita", non e' mai arrivata all'assistente costruito apposta per le righe sporche.
+
+La regola: **un controllo che risponde "si'" a tutto cio' che contiene la cosa cercata non
+riconosce la cosa, la trova.** Prima di dichiarare che un campo E' un numero, va estratto il
+numero e giudicato quello che resta (`estraiTelefonoDaCampo`). Vale per email, date, orari:
+ogni volta che un test "e' un X" e' implementato come "contiene un X", c'e' una riga sporca che
+passa in silenzio, ed e' la peggiore, perche' non si vede.
+
+Coda: quando il lettore deterministico e il modello si dividono il lavoro, l'errore del primo
+non e' solo un dato sbagliato, e' un dato che al secondo non arriva mai. Il confine fra i due va
+testato con le righe sporche vere, non con quelle pulite.
+
+## 27tricies-ter. Quando il modello e' l'unico lettore, fagli ricreare la riga (19/09/2026)
+
+La rete piu' utile dell'import ("il numero proposto deve comparire nella riga originale") non
+esisteva per la foto: la riga E' la foto. Si e' risolta facendo TRASCRIVERE ogni voce al
+modello e usando la trascrizione come riga: ci si verifica il numero contro, la si mostra al
+titolare accanto alla proposta, e ci si mette un "?" dove una cifra non si legge -- e un "?"
+esclude la voce, in codice. Non e' una rete perfetta (una trascrizione sbagliata con sicurezza
+passa), ma trasforma un "fidati" in un "guarda e confronta", che e' la cosa che un titolare sa
+fare.
+
 ## 27duodetricies. Ogni trasformazione che chiedi al modello e' un posto dove puo' sbagliare (19/09/2026)
 
 `verifica_disponibilita` restituiva quaranta slot come timestamp ISO. Nessuno ne mostra quaranta

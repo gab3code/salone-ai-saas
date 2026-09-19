@@ -6973,3 +6973,35 @@ avesse EXECUTE sulle funzioni helper e su produzione no: era un errore del mio f
 `auth_*`/`e_owner` sono eseguibili da PUBLIC (senza JWT restituiscono null: innocuo), e le
 funzioni sensibili (`consuma_*`, `gestisci_nuovo_utente`) solo da service_role/postgres.
 Nessuna divergenza.
+
+## 2026-09-19 (mattina) — L'import legge le foto e i .vcf; e la riga sporca che il lettore "capiva"
+
+**Il difetto, trovato da Gabriel al primo incolla vero.** "Maria la bionda del martedì 333 123
+4568" era diventata un cliente senza nome con tutta la riga come telefono. `telefonoUtilizzabile`
+guarda solo quante cifre restano togliendo tutto il resto: una riga con dentro un numero passa. E
+siccome il lettore l'aveva "capita", non finiva mai fra le non capite, cioè non arrivava mai
+all'assistente costruito apposta per quel caso. La bozza c'era — niente era stato salvato — ma
+era sbagliata, che è peggio di una bozza vuota: si spunta senza guardare.
+Corretto in `estraiTelefonoDaCampo`: si estrae il numero e si giudica il resto (fino a tre
+parole è un nome, di più è sporco → non capita → assistente). Il test usa la riga esatta della
+schermata di Gabriel.
+
+**Il .vcf prima della foto.** "Un altro tipo di file" per un salone vuol dire quasi sempre la
+rubrica del telefono, e quella esce come vCard: formato regolare, si legge senza modello, dà
+sempre lo stesso risultato. Costruito prima della foto perché copre più casi e costa zero.
+
+**La foto: quanto ci si fida.** Era la decisione lasciata aperta il 18/09 ("la rete 'il numero
+deve essere nella riga' non esiste, perché la riga È la foto"). Risposta: si ricrea la riga. Il
+modello trascrive ogni voce, e la trascrizione fa tre lavori: è quello che il titolare vede
+accanto alla proposta (confronta con la foto che ha in mano, non si fida a scatola chiusa); è la
+"riga" contro cui si verifica che il numero proposto esista davvero; e porta il "?" dove una
+cifra non si legge — e una voce con un "?" non si propone, in codice, qualunque cosa dica il
+campo `cifre_incerte`. Il test ha il caso del modello incoerente ("Luca 333 12?4 567" trascritto
+con il dubbio ma proposto completo): scartato.
+Perché così severi: un numero con una cifra sbagliata non è un errore visibile, è un cliente a
+cui il salone scrive e nessuno risponde. Meglio dieci voci "non lette con certezza" da aggiungere
+a mano guardando la foto, che una spuntata a occhi chiusi.
+
+**Cosa NON si fa ancora**: più foto per giro, e non si convertono gli HEIC nel browser desktop
+(si dice all'utente cosa fare). Il corpo delle server action sale a 4 MB per la foto; il
+server ricontrolla tipo e dimensione e non si fida del browser.

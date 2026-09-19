@@ -5,13 +5,22 @@ import { creaClientServer } from "@/lib/supabase/server";
 import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
 import { puoImportareClienti } from "@/lib/ruoli";
 import { creaClientiInBlocco, completaClienteDoveVuoto, elencaClienti } from "@/lib/clienti.server";
-import { recuperaRigheConModello, MAX_RIGHE_PER_RECUPERO } from "@/lib/importa-clienti-ai.server";
+import {
+  leggiRubricaDaFoto,
+  recuperaRigheConModello,
+  MAX_BYTE_FOTO_IMPORT,
+  MAX_RIGHE_PER_RECUPERO,
+  TIPI_IMMAGINE_IMPORT,
+  type TipoImmagineImport,
+  type VoceNonLetta,
+} from "@/lib/importa-clienti-ai.server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { consumaUsoAiInterno } from "@/lib/ai/usi-interni.server";
 import { RECUPERI_IMPORT_SENZA_PIANO, tettoRecuperoImport } from "@/lib/ai/limiti";
+import { leggiTestoImport } from "@/lib/importa-vcard";
 import {
   calcolaDiffImport,
   campiDaCompletare,
-  leggiIncolla,
   telefonoUtilizzabile,
   type DiffImport,
   type RigaImport,
@@ -39,15 +48,15 @@ export async function analizzaImportAzione(testo: string): Promise<RisultatoAnal
   if (accessoNegato(accesso)) return { ok: false, errore: accesso.errore };
 
   if (typeof testo !== "string" || testo.trim() === "") {
-    return { ok: false, errore: "Incolla l'elenco dei clienti, o carica un file CSV." };
+    return { ok: false, errore: "Incolla l'elenco dei clienti, o carica un file (CSV, rubrica .vcf, o una foto)." };
   }
 
-  const esito = leggiIncolla(testo);
+  const esito = leggiTestoImport(testo);
   if (esito.clienti.length === 0) {
     return {
       ok: false,
       errore:
-        "Non ho riconosciuto nessun cliente. Serve almeno un numero di telefono per riga: puoi incollare un CSV, un foglio Excel o un elenco 'nome, numero'.",
+        "Non ho riconosciuto nessun cliente. Serve almeno un numero di telefono per riga: puoi incollare un CSV, un foglio Excel, un elenco 'nome, numero', o caricare la rubrica del telefono (.vcf).",
     };
   }
 
@@ -90,24 +99,8 @@ export async function recuperaRigheNonCapiteAzione(righe: string[]): Promise<Ris
   const daLeggere = righe.filter((r): r is string => typeof r === "string" && r.trim() !== "").slice(0, MAX_RIGHE_PER_RECUPERO);
   if (daLeggere.length === 0) return { ok: false, errore: "Nessuna riga da leggere." };
 
-  const [{ data: tenant }, { count: numeroOperatori }] = await Promise.all([
-    supabase.from("tenants").select("piano").eq("id", tenantId).single(),
-    supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
-  ]);
-  const tetto = tettoRecuperoImport(tenant?.piano ?? "", numeroOperatori ?? 1);
-  const consumo = await consumaUsoAiInterno(tenantId, "import_clienti", tetto);
-  if (!consumo.ok) {
-    if (consumo.motivo === "errore") {
-      return { ok: false, errore: "Non riesco a verificare la quota adesso. Riprova fra poco." };
-    }
-    return {
-      ok: false,
-      esaurite: true,
-      errore: tetto.daSempre
-        ? `Hai usato tutte e ${RECUPERI_IMPORT_SENZA_PIANO} le letture assistite comprese nel tuo piano. Puoi aggiungere queste righe a mano, oppure passare a Growth.`
-        : "Hai finito la quota AI di questo mese. Riparte il primo del mese prossimo.",
-    };
-  }
+  const consumo = await consumaLetturaAssistita(supabase, tenantId);
+  if (!consumo.ok) return consumo;
 
   const esito = await recuperaRigheConModello(daLeggere, { tenantId });
   if (!esito.ok) return esito;
@@ -123,7 +116,93 @@ export async function recuperaRigheNonCapiteAzione(righe: string[]): Promise<Ris
   // Chi risulta gia' in rubrica non e' una proposta nuova: si segnala come
   // "gia' presente" nel conteggio, non si ripropone.
   const proposte = [...diff.nuovi, ...diff.giaPresenti].map((r) => ({ ...r, propostoDallAi: true }));
-  return { ok: true, proposte, nonRecuperate: esito.esito.nonRecuperate, rimaste: consumo.rimasti, aVita: tetto.daSempre };
+  return { ok: true, proposte, nonRecuperate: esito.esito.nonRecuperate, rimaste: consumo.rimasti, aVita: consumo.aVita };
+}
+
+/**
+ * Una lettura assistita (righe non capite o foto) consuma un uso della
+ * quota "import_clienti", PRIMA di chiamare il modello: se poi la chiamata
+ * fallisce l'uso e' speso lo stesso (vedi usi-interni.server.ts).
+ */
+async function consumaLetturaAssistita(
+  supabase: SupabaseClient,
+  tenantId: string
+): Promise<{ ok: true; rimasti: number; aVita: boolean } | { ok: false; errore: string; esaurite?: boolean }> {
+  const [{ data: tenant }, { count: numeroOperatori }] = await Promise.all([
+    supabase.from("tenants").select("piano").eq("id", tenantId).single(),
+    supabase.from("operatori").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+  ]);
+  const tetto = tettoRecuperoImport(tenant?.piano ?? "", numeroOperatori ?? 1);
+  const consumo = await consumaUsoAiInterno(tenantId, "import_clienti", tetto);
+  if (!consumo.ok) {
+    if (consumo.motivo === "errore") {
+      return { ok: false, errore: "Non riesco a verificare la quota adesso. Riprova fra poco." };
+    }
+    return {
+      ok: false,
+      esaurite: true,
+      errore: tetto.daSempre
+        ? `Hai usato tutte e ${RECUPERI_IMPORT_SENZA_PIANO} le letture assistite comprese nel tuo piano. Puoi aggiungere i clienti a mano, oppure passare a Growth.`
+        : "Hai finito la quota AI di questo mese. Riparte il primo del mese prossimo.",
+    };
+  }
+  return { ok: true, rimasti: consumo.rimasti, aVita: tetto.daSempre };
+}
+
+export type RisultatoFoto =
+  | { ok: true; proposte: RigaImport[]; nonLette: VoceNonLetta[]; nonEUnaRubrica: boolean; rimaste: number; aVita: boolean }
+  | { ok: false; errore: string; esaurite?: boolean };
+
+/**
+ * La foto dell'agenda, letta dal modello (19/09/2026).
+ *
+ * Il browser manda l'immagine gia' ridotta (1568 px sul lato lungo, JPEG):
+ * qui si controlla tipo e dimensione e non ci si fida di nient'altro. Le
+ * proposte tornano confrontate con la rubrica e marcate come lette dal
+ * modello: in revisione partono TUTTE non spuntate, e accanto a ognuna c'e'
+ * la trascrizione da confrontare con la foto.
+ */
+export async function leggiFotoAzione(immagine: { base64: string; tipo: string }): Promise<RisultatoFoto> {
+  const supabase = await creaClientServer();
+  const accesso = await richiediPermesso(supabase, puoImportareClienti);
+  if (accessoNegato(accesso)) return { ok: false, errore: accesso.errore };
+  const tenantId = accesso.tenantId;
+
+  if (!immagine || typeof immagine.base64 !== "string" || typeof immagine.tipo !== "string") {
+    return { ok: false, errore: "Nessuna foto da leggere." };
+  }
+  if (!(TIPI_IMMAGINE_IMPORT as readonly string[]).includes(immagine.tipo)) {
+    return { ok: false, errore: "Formato non supportato: serve una foto JPEG, PNG o WebP." };
+  }
+  const base64 = immagine.base64.replace(/^data:[^,]*,/, "");
+  if (base64 === "" || !/^[A-Za-z0-9+/=\s]+$/.test(base64)) return { ok: false, errore: "La foto non e' leggibile." };
+  if ((base64.length * 3) / 4 > MAX_BYTE_FOTO_IMPORT) {
+    return { ok: false, errore: "La foto e' troppo grande. Riprova con una foto piu' piccola o uno screenshot." };
+  }
+
+  const consumo = await consumaLetturaAssistita(supabase, tenantId);
+  if (!consumo.ok) return consumo;
+
+  const esito = await leggiRubricaDaFoto({ base64, tipo: immagine.tipo as TipoImmagineImport }, { tenantId });
+  if (!esito.ok) return esito;
+
+  const esistenti = await elencaClienti(tenantId, { perExport: true });
+  if (esistenti.errore) {
+    return { ok: false, errore: `Non riesco a leggere la rubrica attuale: ${esistenti.errore}` };
+  }
+  const diff = calcolaDiffImport(
+    esistenti.clienti.map((c) => ({ id: c.id, nome: c.nome, telefono: c.telefono, email: c.email })),
+    { clienti: esito.esito.proposte, scartate: [] }
+  );
+  const proposte = [...diff.nuovi, ...diff.giaPresenti].map((r) => ({ ...r, propostoDallAi: true }));
+  return {
+    ok: true,
+    proposte,
+    nonLette: esito.esito.nonLette,
+    nonEUnaRubrica: esito.esito.nonEUnaRubrica,
+    rimaste: consumo.rimasti,
+    aVita: consumo.aVita,
+  };
 }
 
 export type RisultatoImport =
