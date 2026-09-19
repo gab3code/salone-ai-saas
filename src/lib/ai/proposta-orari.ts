@@ -30,34 +30,41 @@ export function oraDaIso(iso: string): string | null {
   return m ? `${m[1]}:${m[2]}` : null;
 }
 
-/** Quanti orari mostrare in un messaggio di chat prima che diventi un elenco illeggibile. */
-export const MAX_ORARI_DA_PROPORRE = 6;
+/**
+ * I confini delle fasce, scelti su come parla un cliente e non su come divide
+ * la giornata un orologio.
+ *
+ * "Mattina" finisce alle 13: un appuntamento alle 12:30 uno lo chiama
+ * mattina, non pomeriggio. "Sera" comincia alle 18, che e' l'ora in cui si
+ * dice "passo dopo il lavoro". Un salone che chiude alle 18 non avra' mai la
+ * fascia sera, e va benissimo: le fasce vuote non si mostrano.
+ */
+const FINE_MATTINA = "13:00";
+const INIZIO_SERA = "18:00";
+
+export interface OrariPerFascia {
+  mattina: string[];
+  pomeriggio: string[];
+  sera: string[];
+}
 
 /**
- * Sceglie gli orari da proporre per primi: il PRIMO libero, l'ULTIMO, e gli
- * altri distribuiti in mezzo.
+ * Gli stessi orari, divisi in tre gruppi.
  *
- * Perche' distribuiti e non i primi sei: i primi sei di una giornata con
- * passo 15 sono 08:00, 08:15, 08:30, 08:45, 09:00, 09:15 -- cioe' un'ora e
- * un quarto di mattina presto, che per un cliente equivale a non avere
- * scelta. Sei orari sparsi sulla giornata rispondono alla domanda vera, che
- * non e' "quali sono i primi" ma "a che ora posso venire".
- *
- * Il primo c'e' sempre perche' e' quello che serve a chi ha fretta;
- * l'ultimo perche' e' quello che serve a chi lavora fino a tardi. I due casi
- * che una selezione centrata taglierebbe fuori entrambi.
+ * Serve a una cosa sola: rendere leggibile un elenco lungo. Trentatre orari
+ * di fila sono un muro che nessuno legge; gli stessi trentatre su tre righe
+ * con un'etichetta davanti si scorrono in due secondi. Il raggruppamento lo
+ * facciamo noi perche' e' l'ennesima trasformazione che non vogliamo chiedere
+ * al modello -- vedi il commento in testa a questo file.
  */
-export function selezionaOrariDaProporre(orari: string[], quanti = MAX_ORARI_DA_PROPORRE): string[] {
-  const unici = [...new Set(orari)].sort();
-  if (unici.length <= quanti) return unici;
-  if (quanti <= 1) return unici.slice(0, Math.max(0, quanti));
-
-  const scelti: string[] = [];
-  const passo = (unici.length - 1) / (quanti - 1);
-  for (let i = 0; i < quanti; i++) {
-    scelti.push(unici[Math.round(i * passo)]);
+export function raggruppaPerFascia(orari: string[]): OrariPerFascia {
+  const gruppi: OrariPerFascia = { mattina: [], pomeriggio: [], sera: [] };
+  for (const o of [...new Set(orari)].sort()) {
+    if (o < FINE_MATTINA) gruppi.mattina.push(o);
+    else if (o < INIZIO_SERA) gruppi.pomeriggio.push(o);
+    else gruppi.sera.push(o);
   }
-  return [...new Set(scelti)];
+  return gruppi;
 }
 
 export interface SlotGrezzo {
@@ -66,19 +73,31 @@ export interface SlotGrezzo {
 }
 
 export interface OrariPerIlModello {
-  /** Ogni orario libero, come stringa gia' pronta da scrivere. */
+  /**
+   * TUTTI gli orari liberi, gia' come stringhe pronte da scrivere.
+   *
+   * Tutti, non una selezione: e' una richiesta esplicita di Gabriel del
+   * 19/09/2026 ("voglio che dica tutti gli orari liberi, no riassunti"), e ha
+   * ragione lui. Un cliente che chiede quando c'e' posto vuole sapere quando
+   * c'e' posto, e una selezione di sei orari lo costringe a chiedere ancora
+   * -- cioe' a spendere un altro messaggio per avere una cosa che poteva
+   * ricevere subito.
+   */
   tutti_gli_orari_liberi: string[];
-  /** I pochi da mostrare subito, ben distribuiti sulla giornata. */
-  orari_da_mostrare: string[];
-  /** Quanti ce ne sono in tutto: serve a dire "ho anche altri orari" senza inventare. */
+  /** Gli stessi, divisi in mattina/pomeriggio/sera per poterli scrivere leggibili. */
+  orari_per_fascia: OrariPerFascia;
+  /** Quanti sono in tutto. Se si dice un numero al cliente, si dice questo. */
   quanti_in_tutto: number;
+  /** Il primo libero della giornata, per chi chiede "quando prima?". */
+  primo_libero: string | null;
 }
 
 export function preparaOrariPerIlModello(slot: SlotGrezzo[]): OrariPerIlModello {
   const orari = [...new Set(slot.map((s) => oraDaIso(s.inizio)).filter((o): o is string => o !== null))].sort();
   return {
     tutti_gli_orari_liberi: orari,
-    orari_da_mostrare: selezionaOrariDaProporre(orari),
+    orari_per_fascia: raggruppaPerFascia(orari),
     quanti_in_tutto: orari.length,
+    primo_libero: orari[0] ?? null,
   };
 }

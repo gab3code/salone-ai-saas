@@ -27,6 +27,36 @@ export async function aggiornaCaparra(formData: FormData) {
   if (tipo !== "percentuale" && tipo !== "fisso") {
     return { errore: "Tipo di caparra non valido." };
   }
+
+  // SPEGNERE LA CAPARRA NON RICHIEDE UN IMPORTO VALIDO (19/09/2026).
+  //
+  // Il caso vero, segnalato da Gabriel: ha tolto la spunta, ha svuotato il
+  // campo della percentuale -- cosa ragionevole, se la caparra non la vuoi
+  // piu' -- e ha premuto Salva. Risposta: "Inserisci un valore maggiore di
+  // zero". Niente e' stato salvato, e **la caparra e' rimasta attiva**: il
+  // prodotto ha continuato a chiedere soldi ai suoi clienti dopo che lui
+  // aveva detto di smettere.
+  //
+  // E' lo stesso difetto del giorno "aperto senza orari" di stamattina:
+  // validare un campo che nello stato corrente non vuol dire niente. La
+  // percentuale ha senso solo se la caparra e' accesa; se e' spenta, quel
+  // numero non lo legge nessuno.
+  //
+  // Quando si spegne si aggiorna SOLO l'interruttore e si lascia stare tipo
+  // e valore: cosi' riaccendendola si ritrova l'impostazione di prima invece
+  // di un default. Un'impostazione che si perde quando la disattivi e' un
+  // motivo per non disattivarla mai.
+  if (!attiva) {
+    const { error: erroreSpegnimento } = await supabase
+      .from("tenants")
+      .update({ caparra_attiva: false })
+      .eq("id", tenantId);
+    revalidatePath("/dashboard/impostazioni/caparra");
+    return erroreSpegnimento
+      ? { errore: `Errore salvando le impostazioni: ${erroreSpegnimento.message}` }
+      : { ok: true as const };
+  }
+
   if (!Number.isFinite(valoreNumero) || valoreNumero <= 0) {
     return { errore: "Inserisci un valore maggiore di zero." };
   }
@@ -40,7 +70,7 @@ export async function aggiornaCaparra(formData: FormData) {
 
   const { error } = await supabase
     .from("tenants")
-    .update({ caparra_attiva: attiva, caparra_tipo: tipo, caparra_valore: valore })
+    .update({ caparra_attiva: true, caparra_tipo: tipo, caparra_valore: valore })
     .eq("id", tenantId);
 
   revalidatePath("/dashboard/impostazioni/caparra");

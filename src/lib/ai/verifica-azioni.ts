@@ -169,6 +169,25 @@ export function trovaAzioneNonAvvenuta(testo: string, ctx: ContestoAzioni): stri
 }
 
 /**
+ * Toglie dal testo le frasi che promettono una mail, lasciando il resto.
+ *
+ * Serve al caso in cui il modello, anche dopo essere stato rimandato a
+ * correggere, continua a promettere la mail di conferma. Qui NON si butta
+ * tutto il messaggio come si fa con un'azione inventata, e la differenza e'
+ * di proporzione: una prenotazione che non esiste rende falso l'intero
+ * messaggio, una mail promessa in piu' rende falsa una frase. Si toglie
+ * quella e si tiene il resto, che al cliente serve.
+ *
+ * Il taglio e' per frase, non per parola: mozzare una frase a meta'
+ * produrrebbe qualcosa di peggio della frase sbagliata.
+ */
+export function rimuoviPromessaEmail(testo: string): string {
+  const frasi = testo.split(/(?<=[.!?])\s+/);
+  const tenute = frasi.filter((f) => !prometteEmail(f));
+  return tenute.join(" ").replace(/\s+\n/g, "\n").trim();
+}
+
+/**
  * Cosa dire quando il modello, anche dopo essere stato corretto, continua a
  * dichiarare un'azione che non è avvenuta.
  *

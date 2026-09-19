@@ -412,7 +412,8 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
     expect(risultato).toEqual({
       slot: [],
       tutti_gli_orari_liberi: [],
-      orari_da_mostrare: [],
+      orari_per_fascia: { mattina: [], pomeriggio: [], sera: [] },
+      primo_libero: null,
       quanti_in_tutto: 0,
       giorno_chiuso: true,
       giorno_settimana_richiesto: "domenica",
@@ -448,7 +449,8 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
     expect(risultato).toEqual({
       slot: [],
       tutti_gli_orari_liberi: [],
-      orari_da_mostrare: [],
+      orari_per_fascia: { mattina: [], pomeriggio: [], sera: [] },
+      primo_libero: null,
       quanti_in_tutto: 0,
       giorno_chiuso: false,
       giorno_settimana_richiesto: "domenica",
@@ -482,7 +484,8 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
     expect(risultato).toEqual({
       slot: [],
       tutti_gli_orari_liberi: [],
-      orari_da_mostrare: [],
+      orari_per_fascia: { mattina: [], pomeriggio: [], sera: [] },
+      primo_libero: null,
       quanti_in_tutto: 0,
       giorno_chiuso: true,
       giorno_settimana_richiesto: "sabato",

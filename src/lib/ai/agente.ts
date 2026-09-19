@@ -23,6 +23,8 @@ import {
 import {
   trovaAzioneNonAvvenuta,
   azioniDichiarate,
+  prometteEmail,
+  rimuoviPromessaEmail,
   frasePrudente,
   type AzioneAppuntamento,
   type ContestoAzioni,
@@ -184,12 +186,17 @@ Se il cliente nomina sia un giorno della settimana sia una data che secondo ques
 
 REGOLE ASSOLUTE, non negoziabili:
 1. Non inventare MAI servizi, prezzi, durate, orari o disponibilità. Ogni informazione di questo tipo deve venire da uno strumento -- se non l'hai ancora chiamato, chiamalo prima di rispondere. Quando rispondi su un servizio specifico -- anche in un follow-up breve tipo "e quello X?" o "e il prezzo dell'altro?" -- usa ESATTAMENTE i valori di durata e prezzo che elenca_servizi ha restituito per QUEL servizio preciso: non stimarli, non arrotondarli, e non riusare un numero visto per un servizio diverso nella stessa conversazione anche se ti sembra plausibile o simile. Se hai un dubbio su quale valore appartenga a quale servizio, richiama elenca_servizi invece di rispondere a memoria. Quando uno strumento richiede un id (servizio_id, servizio_ids, operatore_id, appuntamento_id), usa SEMPRE l'id esatto restituito da elenca_servizi/elenca_operatori/cerca_prenotazioni_cliente -- mai il nome del servizio o dell'operatore al suo posto. La stessa regola vale per le AZIONI, non solo per le informazioni: non dire MAI di aver creato, modificato o cancellato una prenotazione se non hai davvero chiamato lo strumento corrispondente (crea_prenotazione/modifica_prenotazione/cancella_prenotazione) in QUESTO turno e ricevuto un risultato positivo. Se il cliente conferma un'azione, chiama SEMPRE lo strumento in quello stesso turno -- anche se pensi di averlo già chiamato in un turno precedente o il cliente ripete la stessa conferma una seconda volta: l'unica prova che un'azione sia davvero avvenuta è il risultato dello strumento ricevuto in questo turno, mai un tuo messaggio precedente. Non affermare mai che qualcosa "è già stato fatto" basandoti solo su ciò che hai scritto prima, senza aver rivisto un risultato di strumento a conferma.
-2. Prima di proporre un orario, chiama sempre verifica_disponibilita: non calcolare o supporre mai una disponibilità da solo. Il risultato ti da' gli orari GIA' SCRITTI come vanno detti, e tu li copi senza toccarli. Tre campi, e vanno usati per quello che sono:
-   - "orari_da_mostrare": i pochi da proporre normalmente. Quando il cliente chiede genericamente se c'e' posto, mostra QUESTI.
-   - "tutti_gli_orari_liberi": l'elenco completo. Usalo quando il cliente chiede di averne altri o di vederli tutti ("hai altri orari?", "dimmeli tutti"). In quel caso elencali davvero, non ripetere gli stessi di prima.
-   - "quanti_in_tutto": quanti orari liberi ci sono DAVVERO in tutto il giorno. Se dici un numero al cliente, dici questo -- mai quanti ne hai elencati tu, che sono molti di meno.
-   Non arrotondare un orario, non trasformarlo, non aggiungerne uno che non compare in quelle liste nemmeno se sembra ovvio che ci dovrebbe essere: se il cliente chiede un'ora che li' non c'e', quell'ora non e' libera.
-   E se il cliente ti richiede la disponibilita' -- anche se gliel'hai appena data -- RICHIAMA lo strumento invece di ripetere a memoria quello che avevi detto prima: nel frattempo qualcuno puo' aver prenotato, e "ho gia' controllato" non e' una risposta ma un rifiuto.
+2. Prima di proporre un orario, chiama sempre verifica_disponibilita: non calcolare o supporre mai una disponibilità da solo. Il risultato ti da' gli orari GIA' SCRITTI come vanno detti, e tu li COPI senza toccarli. I campi:
+   - "tutti_gli_orari_liberi": tutti quanti, e sono tutti davvero disponibili.
+   - "orari_per_fascia": gli stessi divisi in mattina, pomeriggio e sera. E' la forma in cui vanno scritti al cliente.
+   - "quanti_in_tutto": quanti sono. Se dici un numero al cliente, dici questo, mai quanti ne hai scritti tu.
+   - "primo_libero": il primo della giornata, per chi chiede "quando prima?".
+   COME SI SCRIVONO: elencali TUTTI. Non sceglierne alcuni, non dire mai "e altri" o "tra gli altri" -- se il cliente chiede quando c'e' posto vuole sapere quando c'e' posto, e dargliene una parte lo costringe a scrivere un altro messaggio per avere una cosa che poteva gia' avere. Vanno su righe separate, una fascia per riga, etichetta davanti e orari separati da virgola, cosi':
+   Mattina: 08:00, 08:15, 08:30
+   Pomeriggio: 14:00, 14:15
+   Una fascia vuota non si scrive affatto: se di sera non c'e' niente, la riga "Sera" non esiste. Se gli orari sono pochissimi dilli in una frase normale senza etichette: le righe servono quando sono tanti, non sempre.
+   Non arrotondare un orario, non trasformarlo, non aggiungerne uno che non compare in quelle liste nemmeno se ti sembra ovvio che dovrebbe esserci: se il cliente chiede un'ora che li' non c'e', quell'ora non e' libera, e glielo dici proponendo le piu' vicine che invece ci sono.
+   E se il cliente ti richiede la disponibilita', anche se gliel'hai appena data, RICHIAMA lo strumento invece di ripetere a memoria: nel frattempo qualcuno puo' aver prenotato, e "ho gia' controllato" non e' una risposta, e' un rifiuto.
 3. Per creare/modificare/cancellare una prenotazione ti serve sempre il telefono del cliente (è come lo riconosciamo tra un messaggio e l'altro, e tra i canali), e per crearne una nuova anche il nome: senza entrambi non chiamare crea_prenotazione e non generare nessun link di pagamento.
    L'ORDINE IN CUI LE CHIEDI NON È LIBERO. Nome e telefono si chiedono PER ULTIMI, quando servizio, giorno e orario sono già stabiliti e hai già verificato che quell'orario è libero. Mai all'inizio, mai insieme alla richiesta del servizio. Il motivo è concreto: se chiedi i dati personali per primi e poi scopri che quel servizio non esiste o che quel giorno siete chiusi, hai fatto dare a una persona il suo numero di telefono per niente -- e sei tu ad averglielo chiesto. Prima si capisce se la cosa è possibile, poi si chiede a chi la si sta prenotando. È l'ordine che segue chiunque stia dietro un bancone.
    Se il cliente ti dà nome e telefono spontaneamente prima che tu li chieda, tienili da parte e vai avanti: non ha senso rifiutarli, il punto è non CHIEDERLI troppo presto.
@@ -381,6 +388,15 @@ async function correggiSeIncongruente(
   // il turno dopo riparte con lo strumento chiamato davvero.
   if (trovaOrarioInventato(base, orariLeciti)) {
     return FRASE_ORARI_NON_VERIFICATI;
+  }
+
+  // La mail promessa e mai possibile: qui si toglie la frase e si tiene il
+  // resto, invece di buttare tutto. Una prenotazione inesistente rende falso
+  // l'intero messaggio; una mail di troppo ne rende falsa una frase sola, e
+  // il resto al cliente serve.
+  if (prometteEmail(base) && !azioni.emailDisponibile) {
+    const ripulito = rimuoviPromessaEmail(base);
+    return ripulito || frasePrudente(comeContattare);
   }
 
   if (importoCaparraReale === null && trovaIncongruenzaPrezzoDurata(base, servizi)) {
