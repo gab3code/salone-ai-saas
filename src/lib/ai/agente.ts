@@ -18,6 +18,9 @@ import { registraUsoApi } from "./costi.server";
 import {
   trovaOrarioInventato,
   trovaChiusuraNonVerificata,
+  trovaOrarioConfermatoSbagliato,
+  confermaConOrarioVero,
+  oraDiInizioPrenotata,
   orariConsentiti,
   FRASE_ORARI_NON_VERIFICATI,
 } from "./verifica-orari";
@@ -222,6 +225,7 @@ REGOLE ASSOLUTE, non negoziabili:
 15. Non raccontare quello che stai per fare: fallo e dai il risultato. Mai frasi come "fammi controllare la disponibilità", "adesso verifico", "un attimo che guardo" -- il cliente non vede nessuna attesa, vede solo un messaggio che non contiene niente di utile, e deve scriverti di nuovo per avere la risposta che potevi dargli subito. Se devi verificare qualcosa, verificalo in questo stesso turno e rispondi con gli orari veri.
    Allo stesso modo: quando hai verificato la disponibilità, PROPONI gli orari che hai trovato invece di chiedere al cliente di indovinarne uno. "Lunedì ho libero alle 15:00, alle 16:30 o alle 17:45" è una risposta; "a che ora preferisci?" dopo aver controllato è buttare via il controllo appena fatto.
 16. Se il cliente scrive un messaggio offensivo, volgare o palesemente provocatorio, non chiedere MAI di ripetere e non chiedere chiarimenti: non e' un malinteso che puoi risolvere facendoglielo riscrivere, e chiedere a qualcuno di ripetere un insulto e' la cosa peggiore che tu possa rispondere. Non rispondere alla provocazione, non commentarla, non fare la morale, non scusarti e non giustificarti. Di' una volta sola, con calma, che da qui puoi aiutarlo con gli appuntamenti, e fermati li'. Se insiste, ripeti la stessa cosa piu' corta, senza aggiungere niente.${regolaInfoAttivita}
+17. Niente cerimonie vuote e niente scuse a vuoto. "Confermo:", "Perfetto, confermo", "Allora, ti confermo" davanti a un riepilogo non confermano niente, ma il cliente legge "confermo" e crede di avere il posto: se hai davvero prenotato (strumento chiamato, risultato positivo in QUESTO turno) dillo con una frase intera e con l'ora esatta che hai passato allo strumento -- "È prenotato: lunedì 21 alle 9:00"; se non hai ancora prenotato non usare la parola "confermo" in nessuna forma. Allo stesso modo non scusarti se non è successo niente: "scusa", "mi scuso", "hai ragione", "chiedo scusa" si dicono SOLO quando qualcosa è andato storto davvero -- uno slot si è occupato mentre parlavate, uno strumento ha dato errore, oppure hai ricontrollato e il cliente aveva ragione (regola 14). Una scusa ogni due messaggi non è educazione: fa sembrare che il servizio abbia sempre qualcosa che non va, e svuota le scuse di quando servono sul serio.
 
 Non hai altri poteri oltre agli strumenti disponibili: se un'informazione non è ottenibile con uno strumento, di' onestamente che non lo sai o invita il cliente a ${
     comeContattare ?? "contattare l'attività direttamente"
@@ -566,7 +570,10 @@ export async function rispondiConversazione(
   // sono gia' detti. Vedi verifica-orari.ts per il perche' servano
   // entrambi -- senza il secondo, "confermo le 8:00" dopo che il cliente ha
   // scritto "alle 8" verrebbe scambiato per un'invenzione.
-  const testiConOrariLeciti: string[] = [
+  // I risultati degli strumenti di questo turno: si riempie man mano.
+  const risultatiStrumentiDelTurno: string[] = [];
+
+  const messaggiDelCliente: string[] = [
     // SOLO i messaggi del CLIENTE, mai quelli dell'assistente.
     //
     // La prima versione prendeva tutto lo storico, e il 19/09/2026 si e'
@@ -581,7 +588,10 @@ export async function rispondiConversazione(
     // Un orario scritto dall'assistente non e' una fonte: e' esattamente la
     // cosa di cui stiamo dubitando. Il cliente invece si', perche' quando
     // scrive "alle 9:30" sta chiedendo quell'ora, e ripetergliela non e'
-    // inventare niente.
+    // inventare niente. Nei suoi messaggi si leggono anche le ore secche
+    // ("alle 16"): vedi orariChiestiDalCliente, e il falso allarme del
+    // 19/09/2026 che aveva fatto rispondere "non riesco a dirti gli orari
+    // liberi" a un cliente che stava dicendo l'ora che voleva.
     ...storico.filter((m) => m.ruolo === "cliente").map((m) => m.contenuto),
     messaggioNuovo,
   ];
@@ -598,6 +608,11 @@ export async function rispondiConversazione(
 
   const azioniAvvenute = new Set<AzioneAppuntamento>();
   let inAttesaDiCaparra = false;
+
+  // L'inizio che abbiamo DAVVERO passato allo strumento, quando ha creato o
+  // spostato qualcosa ("YYYY-MM-DDTHH:MM"). E' l'unica ora che il cliente puo'
+  // segnarsi senza sbagliare -- vedi trovaOrarioConfermatoSbagliato.
+  let inizioPrenotato: string | null = null;
   let emailDisponibile = false;
 
   // Il tool info_attivita esiste solo per i tenant con la knowledge base
@@ -709,13 +724,14 @@ export async function rispondiConversazione(
       // ci sono le reti che sostituiscono il messaggio.
       const daVerificare = testo
         ? [
-            trovaOrarioInventato(testo, orariConsentiti(testiConOrariLeciti)),
+            trovaOrarioInventato(testo, orariConsentiti(risultatiStrumentiDelTurno, messaggiDelCliente)),
             trovaAzioneNonAvvenuta(testo, {
               avvenute: azioniAvvenute,
               emailDisponibile,
               inAttesaDiCaparra,
             }),
             trovaChiusuraNonVerificata(testo, haControllatoDisponibilita),
+            trovaOrarioConfermatoSbagliato(testo, oraDiInizioPrenotata(inizioPrenotato)),
           ].filter((p): p is string => p !== null)
         : [];
 
@@ -729,7 +745,24 @@ export async function rispondiConversazione(
         continue;
       }
 
-      const testoFinale = testo
+      // L'ULTIMA RETE SULL'ORA CONFERMATA, e l'unica che non chiede niente al
+      // modello.
+      //
+      // Sta PRIMA di correggiSeIncongruente di proposito. Se l'appuntamento
+      // e' stato creato davvero ma il messaggio nomina un'ora diversa da
+      // quella prenotata, le reti generiche piu' sotto risponderebbero
+      // "scusa, non riesco a dirti gli orari liberi": una frase assurda
+      // subito dopo una prenotazione riuscita, che per giunta fa credere al
+      // cliente che non sia andata a buon fine.
+      //
+      // Qui non c'e' niente da chiedere: l'appuntamento c'e' ed e' giusto,
+      // sbagliata e' solo la frase. Quindi la frase la scriviamo noi, con la
+      // data e l'ora che abbiamo passato allo strumento.
+      if (testo && inizioPrenotato && trovaOrarioConfermatoSbagliato(testo, oraDiInizioPrenotata(inizioPrenotato))) {
+        return { rispostaTesto: confermaConOrarioVero(inizioPrenotato), trasferitoAUmano, usoStrumenti };
+      }
+
+      const testoCorretto = testo
         ? pulisciMarkdown(
             await correggiSeIncongruente(
               testo,
@@ -747,11 +780,12 @@ export async function rispondiConversazione(
                 telefono: ctx.telefono ?? null,
                 telefonoWhatsapp: ctx.telefonoWhatsapp ?? null,
               }),
-              orariConsentiti(testiConOrariLeciti)
+              orariConsentiti(risultatiStrumentiDelTurno, messaggiDelCliente)
             )
           )
         : testo;
-      return { rispostaTesto: testoFinale || "Non sono riuscito a formulare una risposta.", trasferitoAUmano, usoStrumenti };
+
+      return { rispostaTesto: testoCorretto || "Non sono riuscito a formulare una risposta.", trasferitoAUmano, usoStrumenti };
     }
 
     usoStrumenti = true;
@@ -783,6 +817,13 @@ export async function rispondiConversazione(
       // controllo chiude.
       if (blocco.name === "crea_prenotazione" && risultato.creato === true) azioniAvvenute.add("creata");
       if (blocco.name === "modifica_prenotazione" && risultato.modificato === true) azioniAvvenute.add("modificata");
+      if (
+        (blocco.name === "crea_prenotazione" && risultato.creato === true) ||
+        (blocco.name === "modifica_prenotazione" && risultato.modificato === true)
+      ) {
+        const inizioUsato = (blocco.input as Record<string, unknown>).inizio;
+        if (typeof inizioUsato === "string") inizioPrenotato = inizioUsato;
+      }
       if (blocco.name === "cancella_prenotazione" && risultato.cancellato === true) azioniAvvenute.add("cancellata");
       if (blocco.name === "crea_prenotazione" && risultato.richiede_pagamento === true) inAttesaDiCaparra = true;
       if (blocco.name === "verifica_disponibilita" || blocco.name === "info_orari") haControllatoDisponibilita = true;
@@ -792,7 +833,7 @@ export async function rispondiConversazione(
         emailDisponibile = true;
       }
       const risultatoSerializzato = JSON.stringify(risultato);
-      testiConOrariLeciti.push(risultatoSerializzato);
+      risultatiStrumentiDelTurno.push(risultatoSerializzato);
       risultatiTool.push({
         type: "tool_result",
         tool_use_id: blocco.id,

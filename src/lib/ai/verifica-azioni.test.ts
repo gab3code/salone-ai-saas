@@ -51,6 +51,21 @@ describe("azioniDichiarate", () => {
       expect(azioniDichiarate(testo).size, testo).toBe(0);
     }
   });
+
+  /**
+   * 19/09/2026, Gabriel: "ogni tanto ci sono messaggi ambigui (confermo,
+   * scusa)". "Confermo la prenotazione" quando non e' stato prenotato niente
+   * e' la stessa bugia di "ho prenotato", detta con una parola piu' morbida.
+   */
+  it("prende 'confermo la prenotazione' e 'ti confermo l'appuntamento'", () => {
+    expect([...azioniDichiarate("Confermo la prenotazione per martedì.")]).toEqual(["creata"]);
+    expect([...azioniDichiarate("Ti confermo l'appuntamento di domani.")]).toEqual(["creata"]);
+  });
+
+  it("NON prende un 'confermo' che parla d'altro", () => {
+    expect([...azioniDichiarate("Confermo: la manicure costa 25 euro.")]).toEqual([]);
+    expect([...azioniDichiarate("Confermo che martedì siamo aperti.")]).toEqual([]);
+  });
 });
 
 describe("trovaAzioneNonAvvenuta", () => {

@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { orariNelTesto, orariConsentiti, trovaOrarioInventato, FRASE_ORARI_NON_VERIFICATI } from "./verifica-orari";
+import {
+  orariNelTesto,
+  orariChiestiDalCliente,
+  orariConsentiti,
+  trovaOrarioInventato,
+  trovaOrarioConfermatoSbagliato,
+  oraDiInizioPrenotata,
+  confermaConOrarioVero,
+  FRASE_ORARI_NON_VERIFICATI,
+} from "./verifica-orari";
 
 describe("orariNelTesto", () => {
   it("prende gli orari con i due punti e li normalizza", () => {
@@ -82,5 +91,79 @@ describe("trovaOrarioInventato", () => {
 
   it("la frase di ripiego non contiene nessun orario", () => {
     expect(orariNelTesto(FRASE_ORARI_NON_VERIFICATI)).toEqual([]);
+  });
+});
+
+describe("orariChiestiDalCliente -- le ore secche nei messaggi del cliente", () => {
+  /**
+   * IL CASO VERO, 19/09/2026 (seconda chat segnalata da Gabriel). Il cliente
+   * scrive "alle 16", l'assistente risponde con "16:00" e il controllo lo
+   * scambia per un orario inventato: al cliente arriva "Scusa, non riesco a
+   * dirti gli orari liberi" mentre stava dicendo l'ora che voleva.
+   */
+  it("riconosce 'alle 16'", () => {
+    expect(orariChiestiDalCliente("va bene alle 16")).toContain("16:00");
+  });
+
+  it("riconosce 'verso le 9 e mezza' e 'alle 10 e un quarto'", () => {
+    expect(orariChiestiDalCliente("verso le 9 e mezza")).toContain("09:30");
+    expect(orariChiestiDalCliente("alle 10 e un quarto")).toContain("10:15");
+  });
+
+  it("legge anche il pomeriggio quando il cliente lo dice", () => {
+    const orari = orariChiestiDalCliente("alle 4 del pomeriggio");
+    expect(orari).toContain("16:00");
+    expect(orari).toContain("04:00");
+  });
+
+  it("NON scambia un numero qualunque per un orario", () => {
+    expect(orariChiestiDalCliente("ho 16 anni")).toEqual([]);
+    expect(orariChiestiDalCliente("siamo in 4")).toEqual([]);
+    expect(orariChiestiDalCliente("costa 25 euro")).toEqual([]);
+  });
+
+  it("l'ora secca del cliente rende lecito l'orario scritto per esteso", () => {
+    const consentiti = orariConsentiti([], ["mi va bene alle 16"]);
+    expect(trovaOrarioInventato("Perfetto, allora alle 16:00.", consentiti)).toBeNull();
+  });
+
+  it("un'ora secca scritta dall'ASSISTENTE non rende lecito niente", () => {
+    // i messaggi dell'assistente non passano mai da qui: e' la cosa di cui
+    // stiamo dubitando (vedi l'intestazione del modulo).
+    const consentiti = orariConsentiti([], []);
+    expect(trovaOrarioInventato("Ti aspetto alle 16:00.", consentiti)).not.toBeNull();
+  });
+});
+
+describe("trovaOrarioConfermatoSbagliato -- l'ora scritta deve essere l'ora prenotata", () => {
+  /**
+   * IL CASO VERO, 19/09/2026: nel database le 09:00, nel messaggio "09:30".
+   * Tutto vero tranne l'unica cosa che il cliente si segna.
+   */
+  it("scatta quando la conferma nomina un'ora diversa da quella prenotata", () => {
+    const problema = trovaOrarioConfermatoSbagliato("È tutto confermato per le 09:30.", "09:00");
+    expect(problema).toContain("09:30");
+    expect(problema).toContain("09:00");
+  });
+
+  it("NON scatta quando l'ora coincide", () => {
+    expect(trovaOrarioConfermatoSbagliato("È tutto confermato per le 9:00.", "09:00")).toBeNull();
+  });
+
+  it("NON scatta quando in questo turno non e' stato prenotato niente", () => {
+    expect(trovaOrarioConfermatoSbagliato("Ho libero alle 09:30 e alle 10:00.", null)).toBeNull();
+  });
+
+  it("legge l'ora dall'inizio passato allo strumento", () => {
+    expect(oraDiInizioPrenotata("2026-09-22T09:00")).toBe("09:00");
+    expect(oraDiInizioPrenotata(null)).toBeNull();
+    expect(oraDiInizioPrenotata("non una data")).toBeNull();
+  });
+
+  it("la conferma scritta da noi porta la data e l'ora vere, e passa il suo stesso controllo", () => {
+    const frase = confermaConOrarioVero("2026-09-22T09:00");
+    expect(frase).toContain("09:00");
+    expect(frase).toContain("22 settembre 2026");
+    expect(trovaOrarioConfermatoSbagliato(frase, "09:00")).toBeNull();
   });
 });

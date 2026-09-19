@@ -99,6 +99,14 @@ const FRASI_CREAZIONE: RegExp[] = [
   /\b(?:è|e')\s+tutto\s+(?:confermat|prenotat)/i,
   /\bsei\s+(?:in\s+agenda|prenotat)/i,
   /\bti\s+aspettiamo\s+(?:luned|marted|mercoled|gioved|venerd|sabato|domenica|il\s|lo\s)/i,
+  // "Confermo la prenotazione" e' una dichiarazione come le altre, e il
+  // 19/09/2026 Gabriel l'ha vista arrivare quando non era stato prenotato
+  // niente ("messaggi ambigui: confermo, scusa"). Si prende solo la forma con
+  // l'oggetto esplicito: un "Confermo:" davanti a un riepilogo e' cerimonia
+  // vuota e la tratta la regola 17 del prompt, mentre sostituire quel
+  // messaggio con la frase prudente rischierebbe di rispondere di
+  // prenotazioni a chi stava chiedendo un prezzo.
+  /\b(?:te\s+la\s+|ti\s+)?confermo\s+(?:l['’]appuntamento|la\s+(?:tua\s+)?prenotazione|il\s+(?:tuo\s+)?posto|il\s+tuo\s+appuntamento)/i,
 ];
 
 const FRASI_MODIFICA: RegExp[] = [

@@ -1093,6 +1093,58 @@ E siccome una regola scritta qui si dimentica, la regola sta anche in un test:
 contenga una spunta, un radio o una select, e dice quale file. La decima schermata non rifara'
 il giro.
 
+
+## 27sextricies. Un falso allarme e' un difetto quanto un allarme mancato (19/09/2026)
+
+Il cliente scrive "alle 16". L'assistente risponde "16:00". Il controllo sugli orari, che legge
+solo gli orari con i due punti, non trova quelle 16 da nessuna parte e lo tratta come un orario
+inventato: al cliente arriva **"Scusa, non riesco a dirti gli orari liberi in questo momento"**
+mentre stava dicendo l'ora che voleva.
+
+Avevo scritto io, il giorno prima, che le ore secche restavano fuori "di proposito, perche' un
+controllo che sbaglia a riconoscere fa piu' danni di uno che copre un po' meno". Era giusto **da
+un lato solo**, e non l'avevo visto: quel controllo ha due ingressi diversi e vanno tarati in
+direzioni opposte.
+
+- Sul testo dell'**assistente** si resta stretti: e' la cosa di cui dubitiamo, un
+  riconoscimento generoso aprirebbe buchi.
+- Sui messaggi del **cliente** si e' larghi: il cliente non puo' inventare un orario, puo' solo
+  chiederlo. Non riconoscere "alle 16" li' non protegge da niente e distrugge una risposta
+  buona.
+
+**La regola generale: quando un controllo confronta due fonti, la soglia non e' una sola.** Si
+e' severi con la fonte di cui si dubita e generosi con quella che non puo' mentire. Una soglia
+unica e' comoda da scrivere e sbagliata da una parte delle due.
+
+E il costo del falso allarme va guardato per quello che e': qui la rete non taceva, **sostituiva
+una risposta corretta con la frase piu' scoraggiante del repertorio**, nel momento in cui il
+cliente stava per prenotare.
+
+## 27septricies. "Tutto vero tranne l'ora": una rete che non sa cos'e' successo fa danni (19/09/2026)
+
+Nel database: `2026-09-22 07:00:00+00`, cioe' le **09:00** di Roma. Nel messaggio al cliente:
+"alle 09:30". Lo strumento era stato chiamato davvero, l'appuntamento esisteva davvero, le 09:30
+erano uno slot libero vero. Nessuna delle quattro reti poteva accorgersene: per quella sugli
+orari inventati le 09:30 avevano una fonte, per quella sulle azioni la prenotazione c'era.
+
+E' il difetto piu' insidioso della serie perche' **e' vero tutto tranne l'unica cosa che il
+cliente si segna sul calendario**. Si presenta mezz'ora dopo, il posto e' andato, e sia lui sia
+il salone hanno la prova scritta di avere ragione.
+
+Qui non c'era niente da chiedere al modello: l'ora giusta la sapevamo noi, e' quella che abbiamo
+passato allo strumento. Quindi se dopo una correzione il messaggio insiste con un'ora diversa,
+la conferma la scriviamo in codice, con data e ora vere.
+
+**La seconda meta', che vale piu' della prima.** La prima versione di questa rete l'avevo messa
+DOPO le altre, e il test l'ha smontata subito: con una prenotazione riuscita e un'ora sbagliata,
+la rete generica sugli orari rispondeva *"Scusa, non riesco a dirti gli orari liberi"* -- dopo
+una prenotazione andata a buon fine, facendo credere al cliente il contrario di quello che era
+successo.
+
+**Una rete di sicurezza che non sa cos'e' successo davvero puo' peggiorare il messaggio invece
+di salvarlo.** L'ordine dei controlli non e' un dettaglio di implementazione: va per specificita'
+decrescente, e chi ha in mano il dato vero parla per primo.
+
 ## 27duodetricies. Ogni trasformazione che chiedi al modello e' un posto dove puo' sbagliare (19/09/2026)
 
 `verifica_disponibilita` restituiva quaranta slot come timestamp ISO. Nessuno ne mostra quaranta

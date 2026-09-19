@@ -321,4 +321,88 @@ describe("le bugie vere dell'assistente, rigiocate", () => {
     expect(risultato.rispostaTesto).toMatch(/non sono riuscito a completare/i);
     expect(risultato.rispostaTesto).toContain("02 99999999");
   });
+
+  /**
+   * IL FALSO ALLARME, 19/09/2026 (seconda chat segnalata da Gabriel). Il
+   * cliente scrive "alle 16" e l'assistente risponde "16:00": corretto, ma il
+   * controllo sugli orari leggeva solo gli orari con i due punti e quelle 16
+   * secche non contavano come fonte. Risultato: al cliente arrivava "Scusa,
+   * non riesco a dirti gli orari liberi" mentre stava dicendo l'ora che
+   * voleva -- il messaggio peggiore nel momento peggiore.
+   */
+  it("l'ora secca del cliente ('alle 16') non fa piu' scattare il ripiego", async () => {
+    const create = vi.fn().mockResolvedValueOnce(testoFinale("Perfetto, allora alle 16:00. Come ti chiami?"));
+
+    const risultato = await rispondiConversazione([], "mi va bene alle 16", contesto(), {
+      messages: { create },
+    } as ClienteAnthropic);
+
+    expect(risultato.rispostaTesto).toContain("16:00");
+    expect(risultato.rispostaTesto).not.toMatch(/non riesco a dirti gli orari/i);
+  });
+
+  /**
+   * IL CASO PIU' INSIDIOSO, 19/09/2026. Nel database: le 09:00. Nel messaggio
+   * al cliente: "09:30". Lo strumento era stato chiamato davvero e le 09:30
+   * erano uno slot libero vero, quindi nessuna delle reti precedenti poteva
+   * accorgersene: tutto era vero tranne l'unica cosa che il cliente si segna.
+   */
+  it("la conferma non puo' dire un'ora diversa da quella davvero prenotata", async () => {
+    const esegui = async (nome: NomeStrumento) => {
+      if (nome === "crea_prenotazione") return { creato: true, appuntamento_id: "app-1" };
+      return RISULTATO_DISPONIBILITA as unknown as Record<string, unknown>;
+    };
+
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce(
+        usoStrumento("crea_prenotazione", {
+          servizio_ids: ["s1"],
+          operatore_id: "op",
+          inizio: "2026-09-22T09:00",
+          cliente_nome: "Gabriel Mazzucchelli",
+          cliente_telefono: "3314823757",
+        })
+      )
+      // L'ora prenotata e' 09:00, ma il messaggio ne annuncia un'altra.
+      .mockResolvedValueOnce(testoFinale("È tutto confermato per martedì 22 settembre alle 09:30!"))
+      // Rimandato a correggere, insiste: a quel punto la frase la scriviamo noi.
+      .mockResolvedValue(testoFinale("Confermo: martedì 22 settembre alle 09:30."));
+
+    const risultato = await rispondiConversazione([], "prenota alle 9, Gabriel Mazzucchelli 3314823757", contesto(esegui), {
+      messages: { create },
+    } as ClienteAnthropic);
+
+    expect(risultato.rispostaTesto).not.toContain("09:30");
+    expect(risultato.rispostaTesto).toContain("09:00");
+    expect(risultato.rispostaTesto).toContain("22 settembre");
+  });
+
+  it("quando l'ora e' giusta la conferma del modello passa intatta", async () => {
+    const esegui = async (nome: NomeStrumento) => {
+      if (nome === "crea_prenotazione") return { creato: true, appuntamento_id: "app-1" };
+      return RISULTATO_DISPONIBILITA as unknown as Record<string, unknown>;
+    };
+
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce(
+        usoStrumento("crea_prenotazione", {
+          servizio_ids: ["s1"],
+          operatore_id: "op",
+          inizio: "2026-09-22T09:00",
+          cliente_nome: "Gabriel Mazzucchelli",
+          cliente_telefono: "3314823757",
+        })
+      )
+      .mockResolvedValueOnce(testoFinale("È prenotato: martedì 22 settembre alle 09:00. Ci vediamo lì!"));
+
+    const risultato = await rispondiConversazione([], "prenota alle 9, Gabriel Mazzucchelli 3314823757", contesto(esegui), {
+      messages: { create },
+    } as ClienteAnthropic);
+
+    expect(risultato.rispostaTesto).toContain("09:00");
+    expect(risultato.rispostaTesto).toMatch(/prenotato/i);
+  });
+
 });
