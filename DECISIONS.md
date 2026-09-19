@@ -6835,3 +6835,52 @@ di `STRUMENTI_CHE_CAMBIANO_QUALCOSA`.
 
 **Nota di metodo.** Nessun test e nessuna rilettura avevano trovato questo difetto: l'ha trovato
 una conversazione vera di cinque messaggi con il database aperto accanto.
+
+## 2026-09-19 (notte, revisione autonoma) — Isolamento multi-tenant verificato pulito; il webhook della caparra poteva rimborsare un cliente che aveva il posto
+
+**Isolamento multi-tenant: nessun difetto, ed è scritto con le prove.** Controllati sulla
+produzione, non sul codice: RLS attiva su tutte le 31 tabelle; `anon` senza alcun GRANT;
+ogni policy filtra su `auth_tenant_id()` (o attraverso la tabella madre per messaggi, eventi
+esterni, promemoria); `auth_tenant_id()`/`auth_ruolo()` sono `security definer` e leggono
+`profiles`, che `authenticated` non può scrivere; il cambio di sede attiva verifica
+l'appartenenza in `membri_tenant` e riallinea `profiles.ruolo`; le colonne di `tenants`
+scrivibili dal titolare escludono piano, Stripe, slug e dati fiscali. Sul codice: scansione di
+tutte le catene `.from(...)` con client admin nei file server — le 30 senza filtro tenant sono
+tutte legittimamente trasversali (webhook per id Stripe, cron, pannello admin) o operano su
+righe già caricate per tenant. I tool dell'AI e il motore verificano l'appartenenza di
+servizi e operatori prima di scrivere. Il vincolo `niente_sovrapposizioni` esiste in
+produzione e il codice mappa il 23P01 in un messaggio leggibile.
+
+**Il difetto, nel webhook Stripe della caparra** (`completaPagamentoCaparra`, prima dentro
+`route.ts`). Due difetti nello stesso posto, stesso esito: un cliente che ha pagato e ha il
+posto riceve anche un rimborso, e la richiesta in dashboard risulta "fallita (conflitto)".
+
+1. L'idempotenza era leggi-poi-agisci (`if (stato !== "in_attesa") return`). Due consegne
+   dello stesso evento che corrono insieme leggono tutte e due "in attesa": la prima crea
+   l'appuntamento, la seconda va in conflitto sul vincolo, e il ramo "conflitto" rimborsa.
+2. Gli update dopo la creazione non erano controllati: se "completata" non si scriveva, la
+   route rispondeva 200, Stripe non ritentava più, e la richiesta restava "in attesa" per
+   sempre con l'appuntamento in agenda. Lo stesso difetto corretto il 17/09 sul ramo
+   abbonamento era rimasto identico su quello della caparra.
+
+**Riproduzione.** A livello di logica, con i due percorsi rigiocati nei test del nuovo modulo
+(`caparra-webhook.server.test.ts`, 8 casi): non una corsa dal vivo, ma la sequenza esatta di
+letture e scritture che il codice vecchio eseguiva. Dichiarato come tale.
+
+**Decisione.** Idempotente per costruzione, non per lock:
+- l'appuntamento porta il payment intent **nella stessa INSERT** (`CreaAppuntamentoParams.caparra`),
+  non in un update dopo, così non esiste una finestra in cui l'altro worker non lo vede;
+- ogni ramo che potrebbe rimborsare prima cerca un appuntamento con quell'intent: se c'è, non
+  è un conflitto, è l'altro worker che ha già finito;
+- ogni scrittura fallita torna come `{ errore }` e la route risponde 500: Stripe ritenta, il
+  tentativo successivo ritrova l'appuntamento dall'intent e chiude la richiesta. Si ripara da
+  solo.
+
+**Alternative scartate.** Uno stato "in lavorazione" come lock: un crash fra il claim e la
+creazione lascia una riga bloccata e un cliente che ha pagato senza posto, in silenzio.
+Peggio del difetto che cura. Nessuna migrazione necessaria: `caparra_stripe_payment_intent_id`
+esisteva già su `appuntamenti`.
+
+**Osservazione, non difetto**: il vincolo di esclusione non conosce il buffer fra
+appuntamenti. Due prenotazioni concorrenti che non si sovrappongono ma violano il buffer
+passano entrambe. Non produce doppie prenotazioni; lo si annota.

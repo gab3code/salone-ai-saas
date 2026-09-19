@@ -4,7 +4,7 @@ import { creaClientStripe } from "@/lib/stripe/server";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { sincronizzaAbbonamento, statoAbbonamentoDaStripe } from "@/lib/stripe/abbonamento.server";
 import { sincronizzaQuantitaOperatoriStripe } from "@/lib/stripe/operatori.server";
-import { creaAppuntamentoTenant, parsaOrarioLocale } from "@/lib/booking-engine.server";
+import { completaPagamentoCaparra } from "@/lib/stripe/caparra-webhook.server";
 
 /**
  * Webhook Stripe: unica fonte di verità per aggiornare piano/stato reale
@@ -27,98 +27,6 @@ import { creaAppuntamentoTenant, parsaOrarioLocale } from "@/lib/booking-engine.
  * `session.metadata.tipo === "caparra"`) -- un solo webhook, non uno per
  * flusso, coerente con l'unico "Signing secret" configurato sopra.
  */
-
-/**
- * Completa il pagamento di una caparra: crea l'appuntamento vero (STESSA
- * funzione di scrittura di sempre, punto 9 di CLAUDE.md) e aggiorna la riga
- * `richieste_caparra`. Se nel frattempo lo slot è stato preso da un'altra
- * prenotazione (limite onestamente segnalato in 0011_deposito_caparra.sql:
- * lo slot non resta bloccato durante il pagamento), rimborsa automaticamente
- * il cliente invece di trattenere un pagamento per una prenotazione che non
- * esisterà mai -- e marca la riga "fallita_conflitto" così Gabriel la vede
- * in dashboard invece che sparire nel nulla.
- */
-async function completaPagamentoCaparra(
-  admin: ReturnType<typeof creaClientAdmin>,
-  stripe: Stripe,
-  session: Stripe.Checkout.Session
-) {
-  const { data: richiesta } = await admin
-    .from("richieste_caparra")
-    .select("*")
-    .eq("stripe_checkout_session_id", session.id)
-    .single();
-  if (!richiesta) {
-    console.error("Webhook caparra: nessuna richiesta trovata per la sessione", session.id);
-    return;
-  }
-  // Idempotenza: Stripe può reinviare lo stesso evento più di una volta.
-  if (richiesta.stato !== "in_attesa") return;
-
-  // La sessione è "completata" anche quando i soldi NON sono ancora arrivati.
-  // Succede con ogni metodo a notifica differita (addebito SEPA, Bancontact,
-  // Klarna): basta accenderne uno dalla Dashboard di Stripe, zero righe di
-  // codice, e `checkout.session.completed` comincia ad arrivare con
-  // `payment_status: "unpaid"`. Senza questo controllo la caparra sarebbe
-  // presa per buona, l'appuntamento confermato e lo slot occupato -- e
-  // giorni dopo l'addebito fallirebbe senza che nessuno se ne accorga. Cioè
-  // esattamente il no-show che la caparra dovrebbe impedire, pagato da noi.
-  //
-  // Si esce SENZA toccare lo stato: la richiesta resta "in_attesa" e verrà
-  // completata dal `checkout.session.async_payment_succeeded` che Stripe
-  // manda quando l'incasso va a buon fine davvero.
-  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") {
-    console.info("[stripe] Caparra non ancora incassata, appuntamento non creato", {
-      sessione: session.id,
-      stato_pagamento: session.payment_status,
-    });
-    return;
-  }
-
-  const paymentIntentId =
-    typeof session.payment_intent === "string" ? session.payment_intent : (session.payment_intent?.id ?? null);
-
-  const inizio = parsaOrarioLocale(richiesta.inizio_iso);
-  const risultato = inizio
-    ? await creaAppuntamentoTenant(admin, richiesta.tenant_id, {
-        operatoreId: richiesta.operatore_id,
-        servizioId: richiesta.servizio_id,
-        inizio,
-        clienteNome: richiesta.cliente_nome,
-        clienteTelefono: richiesta.cliente_telefono,
-        clienteEmail: richiesta.cliente_email ?? undefined,
-        creatoDa: "pubblico",
-      })
-    : { ok: false as const, errore: "Orario della richiesta non valido." };
-
-  if (risultato.ok) {
-    await Promise.all([
-      admin
-        .from("richieste_caparra")
-        .update({ stato: "completata", stripe_payment_intent_id: paymentIntentId, appuntamento_id: risultato.appuntamentoId })
-        .eq("id", richiesta.id),
-      admin
-        .from("appuntamenti")
-        .update({ caparra_importo_centesimi: richiesta.importo_centesimi, caparra_stripe_payment_intent_id: paymentIntentId })
-        .eq("id", risultato.appuntamentoId),
-    ]);
-    return;
-  }
-
-  // Conflitto (o altro errore di scrittura): rimborso automatico, mai
-  // trattenere i soldi di un cliente per una prenotazione che non esiste.
-  if (paymentIntentId) {
-    try {
-      await stripe.refunds.create({ payment_intent: paymentIntentId });
-    } catch (erroreRimborso) {
-      console.error("Webhook caparra: rimborso automatico fallito per", paymentIntentId, erroreRimborso);
-    }
-  }
-  await admin
-    .from("richieste_caparra")
-    .update({ stato: "fallita_conflitto", stripe_payment_intent_id: paymentIntentId, errore: risultato.errore })
-    .eq("id", richiesta.id);
-}
 
 export async function POST(request: NextRequest) {
   const firma = request.headers.get("stripe-signature");
@@ -156,7 +64,11 @@ export async function POST(request: NextRequest) {
     case "checkout.session.completed": {
       const session = evento.data.object as Stripe.Checkout.Session;
       if (session.mode === "payment" && session.metadata?.tipo === "caparra") {
-        await completaPagamentoCaparra(admin, stripe, session);
+        // Una scrittura fallita qui deve far rispondere 500 come nel ramo
+        // dell'abbonamento: l'appuntamento potrebbe gia' esistere, e il
+        // tentativo successivo lo ritrova dal payment intent (vedi il file).
+        const esito = await completaPagamentoCaparra(admin, stripe, session);
+        if ("errore" in esito) scritturaFallita = esito.errore;
         break;
       }
       if (session.mode === "subscription" && session.subscription) {
@@ -210,7 +122,8 @@ export async function POST(request: NextRequest) {
     // gli altri due chiudono la richiesta invece di lasciarla "in attesa"
     // per sempre.
     case "checkout.session.async_payment_succeeded": {
-      await completaPagamentoCaparra(admin, stripe, evento.data.object as Stripe.Checkout.Session);
+      const esito = await completaPagamentoCaparra(admin, stripe, evento.data.object as Stripe.Checkout.Session);
+      if ("errore" in esito) scritturaFallita = esito.errore;
       break;
     }
 

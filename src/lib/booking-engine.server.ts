@@ -657,6 +657,18 @@ export interface CreaAppuntamentoParams {
   creatoDa: "manuale" | "ai" | "pubblico";
   note?: string;
   /**
+   * La caparra gia' incassata per questo appuntamento, scritta NELLA STESSA
+   * INSERT della riga e non in un update successivo (19/09/2026).
+   *
+   * Il motivo e' il webhook di Stripe (caparra-webhook.server.ts): due
+   * consegne dello stesso evento possono correre insieme, e la seconda deve
+   * poter riconoscere che l'appuntamento con QUESTO payment intent esiste
+   * gia'. Se l'id dell'intent arrivasse con un secondo update, fra la insert
+   * e quell'update ci sarebbe una finestra in cui la seconda consegna vede
+   * un conflitto "vero" e rimborsa un cliente che invece ha il posto.
+   */
+  caparra?: { importoCentesimi: number; stripePaymentIntentId: string | null };
+  /**
    * Registra un appuntamento gia' avvenuto, saltando il rifiuto del passato.
    *
    * Esiste perche' il caso vero c'e': il titolare segna a fine giornata il
@@ -951,6 +963,12 @@ export async function creaAppuntamentoTenant(
         creato_da: params.creatoDa,
         note: params.note ?? null,
         gruppo_prenotazione_id: gruppoId,
+        ...(params.caparra
+          ? {
+              caparra_importo_centesimi: params.caparra.importoCentesimi,
+              caparra_stripe_payment_intent_id: params.caparra.stripePaymentIntentId,
+            }
+          : {}),
       })
       .select("id")
       .single();

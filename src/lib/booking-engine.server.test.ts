@@ -796,6 +796,55 @@ describe("creaAppuntamentoTenant", () => {
     expect(scrittura.payload.fine).toBe(FINE_REALE_ISO);
   });
 
+  it("la caparra, se data, sta nella STESSA insert della riga (19/09/2026, webhook Stripe)", async () => {
+    // Non in un update dopo: fra la insert e quell'update una seconda
+    // consegna dello stesso evento Stripe vedrebbe un conflitto "vero" e
+    // rimborserebbe un cliente che ha il posto. Vedi caparra-webhook.server.ts.
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+      operatori: { select: [rispostaOperatoreValido()] },
+      operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
+      appuntamenti: {
+        select: [{ data: [], error: null }],
+        insert: [{ data: { id: "nuovo-appuntamento" }, error: null }],
+      },
+    });
+    await creaAppuntamentoTenant(supabase, TENANT_ID, {
+      operatoreId: OPERATORE_ID,
+      servizioId: SERVIZIO_ID,
+      inizio: INIZIO_PSEUDO,
+      // "manuale" e non "pubblico": il canale pubblico aggiunge i controlli
+      // anti-abuso (altre letture), e qui si guarda solo la insert.
+      creatoDa: "manuale",
+      caparra: { importoCentesimi: 800, stripePaymentIntentId: "pi_1" },
+    });
+    const scrittura = supabase.registro.insert[0] as { payload: Record<string, unknown> };
+    expect(scrittura.payload.caparra_importo_centesimi).toBe(800);
+    expect(scrittura.payload.caparra_stripe_payment_intent_id).toBe("pi_1");
+  });
+
+  it("senza caparra la insert non tocca le colonne della caparra", async () => {
+    const supabase = creaSupabaseFinto({
+      tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
+      servizi: { select: [{ data: [{ id: SERVIZIO_ID, durata_minuti: 30 }], error: null }] },
+      operatori: { select: [rispostaOperatoreValido()] },
+      operatori_servizi: { select: [rispostaOperatoreCompatibileConServizio()] },
+      appuntamenti: {
+        select: [{ data: [], error: null }],
+        insert: [{ data: { id: "nuovo-appuntamento" }, error: null }],
+      },
+    });
+    await creaAppuntamentoTenant(supabase, TENANT_ID, {
+      operatoreId: OPERATORE_ID,
+      servizioId: SERVIZIO_ID,
+      inizio: INIZIO_PSEUDO,
+      creatoDa: "manuale",
+    });
+    const scrittura = supabase.registro.insert[0] as { payload: Record<string, unknown> };
+    expect("caparra_importo_centesimi" in scrittura.payload).toBe(false);
+  });
+
   it("trova un cliente esistente per telefono invece di duplicarlo", async () => {
     const supabase = creaSupabaseFinto({
       tenants: { select: [rispostaTenantPiano("growth"), rispostaTenantFuso(), rispostaTenantFuso()] },
