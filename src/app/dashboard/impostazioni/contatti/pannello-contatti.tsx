@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useAllineamentoAlServer } from "@/lib/react/allineamento-al-server";
+import { alInvio } from "@/lib/react/invio-form";
 import { aggiornaContatti } from "./azioni";
 import { istruzioniContatto, linkWhatsapp } from "@/lib/contatti";
 
@@ -32,6 +34,19 @@ export function PannelloContatti({
   const [inCorso, setInCorso] = useState(false);
   const [esito, setEsito] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
 
+  /**
+   * Allinearsi ai valori del server senza rimontarsi: `useState(prop)` legge la
+   * prop solo al montaggio, quindi dopo un salvataggio il form mostrava ancora
+   * il valore vecchio (difetto trovato su caparra e tono dell'AI il
+   * 19/09/2026, poi cercato in tutti i pannelli). Vedi
+   * `useAllineamentoAlServer`.
+   */
+  useAllineamentoAlServer({ telefono: telefonoIniziale, whatsapp: whatsappIniziale }, () => {
+    setTelefono(telefonoIniziale);
+    setWhatsapp(whatsappIniziale);
+    setStessoNumero(whatsappIniziale.trim() !== "" && whatsappIniziale.trim() === telefonoIniziale.trim());
+  });
+
   const whatsappEffettivo = stessoNumero ? telefono : whatsapp;
 
   const anteprima = useMemo(
@@ -58,7 +73,7 @@ export function PannelloContatti({
   }
 
   return (
-    <form action={salva} className="flex max-w-lg flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
+    <form onSubmit={alInvio(salva)} className="flex max-w-lg flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
       <label className="flex flex-col gap-1 text-sm">
         Telefono
         <input

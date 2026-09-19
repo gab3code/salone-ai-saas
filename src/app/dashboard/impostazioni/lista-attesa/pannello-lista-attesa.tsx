@@ -1,12 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { useAllineamentoAlServer } from "@/lib/react/allineamento-al-server";
+import { alInvio } from "@/lib/react/invio-form";
 import { aggiornaListaAttesaContattoAutomatico } from "./azioni";
 
 export function PannelloListaAttesa({ attivoIniziale }: { attivoIniziale: boolean }) {
   const [attivo, setAttivo] = useState(attivoIniziale);
   const [inCorso, setInCorso] = useState(false);
   const [messaggio, setMessaggio] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
+
+  /**
+   * Allinearsi ai valori del server senza rimontarsi: `useState(prop)` legge la
+   * prop solo al montaggio, quindi dopo un salvataggio il form mostrava ancora
+   * il valore vecchio (difetto trovato su caparra e tono dell'AI il
+   * 19/09/2026, poi cercato in tutti i pannelli). Vedi
+   * `useAllineamentoAlServer`.
+   */
+  useAllineamentoAlServer({ attivo: attivoIniziale }, () => {
+    setAttivo(attivoIniziale);
+  });
 
   async function salva(formData: FormData) {
     setInCorso(true);
@@ -24,7 +37,7 @@ export function PannelloListaAttesa({ attivoIniziale }: { attivoIniziale: boolea
   }
 
   return (
-    <form action={salva} className="flex max-w-md flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
+    <form onSubmit={alInvio(salva)} className="flex max-w-md flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
       <label className="flex items-start gap-2 text-sm font-medium text-zinc-900">
         <input
           type="checkbox"

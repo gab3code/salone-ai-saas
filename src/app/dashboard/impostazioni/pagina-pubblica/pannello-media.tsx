@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useAllineamentoAlServer } from "@/lib/react/allineamento-al-server";
 import { caricaMediaTenant, rimuoviMediaTenant } from "./azioni";
 import { etichettaTipoMedia, validaFileMedia, type TipoMediaTenant } from "@/lib/storage/media-tenant";
 
@@ -18,6 +19,17 @@ export function PannelloMedia({ tipo, urlIniziale, descrizione }: PannelloMediaP
   const [inCorso, setInCorso] = useState(false);
   const [messaggio, setMessaggio] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Allinearsi ai valori del server senza rimontarsi: `useState(prop)` legge la
+   * prop solo al montaggio, quindi dopo un salvataggio il form mostrava ancora
+   * il valore vecchio (difetto trovato su caparra e tono dell'AI il
+   * 19/09/2026, poi cercato in tutti i pannelli). Vedi
+   * `useAllineamentoAlServer`.
+   */
+  useAllineamentoAlServer({ url: urlIniziale }, () => {
+    setUrl(urlIniziale);
+  });
 
   async function alSelezionareFile(evento: React.ChangeEvent<HTMLInputElement>) {
     const file = evento.target.files?.[0];

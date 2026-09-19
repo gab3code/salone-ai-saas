@@ -1020,15 +1020,21 @@ quindi lo stato resta quello di prima -- e a seconda di come si incastrano rigen
 riconciliazione si finisce con la schermata che mostra un valore e il database che ne contiene
 un altro. Non c'e' un errore da nessuna parte: ci sono due verita' e nessuna che vince.
 
-**Il rimedio, gia' adottato altrove e da adottare sempre:** una `key` sul componente costruita
-da cio' che e' SALVATO.
+**Correzione del 19/09/2026 (stessa giornata): questa diagnosi era giusta come regola generale
+e SBAGLIATA su questo caso.** La spunta della caparra non tornava blu per lo stato stantio: la
+causa vera e' il reset automatico del form di React 19, misurato e spiegato in 27quintricies.
+L'ho scoperto solo quando, dopo la mia "cura", Gabriel ha visto la spunta restare **sempre
+bianca** -- cioe' lo stesso reset visto dall'altro lato.
 
-```tsx
-<PannelloCaparra key={`caparra:${attiva}:${tipo}:${valore}`} ... />
-```
+Resta vero che `useState(prop)` e' uno stato che puo' mentire, e il rimedio giusto e'
+l'hook `useAllineamentoAlServer` (`src/lib/react/allineamento-al-server.ts`), applicato a tutti
+e nove i pannelli. **Non** una `key`: quella butta via anche il messaggio di conferma
+(27untricies).
 
-Cosi' il componente si rimonta -- e rilegge le prop -- esattamente quando cambia quello che c'e'
-nel database, e mai per caso.
+E resta vero, soprattutto, il modo in cui ho perso mezza giornata: ho chiamato "causa" la prima
+spiegazione plausibile invece di riprodurre il difetto. Riprodurlo in isolamento ha richiesto
+venti minuti e ha dato una tabella di misure; il ragionamento a naso aveva dato due cure
+sbagliate di fila.
 
 **La seconda meta', che vale da sola.** Il messaggio di conferma diceva "Impostazioni salvate".
 Non serviva a niente: confermava che qualcosa era stato salvato senza dire cosa, mentre la
@@ -1039,6 +1045,53 @@ appena mandato al server, quindi non puo' contraddirlo.
 La regola generale: **un messaggio di conferma che non nomina il risultato non e' una conferma,
 e' un rumore rassicurante.** Quando l'utente e la schermata sono in disaccordo, e' l'unica cosa
 che puo' dire chi dei due ha ragione.
+
+
+## 27quintricies. `<form action>` in React 19 si resetta da solo, e il reset riporta indietro spunte e select (19/09/2026)
+
+Tre segnalazioni di Gabriel che sembravano tre bug diversi:
+
+- la spunta della caparra torna blu quando la togli;
+- poi, dopo la mia "cura", resta bianca quando la metti;
+- il tono dell'AI torna sempre su "professionale", *"la nota aggiuntiva invece sembra andare"*.
+
+Sono lo stesso difetto. L'ho capito solo riproducendolo in isolamento con React 19.2.8 e jsdom,
+invece di continuare a ragionarci sopra:
+
+```
+spunta (checkbox)   prima: true   dopo il salvataggio: false   <- resettato
+radio               prima: true   dopo il salvataggio: false   <- resettato
+select              prima: "due"  dopo il salvataggio: "uno"   <- resettato
+testo / numero / textarea                          invariati
+```
+
+`<form action={azione}>` in React 19 **resetta il form quando l'azione finisce**, e il reset
+riporta ogni campo al valore dell'HTML di partenza. `checked` e `selected` sono proprio quelli
+che il reset tocca; il testo no -- ed e' esattamente l'asimmetria che Gabriel aveva notato da
+solo senza saperla spiegare. **Quando un utente ti descrive due comportamenti diversi su due
+campi della stessa schermata, ti sta gia' dando la forma della causa: l'asimmetria e' un
+indizio, non un dettaglio.**
+
+Non e' solo grafica: dopo il reset il DOM e lo stato React dicono cose diverse, React non
+ri-renderizza (lo stato non e' cambiato) e **il salvataggio successivo manda al server quello
+che c'e' nel DOM**, non quello che l'utente crede di aver scelto.
+
+Cure provate e scartate, tutte misurate:
+
+- `key` sul componente -- rimonta e si porta via la conferma verde (27untricies);
+- riallineamento alla prop durante il render -- giusto in se', ma qui non riallinea niente:
+  dopo il salvataggio lo stato e' gia' quello giusto, e' il DOM a essere tornato indietro;
+- `defaultChecked` accanto a `checked` -- React avvisa che l'input e' meta' controllato e
+  resetta lo stesso.
+
+Quello che funziona: **niente `action`, ma `onSubmit` con `preventDefault`** -- `alInvio` in
+`src/lib/react/invio-form.ts`. Si perde l'invio senza JavaScript, che in pannelli con campi
+controllati e campi abilitati via stato non esisteva comunque.
+
+E siccome una regola scritta qui si dimentica, la regola sta anche in un test:
+`src/lib/react/invio-form.test.ts` cerca nel codice vero ogni `<form action={...}>` che
+contenga una spunta, un radio o una select, e dice quale file. La decima schermata non rifara'
+il giro.
 
 ## 27duodetricies. Ogni trasformazione che chiedi al modello e' un posto dove puo' sbagliare (19/09/2026)
 

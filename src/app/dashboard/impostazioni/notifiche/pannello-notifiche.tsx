@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAllineamentoAlServer } from "@/lib/react/allineamento-al-server";
+import { alInvio } from "@/lib/react/invio-form";
 import { aggiornaNotifiche } from "./azioni";
 import {
   CANALI_CONFERMA_CLIENTE,
@@ -38,6 +40,18 @@ export function PannelloNotifiche({
   const [inCorso, setInCorso] = useState(false);
   const [esito, setEsito] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
 
+  /**
+   * Allinearsi ai valori del server senza rimontarsi: `useState(prop)` legge la
+   * prop solo al montaggio, quindi dopo un salvataggio il form mostrava ancora
+   * il valore vecchio (difetto trovato su caparra e tono dell'AI il
+   * 19/09/2026, poi cercato in tutti i pannelli). Vedi
+   * `useAllineamentoAlServer`.
+   */
+  useAllineamentoAlServer({ avvisaTitolare: avvisaTitolareIniziale, canale: canaleIniziale }, () => {
+    setAvvisaTitolare(avvisaTitolareIniziale);
+    setCanale(canaleIniziale);
+  });
+
   async function salva(formData: FormData) {
     setInCorso(true);
     setEsito(null);
@@ -51,7 +65,7 @@ export function PannelloNotifiche({
   }
 
   return (
-    <form action={salva} className="flex max-w-lg flex-col gap-6">
+    <form onSubmit={alInvio(salva)} className="flex max-w-lg flex-col gap-6">
       <section className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-5">
         <div>
           <h2 className="text-sm font-medium text-zinc-900">Per te</h2>

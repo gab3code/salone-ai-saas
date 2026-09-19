@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useAllineamentoAlServer } from "@/lib/react/allineamento-al-server";
+import { alInvio } from "@/lib/react/invio-form";
 import { aggiornaFollowUpInattivi } from "./azioni";
 import {
   comporreMessaggioFollowUp,
@@ -46,6 +48,22 @@ export function PannelloFollowUp({
   const [inCorso, setInCorso] = useState(false);
   const [esito, setEsito] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
 
+  /**
+   * Allinearsi ai valori del server senza rimontarsi: `useState(prop)` legge la
+   * prop solo al montaggio, quindi dopo un salvataggio il form mostrava ancora
+   * il valore vecchio (difetto trovato su caparra e tono dell'AI il
+   * 19/09/2026, poi cercato in tutti i pannelli). Vedi
+   * `useAllineamentoAlServer`.
+   */
+  useAllineamentoAlServer(
+    { attivo: attivoIniziale, giorni: giorniIniziali, messaggio: messaggioIniziale },
+    () => {
+      setAttivo(attivoIniziale);
+      setGiorni(String(giorniIniziali));
+      setMessaggio(messaggioIniziale);
+    }
+  );
+
   const anteprima = useMemo(
     () => comporreMessaggioFollowUp(messaggio || null, NOME_ESEMPIO),
     [messaggio]
@@ -73,7 +91,7 @@ export function PannelloFollowUp({
   }
 
   return (
-    <form action={salva} className="flex max-w-lg flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
+    <form onSubmit={alInvio(salva)} className="flex max-w-lg flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
       <div>
         <h2 className="text-sm font-medium text-zinc-900">Clienti da recuperare</h2>
         <p className="text-xs text-zinc-500">

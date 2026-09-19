@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useAllineamentoAlServer } from "@/lib/react/allineamento-al-server";
+import { alInvio } from "@/lib/react/invio-form";
 import { aggiornaTonoAi } from "./azioni";
 
 type Stile = "professionale" | "amichevole" | "informale_con_emoji";
@@ -29,6 +31,17 @@ export function PannelloTonoAi({ stileIniziale, notaIniziale }: { stileIniziale:
   const [inCorso, setInCorso] = useState(false);
   const [messaggio, setMessaggio] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
 
+  /**
+   * Allinearsi ai valori del server senza rimontarsi. Segnalato da Gabriel il
+   * 19/09/2026: salvava un tono e a schermo tornava "professionale" mentre nel
+   * database c'era quello scelto. Stesso difetto della caparra, stessa cura --
+   * vedi `useAllineamentoAlServer`.
+   */
+  useAllineamentoAlServer({ stile: stileIniziale, nota: notaIniziale }, () => {
+    setStile(stileIniziale);
+    setNota(notaIniziale);
+  });
+
   async function salva(formData: FormData) {
     setInCorso(true);
     setMessaggio(null);
@@ -45,7 +58,7 @@ export function PannelloTonoAi({ stileIniziale, notaIniziale }: { stileIniziale:
   }
 
   return (
-    <form action={salva} className="flex max-w-md flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
+    <form onSubmit={alInvio(salva)} className="flex max-w-md flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
       <div className="flex flex-col gap-2">
         {OPZIONI.map((opzione) => (
           <label

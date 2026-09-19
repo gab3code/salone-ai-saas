@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useAllineamentoAlServer } from "@/lib/react/allineamento-al-server";
+import { alInvio } from "@/lib/react/invio-form";
 import { aggiornaToggleRecensioni, rispondiRecensione } from "./azioni";
 import { LUNGHEZZA_MASSIMA_RISPOSTA_TITOLARE, type RecensioneMedia } from "@/lib/recensioni";
 import type { RecensioneDashboard } from "@/lib/recensioni.server";
@@ -23,6 +25,15 @@ function RigaRecensione({ recensione }: { recensione: RecensioneDashboard }) {
   const [risposta, setRisposta] = useState(recensione.rispostaTitolare ?? "");
   const [inCorso, setInCorso] = useState(false);
   const [esito, setEsito] = useState<{ ok: boolean; testo: string } | null>(null);
+
+  /**
+   * Allinearsi al server senza rimontarsi (vedi `useAllineamentoAlServer`):
+   * quando la risposta salvata cambia, il campo deve seguirla invece di
+   * mostrare ancora quella di prima.
+   */
+  useAllineamentoAlServer({ risposta: recensione.rispostaTitolare ?? "" }, () => {
+    setRisposta(recensione.rispostaTitolare ?? "");
+  });
 
   async function salva() {
     setInCorso(true);
@@ -121,6 +132,11 @@ export function PannelloRecensioni({
   const [inCorso, setInCorso] = useState(false);
   const [esito, setEsito] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
 
+  /** Allinearsi al server senza rimontarsi -- vedi `useAllineamentoAlServer`. */
+  useAllineamentoAlServer({ attivo: attivoIniziale }, () => {
+    setAttivo(attivoIniziale);
+  });
+
   async function salvaToggle(formData: FormData) {
     setInCorso(true);
     setEsito(null);
@@ -136,7 +152,7 @@ export function PannelloRecensioni({
 
   return (
     <div className="flex max-w-xl flex-col gap-6">
-      <form action={salvaToggle} className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
+      <form onSubmit={alInvio(salvaToggle)} className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 px-3 py-2.5">
           <input
             type="checkbox"

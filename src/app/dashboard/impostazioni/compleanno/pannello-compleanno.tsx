@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useAllineamentoAlServer } from "@/lib/react/allineamento-al-server";
+import { alInvio } from "@/lib/react/invio-form";
 import { aggiornaCompleanno } from "./azioni";
 import {
   comporreMessaggioCompleanno,
@@ -26,6 +28,18 @@ export function PannelloCompleanno({
   const [inCorso, setInCorso] = useState(false);
   const [esito, setEsito] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
 
+  /**
+   * Allinearsi ai valori del server senza rimontarsi: `useState(prop)` legge la
+   * prop solo al montaggio, quindi dopo un salvataggio il form mostrava ancora
+   * il valore vecchio (difetto trovato su caparra e tono dell'AI il
+   * 19/09/2026, poi cercato in tutti i pannelli). Vedi
+   * `useAllineamentoAlServer`.
+   */
+  useAllineamentoAlServer({ attivo: attivoIniziale, messaggio: messaggioIniziale }, () => {
+    setAttivo(attivoIniziale);
+    setMessaggio(messaggioIniziale);
+  });
+
   const anteprima = useMemo(
     () => comporreMessaggioCompleanno(messaggio || null, NOME_ESEMPIO),
     [messaggio]
@@ -47,7 +61,7 @@ export function PannelloCompleanno({
   }
 
   return (
-    <form action={salva} className="flex max-w-md flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
+    <form onSubmit={alInvio(salva)} className="flex max-w-md flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
       <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 px-3 py-2.5">
         <input
           type="checkbox"
