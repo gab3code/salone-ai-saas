@@ -27,6 +27,8 @@ export interface ParametriAvvioCaparra {
   clienteNome?: string | null;
   clienteTelefono: string;
   clienteEmail?: string | null;
+  /** La casella marketing del form pubblico (migrazione 0070); undefined se non chiesta. */
+  consensoMarketing?: boolean;
 }
 
 export type RisultatoAvvioCaparra =
@@ -179,6 +181,7 @@ export async function avviaPagamentoCaparraTenant(
     cliente_nome: params.clienteNome || "Cliente",
     cliente_telefono: params.clienteTelefono,
     cliente_email: params.clienteEmail ?? null,
+    consenso_marketing: params.consensoMarketing ?? null,
     importo_centesimi: importoCentesimi,
     stripe_checkout_session_id: session.id,
     stato: "in_attesa",

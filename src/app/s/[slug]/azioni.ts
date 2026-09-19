@@ -146,6 +146,13 @@ export interface DatiPrenotazionePubblica {
   // Opzionale (Fase 6, Gruppo B-bis #1): se presente abilita l'email di
   // conferma al cliente, vedi src/lib/email/notifiche.server.ts.
   clienteEmail?: string;
+  /**
+   * La casella "posso scriverti per promozioni e promemoria di ritorno?"
+   * (migrazione 0070): false se lasciata vuota, true se spuntata. E' una
+   * risposta esplicita del cliente in entrambi i casi -- il form la mostra
+   * sempre, non pre-spuntata.
+   */
+  consensoMarketing?: boolean;
   // Anti-bot silenzioso (vedi src/lib/anti-bot.ts): entrambi opzionali e mai
   // popolati da un cliente reale, solo dal componente client.
   trappola?: string;
@@ -228,6 +235,7 @@ export async function prenotaPubblico(
     clienteNome,
     clienteTelefono,
     clienteEmail,
+    consensoMarketing: typeof dati.consensoMarketing === "boolean" ? dati.consensoMarketing : undefined,
     creatoDa: "pubblico",
   });
 
@@ -308,6 +316,7 @@ export async function avviaPagamentoCaparra(
     clienteNome,
     clienteTelefono,
     clienteEmail,
+    consensoMarketing: typeof dati.consensoMarketing === "boolean" ? dati.consensoMarketing : undefined,
   });
   if (!risultato.ok) return { ok: false, errore: risultato.errore };
   return { ok: true, checkoutUrl: risultato.checkoutUrl };

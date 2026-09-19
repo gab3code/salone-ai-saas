@@ -5,7 +5,8 @@ import { creaClientServer } from "@/lib/supabase/server";
 import { ottieniTenantCorrente } from "@/lib/supabase/tenant";
 import { richiediPermesso, accessoNegato } from "@/lib/permessi.server";
 import { puoCancellareClienti } from "@/lib/ruoli";
-import { aggiornaCliente as scriviCliente, cancellaCliente as eliminaCliente } from "@/lib/clienti.server";
+import { aggiornaCliente as scriviCliente, cancellaCliente as eliminaCliente, caricaCliente } from "@/lib/clienti.server";
+import { campiConsenso } from "@/lib/consenso-marketing";
 
 /**
  * CRM (punto 12 di CLAUDE.md): la scheda cliente è il punto centrale della
@@ -40,12 +41,26 @@ export async function aggiornaCliente(id: string, formData: FormData) {
   // La scrittura passa da clienti.server.ts come la lettura: dalla
   // migrazione 0051 `authenticated` non ha piu' permessi su `clienti`, e il
   // confine fra saloni lo tiene il filtro sul tenant di quel file.
+  // Consenso marketing (migrazione 0070): si scrive SOLO se il titolare l'ha
+  // cambiato rispetto a quello che c'era, cosi' data e provenienza restano
+  // quelle della risposta originale (un cliente che ha spuntato la casella
+  // online non diventa "registrato dalla scheda" a ogni salvataggio).
+  const consensoScelto = String(formData.get("consenso_marketing") || "");
+  const consensoNuovo = consensoScelto === "si" ? true : consensoScelto === "no" ? false : null;
+  const attuale = await caricaCliente(tenantId, id);
+  const consensoCambiato = attuale !== null && (attuale.consenso_marketing ?? null) !== consensoNuovo;
+
   const { errore } = await scriviCliente(tenantId, id, {
     nome: nome || null,
     email: email || null,
     note: note || null,
     tag,
     data_nascita: dataNascitaGrezza || null,
+    ...(consensoCambiato
+      ? consensoNuovo === null
+        ? { consenso_marketing: null, consenso_marketing_at: null, consenso_marketing_fonte: null }
+        : campiConsenso(consensoNuovo, "scheda")
+      : {}),
   });
 
   if (errore) return { errore: `Errore salvando il cliente: ${errore}` };

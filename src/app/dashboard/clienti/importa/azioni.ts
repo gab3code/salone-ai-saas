@@ -218,7 +218,8 @@ export type RisultatoImport =
  */
 export async function applicaImportAzione(
   righe: RigaImport[],
-  completamenti: RigaImport[] = []
+  completamenti: RigaImport[] = [],
+  opzioni: { consensoRaccoltoDiPersona?: boolean } = {}
 ): Promise<RisultatoImport> {
   const supabase = await creaClientServer();
   const accesso = await richiediPermesso(supabase, puoImportareClienti);
@@ -276,7 +277,9 @@ export async function applicaImportAzione(
 
   let creati = 0;
   if (daCreare.length > 0) {
-    const esito = await creaClientiInBlocco(accesso.tenantId, daCreare);
+    const esito = await creaClientiInBlocco(accesso.tenantId, daCreare, undefined, {
+      consensoRaccoltoDiPersona: opzioni.consensoRaccoltoDiPersona === true,
+    });
     if (esito.errore) return { ok: false, errore: esito.errore };
     creati = esito.creati;
   }

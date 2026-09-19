@@ -221,6 +221,9 @@ async function avvisaClientiInattivi(admin: ClientAdmin, tenant: TenantConPromem
       .from("clienti")
       .select("id, nome, email, telefono, promemoria_inattivita_inviato_at")
       .eq("tenant_id", tenant.id)
+      // "Torna a trovarci" e' marketing: solo a chi ha detto si' (migrazione
+      // 0070, stessa regola degli auguri di compleanno).
+      .eq("consenso_marketing", true)
       // Un modo di contattarlo, dei due: email O telefono (il fallback SMS
       // viene ri-gated da clientiDaAvvisarePerInattivita in base al piano,
       // vedi pianoHaSms -- qui si filtra solo per non caricare clienti

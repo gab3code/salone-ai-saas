@@ -162,12 +162,19 @@ export function tettoBozzaOnboarding(piano: string, numeroOperatori: number = 1)
 }
 
 /**
- * Il tetto per un RECUPERO delle righe non capite nell'import della rubrica
- * (19/09/2026): stessa forma della bozza di configurazione, contatore a
- * parte. Su Free e Starter un import e' quasi sempre uno solo, all'inizio:
- * tre giri bastano e non sono la cosa che si compra.
+ * Il tetto per una LETTURA ASSISTITA nell'import della rubrica (righe non
+ * capite o foto dell'agenda): stessa forma della bozza di configurazione,
+ * contatore a parte.
+ *
+ * Erano 3 (19/09/2026 mattina, "un import e' quasi sempre uno solo"). Poi la
+ * foto: una pagina = una lettura, e un quaderno sono 15-30 pagine. Con 3 la
+ * funzione esisteva proprio dove non serviva. Trenta pagine sono 200-400
+ * clienti scritti a mano, cioe' una rubrica intera; costo massimo per salone
+ * ~0,50 € una volta (misurato: ~$0,0165 a pagina, Haiku + Sonnet). E' il
+ * costo di acquisizione piu' basso del prodotto: chi entra con la rubrica
+ * piena prova tutto il resto. Deciso da Gabriel il 19/09/2026 pomeriggio.
  */
-export const RECUPERI_IMPORT_SENZA_PIANO = 3;
+export const RECUPERI_IMPORT_SENZA_PIANO = 30;
 export function tettoRecuperoImport(piano: string, numeroOperatori: number = 1): TettoUsoAi {
   const quota = limiteMensileMessaggi(piano, numeroOperatori);
   return quota > 0

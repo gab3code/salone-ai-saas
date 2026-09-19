@@ -47,6 +47,9 @@ export function PannelloImport() {
   // Le voci della foto non proposte, con la trascrizione: si aggiungono a
   // mano guardando la foto. Vuoto quando la revisione viene da un incolla.
   const [vociNonLette, setVociNonLette] = useState<VoceNonLetta[]>([]);
+  // Il consenso marketing di chi viene importato (migrazione 0070): il
+  // titolare lo dichiara, non lo si presume. Parte NON spuntato.
+  const [consensoDiPersona, setConsensoDiPersona] = useState(false);
 
   async function analizza() {
     setErrore(null);
@@ -168,7 +171,7 @@ export function PannelloImport() {
     setInCorso(true);
     const righe: RigaImport[] = diff.nuovi.filter((_, i) => scelti[i]);
     const completamenti: RigaImport[] = diff.giaPresenti.filter((_, i) => completaScelti[i]);
-    const esito = await applicaImportAzione(righe, completamenti);
+    const esito = await applicaImportAzione(righe, completamenti, { consensoRaccoltoDiPersona: consensoDiPersona });
     setInCorso(false);
     if (!esito.ok) {
       setErrore(esito.errore);
@@ -555,7 +558,24 @@ export function PannelloImport() {
             <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">{notaRecupero}</p>
           )}
 
-          <div className="flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-4">
+          <label className="flex items-start gap-2 border-t border-zinc-200 pt-4 text-sm text-zinc-700">
+            <input
+              type="checkbox"
+              checked={consensoDiPersona}
+              onChange={(e) => setConsensoDiPersona(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Questi clienti hanno già dato il consenso a ricevere promemoria di ritorno, auguri e offerte
+              (per esempio con il modulo privacy firmato in salone).{" "}
+              <span className="text-xs text-zinc-500">
+                Se non lo spunti, riceveranno solo le conferme dei loro appuntamenti finché il consenso non
+                viene registrato dalla scheda o da una prenotazione online.
+              </span>
+            </span>
+          </label>
+
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={importa}

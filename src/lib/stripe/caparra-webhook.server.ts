@@ -105,6 +105,7 @@ export async function completaPagamentoCaparra(
         clienteNome: richiesta.cliente_nome,
         clienteTelefono: richiesta.cliente_telefono,
         clienteEmail: richiesta.cliente_email ?? undefined,
+        consensoMarketing: typeof richiesta.consenso_marketing === "boolean" ? richiesta.consenso_marketing : undefined,
         creatoDa: "pubblico",
         caparra: { importoCentesimi: richiesta.importo_centesimi, stripePaymentIntentId: paymentIntentId },
       })

@@ -76,6 +76,7 @@ export type EsitoRichiestaRecensione =
   | "appuntamento_cancellato"
   | "raccolta_disattivata"
   | "cliente_senza_email"
+  | "consenso_negato" // il cliente ha detto no al marketing (migrazione 0070)
   | "email_non_configurata";
 
 /**
@@ -101,7 +102,7 @@ export async function elaboraRichiestaRecensione(
   const { data: appuntamento } = await admin
     .from("appuntamenti")
     .select(
-      "id, tenant_id, stato, recensione_richiesta_inviata_at, clienti(nome, email), servizi(nome), tenants(nome, slug, raccolta_recensioni_attiva)"
+      "id, tenant_id, stato, recensione_richiesta_inviata_at, clienti(nome, email, consenso_marketing), servizi(nome), tenants(nome, slug, raccolta_recensioni_attiva)"
     )
     .eq("id", appuntamentoId)
     .eq("tenant_id", tenantId)
@@ -113,8 +114,13 @@ export async function elaboraRichiestaRecensione(
   const tenant = uno<{ nome: string; slug: string; raccolta_recensioni_attiva: boolean }>(appuntamento.tenants);
   if (!tenant || !tenant.raccolta_recensioni_attiva) return "raccolta_disattivata";
 
-  const cliente = uno<{ nome: string | null; email: string | null }>(appuntamento.clienti);
+  const cliente = uno<{ nome: string | null; email: string | null; consenso_marketing?: boolean | null }>(appuntamento.clienti);
   if (!cliente?.email) return "cliente_senza_email";
+  // La richiesta di recensione dopo un servizio reso e' il caso "soft spam"
+  // (art. 130 c. 4 Codice Privacy): si puo' mandare anche a chi non ha mai
+  // risposto alla domanda sul marketing (NULL), MAI a chi ha detto no
+  // (migrazione 0070).
+  if (cliente.consenso_marketing === false) return "consenso_negato";
 
   // Reclamo PRIMA di mandare l'email (vedi commento sopra): solo se ancora
   // null vince questa esecuzione.

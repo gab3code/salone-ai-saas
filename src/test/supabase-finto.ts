@@ -73,6 +73,9 @@ export function creaSupabaseFinto(tabelle: Record<string, OperazioniTabella>) {
       eq() {
         return chain;
       },
+      is() {
+        return chain;
+      },
       gte() {
         return chain;
       },

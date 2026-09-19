@@ -50,6 +50,13 @@ export default function PaginaPrivacy() {
         richieste sui tuoi dati come cliente finale, contatta prima l&apos;attività presso cui hai prenotato; se
         non ottieni risposta, puoi comunque scriverci all&apos;indirizzo sopra.
       </P>
+      <P>
+        Quando prenoti online trovi una casella, non pre-spuntata, con cui puoi acconsentire a ricevere
+        dall&apos;attività promemoria per il prossimo appuntamento, auguri e offerte. La conferma della tua
+        prenotazione arriva comunque: quella casella riguarda solo le comunicazioni promozionali, e la
+        piattaforma registra la tua risposta con data e provenienza. Puoi revocare il consenso in qualsiasi
+        momento scrivendo all&apos;attività, che lo aggiorna dalla tua scheda.
+      </P>
 
       <H2>Quali dati raccogliamo e perché</H2>
       <Ul>

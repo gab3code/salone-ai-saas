@@ -2841,11 +2841,20 @@ sono in `docs/economia-19-09-2026.md`. Ordine = priorita'. Tutte da confermare d
       voce piu' urgente di questa fase perche' e' l'unica che, se manca, e' una violazione
       fiscale e non una funzione in meno.** Dipende dall'apertura della P.IVA.
 
-- [ ] **Letture assistite dell'import: 30 a vita su Free e Starter** (oggi 3). Una foto = una
-      lettura; con 3 non si importa un quaderno. Costo massimo 0,50 € per salone, una volta.
-      Una costante e due messaggi. (Decisione di prezzo: tua.)
+- [x] **Letture assistite dell'import: 30 a vita su Free e Starter** -- FATTO 19/09/2026
+      pomeriggio, deciso da Gabriel. `RECUPERI_IMPORT_SENZA_PIANO = 30`.
 
-- [ ] **Consenso marketing raccolto alla prenotazione.** Oggi il follow-up, gli auguri di
+- [x] **Consenso marketing raccolto alla prenotazione** -- FATTO 19/09/2026 pomeriggio.
+      Migrazione 0070 (applicata a test e produzione): `clienti.consenso_marketing` a tre
+      stati (null = mai chiesto / true / false) con data e provenienza, e
+      `richieste_caparra.consenso_marketing` perche' con la caparra il cliente nasce solo al
+      webhook. Casella NON pre-spuntata nel form pubblico; checkbox all'import ("hanno gia'
+      dato il consenso di persona"); select nella scheda cliente. Chi manda cosa: auguri e
+      follow-up inattivi SOLO con true; richiesta di recensione anche con null (soft spam,
+      art. 130 c. 4), mai con false. Informativa privacy aggiornata. **Non fatto**: la chat AI
+      non chiede il consenso (resta null: quei clienti ricevono solo conferme e recensioni).
+
+- [ ] ~~**Consenso marketing raccolto alla prenotazione.**~~ (vedi sopra) Oggi il follow-up, gli auguri di
       compleanno e le recensioni scrivono a clienti che hanno prenotato online senza aver mai
       detto si' a niente oltre la conferma dell'appuntamento. Il GDPR distingue: la conferma
       e' esecuzione del contratto, il "torna a trovarci" e' marketing e vuole un consenso

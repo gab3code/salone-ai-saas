@@ -631,9 +631,17 @@ async function trovaOCreaCliente(
   nome: string | null,
   telefono: string,
   creatoDaAi: boolean,
-  email?: string | null
+  email?: string | null,
+  consensoMarketing?: boolean
 ): Promise<{ id: string } | { errore: string }> {
-  return trovaOCreaClienteInRubrica(tenantId, { nome, telefono, creatoDaAi, email });
+  return trovaOCreaClienteInRubrica(tenantId, {
+    nome,
+    telefono,
+    creatoDaAi,
+    email,
+    consensoMarketing,
+    fonteConsenso: creatoDaAi ? "chat" : "prenotazione_online",
+  });
 }
 
 export interface CreaAppuntamentoParams {
@@ -650,6 +658,12 @@ export interface CreaAppuntamentoParams {
   // se presente, abilita l'email di conferma al cliente (vedi
   // src/lib/email/notifiche.server.ts) e viene salvata su clienti.email.
   clienteEmail?: string;
+  /**
+   * La risposta del cliente alla casella "posso scriverti per promozioni?"
+   * del form pubblico (migrazione 0070). undefined = non gli e' stato
+   * chiesto (dashboard, chat): il valore in rubrica non si tocca.
+   */
+  consensoMarketing?: boolean;
   // "manuale" = da dashboard (staff), "ai" = chat/WhatsApp AI, "pubblico" =
   // il cliente prenota da solo dalla pagina pubblica del salone senza
   // passare dall'AI (Fase 4) -- tre canali distinti, stessa unica funzione
@@ -924,7 +938,8 @@ export async function creaAppuntamentoTenant(
       params.clienteNome ?? null,
       params.clienteTelefono,
       params.creatoDa === "ai",
-      params.clienteEmail ?? null
+      params.clienteEmail ?? null,
+      params.consensoMarketing
     );
     if ("errore" in risultato) return { ok: false, errore: risultato.errore };
     clienteId = risultato.id;

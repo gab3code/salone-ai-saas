@@ -1,4 +1,5 @@
 import "server-only";
+import { campiConsenso, type FonteConsensoMarketing } from "@/lib/consenso-marketing";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { creaClientAdmin } from "@/lib/supabase/admin";
 import { filtroRicercaClienti } from "@/lib/ricerca";
@@ -34,7 +35,8 @@ import { filtroRicercaClienti } from "@/lib/ricerca";
 
 const CAMPI_ELENCO = "id, nome, telefono, email, tag, creato_da_ai, created_at";
 const CAMPI_EXPORT = "id, nome, telefono, email, tag, creato_da_ai, created_at";
-const CAMPI_SCHEDA = "id, nome, telefono, email, note, tag, data_nascita, creato_da_ai, created_at";
+const CAMPI_SCHEDA =
+  "id, nome, telefono, email, note, tag, data_nascita, creato_da_ai, created_at, consenso_marketing, consenso_marketing_at, consenso_marketing_fonte";
 
 function db(client?: SupabaseClient): SupabaseClient {
   return client ?? creaClientAdmin();
@@ -65,6 +67,10 @@ export interface ClienteElenco {
 export interface ClienteScheda extends ClienteElenco {
   note: string | null;
   data_nascita: string | null;
+  /** null = mai chiesto (migrazione 0070). */
+  consenso_marketing: boolean | null;
+  consenso_marketing_at: string | null;
+  consenso_marketing_fonte: "prenotazione_online" | "import" | "scheda" | "chat" | null;
 }
 
 export async function elencaClienti(
@@ -139,11 +145,17 @@ export async function aggiornaCliente(
 export async function creaClientiInBlocco(
   tenantId: string,
   clienti: { nome: string | null; telefono: string; email: string | null; note: string | null }[],
-  client?: SupabaseClient
+  client?: SupabaseClient,
+  opzioni: { consensoRaccoltoDiPersona?: boolean } = {}
 ): Promise<{ creati: number; errore: string | null }> {
   esigiTenant(tenantId);
   if (clienti.length === 0) return { creati: 0, errore: null };
 
+  // Il consenso marketing di chi viene importato: solo se il titolare
+  // dichiara di averlo raccolto di persona (modulo privacy in salone). Se no
+  // resta NULL, "mai chiesto", e auguri/follow-up non partono finche' non
+  // viene registrato dalla scheda o da una prenotazione online.
+  const consenso = campiConsenso(opzioni.consensoRaccoltoDiPersona ? true : undefined, "import");
   const righe = clienti.map((c) => ({
     tenant_id: tenantId,
     nome: c.nome,
@@ -151,6 +163,7 @@ export async function creaClientiInBlocco(
     email: c.email,
     note: c.note,
     creato_da_ai: false,
+    ...consenso,
   }));
 
   // `upsert` con `ignoreDuplicates`, non `insert`, e il motivo e' il vincolo
@@ -337,15 +350,26 @@ export async function trovaClientePerTelefono(
  */
 export async function trovaOCreaCliente(
   tenantId: string,
-  dati: { nome?: string | null; telefono: string; creatoDaAi: boolean; email?: string | null },
+  dati: {
+    nome?: string | null;
+    telefono: string;
+    creatoDaAi: boolean;
+    email?: string | null;
+    /** Risposta data ADESSO alla domanda sul marketing; undefined = non chiesta. */
+    consensoMarketing?: boolean;
+    fonteConsenso?: FonteConsensoMarketing;
+  },
   client?: SupabaseClient
 ): Promise<{ id: string } | { errore: string }> {
   esigiTenant(tenantId);
 
+  const consenso = campiConsenso(dati.consensoMarketing, dati.fonteConsenso ?? "prenotazione_online");
   const esistente = await trovaClientePerTelefono(tenantId, dati.telefono, client);
   if (esistente) {
-    if (dati.email && !esistente.email) {
-      await aggiornaCliente(tenantId, esistente.id, { email: dati.email }, client);
+    const aggiornamenti: Record<string, unknown> = { ...consenso };
+    if (dati.email && !esistente.email) aggiornamenti.email = dati.email;
+    if (Object.keys(aggiornamenti).length > 0) {
+      await aggiornaCliente(tenantId, esistente.id, aggiornamenti, client);
     }
     return { id: esistente.id };
   }
@@ -358,6 +382,7 @@ export async function trovaOCreaCliente(
       telefono: dati.telefono,
       creato_da_ai: dati.creatoDaAi,
       email: dati.email || null,
+      ...consenso,
     })
     .select("id")
     .single();

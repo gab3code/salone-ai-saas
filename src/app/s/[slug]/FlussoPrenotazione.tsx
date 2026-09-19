@@ -119,6 +119,10 @@ export default function FlussoPrenotazione({
   // sola volta), `trappola` è il campo invisibile che un cliente vero non
   // vede e non compila mai.
   const [iniziatoAlleMs] = useState(() => Date.now());
+  // Consenso marketing (migrazione 0070): parte NON spuntato, per legge. La
+  // conferma dell'appuntamento arriva comunque -- questa casella riguarda
+  // solo promemoria di ritorno, auguri e promozioni.
+  const [consensoMarketing, setConsensoMarketing] = useState(false);
   const [trappola, setTrappola] = useState("");
 
   const servizioScelto = useMemo(() => servizi.find((s) => s.id === servizioId) ?? null, [servizi, servizioId]);
@@ -205,6 +209,7 @@ export default function FlussoPrenotazione({
         clienteNome: nomeCompleto,
         clienteTelefono: telefono,
         clienteEmail: email.trim() || undefined,
+        consensoMarketing,
         trappola,
         iniziatoAlleMs,
       };
@@ -468,6 +473,19 @@ export default function FlussoPrenotazione({
               className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
               placeholder="Es. giulia@esempio.it"
             />
+          </label>
+          <label className="flex items-start gap-2 text-xs text-zinc-600">
+            <input
+              type="checkbox"
+              checked={consensoMarketing}
+              onChange={(e) => setConsensoMarketing(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Acconsento a ricevere da questa attività promemoria per il prossimo appuntamento, auguri e
+              offerte (facoltativo: la conferma di questa prenotazione arriva comunque; puoi revocare quando
+              vuoi rispondendo al messaggio).
+            </span>
           </label>
           <button
             type="submit"

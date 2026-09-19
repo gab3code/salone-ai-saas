@@ -140,6 +140,32 @@ export default async function PaginaClienteDettaglio({
               </span>
             </label>
             <label className="flex flex-col gap-1 text-sm">
+              Consenso a promemoria di ritorno, auguri e offerte
+              <select
+                name="consenso_marketing"
+                defaultValue={cliente.consenso_marketing === true ? "si" : cliente.consenso_marketing === false ? "no" : ""}
+                className="rounded border border-zinc-300 px-2 py-1"
+              >
+                <option value="">Non registrato</option>
+                <option value="si">Sì, l&apos;ha dato</option>
+                <option value="no">No, non vuole</option>
+              </select>
+              <span className="text-xs text-zinc-400">
+                Le conferme degli appuntamenti arrivano comunque. Auguri e follow-up partono solo con il sì
+                {cliente.consenso_marketing_at && (
+                  <>
+                    {" "}
+                    · registrato il {new Date(cliente.consenso_marketing_at).toLocaleDateString("it-IT")}
+                    {cliente.consenso_marketing_fonte === "prenotazione_online" && " dal cliente, prenotando online"}
+                    {cliente.consenso_marketing_fonte === "import" && " all'import della rubrica"}
+                    {cliente.consenso_marketing_fonte === "scheda" && " da questa scheda"}
+                    {cliente.consenso_marketing_fonte === "chat" && " in chat"}
+                  </>
+                )}
+                .
+              </span>
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
               Tag (separati da virgola)
               <input
                 type="text"

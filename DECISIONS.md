@@ -7061,3 +7061,36 @@ riga nuova, nome/email sui completamenti, "spunta tutti / nessuno". Il server ri
 riga come se arrivasse da zero, e rifà il confronto con la rubrica sulla forma canonica alla
 scrittura, non solo all'analisi: un numero corretto a mano può diventare quello di un cliente
 che c'è già, e il vincolo UNIQUE del database vede solo le stringhe identiche.
+
+## 2026-09-19 (pomeriggio) — Consenso marketing a tre stati, e chi manda cosa
+
+**Il problema.** Follow-up inattivi, auguri di compleanno e richiesta di recensione partivano
+verso chi aveva prenotato online senza aver mai detto sì a niente oltre la conferma. La
+conferma è esecuzione del contratto; "torna a trovarci" è marketing: consenso separato, non
+pre-spuntato, con data. Il salone è titolare, noi responsabili: se il primo cliente si lamenta
+lo fa contro entrambi.
+
+**Tre stati, non due.** `consenso_marketing` null/true/false (migrazione 0070). Null è "mai
+chiesto" e vale per tutti i clienti esistenti: non è un no. La distinzione decide chi riceve
+cosa:
+- auguri e follow-up inattivi: **solo true**. Sono promozionali puri, senza un servizio appena
+  reso a cui appoggiarsi;
+- richiesta di recensione dopo l'appuntamento: **anche null, mai false**. È il caso "soft spam"
+  dell'art. 130 c. 4 del Codice Privacy (comunicazioni a clienti esistenti su servizi analoghi,
+  con possibilità di opporsi). Il test lo fissa: false → `consenso_negato` prima ancora di
+  reclamare l'invio.
+
+**Dove si raccoglie.** Form pubblico (casella non pre-spuntata: false se lasciata vuota, ed è
+una risposta anche quella); import (il titolare dichiara "raccolto di persona", altrimenti
+null); scheda cliente (select, scritto solo se cambia, così data e provenienza restano quelle
+della risposta originale). La caparra passa il valore per `richieste_caparra` fino al webhook.
+**La chat AI non lo chiede**: farlo bene vuol dire una domanda in più in una conversazione che
+già fatica a restare corta, e un tool in più; i clienti da chat restano null (conferme e
+recensioni sì, auguri e follow-up no) finché il salone non lo registra dalla scheda. Da
+riprendere se i saloni lo chiedono.
+
+**Effetto sui saloni esistenti**: da oggi auguri e follow-up non partono più per nessuno
+finché non c'è un sì registrato. È voluto: prima partivano senza base giuridica.
+
+**30 letture assistite** su Free/Starter (erano 3): deciso da Gabriel dopo il report economico
+(`docs/economia-19-09-2026.md`), costo massimo 0,50 € per salone.

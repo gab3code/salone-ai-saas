@@ -47,6 +47,10 @@ export async function avvisaCompleanni(admin: ClientAdmin, tenant: TenantConComp
     .select("id, nome, email, telefono, data_nascita, compleanno_ultimo_anno_avvisato")
     .eq("tenant_id", tenant.id)
     .not("data_nascita", "is", null)
+    // Gli auguri sono marketing: partono SOLO a chi ha detto si' (migrazione
+    // 0070). NULL ("mai chiesto") non basta: qui non c'e' un servizio appena
+    // reso a cui appoggiarsi, e' un messaggio promozionale e basta.
+    .eq("consenso_marketing", true)
     .or("email.not.is.null,telefono.not.is.null");
 
   if (!clientiGrezzi || clientiGrezzi.length === 0) return 0;
