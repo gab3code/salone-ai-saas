@@ -99,3 +99,43 @@ export function trovaOrarioInventato(testo: string, consentiti: Set<string>): st
  */
 export const FRASE_ORARI_NON_VERIFICATI =
   "Scusa, non riesco a dirti gli orari liberi in questo momento. Dimmi di nuovo che giorno ti interesserebbe e li controllo.";
+
+/**
+ * Dire "siamo chiusi" o "non c'e' disponibilita'" e' un dato verificabile
+ * quanto un orario, e va trattato allo stesso modo.
+ *
+ * IL CASO VERO, 19/09/2026. Il cliente chiede "oggi invece?" e l'assistente
+ * risponde: "Oggi e' sabato 19 settembre, ma siamo chiusi oggi". Il salone
+ * quel sabato era APERTO dalle 07:00 alle 12:00. Il cliente ha dovuto
+ * contraddirlo per ottenere gli orari veri -- e un cliente vero non lo fa:
+ * legge "chiuso", chiude la chat e il salone perde una prenotazione senza
+ * sapere di averla persa.
+ *
+ * E' il danno piu' silenzioso di tutti. Un appuntamento inventato prima o poi
+ * qualcuno lo scopre; un cliente mandato via non lascia traccia da nessuna
+ * parte.
+ */
+const FRASI_CHIUSURA: RegExp[] = [
+  /\bsiamo\s+chius/i,
+  /\b(?:e'|è)\s+chiuso\b/i,
+  /\bil\s+salone\s+(?:e'|è)\s+chius/i,
+  /\bnon\s+(?:siamo|e'|è)\s+apert/i,
+  /\bnon\s+(?:c'e'|c'è|ci\s+sono)\s+(?:piu'\s+)?(?:disponibilit|posti?\b|orari\s+liber)/i,
+  /\bnon\s+ho\s+(?:piu'\s+)?(?:disponibilit|posti?\b|orari\s+liber|niente\s+liber)/i,
+  /\b(?:siamo|e'|è)\s+(?:tutto\s+)?pieno\b/i,
+];
+
+/** true se il testo afferma che il salone e' chiuso o che non c'e' posto. */
+export function dichiaraChiusuraOPieno(testo: string): boolean {
+  return FRASI_CHIUSURA.some((r) => r.test(testo));
+}
+
+/**
+ * Il problema da contestare, o null. Vale solo se in questo turno NESSUNO
+ * strumento ha guardato calendario o orari: se lo strumento e' stato
+ * chiamato, "siamo chiusi" e' una risposta legittima e va lasciata passare.
+ */
+export function trovaChiusuraNonVerificata(testo: string, haControllato: boolean): string | null {
+  if (haControllato || !dichiaraChiusuraOPieno(testo)) return null;
+  return `ATTENZIONE: hai detto al cliente che siamo chiusi o che non c'e' posto, ma in questo turno non hai chiamato nessuno strumento che l'abbia verificato. Se sbagli, quel cliente se ne va e non torna, e nessuno sapra' mai che e' successo. Chiama adesso verifica_disponibilita o info_orari e rispondi con quello che dicono.`;
+}

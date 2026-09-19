@@ -116,12 +116,34 @@ export function azioniDichiarate(testo: string): Set<AzioneAppuntamento> {
   return trovate;
 }
 
-/** true se il testo promette al cliente una mail. */
-export function prometteEmail(testo: string): boolean {
-  return /\b(?:mail|email|e-mail)\b[^.!?]{0,60}\b(?:conferma|riceverai|ricever[àa]|arriv|invia|mandiam|spedit)/i.test(
-    testo
-  ) || /\b(?:riceverai|ti\s+arriv\w*|ti\s+mandiamo|ti\s+inviamo)\b[^.!?]{0,40}\b(?:mail|email|e-mail)\b/i.test(testo);
+/**
+ * true se il testo promette al cliente un avviso: una mail, un SMS, un
+ * messaggio su WhatsApp.
+ *
+ * Copriva solo la mail fino al 19/09/2026, e il modello ha trovato il buco da
+ * solo: "Riceverai una conferma via SMS". Nessun SMS parte mai a una
+ * prenotazione -- gli SMS in questo progetto esistono solo per la lista
+ * d'attesa (vedi booking-engine.server.ts) -- quindi era la stessa bugia di
+ * prima con un'altra parola.
+ *
+ * La lezione, che vale oltre questo caso: un controllo che elenca **una**
+ * forma di una cosa viene aggirato dalla seconda. Se si vieta di promettere
+ * una mail che non parte, si sta vietando di promettere un AVVISO che non
+ * parte, e va scritto cosi'.
+ */
+export function prometteNotifica(testo: string): boolean {
+  const canale = "(?:mail|email|e-mail|sms|whatsapp|messaggio|notifica)";
+  const verbo = "(?:conferma|riceverai|ricever[àa]|arriv|invia|mandiam|spedit|avvis)";
+  return (
+    new RegExp(`\\b${canale}\\b[^.!?]{0,60}\\b${verbo}`, "i").test(testo) ||
+    new RegExp(`\\b(?:riceverai|ti\\s+arriv\\w*|ti\\s+mandiamo|ti\\s+inviamo|ti\\s+avvis\\w*)\\b[^.!?]{0,40}\\b${canale}\\b`, "i").test(
+      testo
+    )
+  );
 }
+
+/** Nome storico, tenuto perche' e' quello che dice il caso da cui nasce. */
+export const prometteEmail = prometteNotifica;
 
 export interface ContestoAzioni {
   /** Le azioni davvero riuscite in QUESTO turno, secondo i risultati degli strumenti. */
@@ -161,7 +183,7 @@ export function trovaAzioneNonAvvenuta(testo: string, ctx: ContestoAzioni): stri
     return `ATTENZIONE: hai detto che la prenotazione è confermata, ma questa attività richiede prima il pagamento della caparra: finché il cliente non paga, il posto NON è suo. Riscrivi il messaggio dicendo l'importo e dando il link di pagamento, senza mai usare la parola "confermata".`;
   }
 
-  if (prometteEmail(testo) && !ctx.emailDisponibile) {
+  if (prometteNotifica(testo) && !ctx.emailDisponibile) {
     return `ATTENZIONE: hai promesso al cliente una mail di conferma, ma non hai il suo indirizzo email -- quella mail non partirà mai. Riscrivi il messaggio senza nominare nessuna mail.`;
   }
 
@@ -183,7 +205,7 @@ export function trovaAzioneNonAvvenuta(testo: string, ctx: ContestoAzioni): stri
  */
 export function rimuoviPromessaEmail(testo: string): string {
   const frasi = testo.split(/(?<=[.!?])\s+/);
-  const tenute = frasi.filter((f) => !prometteEmail(f));
+  const tenute = frasi.filter((f) => !prometteNotifica(f));
   return tenute.join(" ").replace(/\s+\n/g, "\n").trim();
 }
 

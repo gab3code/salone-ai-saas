@@ -85,7 +85,24 @@ export default function FlussoPrenotazione({
   // senso (nessuno slot si libererà mai lì).
   const [giornoChiuso, setGiornoChiuso] = useState(false);
   const [slotScelto, setSlotScelto] = useState<SlotPubblico | null>(null);
+  /**
+   * NOME E COGNOME SEPARATI (19/09/2026, chiesto da Gabriel).
+   *
+   * Un campo solo "Nome e cognome" sembra la stessa cosa e non lo e': la
+   * gente ci scrive "Giulia" e basta, e in agenda il titolare si ritrova tre
+   * Giulia senza modo di distinguerle. Due campi obbligatori non sono una
+   * seccatura in piu' -- sono la differenza fra una rubrica che serve e una
+   * che confonde.
+   *
+   * Nel database resta UNA colonna `clienti.nome`, e i due campi si uniscono
+   * qui: separarla vorrebbe dire una migrazione di dati e toccare ogni punto
+   * che legge un nome, per un beneficio che si ottiene gia' cosi'. Se un
+   * giorno servira' davvero il cognome da solo (ordinare la rubrica per
+   * cognome, per esempio), allora la migrazione avra' un motivo vero.
+   */
   const [nome, setNome] = useState("");
+  const [cognome, setCognome] = useState("");
+  const nomeCompleto = `${nome.trim()} ${cognome.trim()}`.trim();
   const [telefono, setTelefono] = useState("");
   // Opzionale (Fase 6, Gruppo B-bis #1): se lasciata, il cliente riceve
   // un'email di conferma -- vedi src/lib/email/notifiche.server.ts.
@@ -148,8 +165,8 @@ export default function FlussoPrenotazione({
    */
   async function iscrivitiListaAttesa() {
     if (!servizioScelto) return;
-    if (!nome.trim() || !telefono.trim()) {
-      setErrore("Inserisci nome e telefono per iscriverti alla lista d'attesa.");
+    if (!nome.trim() || !cognome.trim() || !telefono.trim()) {
+      setErrore("Inserisci nome, cognome e telefono per iscriverti alla lista d'attesa.");
       return;
     }
     setErrore(null);
@@ -158,7 +175,7 @@ export default function FlussoPrenotazione({
       const risultato = await iscrivitiListaAttesaPubblico(slug, {
         servizioId: servizioScelto.id,
         dataPreferitaYMD: dataYMD,
-        clienteNome: nome,
+        clienteNome: nomeCompleto,
         clienteTelefono: telefono,
         clienteEmail: email.trim() || undefined,
         trappola,
@@ -185,7 +202,7 @@ export default function FlussoPrenotazione({
         servizioId: servizioScelto.id,
         operatoreId: slotScelto.operatoreId,
         inizioIso: slotScelto.inizioIso,
-        clienteNome: nome,
+        clienteNome: nomeCompleto,
         clienteTelefono: telefono,
         clienteEmail: email.trim() || undefined,
         trappola,
@@ -329,7 +346,14 @@ export default function FlussoPrenotazione({
                     type="text"
                     value={nome}
                     onChange={(e) => setNome(e.target.value)}
-                    placeholder="Nome e cognome"
+                    placeholder="Nome"
+                    className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={cognome}
+                    onChange={(e) => setCognome(e.target.value)}
+                    placeholder="Cognome"
                     className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
                   />
                   <input
@@ -400,17 +424,30 @@ export default function FlussoPrenotazione({
               prenotazione, da pagare online nel passo successivo.
             </p>
           )}
-          <label className="flex flex-col gap-1 text-sm">
-            Nome e cognome
-            <input
-              type="text"
-              required
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-              placeholder="Es. Giulia Bianchi"
-            />
-          </label>
+          <div className="flex gap-3">
+            <label className="flex flex-1 flex-col gap-1 text-sm">
+              Nome
+              <input
+                type="text"
+                required
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                placeholder="Es. Giulia"
+              />
+            </label>
+            <label className="flex flex-1 flex-col gap-1 text-sm">
+              Cognome
+              <input
+                type="text"
+                required
+                value={cognome}
+                onChange={(e) => setCognome(e.target.value)}
+                className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                placeholder="Es. Bianchi"
+              />
+            </label>
+          </div>
           <label className="flex flex-col gap-1 text-sm">
             Telefono
             <input

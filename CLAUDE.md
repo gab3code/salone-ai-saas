@@ -875,6 +875,41 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27untricies. Una `key` non sincronizza lo stato: lo butta via tutto (19/09/2026)
+
+Nel giro di un'ora, sulla stessa schermata, ho fatto un difetto e poi un difetto peggiore
+riparando il primo.
+
+1. La spunta della caparra tornava blu dopo averla tolta -- `useState` legge la prop del server
+   una volta sola (vedi 27tricies).
+2. Ho messo una `key` sul componente perche' si rimontasse a ogni salvataggio. Risolveva il
+   primo e ne creava uno peggiore: rimontando, il componente perdeva **tutto** lo stato,
+   compresa la conferma verde. Gabriel: *"se la tolgo compare a volte si e a volte no, se la
+   metto non compare proprio"*.
+
+**La lezione:** una `key` e' un'ascia, non un cacciavite. Rimonta il componente e azzera ogni
+stato che ha dentro, anche quello che non c'entra niente con il problema -- messaggi, campi in
+corso di compilazione, sezioni aperte. Va bene su un form che dopo il salvataggio deve tornare
+com'era (gli orari di `/dashboard/configura`), NON su un componente che deve dire qualcosa
+all'utente subito dopo.
+
+Il modo giusto di allineare lo stato a una prop che cambia e' aggiornarlo **durante il render**,
+confrontando con l'ultimo valore visto:
+
+```tsx
+const [ultimoDalServer, setUltimoDalServer] = useState(prop);
+if (ultimoDalServer.attiva !== prop.attiva) {
+  setUltimoDalServer(prop);
+  setAttiva(prop.attiva);
+}
+```
+
+Il componente resta montato, si aggiorna solo cio' che il server ha davvero cambiato, e il
+resto sopravvive.
+
+**E la cosa che avrei dovuto chiedermi prima di scrivere la key:** *cos'altro c'e' dentro questo
+componente che non voglio perdere?* Trenta secondi di domanda contro un difetto rilasciato.
+
 ## 27tricies. Uno `useState` inizializzato da una prop del server e' uno stato che mente (19/09/2026)
 
 Gabriel toglie la spunta alla caparra, salva, legge "Impostazioni salvate" -- e vede **la spunta

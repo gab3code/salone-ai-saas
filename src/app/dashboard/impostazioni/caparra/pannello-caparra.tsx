@@ -21,6 +21,45 @@ export function PannelloCaparra({ configurazioneIniziale }: { configurazioneIniz
   const [inCorso, setInCorso] = useState(false);
   const [messaggio, setMessaggio] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
 
+  /**
+   * ALLINEARSI AL SERVER SENZA RIMONTARSI, e perche' le due cose non sono
+   * la stessa.
+   *
+   * Il 19/09/2026 questo pannello ha avuto due difetti di fila, e il secondo
+   * l'ho causato riparando il primo.
+   *
+   * 1. La spunta tornava blu dopo averla tolta: `useState` legge la prop del
+   *    server una volta sola, quindi lo stato poteva restare disallineato da
+   *    quello che c'era davvero nel database.
+   * 2. Ho messo una `key` sul componente per farlo rimontare a ogni
+   *    salvataggio. Risolveva il primo e ne creava uno peggiore: rimontando,
+   *    il componente perdeva anche `messaggio`, cioe' **la conferma verde
+   *    spariva** -- a volte togliendo la caparra, sempre mettendola.
+   *
+   * Una `key` non e' un modo di sincronizzare lo stato: e' un modo di
+   * buttarlo via tutto, compreso quello che non c'entra.
+   *
+   * Qui invece si aggiorna durante il render solo cio' che il server ha
+   * davvero cambiato (e' il pattern React per "adjusting state when props
+   * change"): il componente resta montato, la conferma resta a schermo, e la
+   * prossima volta che la pagina si rigenera i campi dicono la verita'.
+   */
+  const [ultimoDalServer, setUltimoDalServer] = useState(configurazioneIniziale);
+  if (
+    ultimoDalServer.attiva !== configurazioneIniziale.attiva ||
+    ultimoDalServer.tipo !== configurazioneIniziale.tipo ||
+    ultimoDalServer.valore !== configurazioneIniziale.valore
+  ) {
+    setUltimoDalServer(configurazioneIniziale);
+    setAttiva(configurazioneIniziale.attiva);
+    setTipo(configurazioneIniziale.tipo);
+    setValore(
+      configurazioneIniziale.tipo === "fisso"
+        ? (configurazioneIniziale.valore / 100).toString()
+        : configurazioneIniziale.valore.toString()
+    );
+  }
+
   async function salva(formData: FormData) {
     setInCorso(true);
     setMessaggio(null);

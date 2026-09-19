@@ -48,17 +48,7 @@ export default async function PaginaCaparra() {
         </p>
       </div>
 
-      {/* La `key` costruita da cio' che e' SALVATO, stesso motivo e stesso
-          rimedio del form degli orari in /dashboard/configura: questo pannello
-          tiene il suo stato in `useState`, che si inizializza una volta sola.
-          Dopo un salvataggio la pagina si rigenera e i valori arrivano nuovi,
-          ma senza una key React riusa il componente e lo stato vecchio resta
-          -- ed e' cosi' che la spunta tornava blu dopo averla tolta
-          (segnalato da Gabriel il 19/09/2026). Con la key il componente si
-          rimonta esattamente quando cambia quello che c'e' nel database, e
-          mai per caso. */}
       <PannelloCaparra
-        key={`caparra:${tenantRes.data?.caparra_attiva ?? false}:${tenantRes.data?.caparra_tipo ?? "percentuale"}:${tenantRes.data?.caparra_valore ?? 20}`}
         configurazioneIniziale={{
           attiva: tenantRes.data?.caparra_attiva ?? false,
           tipo: (tenantRes.data?.caparra_tipo as "percentuale" | "fisso") ?? "percentuale",

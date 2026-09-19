@@ -327,12 +327,21 @@ export default async function PaginaCalendario({
                     <span>
                       <strong>{new Date(a.inizio).toISOString().slice(11, 16)}</strong>
                       {" – "}
-                      {new Date(a.fine).toISOString().slice(11, 16)} · {servizioNome ?? "servizio"} ·{" "}
+                      {new Date(a.fine).toISOString().slice(11, 16)} · {servizioNome ?? "servizio"}
+                      {/* "con" e "per" invece di due puntini (19/09/2026).
+                          Quando l'operatore e il cliente si chiamano allo
+                          stesso modo -- e in un salone piccolo capita, il
+                          titolare e' anche cliente di se' stesso -- la riga
+                          diceva "manicure · Gabriel · Gabriel" e non c'era
+                          modo di sapere quale dei due fosse chi. Due parole
+                          risolvono quello che nessuna punteggiatura puo'
+                          risolvere. */}
+                      {" con "}
                       {operatoreNome ?? "operatore"}
                       {cliente && (
                         <>
-                          {" · "}
-                          {cliente.nome || cliente.telefono}
+                          {" per "}
+                          <strong className="font-medium">{cliente.nome || cliente.telefono}</strong>
                         </>
                       )}
                     </span>

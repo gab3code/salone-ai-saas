@@ -195,6 +195,72 @@ describe("le bugie vere dell'assistente, rigiocate", () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
+  it("BUGIA 4 -- 'riceverai una conferma via SMS', e nessun SMS parte mai", async () => {
+    // Detta il 19/09 alle 01:04. Il controllo copriva solo la parola "mail":
+    // il modello ha trovato il buco da solo cambiando canale.
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce(
+        testoFinale("Prenotazione confermata per martedì alle 8:00. Riceverai una conferma via SMS. A presto!")
+      )
+      .mockResolvedValueOnce(testoFinale("Ti arriva un SMS di conferma."))
+      .mockResolvedValueOnce(testoFinale("Ti arriva un SMS di conferma."));
+
+    const risultato = await rispondiConversazione([], "Gabriel 3314823757", contesto(), {
+      messages: { create },
+    } as ClienteAnthropic);
+
+    expect(risultato.rispostaTesto).not.toMatch(/sms/i);
+  });
+
+  it("BUGIA 5 -- 'siamo chiusi oggi' senza aver guardato gli orari", async () => {
+    // Detta il 19/09: il salone quel sabato era aperto dalle 07:00 alle
+    // 12:00. E' il danno piu' silenzioso: un cliente mandato via non lascia
+    // traccia da nessuna parte.
+    let haGuardato = false;
+    const esegui = async (nome: NomeStrumento) => {
+      if (nome === "verifica_disponibilita") {
+        haGuardato = true;
+        return RISULTATO_DISPONIBILITA as unknown as Record<string, unknown>;
+      }
+      return {};
+    };
+
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce(testoFinale("Oggi è sabato 19 settembre, ma siamo chiusi oggi."))
+      .mockResolvedValueOnce(usoStrumento("verifica_disponibilita", { servizio_ids: ["s1"], data: "2026-09-22" }))
+      .mockResolvedValueOnce(testoFinale("Oggi ho libero:\nMattina: 08:00, 08:15"));
+
+    const risultato = await rispondiConversazione([], "oggi invece?", contesto(esegui), {
+      messages: { create },
+    } as ClienteAnthropic);
+
+    expect(haGuardato).toBe(true);
+    expect(risultato.rispostaTesto).not.toMatch(/chius/i);
+    expect(risultato.rispostaTesto).toContain("08:00");
+  });
+
+  it("IL CONTRARIO 3 -- 'siamo chiusi' DOPO aver guardato passa intatto", async () => {
+    const esegui = async () =>
+      ({ slot: [], tutti_gli_orari_liberi: [], quanti_in_tutto: 0, giorno_chiuso: true }) as unknown as Record<
+        string,
+        unknown
+      >;
+
+    const onesta = "Domenica siamo chiusi. Ti va bene lunedì?";
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce(usoStrumento("verifica_disponibilita", { servizio_ids: ["s1"], data: "2026-09-20" }))
+      .mockResolvedValueOnce(testoFinale(onesta));
+
+    const risultato = await rispondiConversazione([], "domenica?", contesto(esegui), {
+      messages: { create },
+    } as ClienteAnthropic);
+
+    expect(risultato.rispostaTesto).toBe(onesta);
+  });
+
   it("una risposta TRONCATA dal limite di token non arriva al cliente a meta'", async () => {
     const create = vi.fn().mockResolvedValueOnce({
       content: [{ type: "text", text: "Martedì ho libero alle 08:00, alle 08:15, alle 0" }],
