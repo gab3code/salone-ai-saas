@@ -48,6 +48,7 @@ export function PannelloNuovoAppuntamento({
   servizioIdsIniziali,
   operatoreIdIniziale,
   dataIniziale,
+  oggiYMD,
   giornoChiuso,
   motivoOperatori,
   provaAssistente,
@@ -58,6 +59,8 @@ export function PannelloNuovoAppuntamento({
   servizioIdsIniziali: string[];
   operatoreIdIniziale: string;
   dataIniziale: string;
+  /** Oggi nel fuso del salone (YYYY-MM-DD), per distinguere un giorno passato da uno pieno. */
+  oggiYMD: string;
   /** Il salone non apre in questo giorno: nessuna combinazione lo cambia. */
   giornoChiuso: boolean;
   /** Perche' nessun operatore puo' fare i servizi scelti, se e' il caso. */
@@ -128,6 +131,22 @@ export function PannelloNuovoAppuntamento({
    * di chi sa fare cosa non importa a nessuno.
    */
   function spiegazioneNessunoSlot(): ReactNode {
+    // PRIMA DI TUTTO IL RESTO: il giorno e' gia' passato (19/09/2026, trovato
+    // provando la schermata). Il motore smette giustamente di proporre orari
+    // passati, ma il messaggio diceva "la giornata e' gia' piena, o la durata
+    // non entra negli orari di apertura" -- due cose false, su un giorno in
+    // cui il salone era aperto e vuoto. E' lo stesso difetto del 18/09 (una
+    // spiegazione sbagliata manda a cercare dalla parte opposta), riaperto da
+    // una funzione nuova che il messaggio non conosceva.
+    if (dataIniziale < oggiYMD) {
+      return (
+        <>
+          Quel giorno è già passato: un appuntamento si può fissare solo da oggi in avanti. Scegli
+          un altro giorno qui sopra.
+        </>
+      );
+    }
+
     if (giornoChiuso) {
       return (
         <>
@@ -165,6 +184,15 @@ export function PannelloNuovoAppuntamento({
         <>
           Nessun operatore può fare tutti i servizi scelti di seguito: i servizi consecutivi restano
           sulla stessa persona. Togline uno, oppure prenotali separatamente.
+        </>
+      );
+    }
+
+    if (dataIniziale === oggiYMD) {
+      return (
+        <>
+          Per oggi non resta più niente: gli orari già passati non vengono proposti. Prova da domani
+          in avanti, o con meno servizi insieme.
         </>
       );
     }

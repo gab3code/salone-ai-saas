@@ -56,6 +56,20 @@ function oggiYMD(): string {
 }
 
 /**
+ * Il giorno di oggi NEL FUSO DEL SALONE, non in UTC.
+ *
+ * Serve per dire "quel giorno e' gia' passato" senza sbagliarlo di un giorno:
+ * alle 01:00 di Roma in UTC e' ancora ieri, e un messaggio che dice "e'
+ * passato" su un giorno che deve ancora arrivare sarebbe peggio di nessun
+ * messaggio. Dentro una funzione e non nel corpo del componente, come
+ * `oggiYMD` e `adessoMs` qui sopra: la regola di purezza di React vale anche
+ * per questa.
+ */
+function oggiNelFusoYMD(fuso: string): string {
+  return realeAPseudoUtc(new Date(), fuso).toISOString().slice(0, 10);
+}
+
+/**
  * L'istante di adesso, letto dentro una funzione e non nel corpo del
  * componente: la regola di purezza di React vieta una chiamata impura in
  * render (giustamente -- un valore che cambia a ogni riga renderebbe la
@@ -465,6 +479,7 @@ export default async function PaginaCalendario({
           servizioIdsIniziali={servizioIds}
           operatoreIdIniziale={operatoreId}
           dataIniziale={dataNuovoYMD}
+          oggiYMD={oggiNelFusoYMD(fusoOrario)}
           giornoChiuso={giornoChiusoDaPrenotare}
           motivoOperatori={motivoOperatori}
           provaAssistente={
