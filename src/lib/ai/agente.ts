@@ -85,14 +85,6 @@ export interface RisultatoConversazione {
   // chiama (route.ts) come proxy anti-abuso per "questo scambio riguardava
   // davvero una prenotazione", vedi limiti.ts e DECISIONS.md 14/09/2026.
   usoStrumenti: boolean;
-  // true se in QUESTO turno uno strumento che SCRIVE e' riuscito davvero:
-  // prenotazione creata, spostata, cancellata, o iscrizione alla lista
-  // d'attesa. Diverso da `usoStrumenti`, che e' vero anche solo guardando gli
-  // orari: qui e' successo qualcosa nel database. Serve a route.ts per
-  // azzerare il tetto anti-abuso -- una conversazione che ha prodotto una
-  // prenotazione non e' quella che il tetto deve fermare (19/09/2026, vedi
-  // limiti.ts).
-  azioneCompiuta: boolean;
 }
 
 const GIORNI_SETTIMANA_IT = [
@@ -667,8 +659,6 @@ export async function rispondiConversazione(
   // segnarsi senza sbagliare -- vedi trovaOrarioConfermatoSbagliato.
   let inizioPrenotato: string | null = null;
 
-  // Uno strumento che scrive e' riuscito in questo turno.
-  let azioneCompiuta = false;
   let emailDisponibile = false;
 
   // Il tool info_attivita esiste solo per i tenant con la knowledge base
@@ -745,7 +735,6 @@ export async function rispondiConversazione(
           }.`,
           trasferitoAUmano: false,
           usoStrumenti,
-          azioneCompiuta,
         };
       }
 
@@ -816,7 +805,7 @@ export async function rispondiConversazione(
       // sbagliata e' solo la frase. Quindi la frase la scriviamo noi, con la
       // data e l'ora che abbiamo passato allo strumento.
       if (testo && inizioPrenotato && trovaOrarioConfermatoSbagliato(testo, oraDiInizioPrenotata(inizioPrenotato))) {
-        return { rispostaTesto: confermaConOrarioVero(inizioPrenotato), trasferitoAUmano, usoStrumenti, azioneCompiuta };
+        return { rispostaTesto: confermaConOrarioVero(inizioPrenotato), trasferitoAUmano, usoStrumenti };
       }
 
       const testoCorretto = testo
@@ -842,7 +831,7 @@ export async function rispondiConversazione(
           )
         : testo;
 
-      return { rispostaTesto: testoCorretto || "Non sono riuscito a formulare una risposta.", trasferitoAUmano, usoStrumenti, azioneCompiuta };
+      return { rispostaTesto: testoCorretto || "Non sono riuscito a formulare una risposta.", trasferitoAUmano, usoStrumenti };
     }
 
     usoStrumenti = true;
@@ -883,16 +872,6 @@ export async function rispondiConversazione(
       }
       if (blocco.name === "cancella_prenotazione" && risultato.cancellato === true) azioniAvvenute.add("cancellata");
       if (blocco.name === "crea_prenotazione" && risultato.richiede_pagamento === true) inAttesaDiCaparra = true;
-      // Anche un link di pagamento della caparra e' "successo qualcosa": la
-      // riga in richieste_caparra c'e', la sessione Stripe pure, e al cliente
-      // servono ancora messaggi per arrivare in fondo. Non contarlo
-      // rifarebbe lo stesso difetto in un'altra forma -- tagliare proprio chi
-      // sta per pagare.
-      if (blocco.name === "crea_prenotazione" && risultato.richiede_pagamento === true) azioneCompiuta = true;
-      // La lista d'attesa non e' un appuntamento, ma e' comunque una riga
-      // scritta per un cliente vero: conta come "e' successo qualcosa".
-      if (blocco.name === "aggiungi_lista_attesa" && risultato.iscritto === true) azioneCompiuta = true;
-      if (azioniAvvenute.size > 0) azioneCompiuta = true;
       if (blocco.name === "verifica_disponibilita" || blocco.name === "info_orari") haControllatoDisponibilita = true;
 
       const inputStrumento = blocco.input as Record<string, unknown>;
@@ -929,6 +908,5 @@ export async function rispondiConversazione(
     }, ti aiutano subito.`,
     trasferitoAUmano: true,
     usoStrumenti: true, // per finire qui ogni iterazione ha per forza usato uno strumento
-    azioneCompiuta,
   };
 }

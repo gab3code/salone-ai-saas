@@ -23,10 +23,6 @@ export interface Conversazione {
   // Contatore anti-abuso (migrazione 0019, default 0 per ogni conversazione
   // nuova) -- vedi LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI in limiti.ts.
   turniSenzaToolConsecutivi: number;
-  // Messaggi del cliente da quando un'azione e' riuscita davvero (migrazione
-  // 0069). Vedi LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE in limiti.ts: il
-  // tetto conta da qui, non dall'inizio della chat.
-  messaggiClienteDaAzione: number;
 }
 
 export async function ottieniOCreaConversazione(
@@ -36,7 +32,7 @@ export async function ottieniOCreaConversazione(
 ): Promise<Conversazione> {
   const { data: esistente } = await supabase
     .from("conversazioni")
-    .select("id, stato, turni_senza_tool_consecutivi, messaggi_cliente_da_azione")
+    .select("id, stato, turni_senza_tool_consecutivi")
     .eq("tenant_id", tenantId)
     .eq("identificatore_sessione", identificatoreSessione)
     .eq("stato", "aperta")
@@ -56,21 +52,19 @@ export async function ottieniOCreaConversazione(
       id: esistente.id,
       stato: esistente.stato,
       turniSenzaToolConsecutivi: esistente.turni_senza_tool_consecutivi ?? 0,
-      messaggiClienteDaAzione: esistente.messaggi_cliente_da_azione ?? 0,
     };
   }
 
   const { data: nuova, error } = await supabase
     .from("conversazioni")
     .insert({ tenant_id: tenantId, canale: "web", identificatore_sessione: identificatoreSessione })
-    .select("id, stato, turni_senza_tool_consecutivi, messaggi_cliente_da_azione")
+    .select("id, stato, turni_senza_tool_consecutivi")
     .single();
   if (error) throw new Error(`Errore creando la conversazione: ${error.message}`);
   return {
     id: nuova.id,
     stato: nuova.stato,
     turniSenzaToolConsecutivi: nuova.turni_senza_tool_consecutivi ?? 0,
-    messaggiClienteDaAzione: nuova.messaggi_cliente_da_azione ?? 0,
   };
 }
 
@@ -165,26 +159,4 @@ export async function aggiornaTurniSenzaStrumenti(
     .update({ turni_senza_tool_consecutivi: nuovoValore })
     .eq("id", conversazioneId);
   if (error) console.error("Errore aggiornando il contatore anti-abuso:", conversazioneId, error);
-}
-
-/**
- * Il contatore dei messaggi del cliente dall'ultima azione riuscita.
- *
- * Si azzera quando uno strumento che scrive e' andato a buon fine, altrimenti
- * sale di uno. Stessa forma -- e stesso fail-open -- di
- * `aggiornaTurniSenzaStrumenti`: se questa scrittura fallisce, il turno del
- * cliente e' comunque riuscito e non deve morire per un contatore.
- */
-export async function aggiornaMessaggiDaAzione(
-  supabase: SupabaseClient,
-  conversazioneId: string,
-  azioneCompiuta: boolean,
-  valoreDopoQuestoMessaggio: number
-): Promise<void> {
-  const nuovoValore = azioneCompiuta ? 0 : valoreDopoQuestoMessaggio;
-  const { error } = await supabase
-    .from("conversazioni")
-    .update({ messaggi_cliente_da_azione: nuovoValore })
-    .eq("id", conversazioneId);
-  if (error) console.error("Errore aggiornando i messaggi dall'ultima azione:", conversazioneId, error);
 }

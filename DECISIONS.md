@@ -6706,45 +6706,44 @@ piu'.
 numero che avremo fra due settimane. Le strade 1 e 3 non richiedono quel numero ma cambiano il
 posizionamento, e quella e' una decisione di Gabriel, non mia.
 
-## 2026-09-19 — Il tetto dei messaggi conta dall'ultima azione, e sale da 15 a 30
+## 2026-09-19 — I due tetti della chat: 10 senza che succeda niente, 30 in tutto
 
-**Il caso.** Gabriel prenota davvero dalla chat (martedì 22 alle 17:00, appuntamento creato nel
-database), poi nella stessa conversazione scrive "ciao" e ne prenota una seconda. Al sedicesimo
-messaggio -- quello con nome, cognome e telefono, l'ultimo prima della conferma -- scatta il
-tetto anti-abuso e il cliente legge: *"Non riesco a risponderti oltre da qui. Puoi chiamare il
-02 99999999."*
+**Il caso.** Due conversazioni della stessa notte, tagliate tutte e due nel punto peggiore.
 
-**Decisione, due parti.**
+1. Gabriel prenota davvero dalla chat (martedì 22 alle 17:00), poi nella stessa conversazione ne
+   prenota una seconda: al sedicesimo messaggio -- nome, cognome e telefono, l'ultimo prima della
+   conferma -- scatta il tetto di 15 messaggi e legge *"Non riesco a risponderti oltre da qui"*.
+2. Prima ancora (conversazione `f5b5039c`), un flusso normale: "alle 8:00" → "Come ti chiami?",
+   "Gabriel" → "mi serve anche il cognome", "Mazzucchelli" → "E il numero?", il numero → riepilogo,
+   **"si" → tagliato**. Qui il colpevole era l'altro contatore, i 5 turni consecutivi senza
+   strumenti.
 
-1. **Il tetto per conversazione conta dall'ultima azione riuscita**, non dall'inizio della chat.
-   Ogni strumento che scrive e va a buon fine (crea/modifica/cancella prenotazione, lista
-   d'attesa, link di pagamento della caparra) azzera il contatore. Nuova colonna
-   `conversazioni.messaggi_cliente_da_azione` (migrazione 0069, applicata a produzione e
-   database di test il 19/09/2026).
-2. **Il numero sale da 15 a 30**, su indicazione di Gabriel ("ma sono pochi 15 messaggi").
-   Aggiunto un tetto assoluto di 80 messaggi sull'intera conversazione, che non si azzera mai.
+**Decisione (impostazione di Gabriel: "fai tipo 10 da quando non succede niente -- non usa alcuna
+funzione del codice e non richiama nulla che c'entra con il salone -- e 30 totali").**
 
-**Motivazione.** Il tetto esiste per fermare chi consuma quota senza prenotare niente: una
-conversazione che ha già prodotto una prenotazione è la prova del contrario. E il taglio arriva
-sempre nel punto peggiore, perché il messaggio con i dati personali è l'ultimo del flusso --
-cioè la difesa scatta esattamente quando la prenotazione sta per riuscire.
+- `LIMITE_TURNI_SENZA_STRUMENTI_CONSECUTIVI`: da **5 a 10**. Si azzera ogni volta che l'assistente
+  usa uno strumento vero (servizi, orari, agenda, prenotazione).
+- `LIMITE_MESSAGGI_CLIENTE_PER_CONVERSAZIONE`: da **15 a 30**, totale sull'intera conversazione,
+  e non si azzera mai.
 
-Sul numero, i conti danno ragione a Gabriel: col costo misurato il 19/09 (~$0,0079 a messaggio,
-dati veri di `usi_api_ai`) quindici messaggi sono 12 centesimi di dollaro, trenta ne sono 24, e
-una prenotazione persa vale al salone 30-60 euro. Quando il 15 fu scelto (14/09/2026) era
-l'unica difesa esistente: niente limiti per IP, quota Growth a 1.000 e non scalata sugli
-operatori. Oggi è il più grossolano di cinque strati, e il più grossolano deve essere il più
-largo.
+**Motivazione.** I due tetti avevano lo stesso difetto strutturale: **la parte finale di una
+prenotazione non chiama strumenti** (nome, cognome, telefono, "si" di conferma sono domande
+secche), quindi entrambi i contatori arrivavano al massimo proprio sulla conferma. Una difesa che
+sbaglia lì costa al salone la prenotazione, non a noi il messaggio. Sul numero: col costo misurato
+lo stesso giorno (~$0,0079 a messaggio su dati veri di `usi_api_ai`) trenta messaggi sono 24
+centesimi di dollaro contro una prenotazione da 30-60 euro, e i 15 erano stati scelti quando questo
+era l'unico strato di difesa esistente -- oggi davanti ci sono anche i limiti per IP, l'anti-burst
+e la quota mensile che scala sugli operatori.
 
-**Alternative considerate.** Lasciare 15 e azzerare soltanto (scartata: un cliente indeciso che
-chiede prezzi e cambia giorno due volte arriva a 15 prima di prenotare, e viene tagliato senza
-aver mai fatto niente di male). Togliere del tutto il tetto per conversazione (scartata: senza
-un muro assoluto, azzerare creando e cancellando diventa il modo di aggirare la difesa).
+**Alternative considerate e scartate.** Un terzo contatore, "messaggi dall'ultima azione riuscita"
+(prenotazione creata/spostata/cancellata), con colonna dedicata: **l'avevo costruito e poi tolto
+la stessa notte**, colonna compresa. Lo schema di Gabriel fa la stessa cosa con un contatore che
+esisteva già -- azzerarsi quando l'assistente usa uno strumento è una condizione più larga e più
+giusta di "ha scritto nel database" -- e in più sistemava il difetto del "si", che il mio non
+toccava. Due contatori che fanno quasi la stessa cosa sono peggio di uno tarato bene.
 
-**Costo accettato.** Una conversazione abusiva può ora costare fino a ~$0,63 invece di ~$0,12
-prima che scatti il muro assoluto. Restano davanti gli altri quattro strati: anti-burst, tre
-turni consecutivi senza strumenti, limiti per IP (non aggirabili dal client) e quota mensile del
-tenant.
+**Costo accettato.** Una conversazione abusiva può costare fino a ~$0,24 (30 messaggi) invece di
+~$0,12. Restano davanti gli altri quattro strati.
 
 ## 2026-09-19 — Il tono dell'AI si insegna con gli esempi, non con gli aggettivi
 

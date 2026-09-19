@@ -48,7 +48,6 @@ describe("rispondiConversazione", () => {
       rispostaTesto: "Ciao! Come posso aiutarti?",
       trasferitoAUmano: false,
       usoStrumenti: false,
-      azioneCompiuta: false,
     });
     expect(create).toHaveBeenCalledTimes(1);
   });

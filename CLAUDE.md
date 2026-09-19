@@ -1166,6 +1166,20 @@ numero di messaggi scatta con la probabilita' piu' alta proprio quando la prenot
 riuscire. **Quando progetti un limite, chiediti non "a quale numero scatta" ma "su quale
 messaggio scatta piu' spesso".**
 
+**Il terzo, scoperto un'ora dopo:** i tetti erano due, e avevano lo stesso difetto. La parte
+finale di una prenotazione -- nome, cognome, telefono, "si" -- non chiama nessuno strumento, quindi
+anche il contatore dei turni senza strumenti arrivava al massimo esattamente sulla conferma. Ne
+avevo corretto uno e lasciato l'altro identico. **Quando trovi il difetto di una difesa, guarda se
+le difese sorelle hanno lo stesso**: due contatori scritti dalla stessa mano sbagliano allo stesso
+modo.
+
+E c'e' una coda che vale piu' della correzione. La mia prima cura era un TERZO contatore con una
+colonna nuova nel database; Gabriel ha proposto invece di allargare quello che c'era gia'. Aveva
+ragione: azzerarsi quando l'assistente usa uno strumento e' piu' largo e piu' giusto di azzerarsi
+quando scrive nel database, copriva anche il caso del "si", e non aggiungeva niente da mantenere.
+Ho tolto colonna, migrazione e codice la stessa notte. **Prima di aggiungere un contatore, guarda
+se quello che c'e' gia' e' solo tarato male.**
+
 E il numero: 15 era stato scelto quando era l'unica difesa esistente. Poi sono arrivati i limiti
 per IP, i tre turni senza strumenti, l'anti-burst e la quota che scala sugli operatori -- e
 nessuno ha rialzato quel numero, che nel frattempo era diventato il piu' grossolano dei cinque

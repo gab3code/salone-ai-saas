@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { creaSupabaseFinto } from "@/test/supabase-finto";
-import { ottieniOCreaConversazione, aggiornaTurniSenzaStrumenti,
-  aggiornaMessaggiDaAzione,
-} from "./conversazione.server";
+import { ottieniOCreaConversazione, aggiornaTurniSenzaStrumenti } from "./conversazione.server";
 
 describe("ottieniOCreaConversazione", () => {
   it("espone turniSenzaToolConsecutivi di una conversazione esistente (0019)", async () => {
@@ -18,7 +16,7 @@ describe("ottieniOCreaConversazione", () => {
 
     const conversazione = await ottieniOCreaConversazione(supabase, "tenant-1", "sessione-1");
 
-    expect(conversazione).toEqual({ id: "conv-1", stato: "aperta", turniSenzaToolConsecutivi: 2, messaggiClienteDaAzione: 0 });
+    expect(conversazione).toEqual({ id: "conv-1", stato: "aperta", turniSenzaToolConsecutivi: 2 });
   });
 
   it("tratta come nuova una conversazione 'aperta' ma inattiva da troppo tempo (15/09/2026)", async () => {
@@ -34,7 +32,7 @@ describe("ottieniOCreaConversazione", () => {
     const conversazione = await ottieniOCreaConversazione(supabase, "tenant-1", "sessione-vecchia");
 
     // Non riusa conv-vecchia (col contatore anti-abuso già a 3): ne crea una pulita.
-    expect(conversazione).toEqual({ id: "conv-nuova", stato: "aperta", turniSenzaToolConsecutivi: 0, messaggiClienteDaAzione: 0 });
+    expect(conversazione).toEqual({ id: "conv-nuova", stato: "aperta", turniSenzaToolConsecutivi: 0 });
   });
 
   it("una conversazione appena creata parte da turniSenzaToolConsecutivi 0", async () => {
@@ -47,7 +45,7 @@ describe("ottieniOCreaConversazione", () => {
 
     const conversazione = await ottieniOCreaConversazione(supabase, "tenant-1", "sessione-2");
 
-    expect(conversazione).toEqual({ id: "conv-nuova", stato: "aperta", turniSenzaToolConsecutivi: 0, messaggiClienteDaAzione: 0 });
+    expect(conversazione).toEqual({ id: "conv-nuova", stato: "aperta", turniSenzaToolConsecutivi: 0 });
   });
 });
 
@@ -78,32 +76,5 @@ describe("aggiornaTurniSenzaStrumenti", () => {
     });
 
     await expect(aggiornaTurniSenzaStrumenti(supabase, "conv-1", false, 0)).resolves.toBeUndefined();
-  });
-});
-
-describe("aggiornaMessaggiDaAzione (19/09/2026)", () => {
-  function supabaseCheRegistra() {
-    const scritture: Record<string, unknown>[] = [];
-    const supabase = {
-      from: () => ({
-        update: (valori: Record<string, unknown>) => {
-          scritture.push(valori);
-          return { eq: async () => ({ error: null }) };
-        },
-      }),
-    } as unknown as Parameters<typeof aggiornaMessaggiDaAzione>[0];
-    return { supabase, scritture };
-  }
-
-  it("azzera il contatore quando un'azione e' riuscita davvero", async () => {
-    const { supabase, scritture } = supabaseCheRegistra();
-    await aggiornaMessaggiDaAzione(supabase, "conv-1", true, 16);
-    expect(scritture[0]).toEqual({ messaggi_cliente_da_azione: 0 });
-  });
-
-  it("altrimenti tiene il conto del messaggio appena arrivato", async () => {
-    const { supabase, scritture } = supabaseCheRegistra();
-    await aggiornaMessaggiDaAzione(supabase, "conv-1", false, 7);
-    expect(scritture[0]).toEqual({ messaggi_cliente_da_azione: 7 });
   });
 });
