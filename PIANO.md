@@ -2825,6 +2825,73 @@ lavorano davvero i primi clienti, o serve Stripe Connect, sta qui.**
       Se i primi clienti arrivano da li' invece che da parrucchieri ed estetiste, questa voce
       sale parecchio. Resta comunque dopo Connect.
 
+## Fase 6quater -- Pre-UI: i consigli di prodotto fuori dalle fasi (creata il 19/09/2026)
+
+Nata dalla richiesta di Gabriel del 19/09 ("dammi anche consigli su modifiche al prodotto che
+ancora non ci sono nelle fasi preparate" e poi "mettili in una fase pre UI"). Va PRIMA della
+Fase 7 perche' ogni voce qui cambia cosa c'e' da disegnare: rifare l'interfaccia e poi
+aggiungere pezzi vuol dire disegnarla due volte. I numeri economici che giustificano le voci
+sono in `docs/economia-19-09-2026.md`. Ordine = priorita'. Tutte da confermare da Gabriel.
+
+- [ ] **Fattura elettronica automatica da Stripe.** Ogni incasso di un forfettario e' una
+      fattura elettronica via SDI entro 12 giorni (bollo 2 € sopra 77,47 €). Con 25 clienti
+      sono 25 fatture al mese, con 80 sono 80: a mano non regge oltre il decimo cliente. Il
+      webhook `invoice.paid` chiama l'API di Fatture in Cloud (o del gestionale del
+      commercialista) con i dati di fatturazione gia' raccolti prima del pagamento. **E' la
+      voce piu' urgente di questa fase perche' e' l'unica che, se manca, e' una violazione
+      fiscale e non una funzione in meno.** Dipende dall'apertura della P.IVA.
+
+- [ ] **Letture assistite dell'import: 30 a vita su Free e Starter** (oggi 3). Una foto = una
+      lettura; con 3 non si importa un quaderno. Costo massimo 0,50 € per salone, una volta.
+      Una costante e due messaggi. (Decisione di prezzo: tua.)
+
+- [ ] **Consenso marketing raccolto alla prenotazione.** Oggi il follow-up, gli auguri di
+      compleanno e le recensioni scrivono a clienti che hanno prenotato online senza aver mai
+      detto si' a niente oltre la conferma dell'appuntamento. Il GDPR distingue: la conferma
+      e' esecuzione del contratto, il "torna a trovarci" e' marketing e vuole un consenso
+      separato, non pre-spuntato, registrato con data. Una casella nel form pubblico e nella
+      chat ("Posso scriverti ogni tanto per promozioni? si'/no"), un campo `consenso_marketing`
+      con data sulla scheda, e i tre invii marketing che lo rispettano. Senza questo, il primo
+      cliente che si lamenta al Garante lo fa contro il salone E contro di noi.
+
+- [ ] **"Prenota il prossimo": la ricorrenza proposta a fine appuntamento.** La nota
+      "colore ogni 5 settimane" che l'import legge dall'agenda e' la leva di fidelizzazione
+      piu' forte del settore: un salone vive di clienti che tornano a cadenza. Quando un
+      appuntamento passa a "completato", il follow-up (email o assistente) propone il
+      prossimo alla cadenza tipica di quel servizio per quel cliente ("Ti tengo il posto fra
+      5 settimane, martedi' 28 alle 9?"), con un link che prenota in un clic. Cadenza:
+      configurabile per servizio, con override sulla scheda cliente. Dipende dal consenso
+      sopra (e' marketing).
+
+- [ ] **Caparra selettiva: solo per chi ha gia' saltato.** Chiedere la caparra a tutti frena
+      le prenotazioni dei clienti buoni; non chiederla a nessuno espone ai furbi. La via di
+      mezzo che i saloni usano gia' a mano: caparra obbligatoria dal secondo no-show. Un
+      contatore `no_show` sulla scheda (gia' derivabile dagli appuntamenti con stato
+      "non presentato"), una regola nelle impostazioni caparra ("a tutti / solo dopo N
+      no-show / mai"), e il motore pubblico che la applica in base al telefono. Dipende da
+      Stripe Connect per i soldi veri, ma la regola e il contatore si costruiscono prima.
+
+- [ ] **Avviso al titolare all'80% della quota AI, e vista admin "costo per tenant".** Con
+      il costo per messaggio misurato (0,0079 $) la quota piena di Growth vale 26 € su 49 e
+      quella di Pro 92 € su 120: non una perdita, ma da vedere arrivare. Un'email al titolare
+      all'80% ("l'assistente sta per fermarsi, ecco cosa fare") e, per Gabriel, una tabella
+      in /admin con incasso, costo AI+SMS e margine per tenant, dalla tabella `usi_api_ai`
+      che gia' esiste.
+
+- [ ] **Piano annuale: 10 mesi al prezzo di 12** su Growth e Pro. Cassa subito, churn
+      dimezzato (chi paga l'anno non disdice al terzo mese), meno commissioni fisse Stripe
+      (0,25 € una volta invece di dodici). Un Price in piu' su Stripe e un toggle in
+      Prezzi.tsx e nella pagina di attivazione. (Decisione di prezzo: tua.)
+
+- [ ] **Widget incorporabile.** Oggi la prenotazione e la chat vivono solo su
+      `/s/[slug]`; un salone con un sito suo (o un link in bio) deve mandare via i clienti.
+      Uno `<script>` di una riga (o un iframe) che apre la stessa pagina pubblica in un
+      pannello sul sito del salone. Zero nuova logica: e' la pagina che c'e', incorniciata.
+      Dopo il consenso e la fattura, perche' vende ma non protegge.
+
+- [ ] **Import: HEIC dell'iPhone su desktop, e piu' di 10 pagine per giro.** Piccole,
+      rimandate finche' non le chiede qualcuno.
+
 ## Fase 7 -- Parità/superiorità estetica con Estetia, responsive completo (punti 25, 26, 27, 28)
 Non "una rifinitura", un obiettivo a sé con criteri precisi -- perché sia davvero "fatto" e non
 "abbastanza carino":
