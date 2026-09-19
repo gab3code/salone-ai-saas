@@ -73,6 +73,12 @@ vuoti. Resta la foto dell'agenda, che aspetta una decisione. Tetto per indirizzo
 pubblico di prenotazione, per salone (CGNAT). La bozza di onboarding ora registra il proprio
 costo. Migrazione 0069 applicata a test e produzione. 1189 test.
 
+**Terzo giro.** La conferma email al cliente porta l'evento `.ics` (anti no-show a costo zero).
+Uno spostamento non puo' piu' finire nel passato (il controllo c'era solo in creazione).
+Onboarding, follow-up e report ora registrano il costo AI come la chat: `npm run costi-ai`
+vede tutti i canali. Scartato l'assistente multilingua: le reti anti-bugia sono in italiano e
+vanno estese prima. 1197 test.
+
 **Documento nuovo**: `docs/prompt-agente-autonomo.md`, il prompt da dare a un altro agente per
 una sessione autonoma, con i limiti scritti.
 
