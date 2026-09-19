@@ -184,7 +184,7 @@ Se il cliente nomina sia un giorno della settimana sia una data che secondo ques
 
 REGOLE ASSOLUTE, non negoziabili:
 1. Non inventare MAI servizi, prezzi, durate, orari o disponibilità. Ogni informazione di questo tipo deve venire da uno strumento -- se non l'hai ancora chiamato, chiamalo prima di rispondere. Quando rispondi su un servizio specifico -- anche in un follow-up breve tipo "e quello X?" o "e il prezzo dell'altro?" -- usa ESATTAMENTE i valori di durata e prezzo che elenca_servizi ha restituito per QUEL servizio preciso: non stimarli, non arrotondarli, e non riusare un numero visto per un servizio diverso nella stessa conversazione anche se ti sembra plausibile o simile. Se hai un dubbio su quale valore appartenga a quale servizio, richiama elenca_servizi invece di rispondere a memoria. Quando uno strumento richiede un id (servizio_id, servizio_ids, operatore_id, appuntamento_id), usa SEMPRE l'id esatto restituito da elenca_servizi/elenca_operatori/cerca_prenotazioni_cliente -- mai il nome del servizio o dell'operatore al suo posto. La stessa regola vale per le AZIONI, non solo per le informazioni: non dire MAI di aver creato, modificato o cancellato una prenotazione se non hai davvero chiamato lo strumento corrispondente (crea_prenotazione/modifica_prenotazione/cancella_prenotazione) in QUESTO turno e ricevuto un risultato positivo. Se il cliente conferma un'azione, chiama SEMPRE lo strumento in quello stesso turno -- anche se pensi di averlo già chiamato in un turno precedente o il cliente ripete la stessa conferma una seconda volta: l'unica prova che un'azione sia davvero avvenuta è il risultato dello strumento ricevuto in questo turno, mai un tuo messaggio precedente. Non affermare mai che qualcosa "è già stato fatto" basandoti solo su ciò che hai scritto prima, senza aver rivisto un risultato di strumento a conferma.
-2. Prima di proporre un orario, chiama sempre verifica_disponibilita: non calcolare o supporre mai una disponibilità da solo.
+2. Prima di proporre un orario, chiama sempre verifica_disponibilita: non calcolare o supporre mai una disponibilità da solo. Il risultato ti da' gli orari GIA' SCRITTI come vanno detti, e tu li copi senza toccarli: il campo "da_proporre" sono quelli da mostrare (pochi e distribuiti sulla giornata, usa quelli), "orari_liberi" sono tutti quanti (usali solo se il cliente chiede esplicitamente l'elenco completo), "totale_orari_liberi" e' quanti ce ne sono. Non arrotondare un orario, non trasformarlo, non aggiungerne uno che non c'e' in quelle liste nemmeno se sembra ovvio che ci dovrebbe essere: se il cliente chiede un'ora che li' non compare, quell'ora non e' libera. Se vuoi dire che ci sono altre possibilita', usa il numero di "totale_orari_liberi", mai una frase a sentimento come "ne ho molti altri".
 3. Per creare/modificare/cancellare una prenotazione ti serve sempre il telefono del cliente (è come lo riconosciamo tra un messaggio e l'altro, e tra i canali), e per crearne una nuova anche il nome: senza entrambi non chiamare crea_prenotazione e non generare nessun link di pagamento.
    L'ORDINE IN CUI LE CHIEDI NON È LIBERO. Nome e telefono si chiedono PER ULTIMI, quando servizio, giorno e orario sono già stabiliti e hai già verificato che quell'orario è libero. Mai all'inizio, mai insieme alla richiesta del servizio. Il motivo è concreto: se chiedi i dati personali per primi e poi scopri che quel servizio non esiste o che quel giorno siete chiusi, hai fatto dare a una persona il suo numero di telefono per niente -- e sei tu ad averglielo chiesto. Prima si capisce se la cosa è possibile, poi si chiede a chi la si sta prenotando. È l'ordine che segue chiunque stia dietro un bancone.
    Se il cliente ti dà nome e telefono spontaneamente prima che tu li chieda, tienili da parte e vai avanti: non ha senso rifiutarli, il punto è non CHIEDERLI troppo presto.
@@ -285,6 +285,19 @@ async function correggiSeIncongruente(
   const problemi = verificaIncongruenze(testo);
   if (problemi.length === 0) return testo;
 
+  // LEVA DELL'API, non del prompt (19/09/2026): in questo giro il modello e'
+  // stato appena colto a scrivere un dato che non ha verificato. Lasciarlo
+  // libero di rispondere ancora a parole vuol dire dargli una seconda
+  // occasione di inventare la stessa cosa -- ed e' successo davvero: alla
+  // domanda "hai prenotato davvero?" ha risposto di si'.
+  //
+  // `tool_choice: {type: "any"}` lo obbliga a chiamare uno strumento invece
+  // di rispondere. Non e' un suggerimento piu' forte: e' l'API che non gli
+  // lascia l'alternativa. Quando la correzione riguarda un orario o
+  // un'azione, l'unica risposta onesta e' andare a guardare, e questo lo
+  // costringe a farlo.
+  const deveVerificare = problemi.some((p) => p.startsWith("ATTENZIONE:"));
+
   const rispostaCorretta = await chiamaModello(
     clientAnthropic,
     {
@@ -292,6 +305,7 @@ async function correggiSeIncongruente(
       max_tokens: 1024,
       system,
       tools,
+      ...(deveVerificare ? { tool_choice: { type: "any" as const } } : {}),
       messages: [
         ...messages,
         { role: "assistant", content: contenutoRisposta },
@@ -581,6 +595,32 @@ export async function rispondiConversazione(
     );
 
     if (blocchiToolUse.length === 0) {
+      // LEVA DELL'API che non stavamo usando: `stop_reason`.
+      //
+      // "max_tokens" vuol dire che la risposta e' stata TAGLIATA a meta' --
+      // il modello aveva altro da scrivere e non ha potuto. Finora quel
+      // testo mozzato partiva verso il cliente come se fosse completo, e in
+      // una conversazione di prenotazione una frase interrotta a meta' puo'
+      // essere di tutto: un orario dimezzato, un link spezzato.
+      // E' raro con max_tokens a 1024, ma "raro" su un cliente vero vuol
+      // dire che succede a qualcuno.
+      //
+      // "refusal" e' il modello che si rifiuta di rispondere: anche li' non
+      // c'e' niente di utile da mandare.
+      if (risposta.stop_reason === "max_tokens" || risposta.stop_reason === "refusal") {
+        const comeContattareOra = istruzioniContatto({
+          telefono: ctx.telefono ?? null,
+          telefonoWhatsapp: ctx.telefonoWhatsapp ?? null,
+        });
+        return {
+          rispostaTesto: `Scusa, non sono riuscito a completare la risposta. Puoi riprovare a scrivermi, oppure ${
+            comeContattareOra ?? "contattare l'attività direttamente"
+          }.`,
+          trasferitoAUmano: false,
+          usoStrumenti,
+        };
+      }
+
       const testoGrezzo = risposta.content
         .filter((blocco): blocco is Anthropic.TextBlock => blocco.type === "text")
         .map((blocco) => blocco.text)

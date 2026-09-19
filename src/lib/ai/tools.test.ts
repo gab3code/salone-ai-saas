@@ -409,7 +409,14 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
       { supabase, tenantId: TENANT_ID }
     );
 
-    expect(risultato).toEqual({ slot: [], giorno_chiuso: true, giorno_settimana_richiesto: "domenica" });
+    expect(risultato).toEqual({
+      slot: [],
+      orari_liberi: [],
+      da_proporre: [],
+      totale_orari_liberi: 0,
+      giorno_chiuso: true,
+      giorno_settimana_richiesto: "domenica",
+    });
   });
 
   it("giorno aperto ma senza operatori compatibili: slot vuoto e giorno_chiuso false", async () => {
@@ -438,7 +445,14 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
       { supabase, tenantId: TENANT_ID }
     );
 
-    expect(risultato).toEqual({ slot: [], giorno_chiuso: false, giorno_settimana_richiesto: "domenica" });
+    expect(risultato).toEqual({
+      slot: [],
+      orari_liberi: [],
+      da_proporre: [],
+      totale_orari_liberi: 0,
+      giorno_chiuso: false,
+      giorno_settimana_richiesto: "domenica",
+    });
   });
 
   it("restituisce giorno_settimana_richiesto calcolato dalla data passata, non da 'oggi' (bug trovato dal vivo 15/09/2026, vedi giorni-settimana.test.ts)", async () => {
@@ -465,7 +479,14 @@ describe("eseguiStrumento -- verifica_disponibilita inoltra giorno_chiuso (Fase 
       { supabase, tenantId: TENANT_ID }
     );
 
-    expect(risultato).toEqual({ slot: [], giorno_chiuso: true, giorno_settimana_richiesto: "sabato" });
+    expect(risultato).toEqual({
+      slot: [],
+      orari_liberi: [],
+      da_proporre: [],
+      totale_orari_liberi: 0,
+      giorno_chiuso: true,
+      giorno_settimana_richiesto: "sabato",
+    });
   });
 });
 

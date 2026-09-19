@@ -1,4 +1,5 @@
 import "server-only";
+import { preparaOrariPerIlModello } from "./proposta-orari";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   trovaSlotEStatoGiornoTenant,
@@ -425,10 +426,23 @@ async function eseguiStrumentoInterno(
         servizioIds: servizioIds as string[],
         operatoreId: typeof input.operatore_id === "string" ? input.operatore_id : undefined,
       });
+      // Gli orari arrivano al modello GIA' PRONTI DA SCRIVERE, non come
+      // timestamp da riformattare: vedi proposta-orari.ts per il caso vero
+      // che ha portato a questa scelta (quaranta slot ISO, e il modello che
+      // se li riassume inventando una lista che comprendeva la pausa
+      // pranzo). Ogni trasformazione chiesta al modello e' un'occasione di
+      // sbagliare, e quella gliel'avevamo creata noi.
+      //
+      // `fine` non c'e' piu': il modello non l'ha mai usata (la durata la
+      // sa dal servizio) e quaranta timestamp in piu' erano solo contesto da
+      // pagare a ogni chiamata successiva del turno.
+      const perIlModello = preparaOrariPerIlModello(
+        slot.map((s) => ({ inizio: s.inizio.toISOString(), operatoreId: s.operatoreId }))
+      );
       return {
+        ...perIlModello,
         slot: slot.map((s) => ({
           inizio: s.inizio.toISOString(),
-          fine: s.fine.toISOString(),
           operatore_id: s.operatoreId,
         })),
         giorno_chiuso: giornoChiuso,

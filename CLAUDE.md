@@ -875,6 +875,58 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27duodetricies. Ogni trasformazione che chiedi al modello e' un posto dove puo' sbagliare (19/09/2026)
+
+`verifica_disponibilita` restituiva quaranta slot come timestamp ISO. Nessuno ne mostra quaranta
+in una chat, quindi il modello faceva l'unica cosa che poteva: li riassumeva. E riassumendo ha
+scritto una lista oraria tonda che nello strumento non c'era, e al giro dopo un'altra con dentro
+la pausa pranzo.
+
+**La tentazione e' dire che ha sbagliato il modello. Ma il compito gliel'avevamo dato noi**, e
+conteneva tre trasformazioni implicite: formattare un ISO in "8:00", scegliere quali mostrare,
+accorciare una lista lunga. Tre occasioni di inventare, tutte create da noi.
+
+Adesso lo strumento restituisce `orari_liberi` (tutti, gia' come "HH:MM"), `da_proporre` (sei,
+distribuiti sulla giornata) e `totale_orari_liberi`. Il modello copia e mette intorno una frase.
+
+**La regola generale, che vale oltre questo caso:** quando un modello sbaglia su un dato,
+prima di rinforzare l'istruzione chiediti quale trasformazione gli stai chiedendo di fare -- e
+falla tu. Il modello e' bravo a scrivere in italiano, non a riformattare timestamp: dargli il
+lavoro sbagliato e poi correggerlo a colpi di prompt e' sprecare due volte.
+
+**Il corollario sulla selezione**, che sembra un dettaglio e non lo e': i primi sei orari di una
+giornata con passo 15 sono 08:00, 08:15, 08:30, 08:45, 09:00, 09:15 -- un'ora e un quarto di
+mattina presto, che per un cliente equivale a non avere scelta. Sei orari distribuiti
+rispondono alla domanda vera, che non e' "quali sono i primi" ma "a che ora posso venire". Primo
+e ultimo ci sono sempre: servono a chi ha fretta e a chi stacca tardi, i due che una selezione
+centrata taglierebbe fuori entrambi.
+
+## 27undetricies. Le leve dell'API si leggono, non si indovinano (19/09/2026)
+
+Chiamavamo `messages.create` passando model, max_tokens, system, tools e messages. Nient'altro,
+mai, da quando esiste il progetto. Controllando i tipi dell'SDK installato (non la memoria, non
+una ricerca generica) sono uscite tre cose:
+
+1. **`temperature` e' DEPRECATO.** L'SDK dice che i modelli usciti dopo Opus 4.6 non lo
+   supportano piu' e accettano solo 1.0. Era la prima leva a cui avrei pensato per un assistente
+   che deve essere preciso, ed e' la strada sbagliata. Verificarlo e' costato trenta secondi;
+   darlo per scontato sarebbe costato un rilascio.
+
+2. **`tool_choice: {type: "any"}` obbliga il modello a chiamare uno strumento.** Ora lo usiamo
+   nel giro di autocorrezione: quando il modello e' stato appena colto a scrivere un dato che
+   non ha verificato, lasciarlo libero di rispondere ancora a parole gli da' una seconda
+   occasione di inventare la stessa cosa -- ed e' successo davvero ("hai prenotato davvero?" ->
+   "si'"). Non e' un'istruzione piu' forte: e' l'API che non gli lascia l'alternativa.
+
+3. **`stop_reason` non lo guardavamo.** `max_tokens` vuol dire risposta tagliata a meta', e
+   quel testo mozzato partiva verso il cliente come se fosse completo. `refusal` idem. Raro, ma
+   "raro" su un cliente vero vuol dire che capita a qualcuno.
+
+**La regola:** prima di combattere il comportamento di un modello con il prompt, leggere cosa
+offre l'API. Un vincolo imposto dal protocollo vale piu' di qualunque frase in maiuscolo, e il
+tipo dell'SDK installato e' la fonte piu' affidabile che ci sia -- piu' della documentazione
+online, che puo' riferirsi a un'altra versione.
+
 ## 27septvicies. Un'istruzione categorica ignorata tre volte non va riscritta: va verificata (19/09/2026)
 
 La REGOLA ASSOLUTA 1 del prompt dice, parola per parola, di non dire mai di aver creato una
