@@ -202,10 +202,22 @@ function pulisci(valore: unknown, max: number): string | null {
  * Le voci non proposte non spariscono: tornano come "non lette", con la
  * trascrizione, cosi' si aggiungono a mano guardando la foto.
  *
- * Costo: una chiamata per foto, con l'immagine (ridotta dal browser a 1568
+ *  4. (19/09/2026, dopo il primo collaudo dal vivo) la foto si legge DUE
+ *     volte, con due compiti diversi -- trascrivi le voci / elenca solo i
+ *     numeri cifra per cifra -- e un numero si propone solo se le due
+ *     letture coincidono. Al primo collaudo il modello aveva letto "349"
+ *     dove c'era scritto "347", con sicurezza: trascrizione e proposta
+ *     concordavano, la rete 3 era passata, e il titolare avrebbe dovuto
+ *     accorgersene da solo confrontando dieci cifre. Due letture
+ *     indipendenti che sbagliano la stessa cifra nello stesso modo sono
+ *     molto meno probabili di una; non impossibili, e va detto.
+ *
+ * Costo: due chiamate per foto, con l'immagine (ridotta dal browser a 1568
  * px sul lato lungo: e' il massimo che il modello usa, oltre butta via
- * pixel e basta), registrata come "import_clienti". La quota e' la stessa
- * delle righe non capite: una foto = un uso.
+ * pixel e basta), registrate come "import_clienti". Misurato al primo
+ * collaudo: ~$0,007 per una pagina da dieci voci con una lettura sola; la
+ * seconda aggiunge l'immagine in input e poche cifre in output, ~$0,003.
+ * La quota e' la stessa delle righe non capite: una foto = un uso.
  */
 
 export const TIPI_IMMAGINE_IMPORT = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
@@ -216,8 +228,11 @@ export const MAX_VOCI_PER_FOTO = 150;
 
 export interface VoceNonLetta {
   trascrizione: string;
-  /** Perche' non si propone: cifre incerte, nessun numero, numero non riconoscibile. */
-  motivo: "cifre_incerte" | "senza_numero" | "numero_non_riconoscibile";
+  /**
+   * Perche' non si propone: cifre incerte, nessun numero, numero non
+   * riconoscibile, oppure le due letture della foto non coincidono.
+   */
+  motivo: "cifre_incerte" | "senza_numero" | "numero_non_riconoscibile" | "letture_discordanti";
 }
 
 export interface EsitoLetturaFoto {
@@ -236,6 +251,97 @@ Regole:
 - "note": tutto il resto della voce (preferenze, giorni, servizi), breve. Se non c'e', null.
 - Un elemento per OGNI voce che vedi, anche quando non trovi un numero.
 - Se la foto non contiene un elenco di persone (e' un paesaggio, un documento di altro tipo, illeggibile), restituisci "non_e_una_rubrica" true e nessuna voce.`;
+
+const ISTRUZIONI_RILETTURA = `Ricevi la foto di un elenco di clienti. Il tuo unico compito: elencare TUTTI i numeri di telefono e TUTTI gli indirizzi email che vedi, nell'ordine in cui compaiono, cifra per cifra e lettera per lettera, esattamente come sono scritti. Non correggere, non completare. Dove una cifra o una lettera non si legge con certezza scrivi "?" al suo posto.`;
+
+export interface SecondaLettura {
+  numeri: string[];
+  email: string[];
+}
+
+/**
+ * La seconda lettura: solo numeri ed email. Restituisce quello che ha visto
+ * (con eventuali "?"), o null se la chiamata fallisce.
+ */
+async function rileggiNumeriEdEmail(
+  immagine: { base64: string; tipo: TipoImmagineImport },
+  opzioni: { tenantId: string | null },
+  client: ClienteAnthropicImport
+): Promise<SecondaLettura | null> {
+  let risposta: Anthropic.Message;
+  try {
+    risposta = await client.messages.create({
+      model: MODELLO,
+      max_tokens: 2048,
+      system: ISTRUZIONI_RILETTURA,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: immagine.tipo, data: immagine.base64 } },
+            { type: "text", text: "Elenca i numeri di telefono e le email di questa foto con lo strumento." },
+          ],
+        },
+      ],
+      tools: [
+        {
+          name: "restituisci_numeri",
+          description: "I numeri di telefono e le email visti nella foto, uno per elemento.",
+          input_schema: {
+            type: "object",
+            properties: {
+              numeri: { type: "array", items: { type: "string" } },
+              email: { type: "array", items: { type: "string" } },
+            },
+            required: ["numeri", "email"],
+          },
+        },
+      ],
+      tool_choice: { type: "tool", name: "restituisci_numeri" },
+    });
+  } catch (errore) {
+    console.error("Import clienti: rilettura dei numeri fallita", errore);
+    return null;
+  }
+  registraUsoApi({
+    tenantId: opzioni.tenantId,
+    canale: "import_clienti",
+    modello: MODELLO,
+    usage: (risposta as { usage?: unknown }).usage,
+  });
+  const blocco = risposta.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+  const input = blocco?.input as { numeri?: unknown; email?: unknown } | undefined;
+  if (!input || !Array.isArray(input.numeri)) return null;
+  const soloStringhe = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+  return { numeri: soloStringhe(input.numeri), email: soloStringhe(input.email) };
+}
+
+/**
+ * L'email non e' la chiave: se le due letture non coincidono si propone
+ * comunque il cliente, senza email (al secondo collaudo "giorgia" era
+ * diventata "georgia" -- una notifica che rimbalza, non un cliente perso).
+ */
+export function emailConfermata(email: string | null, seconda: string[]): string | null {
+  if (!email) return null;
+  const e = email.trim().toLowerCase();
+  return seconda.some((x) => !x.includes("?") && x.trim().toLowerCase() === e) ? email : null;
+}
+
+/**
+ * Le due letture coincidono se le cifre del numero proposto compaiono, tutte
+ * e nello stesso ordine, in uno dei numeri della seconda lettura (o
+ * viceversa: la seconda puo' avere il +39 che la prima non ha). Un "?"
+ * nella seconda lettura non e' una cifra, quindi non coincide.
+ */
+export function lettureCoincidono(telefono: string, seconda: string[]): boolean {
+  const cifre = soloCifre(telefono).replace(/^(0039|39)/, "");
+  if (cifre.length < 6) return false;
+  return seconda.some((n) => {
+    if (n.includes("?")) return false;
+    const c = soloCifre(n).replace(/^(0039|39)/, "");
+    return c === cifre;
+  });
+}
 
 export async function leggiRubricaDaFoto(
   immagine: { base64: string; tipo: TipoImmagineImport },
@@ -306,6 +412,15 @@ export async function leggiRubricaDaFoto(
   }
 
   const esito: EsitoLetturaFoto = { proposte: [], nonLette: [], nonEUnaRubrica: input.non_e_una_rubrica === true };
+  if (input.voci.length === 0) return { ok: true, esito };
+
+  // Rete 4: la seconda lettura, solo numeri. Se fallisce non si propone
+  // niente "a meta'": si riprova.
+  const secondaLettura = await rileggiNumeriEdEmail(immagine, opzioni, client);
+  if (secondaLettura === null) {
+    return { ok: false, errore: "Non sono riuscito a rileggere i numeri della foto. Riprova fra poco." };
+  }
+
   for (const voce of input.voci.slice(0, MAX_VOCI_PER_FOTO)) {
     if (!voce || typeof voce !== "object") continue;
     const v = voce as { trascrizione?: unknown; nome?: unknown; telefono?: unknown; email?: unknown; note?: unknown; cifre_incerte?: unknown };
@@ -327,11 +442,15 @@ export async function leggiRubricaDaFoto(
       esito.nonLette.push({ trascrizione, motivo: "numero_non_riconoscibile" });
       continue;
     }
+    if (!lettureCoincidono(telefono, secondaLettura.numeri)) {
+      esito.nonLette.push({ trascrizione, motivo: "letture_discordanti" });
+      continue;
+    }
     esito.proposte.push({
       rigaOriginale: trascrizione,
       nome: pulisci(v.nome, 200),
       telefono,
-      email: pulisci(v.email, 200),
+      email: emailConfermata(pulisci(v.email, 200), secondaLettura.email),
       note: pulisci(v.note, 500),
     });
   }

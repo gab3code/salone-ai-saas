@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { analizzaImportAzione, applicaImportAzione, leggiFotoAzione, recuperaRigheNonCapiteAzione } from "./azioni";
-import { haQualcosaDaCompletare, type DiffImport, type RigaImport } from "@/lib/importa-clienti";
+import { haQualcosaDaCompletare, telefonoCanonico, type DiffImport, type RigaImport } from "@/lib/importa-clienti";
 import type { VoceNonLetta } from "@/lib/importa-clienti-ai.server";
 import { preparaFotoPerImport, type FotoPronta } from "./foto";
 
@@ -17,6 +17,9 @@ import { preparaFotoPerImport, type FotoPronta } from "./foto";
  * le righe che non ho capito si vedono, invece di sparire in un "180 su 200"
  * che nessuno puo' controllare.
  */
+/** Pagine per giro: oltre, meglio due giri che un'attesa di minuti senza vedere niente. */
+const MAX_FOTO_PER_GIRO = 10;
+
 export function PannelloImport() {
   const router = useRouter();
   const [testo, setTesto] = useState("");
@@ -30,10 +33,11 @@ export function PannelloImport() {
   const [recuperoInCorso, setRecuperoInCorso] = useState(false);
   const [notaRecupero, setNotaRecupero] = useState<string | null>(null);
   const [fatti, setFatti] = useState<{ creati: number; completati: number } | null>(null);
-  // La foto dell'agenda: scelta, mostrata, e letta SOLO al clic (costa un uso
-  // della quota, non parte da sola).
-  const [foto, setFoto] = useState<FotoPronta | null>(null);
-  const [fotoInCorso, setFotoInCorso] = useState(false);
+  // Le foto dell'agenda: scelte, mostrate, e lette SOLO al clic (ogni foto
+  // costa un uso della quota, non parte da sola). Piu' pagine in un giro:
+  // un quaderno non e' una pagina sola.
+  const [foto, setFoto] = useState<FotoPronta[]>([]);
+  const [fotoInCorso, setFotoInCorso] = useState<number | null>(null);
   // Le voci della foto non proposte, con la trascrizione: si aggiungono a
   // mano guardando la foto. Vuoto quando la revisione viene da un incolla.
   const [vociNonLette, setVociNonLette] = useState<VoceNonLetta[]>([]);
@@ -57,36 +61,65 @@ export function PannelloImport() {
   }
 
   /**
-   * La foto, letta dal modello. Tutto quello che torna e' una proposta: parte
-   * non spuntato, e accanto a ogni riga c'e' la trascrizione da confrontare
-   * con la foto che il titolare ha davanti.
+   * Le foto, lette dal modello una alla volta. Tutto quello che torna e' una
+   * proposta: parte non spuntato, e accanto a ogni riga c'e' la trascrizione
+   * da confrontare con la foto che il titolare ha davanti. Lo stesso numero
+   * su due pagine si tiene una volta. Se una foto fallisce (quota finita,
+   * rete) ci si ferma li' e si mostra quello che si e' letto fino a quel
+   * punto, con l'errore.
    */
   async function leggiFoto() {
-    if (!foto) return;
+    if (foto.length === 0) return;
     setErrore(null);
     setFatti(null);
-    setFotoInCorso(true);
-    const esito = await leggiFotoAzione({ base64: foto.base64, tipo: foto.tipo });
-    setFotoInCorso(false);
-    if (!esito.ok) {
-      setErrore(esito.errore);
+    const nuovi: RigaImport[] = [];
+    const giaPresenti: RigaImport[] = [];
+    const nonLette: VoceNonLetta[] = [];
+    const visti = new Set<string>();
+    let lette = 0;
+    let fotoLette = 0;
+    let erroreFoto: string | null = null;
+    let ultimoEsito: { rimaste: number; aVita: boolean } | null = null;
+    for (let i = 0; i < foto.length; i++) {
+      setFotoInCorso(i);
+      const esito = await leggiFotoAzione({ base64: foto[i].base64, tipo: foto[i].tipo });
+      if (!esito.ok) {
+        erroreFoto = foto.length > 1 ? `Foto ${i + 1} (${foto[i].nome}): ${esito.errore}` : esito.errore;
+        break;
+      }
+      fotoLette += 1;
+      ultimoEsito = { rimaste: esito.rimaste, aVita: esito.aVita };
+      for (const p of esito.proposte) {
+        const chiave = telefonoCanonico(p.telefono);
+        if (visti.has(chiave)) continue;
+        visti.add(chiave);
+        lette += 1;
+        if (p.esistenteId) giaPresenti.push(p);
+        else nuovi.push(p);
+      }
+      nonLette.push(...esito.nonLette);
+      if (esito.nonEUnaRubrica && esito.proposte.length === 0) {
+        nonLette.push({ trascrizione: `(foto ${i + 1}, ${foto[i].nome}: non ci ho trovato un elenco di persone)`, motivo: "senza_numero" });
+      }
+    }
+    setFotoInCorso(null);
+    if (fotoLette === 0) {
+      setErrore(erroreFoto ?? "Non ho letto niente.");
       return;
     }
-    if (esito.nonEUnaRubrica && esito.proposte.length === 0) {
-      setErrore("In questa foto non ho trovato un elenco di persone. Prova con una foto piu' vicina e dritta della pagina.");
-      return;
-    }
-    const nuovi = esito.proposte.filter((p) => !p.esistenteId);
-    const giaPresenti = esito.proposte.filter((p) => p.esistenteId);
+    if (erroreFoto) setErrore(`${erroreFoto} Le foto lette prima sono qui sotto.`);
     setDiff({ nuovi, giaPresenti, scartate: [] });
     setScelti(nuovi.map(() => false));
     setCompletaScelti(giaPresenti.map(() => false));
-    setVociNonLette(esito.nonLette);
-    const lette = esito.proposte.length;
+    setVociNonLette(nonLette);
     setNotaRecupero(
-      `${lette === 1 ? "1 voce letta" : `${lette} voci lette`} dalla foto: le trovi qui sotto, non spuntate, con accanto quello che ho letto. ` +
-        (esito.nonLette.length > 0 ? `${esito.nonLette.length === 1 ? "1 voce" : `${esito.nonLette.length} voci`} non le ho lette con certezza: le vedi in fondo. ` : "") +
-        (esito.aVita ? `Ti restano ${esito.rimaste} letture assistite.` : `Ti restano ${esito.rimaste} usi dell'AI questo mese.`)
+      `${lette === 1 ? "1 voce letta" : `${lette} voci lette`} da ${fotoLette === 1 ? "1 foto" : `${fotoLette} foto`}: le trovi qui sotto, non spuntate, con accanto quello che ho letto. ` +
+        (nonLette.length > 0 ? `${nonLette.length === 1 ? "1 voce" : `${nonLette.length} voci`} non le ho lette con certezza: le vedi in fondo. ` : "") +
+        (ultimoEsito
+          ? ultimoEsito.aVita
+            ? `Ti restano ${ultimoEsito.rimaste} letture assistite.`
+            : `Ti restano ${ultimoEsito.rimaste} usi dell'AI questo mese.`
+          : "")
     );
   }
 
@@ -138,25 +171,30 @@ export function PannelloImport() {
     setFatti({ creati: esito.creati, completati: esito.completati });
     setDiff(null);
     setTesto("");
-    setFoto(null);
+    setFoto([]);
     setVociNonLette([]);
     router.refresh();
   }
 
-  async function daFile(file: File | null) {
-    if (!file) return;
+  async function daFile(lista: FileList | null) {
+    const file = Array.from(lista ?? []);
+    if (file.length === 0) return;
     setErrore(null);
-    if (file.type.startsWith("image/")) {
-      const pronta = await preparaFotoPerImport(file);
-      if (!pronta.ok) {
-        setErrore(pronta.errore);
-        return;
+    const immagini = file.filter((f) => f.type.startsWith("image/"));
+    if (immagini.length > 0) {
+      const pronte: FotoPronta[] = [];
+      const errori: string[] = [];
+      for (const f of immagini.slice(0, MAX_FOTO_PER_GIRO)) {
+        const pronta = await preparaFotoPerImport(f);
+        if (pronta.ok) pronte.push(pronta.foto);
+        else errori.push(`${f.name}: ${pronta.errore}`);
       }
-      setFoto(pronta.foto);
+      if (errori.length > 0) setErrore(errori.join(" "));
+      setFoto((prima) => [...prima, ...pronte].slice(0, MAX_FOTO_PER_GIRO));
       return;
     }
-    setFoto(null);
-    setTesto(await file.text());
+    setFoto([]);
+    setTesto(await file[0].text());
   }
 
   const quantiScelti = scelti.filter(Boolean).length;
@@ -199,33 +237,62 @@ export function PannelloImport() {
               oppure carica un file (CSV, rubrica .vcf, foto dell&apos;agenda){" "}
               <input
                 type="file"
+                multiple
                 accept=".csv,.txt,.vcf,text/csv,text/plain,text/vcard,image/*"
-                onChange={(e) => daFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  void daFile(e.target.files);
+                  e.target.value = "";
+                }}
                 className="text-sm"
               />
             </label>
           </div>
 
-          {foto && (
+          {foto.length > 0 && (
             <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-3">
-              {/* eslint-disable-next-line @next/next/no-img-element -- anteprima locale, non un asset */}
-              <img src={foto.anteprima} alt="La foto scelta" className="max-h-64 w-auto self-start rounded" />
+              <ul className="flex flex-wrap gap-3">
+                {foto.map((f, i) => (
+                  <li key={`${f.nome}-${i}`} className="flex flex-col items-start gap-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- anteprima locale, non un asset */}
+                    <img src={f.anteprima} alt={`Foto ${i + 1}`} className="max-h-40 w-auto rounded" />
+                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+                      <span className="max-w-40 truncate">{f.nome}</span>
+                      <button
+                        type="button"
+                        onClick={() => setFoto(foto.filter((_, j) => j !== i))}
+                        disabled={fotoInCorso !== null}
+                        className="underline"
+                      >
+                        togli
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
               <p className="text-xs text-zinc-500">
-                {foto.nome} · La leggo con l&apos;assistente: trascrive ogni voce e propone nome e numero, tu
-                confermi riga per riga guardando la foto. Le cifre che non legge con certezza non le
-                indovina: quelle voci te le mostro a parte. Usa 1 della tua quota AI.
+                {foto.length === 1 ? "La leggo" : `Le leggo una alla volta`} con l&apos;assistente, due volte
+                ciascuna: trascrive ogni voce e propone nome e numero solo se le due letture coincidono, tu
+                confermi riga per riga guardando la foto. Le cifre che non legge con certezza non le indovina:
+                quelle voci te le mostro a parte, e un&apos;email letta in due modi diversi la lascia vuota. {foto.length === 1 ? "Usa 1 della tua quota AI." : `Usa ${foto.length} della tua quota AI (1 per foto).`}
+                {foto.length < MAX_FOTO_PER_GIRO && " Puoi aggiungere altre pagine dallo stesso pulsante."}
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={leggiFoto}
-                  disabled={fotoInCorso || inCorso}
+                  disabled={fotoInCorso !== null || inCorso}
                   className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
-                  {fotoInCorso ? "Leggo la foto..." : "Leggi la foto con l'assistente"}
+                  {fotoInCorso !== null
+                    ? foto.length > 1
+                      ? `Leggo la foto ${fotoInCorso + 1} di ${foto.length}...`
+                      : "Leggo la foto..."
+                    : foto.length > 1
+                      ? `Leggi le ${foto.length} foto con l'assistente`
+                      : "Leggi la foto con l'assistente"}
                 </button>
-                <button type="button" onClick={() => setFoto(null)} className="text-sm underline">
-                  Togli la foto
+                <button type="button" onClick={() => setFoto([])} disabled={fotoInCorso !== null} className="text-sm underline">
+                  {foto.length > 1 ? "Togli tutte" : "Togli la foto"}
                 </button>
               </div>
             </div>
@@ -372,8 +439,9 @@ export function PannelloImport() {
                   : `${vociNonLette.length} voci della foto che non ho letto con certezza`}
               </h2>
               <p className="mt-1 text-xs text-zinc-500">
-                Dove una cifra non si legge metto un «?» e non propongo niente: un numero indovinato è
-                peggio di un numero mancante. Confronta con la foto e aggiungi a mano chi è un cliente vero.
+                Leggo ogni foto due volte e propongo un numero solo se le due letture coincidono; dove una
+                cifra non si legge metto un «?» e non propongo niente. Un numero indovinato è peggio di un
+                numero mancante. Confronta con la foto e aggiungi a mano chi è un cliente vero.
               </p>
               <ul className="mt-2 flex flex-col gap-1 text-xs text-zinc-500">
                 {vociNonLette.slice(0, 50).map((voce, i) => (
@@ -384,7 +452,9 @@ export function PannelloImport() {
                         ? "cifre incerte"
                         : voce.motivo === "senza_numero"
                           ? "senza numero"
-                          : "numero non riconoscibile"}
+                          : voce.motivo === "letture_discordanti"
+                            ? "letto in due modi diversi"
+                            : "numero non riconoscibile"}
                     </span>
                   </li>
                 ))}

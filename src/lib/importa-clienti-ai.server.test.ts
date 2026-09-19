@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
-import { leggiRubricaDaFoto, numeroPresoDallaRiga, recuperaRigheConModello } from "./importa-clienti-ai.server";
+import { emailConfermata, leggiRubricaDaFoto, lettureCoincidono, numeroPresoDallaRiga, recuperaRigheConModello } from "./importa-clienti-ai.server";
 
 vi.mock("@/lib/ai/costi.server", () => ({ registraUsoApi: vi.fn() }));
 
@@ -90,11 +90,24 @@ describe("recuperaRigheConModello", () => {
   });
 });
 
-function modelloCheVedeNellaFoto(voci: unknown[], nonEUnaRubrica = false) {
-  const create = vi.fn().mockResolvedValue({
-    content: [{ type: "tool_use", id: "t1", name: "restituisci_voci_foto", input: { non_e_una_rubrica: nonEUnaRubrica, voci } }],
-    usage: { input_tokens: 2000, output_tokens: 300 },
-  } as unknown as Anthropic.Message);
+/**
+ * Il finto risponde alla prima chiamata con le voci trascritte e alla
+ * seconda con i soli numeri (per difetto: gli stessi delle voci, cosi' le
+ * due letture coincidono; i test sulla discordanza passano `numeriRiletti`).
+ */
+function modelloCheVedeNellaFoto(voci: unknown[], nonEUnaRubrica = false, numeriRiletti?: string[], emailRilette?: string[]) {
+  const seconda = numeriRiletti ?? voci.map((v) => (v as { telefono?: string | null }).telefono).filter((t): t is string => !!t);
+  const emailSeconda = emailRilette ?? voci.map((v) => (v as { email?: string | null }).email).filter((t): t is string => !!t);
+  const create = vi
+    .fn()
+    .mockResolvedValueOnce({
+      content: [{ type: "tool_use", id: "t1", name: "restituisci_voci_foto", input: { non_e_una_rubrica: nonEUnaRubrica, voci } }],
+      usage: { input_tokens: 2000, output_tokens: 300 },
+    } as unknown as Anthropic.Message)
+    .mockResolvedValueOnce({
+      content: [{ type: "tool_use", id: "t2", name: "restituisci_numeri", input: { numeri: seconda, email: emailSeconda } }],
+      usage: { input_tokens: 2000, output_tokens: 40 },
+    } as unknown as Anthropic.Message);
   return { messages: { create } };
 }
 
@@ -148,6 +161,58 @@ describe("leggiRubricaDaFoto -- il modello e' l'unico lettore, quindi le reti st
     ]);
     const esito = await leggiRubricaDaFoto(FOTO, { tenantId: "t1" }, modello);
     expect(esito.ok && esito.esito.nonLette).toEqual([{ trascrizione: "Giulia, richiamare", motivo: "senza_numero" }]);
+  });
+
+  it("LA SECONDA LETTURA DEVE COINCIDERE: '347' trascritto '349' con sicurezza non passa (il caso del primo collaudo)", async () => {
+    const modello = modelloCheVedeNellaFoto(
+      [
+        { trascrizione: "Rossi Paolo +39 349 8899001", nome: "Paolo Rossi", telefono: "+39 349 8899001", email: null, note: null, cifre_incerte: false },
+        { trascrizione: "Chiara 333 98 76 543", nome: "Chiara", telefono: "333 98 76 543", email: null, note: null, cifre_incerte: false },
+      ],
+      false,
+      ["347 8899001", "333 9876543"]
+    );
+    const esito = await leggiRubricaDaFoto(FOTO, { tenantId: "t1" }, modello);
+    expect(esito.ok && esito.esito.proposte.map((p) => p.telefono)).toEqual(["3339876543"]);
+    expect(esito.ok && esito.esito.nonLette).toEqual([{ trascrizione: "Rossi Paolo +39 349 8899001", motivo: "letture_discordanti" }]);
+    // Due chiamate, due registrazioni di costo.
+    expect(modello.messages.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("nella seconda lettura un '?' non e' una cifra: la voce non passa; il +39 in piu' o in meno non conta", () => {
+    expect(lettureCoincidono("3478899001", ["+39 347 889 9001"])).toBe(true);
+    expect(lettureCoincidono("+393478899001", ["347 8899001"])).toBe(true);
+    expect(lettureCoincidono("3478899001", ["347 88?9001"])).toBe(false);
+    expect(lettureCoincidono("3478899001", ["3498899001"])).toBe(false);
+    expect(lettureCoincidono("3478899001", [])).toBe(false);
+  });
+
+  it("un'email letta in due modi diversi si lascia vuota, ma il cliente si propone lo stesso", async () => {
+    const modello = modelloCheVedeNellaFoto(
+      [{ trascrizione: "Bellini Giorgia 340 112 3344 georgia.bellini@libero.it", nome: "Bellini Giorgia", telefono: "3401123344", email: "georgia.bellini@libero.it", note: null, cifre_incerte: false }],
+      false,
+      ["340 112 3344"],
+      ["giorgia.bellini@libero.it"]
+    );
+    const esito = await leggiRubricaDaFoto(FOTO, { tenantId: "t1" }, modello);
+    expect(esito.ok && esito.esito.proposte).toEqual([
+      { rigaOriginale: "Bellini Giorgia 340 112 3344 georgia.bellini@libero.it", nome: "Bellini Giorgia", telefono: "3401123344", email: null, note: null },
+    ]);
+    expect(emailConfermata("Maria@Esempio.it", ["maria@esempio.it"])).toBe("Maria@Esempio.it");
+    expect(emailConfermata("maria@esempio.it", ["mar?a@esempio.it"])).toBeNull();
+    expect(emailConfermata(null, ["x@y.z"])).toBeNull();
+  });
+
+  it("se la seconda lettura fallisce non si propone niente a meta': errore, si riprova", async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce({
+        content: [{ type: "tool_use", id: "t1", name: "restituisci_voci_foto", input: { non_e_una_rubrica: false, voci: [{ trascrizione: "Maria 333 123 4567", nome: "Maria", telefono: "3331234567", email: null, note: null, cifre_incerte: false }] } }],
+        usage: {},
+      } as unknown as Anthropic.Message)
+      .mockRejectedValueOnce(new Error("rete"));
+    const esito = await leggiRubricaDaFoto(FOTO, { tenantId: "t1" }, { messages: { create } });
+    expect(esito).toEqual({ ok: false, errore: "Non sono riuscito a rileggere i numeri della foto. Riprova fra poco." });
   });
 
   it("se non e' una rubrica lo dice, e non propone niente", async () => {

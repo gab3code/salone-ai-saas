@@ -2309,13 +2309,27 @@ ridurla. Le voci qui sotto sono le uniche che quella distanza la accorciano.
         spuntato. Le voci non proposte si vedono con la trascrizione e il motivo. La foto viene
         ridotta nel browser (1568 px, JPEG: `foto.ts`), il corpo delle server action e' salito
         a 4 MB. Una foto = un uso della stessa quota `import_clienti`.
-        `leggiRubricaDaFoto`, 6 test. **Da collaudare dal vivo dopo il deploy** con
-        `backup/foto-agenda-test.jpg` (non in git).
+        `leggiRubricaDaFoto`.
+      - **collaudato dal vivo il 19/09 (mezzogiorno) su tre tipi di pagina** -- agenda scritta a
+        mano storta con macchia di caffe', screenshot di un gestionale, foto dello schermo di un
+        telefono con riflesso: 24 numeri su 24 letti giusti tranne UNO (un 7 scritto a mano
+        letto 9, con sicurezza), l'unica voce con una cifra illeggibile esclusa come previsto,
+        un'email con una lettera sbagliata. Costo misurato: **$0,006-0,007 a pagina** da 8-10
+        voci (2800 token di immagine + ~90 di output per voce).
+      - **Per il 7 letto 9: quarta rete, la doppia lettura** (ramo `fable/import-foto-2`).
+        Ogni foto si legge due volte con due compiti diversi (trascrivi le voci / elenca solo
+        numeri ed email) e un numero si propone solo se le due letture coincidono; un'email
+        discordante si lascia vuota, il cliente si propone lo stesso. Costo stimato ~$0,01 a
+        pagina in tutto. Non e' una garanzia: due letture che sbagliano la stessa cifra nello
+        stesso modo restano possibili, ma molto meno probabili di una.
+      - **Piu' foto in un giro** (fino a 10): lette una alla volta, stesso numero su due
+        pagine tenuto una volta, se una fallisce si mostra quello letto fino a li'.
 
       **Non fatto:**
-      - piu' foto in un colpo (oggi una alla volta; un quaderno di dieci pagine sono dieci
-        letture), e l'HEIC dell'iPhone su Chrome desktop (il browser non lo apre: si dice cosa
-        fare). Sul telefono il selettore converte da solo.
+      - l'HEIC dell'iPhone su Chrome desktop (il browser non lo apre: si dice cosa fare). Sul
+        telefono il selettore converte da solo.
+      - **la quota su Free/Starter e' ancora 3 letture a vita**: decisione di Gabriel (vedi
+        DECISIONS 19/09 mezzogiorno per i numeri).
 
 - [ ] **Note vocali che diventano scheda cliente.** Un parrucchiere non digita: ha le mani
       occupate e le unghie di qualcun altro davanti. Detta trenta secondi a fine servizio e l'AI ne

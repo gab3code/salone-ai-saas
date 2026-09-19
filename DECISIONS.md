@@ -7005,3 +7005,38 @@ a mano guardando la foto, che una spuntata a occhi chiusi.
 **Cosa NON si fa ancora**: più foto per giro, e non si convertono gli HEIC nel browser desktop
 (si dice all'utente cosa fare). Il corpo delle server action sale a 4 MB per la foto; il
 server ricontrolla tipo e dimensione e non si fida del browser.
+
+## 2026-09-19 (mezzogiorno) — Il primo collaudo della foto: un 7 letto 9, e la doppia lettura
+
+**Cosa è successo.** Tre pagine di prova su produzione (agenda a mano storta e macchiata,
+screenshot di un gestionale, foto dello schermo di un telefono con riflesso). Risultato: 24
+numeri su 24 letti giusti tranne uno — "347 8899001" scritto a mano letto "349 8899001", con
+sicurezza: trascrizione e proposta concordavano, la rete "il numero deve stare nella
+trascrizione" era passata, e il titolare avrebbe dovuto accorgersene confrontando dieci cifre a
+occhio. La voce con la cifra illeggibile (Sara, "6?7") è stata esclusa come previsto; "Franca -
+richiamare" è finita fra le senza numero; un'email ha perso una lettera (giorgia → georgia).
+
+**La quarta rete.** Ogni foto si legge due volte con due compiti diversi: la prima trascrive le
+voci, la seconda elenca solo numeri ed email cifra per cifra. Un numero si propone solo se le
+due letture coincidono (a meno del +39); un'email discordante si lascia vuota ma il cliente si
+propone lo stesso, perché l'email non è la chiave e una notifica che rimbalza è meno grave di un
+cliente perso. Se la seconda lettura fallisce non si propone niente a metà: errore, si riprova.
+Non è una garanzia — due letture possono sbagliare la stessa cifra nello stesso modo — ma
+trasforma l'errore singolo più probabile in uno che richiede due errori coincidenti.
+
+**Costo, misurato e non stimato.** $0,0063–0,0073 a pagina da 8–10 voci con una lettura
+(2.800 token di immagine + ~90 di output per voce). La seconda lettura aggiunge l'immagine e
+poche cifre: ~$0,003. **Circa un centesimo a pagina**; una pagina fitta da 40 voci ~2 centesimi.
+Un'agenda da 300 clienti (15–30 pagine) costa 20–50 centesimi, una volta. È il costo di
+acquisizione più basso che esista nel prodotto.
+
+**La quota, decisione aperta per Gabriel.** Oggi Free e Starter hanno 3 letture assistite a
+vita (nate per le righe non capite, quando "un import è quasi sempre uno solo"). Con una foto =
+una lettura, 3 non bastano a importare un quaderno: la funzione esisterebbe ma non servirebbe
+proprio a chi deve convincere. Proposta: **30 letture a vita su Free e Starter** (= 30 pagine
+= ~200–400 clienti a mano, ~30–60 centesimi di costo massimo per salone, una tantum), quota
+mensile sugli altri come ora. Non la cambio io: le quote sono fra i limiti invalicabili.
+
+**Più foto in un giro.** Fino a 10 per volta, lette in sequenza con "foto 2 di 5", stesso
+numero su due pagine tenuto una volta, se una fallisce (quota, rete) si mostrano le pagine già
+lette con l'errore. Non è un problema di costo, è di attesa: dieci pagine sono ~2 minuti.

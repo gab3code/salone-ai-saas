@@ -32,7 +32,10 @@ perdere tempo nello stesso modo di uno che dice "fatto" quando non e' fatto.
 - La rubrica del telefono (.vcf) si legge senza modello: 10 test, iPhone e Android vecchio.
 - La foto dell'agenda: il modello trascrive e propone, tre reti in codice, tutto parte non
   spuntato, le voci con una cifra illeggibile non si propongono e si vedono a parte.
-  **Da collaudare dal vivo dopo il deploy** (il ponte non raggiunge il modello dal Mac).
+  Collaudata dal vivo a mezzogiorno su tre tipi di pagina: 23 numeri su 24, l'unico
+  sbagliato (un 7 letto 9) ha portato alla **doppia lettura** (ramo `fable/import-foto-2`):
+  un numero si propone solo se due letture indipendenti coincidono. ~1 centesimo a pagina.
+  Piu' foto in un giro (fino a 10). Quota Free/Starter da decidere (3 a vita non bastano).
 
 ## 19/09/2026, notte -- quello che e' cambiato dopo la foto del 18
 
