@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { chiaveDemoPerConnessione, chiaveLimiteIp, ipDaIntestazioni, type TettiIp } from "@/lib/limiti-ip";
+import { chiaveDemoPerConnessione, chiaveLimiteIp, ipDaIntestazioni, type AmbitoLimiteIp, type TettiIp } from "@/lib/limiti-ip";
 
 /**
  * Impronta dell'indirizzo, non l'indirizzo.
@@ -50,8 +50,9 @@ export type EsitoLimiteIp =
 export async function consumaUsoAiPerIp(
   admin: SupabaseClient,
   intestazioni: { get(nome: string): string | null },
-  ambito: "demo" | "chat",
-  tetti: TettiIp
+  ambito: AmbitoLimiteIp,
+  tetti: TettiIp,
+  qualificatore?: string
 ): Promise<EsitoLimiteIp> {
   const ip = ipDaIntestazioni(intestazioni);
   if (!ip) {
@@ -60,7 +61,7 @@ export async function consumaUsoAiPerIp(
   }
 
   const { data, error } = await admin.rpc("consuma_limite_ip", {
-    p_chiave: chiaveLimiteIp(ambito, improntaIp(ip)),
+    p_chiave: chiaveLimiteIp(ambito, improntaIp(ip), qualificatore),
     p_limite_ora: tetti.perOra,
     p_limite_giorno: tetti.perGiorno,
   });

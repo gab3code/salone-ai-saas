@@ -13,6 +13,30 @@ import { realeAPseudoUtc } from "@/lib/fuso-orario";
 import { caricaFusoOrarioTenant } from "@/lib/fuso-orario.server";
 import { caricaImportoCaparraServizio, avviaPagamentoCaparraTenant } from "@/lib/stripe/caparra.server";
 import { campoTrappolaCompilato, formPubblicoCompilatoTroppoVeloce } from "@/lib/anti-bot";
+import { consumaUsoAiPerIp } from "@/lib/limiti-ip.server";
+import { TETTI_PRENOTAZIONE_PUBBLICA } from "@/lib/limiti-ip";
+
+/**
+ * Il tetto per indirizzo sulle tre scritture pubbliche (19/09/2026). Viene
+ * DOPO l'anti-bot silenzioso (che non costa niente) e PRIMA di qualunque
+ * lettura dal database: un tentativo respinto qui non tocca ne' il salone
+ * ne' la sua rubrica. Il messaggio non dice "sei stato bloccato" con troppa
+ * precisione, ma dice cosa fare.
+ */
+const MESSAGGIO_TROPPI_TENTATIVI =
+  "Troppe richieste in poco tempo da questa connessione. Riprova fra un'ora, oppure contatta direttamente l'attività.";
+async function oltreIlTettoPerIp(slug: string): Promise<boolean> {
+  // Per salone, non per piattaforma: vedi chiaveLimiteIp. Lo slug basta come
+  // qualificatore -- e' unico e non richiede di aver gia' risolto il tenant.
+  const esito = await consumaUsoAiPerIp(
+    creaClientAdmin(),
+    await headers(),
+    "prenotazione",
+    TETTI_PRENOTAZIONE_PUBBLICA,
+    slug.slice(0, 80)
+  );
+  return !esito.consentito;
+}
 
 /**
  * Server action pubbliche di prenotazione (Fase 4, punto 15) -- chiamate dal
@@ -149,6 +173,7 @@ export async function prenotaPubblico(
   if (formPubblicoCompilatoTroppoVeloce(dati.iniziatoAlleMs)) {
     return { ok: false, errore: "Richiesta non valida, riprova." };
   }
+  if (await oltreIlTettoPerIp(slug)) return { ok: false, errore: MESSAGGIO_TROPPI_TENTATIVI };
 
   const clienteNome = dati.clienteNome.trim().slice(0, 200);
   const clienteTelefono = dati.clienteTelefono.trim();
@@ -233,6 +258,7 @@ export async function avviaPagamentoCaparra(
   if (campoTrappolaCompilato(dati.trappola) || formPubblicoCompilatoTroppoVeloce(dati.iniziatoAlleMs)) {
     return { ok: false, errore: "Richiesta non valida, riprova." };
   }
+  if (await oltreIlTettoPerIp(slug)) return { ok: false, errore: MESSAGGIO_TROPPI_TENTATIVI };
 
   const clienteNome = dati.clienteNome.trim().slice(0, 200);
   const clienteTelefono = dati.clienteTelefono.trim();
@@ -325,6 +351,7 @@ export async function iscrivitiListaAttesaPubblico(
   if (formPubblicoCompilatoTroppoVeloce(dati.iniziatoAlleMs)) {
     return { ok: false, errore: "Richiesta non valida, riprova." };
   }
+  if (await oltreIlTettoPerIp(slug)) return { ok: false, errore: MESSAGGIO_TROPPI_TENTATIVI };
 
   const clienteNome = dati.clienteNome.trim().slice(0, 200);
   const clienteTelefono = dati.clienteTelefono.trim();

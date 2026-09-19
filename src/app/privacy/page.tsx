@@ -93,7 +93,8 @@ export default function PaginaPrivacy() {
         </li>
         <li>
           <strong className="text-white">Un&apos;impronta dell&apos;indirizzo IP</strong>, per limitare l&apos;uso
-          dell&apos;assistente e impedire che una singola fonte lo occupi a danno di tutti gli altri. Nel database
+          dell&apos;assistente e delle prenotazioni online, e impedire che una singola fonte li occupi a danno di
+          tutti gli altri. Nel database
           non finisce l&apos;indirizzo, ma una sua impronta crittografica dalla quale non si risale all&apos;originale:
           serve a riconoscere che due richieste arrivano dalla stessa parte, non a sapere da dove. Si cancella da
           sola dopo 48 ore.

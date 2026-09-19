@@ -6911,3 +6911,25 @@ si fida — e con quale conferma dal titolare — prima di costruirla. Decisione
 **Osservazione trovata lavorando qui**: l'onboarding assistito (`onboarding-ai.server.ts`) non
 registra il proprio uso in `usi_api_ai` — conta la quota ma non il costo. Le medie di
 `npm run costi-ai` sono quindi solo della chat. Da allineare, cinque righe.
+
+## 2026-09-19 (notte) — Tetto per indirizzo anche sul form pubblico di prenotazione, ma per salone
+
+**Decisione.** Le tre scritture pubbliche (`prenotaPubblico`, `avviaPagamentoCaparra`,
+`iscrivitiListaAttesaPubblico`) passano dallo stesso limitatore per IP della chat, con
+chiave **per indirizzo E per salone**: 20 all'ora, 60 al giorno. Viene dopo l'anti-bot
+silenzioso (gratis) e prima di qualunque lettura dal database. Informativa privacy aggiornata
+(l'impronta dell'IP serve anche alle prenotazioni). Era l'ultima porta pubblica senza un tetto
+per fonte: le difese esistenti (campo trappola, tempo di compilazione, 25 scritture/10 minuti per
+tenant, stesso telefono) si aggirano tutte cambiando numero o salone.
+
+**Perché per salone e non per piattaforma.** Gli operatori mobili italiani usano CGNAT: migliaia
+di telefoni escono con lo stesso indirizzo. Un tetto per indirizzo su tutta la piattaforma
+produrrebbe falsi positivi crescenti a ogni salone aggiunto — e il 14/09/2026 Gabriel aveva
+segnalato proprio il rischio di bloccare clienti veri durante un picco. Per salone, venti
+prenotazioni in un'ora dallo stesso indirizzo allo stesso salone non sono un operatore mobile:
+sono uno script. Un picco dopo un post social arriva da indirizzi diversi e non lo tocca.
+
+**Costo accettato.** Nessuna finestra per piattaforma: uno script che colpisce cento saloni con
+venti prenotazioni ciascuno passa. Lo fermano il tetto per tenant e il fatto che ogni salone
+vede le proprie. Scelta in autonomia con numeri larghi: se Gabriel preferisce altri numeri,
+sono due costanti in `limiti-ip.ts`.
