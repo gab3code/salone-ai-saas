@@ -24,7 +24,8 @@ import {
 import {
   trovaAzioneNonAvvenuta,
   azioniDichiarate,
-  prometteEmail,
+  prometteNotifica,
+  avvisoPromettibile,
   rimuoviPromessaEmail,
   frasePrudente,
   type AzioneAppuntamento,
@@ -397,7 +398,7 @@ async function correggiSeIncongruente(
   // resto, invece di buttare tutto. Una prenotazione inesistente rende falso
   // l'intero messaggio; una mail di troppo ne rende falsa una frase sola, e
   // il resto al cliente serve.
-  if (prometteEmail(base) && !azioni.emailDisponibile) {
+  if (prometteNotifica(base) && !avvisoPromettibile(base, azioni)) {
     const ripulito = rimuoviPromessaEmail(base);
     return ripulito || frasePrudente(comeContattare);
   }

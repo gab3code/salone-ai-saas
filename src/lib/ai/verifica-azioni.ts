@@ -1,3 +1,4 @@
+import { avvisoAttivo, type CanaleAvviso } from "./avvisi-attivi";
 /**
  * Rete di sicurezza contro la bugia peggiore che l'assistente possa dire:
  * "la prenotazione è confermata" quando non ha prenotato niente.
@@ -54,6 +55,31 @@
  */
 
 /** Le tre azioni che cambiano qualcosa nel mondo e che il cliente può credere avvenute. */
+/**
+ * OGNI STRUMENTO CHE CAMBIA QUALCOSA, e come si riconosce che e' riuscito.
+ *
+ * Questa mappa non e' documentazione: e' l'elenco su cui un test confronta la
+ * lista vera degli strumenti (vedi verifica-azioni.test.ts, "copertura"). Chi
+ * domani aggiunge uno strumento che scrive -- `sposta_prenotazione`,
+ * `rimanda_appuntamento`, quello che sia -- trova il test rosso finche' non
+ * dichiara qui come si verifica una frase che ne parla.
+ *
+ * E' la differenza fra prevenire e curare: senza questa mappa uno strumento
+ * nuovo nasce senza rete e nessuno se ne accorge finche' un cliente non si
+ * presenta a un appuntamento che non esiste. Con questa mappa, non si riesce
+ * proprio ad aggiungerlo in silenzio.
+ */
+export const STRUMENTI_CHE_CAMBIANO_QUALCOSA = {
+  crea_prenotazione: { azione: "creata", campoSuccesso: "creato" },
+  modifica_prenotazione: { azione: "modificata", campoSuccesso: "modificato" },
+  cancella_prenotazione: { azione: "cancellata", campoSuccesso: "cancellato" },
+  // Iscriversi alla lista d'attesa cambia qualcosa, ma NON e' un
+  // appuntamento e nessuno rischia di presentarsi a una porta: resta fuori
+  // dalle azioni verificate, e questa riga esiste per dire che la scelta e'
+  // stata fatta e non dimenticata.
+  aggiungi_lista_attesa: { azione: null, campoSuccesso: "iscritto" },
+} as const;
+
 export type AzioneAppuntamento = "creata" | "modificata" | "cancellata";
 
 /**
@@ -145,6 +171,21 @@ export function prometteNotifica(testo: string): boolean {
 /** Nome storico, tenuto perche' e' quello che dice il caso da cui nasce. */
 export const prometteEmail = prometteNotifica;
 
+/**
+ * Di quale canale parla la promessa, quando si riesce a capirlo.
+ *
+ * Serve perche' il giorno in cui gli SMS partono davvero (vedi
+ * avvisi-attivi.ts) una promessa di SMS debba poter passare mentre una di
+ * WhatsApp, che ancora non parte, resti vietata. Senza questo, riaccendere
+ * un canale vorrebbe dire riaprirli tutti.
+ */
+export function canaleDellaPromessa(testo: string): CanaleAvviso | null {
+  if (/\bsms\b/i.test(testo)) return "sms";
+  if (/\bwhatsapp\b/i.test(testo)) return "whatsapp";
+  if (/\b(?:mail|email|e-mail)\b/i.test(testo)) return "email";
+  return null;
+}
+
 export interface ContestoAzioni {
   /** Le azioni davvero riuscite in QUESTO turno, secondo i risultati degli strumenti. */
   avvenute: Set<AzioneAppuntamento>;
@@ -183,7 +224,7 @@ export function trovaAzioneNonAvvenuta(testo: string, ctx: ContestoAzioni): stri
     return `ATTENZIONE: hai detto che la prenotazione è confermata, ma questa attività richiede prima il pagamento della caparra: finché il cliente non paga, il posto NON è suo. Riscrivi il messaggio dicendo l'importo e dando il link di pagamento, senza mai usare la parola "confermata".`;
   }
 
-  if (prometteNotifica(testo) && !ctx.emailDisponibile) {
+  if (prometteNotifica(testo) && !avvisoPromettibile(testo, ctx)) {
     return `ATTENZIONE: hai promesso al cliente una mail di conferma, ma non hai il suo indirizzo email -- quella mail non partirà mai. Riscrivi il messaggio senza nominare nessuna mail.`;
   }
 
@@ -219,6 +260,19 @@ export function rimuoviPromessaEmail(testo: string): string {
  * partita. La frase non promette niente e non nega niente: dice l'unica cosa
  * di cui siamo certi, cioè che da qui la prenotazione non è stata registrata.
  */
+/**
+ * Un avviso si puo' promettere solo se su quel canale ne parte davvero uno.
+ *
+ * L'email e' un caso a parte: il canale e' attivo, ma serve anche che il
+ * cliente abbia lasciato un indirizzo -- una mail non parte verso nessuno.
+ */
+export function avvisoPromettibile(testo: string, ctx: ContestoAzioni): boolean {
+  const canale = canaleDellaPromessa(testo);
+  if (canale === null) return false;
+  if (!avvisoAttivo(canale)) return false;
+  return canale === "email" ? ctx.emailDisponibile : true;
+}
+
 export function frasePrudente(comeContattare: string | null): string {
   return `Scusa, non sono riuscito a registrare la prenotazione: al momento non risulta nessun appuntamento a tuo nome. Per essere sicuro di avere il posto puoi ${
     comeContattare ?? "contattare l'attività direttamente"

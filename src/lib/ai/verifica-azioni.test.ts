@@ -108,3 +108,77 @@ describe("frasePrudente", () => {
     expect(frasePrudente(null)).toMatch(/contattare l'attività direttamente/i);
   });
 });
+
+/**
+ * PREVENIRE, NON CURARE.
+ *
+ * Tutti i difetti di onesta' di questo progetto sono nati allo stesso modo:
+ * qualcosa di nuovo e' entrato nel prodotto e nessuno si e' chiesto se la
+ * rete lo copriva. Il prompt vietava gia' di inventare prenotazioni quando il
+ * modello ne ha inventata una; il controllo vietava di promettere una "mail"
+ * quando il modello ha promesso un "SMS".
+ *
+ * Questi test non verificano un comportamento: verificano che **non si possa
+ * aggiungere una cosa nuova dimenticando la rete**. Sono l'unico tipo di
+ * controllo che funziona quando nessuno si ricorda della regola.
+ */
+describe("copertura -- la rete non puo' restare indietro", () => {
+  it("ogni strumento che SCRIVE e' dichiarato in STRUMENTI_CHE_CAMBIANO_QUALCOSA", async () => {
+    const { STRUMENTI_AI } = await import("./tools");
+    const { STRUMENTI_CHE_CAMBIANO_QUALCOSA } = await import("./verifica-azioni");
+
+    // Gli strumenti di sola lettura, dichiarati uno per uno: elencare quelli
+    // innocui costringe a guardare in faccia ogni strumento nuovo invece di
+    // lasciarlo passare per omissione.
+    const SOLA_LETTURA = new Set([
+      "elenca_servizi",
+      "elenca_operatori",
+      "info_orari",
+      "verifica_disponibilita",
+      "cerca_prenotazioni_cliente",
+      "info_attivita",
+      "trasferisci_a_operatore",
+    ]);
+
+    const dichiarati = new Set(Object.keys(STRUMENTI_CHE_CAMBIANO_QUALCOSA));
+    const senzaRete = STRUMENTI_AI.map((s) => s.name).filter(
+      (nome) => !SOLA_LETTURA.has(nome) && !dichiarati.has(nome)
+    );
+
+    expect(
+      senzaRete,
+      `Strumenti che cambiano qualcosa e non sono dichiarati in STRUMENTI_CHE_CAMBIANO_QUALCOSA: ${senzaRete.join(", ")}. ` +
+        "Aggiungili li' (o a SOLA_LETTURA se davvero non scrivono niente), altrimenti l'assistente puo' dire di averli usati senza che nessuno lo verifichi."
+    ).toEqual([]);
+  });
+
+  it("ogni canale di avviso che il prodotto conosce e' riconosciuto dal controllo", async () => {
+    const { canaleDellaPromessa } = await import("./verifica-azioni");
+    // Se domani nasce un canale nuovo (Telegram, notifiche push...) va
+    // aggiunto qui E riconosciuto dal controllo: e' esattamente il buco da
+    // cui e' passato l'SMS il 19/09/2026.
+    const CANALI_CONOSCIUTI = ["email", "sms", "whatsapp"] as const;
+    const frasi: Record<(typeof CANALI_CONOSCIUTI)[number], string> = {
+      email: "Riceverai una mail di conferma.",
+      sms: "Riceverai una conferma via SMS.",
+      whatsapp: "Ti mandiamo un messaggio WhatsApp di conferma.",
+    };
+    for (const canale of CANALI_CONOSCIUTI) {
+      expect(canaleDellaPromessa(frasi[canale]), canale).toBe(canale);
+    }
+  });
+
+  it("un canale NON ancora attivo non si puo' promettere, anche se e' nei piani", async () => {
+    const { avvisoPromettibile } = await import("./verifica-azioni");
+    const conEmail = { avvenute: new Set<never>(), emailDisponibile: true, inAttesaDiCaparra: false };
+
+    // Skebby e' nel piano ma non manda ancora niente: finche' non e' in
+    // CANALI_AVVISO_ATTIVI, prometterlo resta una bugia.
+    expect(avvisoPromettibile("Riceverai una conferma via SMS.", conEmail)).toBe(false);
+    // L'email invece parte davvero, ma solo se l'indirizzo c'e'.
+    expect(avvisoPromettibile("Riceverai una mail di conferma.", conEmail)).toBe(true);
+    expect(
+      avvisoPromettibile("Riceverai una mail di conferma.", { ...conEmail, emailDisponibile: false })
+    ).toBe(false);
+  });
+});

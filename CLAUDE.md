@@ -875,6 +875,52 @@ in modalità test). Se un passaggio richiede aprire la sua casella email persona
 di conferma mandato da Mailjet o Google), chiedi prima -- è un tipo di accesso diverso dal
 navigare un pannello, non incluso automaticamente in questa richiesta.
 
+## 27duotricies. Prevenire, non curare: tre regole nate dalla notte peggiore (19/09/2026)
+
+La notte fra il 18 e il 19 settembre l'assistente ha detto a un cliente che aveva prenotato
+senza aver prenotato, gli ha elencato orari inesistenti pausa pranzo compresa, gli ha promesso un
+SMS che non parte, e gli ha detto che il salone era chiuso mentre era aperto. Ogni volta la cura
+e' arrivata dopo. Queste tre regole servono perche' la volta dopo arrivi prima.
+
+### a. Una capacita' futura e' un interruttore spento, mai un controllo assente
+
+Alla frase "riceverai una conferma via SMS" Gabriel ha osservato che andava bene, perche' Skebby
+e' nei piani. Il piano c'e' davvero. Ma un piano non e' una capacita': il cliente che ha letto
+quella frase l'SMS lo aspetta ancora.
+
+Il rimedio non e' togliere il controllo "tanto poi lo attiviamo", ed e' la tentazione naturale.
+E' mettere la cosa futura in un posto solo, spenta (`CANALI_AVVISO_ATTIVI` in
+`src/lib/ai/avvisi-attivi.ts`), cosi' il giorno in cui funziona si accende con una riga e tutto
+il resto la segue da solo.
+
+**Un controllo assente non si riaccende il giorno giusto: si scopre rotto il giorno sbagliato.**
+
+### b. Un controllo che elenca UNA forma di una cosa viene aggirato dalla seconda
+
+Il controllo vietava di promettere una "mail". Il modello ha promesso un "SMS". Non l'ha fatto
+apposta: ha semplicemente detto la stessa cosa con un'altra parola, che e' quello che fa un
+modello.
+
+Quando si vieta qualcosa, si guarda **la categoria, non l'esempio**. Non "non promettere una
+mail" ma "non promettere un avviso". Non "non dire di aver prenotato" ma "non dichiarare
+un'azione che non hai compiuto". Ogni volta che una regola nomina un caso concreto, chiedersi
+qual e' il nome della famiglia a cui appartiene -- e vietare quello.
+
+### c. La rete si controlla da sola, o resta indietro
+
+Le due regole sopra sono prosa, e la prosa la si dimentica. L'unica prevenzione che funziona
+quando nessuno si ricorda della regola e' un test che si rompe.
+
+`STRUMENTI_CHE_CAMBIANO_QUALCOSA` elenca ogni strumento dell'AI che scrive, e un test confronta
+quell'elenco con la lista vera degli strumenti. Chi domani aggiunge `sposta_prenotazione` trova
+il test rosso finche' non dichiara come si verifica una frase che ne parla -- e nella stessa
+suite c'e' il gemello per i canali di avviso.
+
+E' lo stesso meccanismo che il progetto gia' usa per i filtri `tenant_id` di
+`clienti.server.ts`: non ci si fida della disciplina di chi scrivera' il codice fra sei mesi,
+si rende impossibile dimenticarsene. **Una regola scritta in un documento e' un promemoria; una
+regola scritta in un test e' un vincolo.**
+
 ## 27untricies. Una `key` non sincronizza lo stato: lo butta via tutto (19/09/2026)
 
 Nel giro di un'ora, sulla stessa schermata, ho fatto un difetto e poi un difetto peggiore
