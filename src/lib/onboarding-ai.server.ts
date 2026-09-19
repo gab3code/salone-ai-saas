@@ -1,5 +1,6 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
+import { registraUsoApi } from "@/lib/ai/costi.server";
 import { validaBozzaGrezza, bozzaVuota, type BozzaOnboarding } from "./onboarding-ai";
 import type { StatoSalone } from "./onboarding-ai-diff";
 
@@ -316,7 +317,7 @@ export async function generaBozzaOnboarding(
   descrizione: string,
   haKnowledgeBaseAi: boolean,
   statoAttuale: StatoSalone,
-  opzioni: { haPromemoria?: boolean; oggi?: Date } = {},
+  opzioni: { haPromemoria?: boolean; oggi?: Date; tenantId?: string | null } = {},
   clientAnthropic: ClienteAnthropic = ottieniClientPredefinito()
 ): Promise<RisultatoGenerazioneBozza> {
   const haPromemoria = opzioni.haPromemoria ?? false;
@@ -353,6 +354,16 @@ export async function generaBozzaOnboarding(
     console.error("Errore generando la bozza di onboarding:", errore);
     return { ok: false, errore: "Si è verificato un problema tecnico generando la bozza. Riprova tra poco." };
   }
+
+  // Il costo, come per la chat (19/09/2026): fino a oggi questa era l'unica
+  // strada che contava la quota ma non il costo, e le medie di `npm run
+  // costi-ai` erano solo della chat.
+  registraUsoApi({
+    tenantId: opzioni.tenantId ?? null,
+    canale: "onboarding",
+    modello: MODELLO,
+    usage: (risposta as { usage?: unknown }).usage,
+  });
 
   const bloccoTool = risposta.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
   if (!bloccoTool) {

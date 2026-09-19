@@ -161,6 +161,7 @@ export async function generaBozzaOnboardingAction(descrizione: string): Promise<
 
   const esito = await generaBozzaOnboarding(descrizione, haKnowledgeBaseAi, stato, {
     haPromemoria: pianoHaPromemoria(tenant?.piano ?? ""),
+    tenantId,
   });
   if (!esito.ok) return esito;
 
